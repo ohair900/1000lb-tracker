@@ -2984,6 +2984,7 @@
 
   // ===== MILESTONE CELEBRATION (generalized) =====
   function checkAndCelebrateMilestone() {
+    if (isMergingFromCloud) return;
     const total = getTotal();
     if (!total) return;
     let celebrated = {};
@@ -3868,7 +3869,8 @@
       programs: programConfig,
       unit: localStorage.getItem(UNIT_KEY) || 'lbs',
       theme, badges: unlockedBadges,
-      dashboardWidgets, accentColor, challenges
+      dashboardWidgets, accentColor, challenges,
+      celebratedTotals: JSON.parse(localStorage.getItem(TOTAL_CELEBRATED_KEY) || '{}')
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -3900,6 +3902,7 @@
         if (data.dashboardWidgets) { dashboardWidgets = { ...dashboardWidgets, ...data.dashboardWidgets }; localStorage.setItem(DASH_WIDGETS_KEY, JSON.stringify(dashboardWidgets)); }
         if (data.accentColor) { accentColor = data.accentColor; localStorage.setItem(ACCENT_KEY, accentColor); applyAccentColor(); }
         if (data.challenges) { challenges = data.challenges; localStorage.setItem(CHALLENGES_KEY, JSON.stringify(challenges)); }
+        if (data.celebratedTotals) { localStorage.setItem(TOTAL_CELEBRATED_KEY, JSON.stringify(data.celebratedTotals)); }
         if (!profile.bodyweightHistory) profile.bodyweightHistory = [];
         activeCycleId = (cycles.find(c => c.active) || {}).id || null;
         localStorage.setItem(VERSION_KEY, CURRENT_VERSION.toString());
@@ -5454,6 +5457,7 @@ service cloud.firestore {
       dashboardWidgets,
       accentColor,
       challenges,
+      celebratedTotals: JSON.parse(localStorage.getItem(TOTAL_CELEBRATED_KEY) || '{}'),
       schemaVersion: SCHEMA_VERSION
     };
   }
@@ -5576,6 +5580,18 @@ service cloud.firestore {
         const localMap = new Map(challenges.map(c => [c.created, c]));
         cloudData.challenges.forEach(cc => { if (!localMap.has(cc.created)) challenges.push(cc); });
         localStorage.setItem(CHALLENGES_KEY, JSON.stringify(challenges));
+      }
+
+      // Merge celebrated totals (union, keep earliest)
+      if (cloudData.celebratedTotals) {
+        let localCelebrated = {};
+        try { localCelebrated = JSON.parse(localStorage.getItem(TOTAL_CELEBRATED_KEY)) || {}; } catch {}
+        Object.entries(cloudData.celebratedTotals).forEach(([ms, ts]) => {
+          if (!localCelebrated[ms] || (ts && ts < localCelebrated[ms])) {
+            localCelebrated[ms] = ts;
+          }
+        });
+        localStorage.setItem(TOTAL_CELEBRATED_KEY, JSON.stringify(localCelebrated));
       }
 
       // Rebuild PRs from merged entries
