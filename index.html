@@ -1739,7 +1739,18 @@
 
   function renderProgramSection() {
     const el = $('program-section');
-    if (!programConfig.activeProgram) { el.style.display = 'none'; return; }
+    if (!programConfig.activeProgram) {
+      el.style.display = 'block';
+      $('program-title').textContent = '';
+      $('program-week').textContent = '';
+      $('program-sets').innerHTML = `<div style="text-align:center;padding:8px 0;font-size:0.8rem;color:var(--text-dim)">No program active</div>`;
+      document.querySelector('.program-actions').style.display = 'flex';
+      $('program-prev').style.display = 'none';
+      $('program-next').style.display = 'none';
+      return;
+    }
+    $('program-prev').style.display = '';
+    $('program-next').style.display = '';
     const workout = getProgramWorkout(currentLift);
     if (!workout) { el.style.display = 'none'; return; }
     el.style.display = 'block';
