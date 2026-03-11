@@ -1587,6 +1587,14 @@
   const THEME_KEY = 'sbd-tracker-theme';
   const CURRENT_VERSION = 3;
 
+  const LIFTS = ['squat', 'bench', 'deadlift'];
+  const MS_PER_DAY = 86400000;
+  const LBS_PER_KG = 2.205;
+  const E1RM_DIVISOR = 30;
+  const CONFETTI_COUNT = 60;
+  const CELEBRATION_DISMISS_MS = 15000;
+  const DIRECTION_ARROWS = { up: '\u2191', down: '\u2193', flat: '\u2192' };
+
   const COLORS = { squat: '#e53935', bench: '#1e88e5', deadlift: '#43a047', total: '#fdd835' };
   const LIFT_SHORT = { squat: 'SQ', bench: 'BP', deadlift: 'DL' };
   const LIFT_NAMES = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
@@ -1636,11 +1644,11 @@
     { id: 'bw-squat', name: 'BW Squat', desc: 'Squat your bodyweight', icon: '\uD83E\uDDB5', category: 'strength', check: () => profile.bodyweight && bestE1RM('squat') >= profile.bodyweight },
     { id: 'bw-bench', name: 'BW Bench', desc: 'Bench your bodyweight', icon: '\uD83E\uDDBE', category: 'strength', check: () => profile.bodyweight && bestE1RM('bench') >= profile.bodyweight },
     { id: '2x-deadlift', name: '2x BW Dead', desc: 'Deadlift 2x bodyweight', icon: '\uD83C\uDFCB\uFE0F', category: 'strength', check: () => profile.bodyweight && bestE1RM('deadlift') >= profile.bodyweight * 2 },
-    { id: '1plate', name: '1 Plate Club', desc: 'Hit 135 lbs on any lift', icon: '\uD83E\uDD49', category: 'strength', check: () => ['squat','bench','deadlift'].some(l => bestE1RM(l) >= 135) },
-    { id: '2plate', name: '2 Plate Club', desc: 'Hit 225 lbs on any lift', icon: '\uD83E\uDD48', category: 'strength', check: () => ['squat','bench','deadlift'].some(l => bestE1RM(l) >= 225) },
-    { id: '3plate', name: '3 Plate Club', desc: 'Hit 315 lbs on any lift', icon: '\uD83E\uDD47', category: 'strength', check: () => ['squat','bench','deadlift'].some(l => bestE1RM(l) >= 315) },
-    { id: '4plate', name: '4 Plate Club', desc: 'Hit 405 lbs on any lift', icon: '\uD83C\uDFC5', category: 'strength', check: () => ['squat','bench','deadlift'].some(l => bestE1RM(l) >= 405) },
-    { id: '5plate', name: '5 Plate Club', desc: 'Hit 495 lbs on any lift', icon: '\uD83D\uDC8E', category: 'strength', check: () => ['squat','bench','deadlift'].some(l => bestE1RM(l) >= 495) },
+    { id: '1plate', name: '1 Plate Club', desc: 'Hit 135 lbs on any lift', icon: '\uD83E\uDD49', category: 'strength', check: () => LIFTS.some(l => bestE1RM(l) >= 135) },
+    { id: '2plate', name: '2 Plate Club', desc: 'Hit 225 lbs on any lift', icon: '\uD83E\uDD48', category: 'strength', check: () => LIFTS.some(l => bestE1RM(l) >= 225) },
+    { id: '3plate', name: '3 Plate Club', desc: 'Hit 315 lbs on any lift', icon: '\uD83E\uDD47', category: 'strength', check: () => LIFTS.some(l => bestE1RM(l) >= 315) },
+    { id: '4plate', name: '4 Plate Club', desc: 'Hit 405 lbs on any lift', icon: '\uD83C\uDFC5', category: 'strength', check: () => LIFTS.some(l => bestE1RM(l) >= 405) },
+    { id: '5plate', name: '5 Plate Club', desc: 'Hit 495 lbs on any lift', icon: '\uD83D\uDC8E', category: 'strength', check: () => LIFTS.some(l => bestE1RM(l) >= 495) },
     // Milestones
     { id: 'total-500', name: '500 Total', desc: 'Reach a 500 lb total', icon: '\uD83D\uDCAA', category: 'milestones', check: () => { const t = getTotal(); return t && t >= 500; } },
     { id: 'total-750', name: '750 Total', desc: 'Reach a 750 lb total', icon: '\uD83C\uDFCB\uFE0F', category: 'milestones', check: () => { const t = getTotal(); return t && t >= 750; } },
@@ -1864,22 +1872,19 @@
     saveAll();
   }
 
-  function saveAll() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-    localStorage.setItem(GOALS_KEY, JSON.stringify(goals));
-    localStorage.setItem(PRS_KEY, JSON.stringify(prs));
-    localStorage.setItem(CYCLES_KEY, JSON.stringify(cycles));
-    saveProgramConfig();
+  const STORES = { entries: STORAGE_KEY, profile: PROFILE_KEY, goals: GOALS_KEY, prs: PRS_KEY, cycles: CYCLES_KEY };
+  function saveStore(name) {
+    localStorage.setItem(STORES[name], JSON.stringify({ entries, profile, goals, prs, cycles }[name]));
   }
-  function saveEntries() { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); }
-  function saveProfile() { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); }
-  function saveGoals() { localStorage.setItem(GOALS_KEY, JSON.stringify(goals)); }
-  function savePRs() { localStorage.setItem(PRS_KEY, JSON.stringify(prs)); }
-  function saveCycles() { localStorage.setItem(CYCLES_KEY, JSON.stringify(cycles)); }
+  function saveEntries() { saveStore('entries'); }
+  function saveProfile() { saveStore('profile'); }
+  function saveGoals() { saveStore('goals'); }
+  function savePRs() { saveStore('prs'); }
+  function saveCycles() { saveStore('cycles'); }
+  function saveAll() { Object.keys(STORES).forEach(saveStore); saveProgramConfig(); }
 
   // ===== FORMULAS =====
-  function calcE1RM(w, r) { return r === 1 ? w : w * (1 + r / 30); }
+  function calcE1RM(w, r) { return r === 1 ? w : w * (1 + r / E1RM_DIVISOR); }
 
   function bestE1RM(lift) {
     const v = entries.filter(e => e.lift === lift);
@@ -1893,7 +1898,7 @@
 
   // Rate of Progression (#36)
   function calcProgression(lift) {
-    const now = Date.now(), day = 86400000;
+    const now = Date.now(), day = MS_PER_DAY;
     const recent = entries.filter(e => e.lift === lift && (now - e.timestamp) <= 90 * day);
     if (recent.length < 4) return null;
     const sorted = recent.sort((a, b) => a.timestamp - b.timestamp);
@@ -1910,7 +1915,7 @@
 
   // Plateau Detection (#31)
   function detectPlateau(lift) {
-    const now = Date.now(), day = 86400000;
+    const now = Date.now(), day = MS_PER_DAY;
     const recent4w = entries.filter(e => e.lift === lift && (now - e.timestamp) <= 28 * day);
     const older = entries.filter(e => e.lift === lift && (now - e.timestamp) > 28 * day && (now - e.timestamp) <= 56 * day);
     if (recent4w.length < 3 || older.length < 3) return false;
@@ -1919,7 +1924,7 @@
     return (recentBest - olderBest) <= 2;
   }
 
-  function lbsToKg(v) { return v / 2.205; }
+  function lbsToKg(v) { return v / LBS_PER_KG; }
 
   function calcWilks(totalKg, bwKg, gender) {
     if (!gender || !totalKg || !bwKg) return null;
@@ -1937,17 +1942,17 @@
 
   // ===== UNIT CONVERSION =====
   function displayWeight(val) {
-    if (unit === 'kg') return Math.round(val / 2.205 * 10) / 10;
+    if (unit === 'kg') return Math.round(val / LBS_PER_KG * 10) / 10;
     return Math.round(val * 10) / 10;
   }
   function formatWeight(val) {
     const w = displayWeight(val);
     return Number.isInteger(w) ? w.toString() : w.toFixed(1);
   }
-  function inputToLbs(val) { return unit === 'kg' ? val * 2.205 : val; }
+  function inputToLbs(val) { return unit === 'kg' ? val * LBS_PER_KG : val; }
   function fmtNum(n) { return Math.round(n).toLocaleString('en-US'); }
 
-  // ===== STRENGTH STANDARDS (F3) =====
+  // ===== STRENGTH STANDARDS =====
   function getClassification(lift, e1rm) {
     if (!profile.gender || !profile.bodyweight || !e1rm) return null;
     const stds = STRENGTH_STANDARDS[profile.gender]?.[lift];
@@ -1963,7 +1968,7 @@
 
   function getOverallClassification() {
     const levels = ['beginner','novice','intermediate','advanced','elite'];
-    const classes = ['squat','bench','deadlift'].map(l => getClassification(l, bestE1RM(l))).filter(Boolean);
+    const classes = LIFTS.map(l => getClassification(l, bestE1RM(l))).filter(Boolean);
     if (classes.length === 0) return null;
     const minIdx = Math.min(...classes.map(c => levels.indexOf(c)));
     return levels[minIdx];
@@ -1986,7 +1991,7 @@
     return null;
   }
 
-  // ===== REP PR TRACKING (F7) =====
+  // ===== REP PR TRACKING =====
   function getRepPRs() {
     const repBest = { squat: {}, bench: {}, deadlift: {} };
     const sorted = [...entries].sort((a, b) => a.timestamp - b.timestamp);
@@ -2006,10 +2011,10 @@
     return weight > prev;
   }
 
-  // ===== FATIGUE & READINESS (F6) =====
+  // ===== FATIGUE & READINESS =====
   function calcFatigue() {
     const now = Date.now();
-    const day = 86400000;
+    const day = MS_PER_DAY;
     const e7 = entries.filter(e => (now - e.timestamp) <= 7 * day);
     const e28 = entries.filter(e => (now - e.timestamp) <= 28 * day);
     if (e28.length < 3) return null;
@@ -2040,7 +2045,7 @@
     if (entries.length === 0) return null;
     const dates = [...new Set(entries.map(e => e.date))].sort().reverse();
     if (dates.length === 0) return null;
-    const dayDiff = (a, b) => Math.round((new Date(a + 'T12:00:00') - new Date(b + 'T12:00:00')) / 86400000);
+    const dayDiff = (a, b) => Math.round((new Date(a + 'T12:00:00') - new Date(b + 'T12:00:00')) / MS_PER_DAY);
     const today = new Date().toISOString().split('T')[0];
 
     // Current streak
@@ -2062,7 +2067,7 @@
     longest = Math.max(longest, streak);
 
     // Weeks active in last 4 weeks
-    const fourWeeksAgo = Date.now() - 28 * 86400000;
+    const fourWeeksAgo = Date.now() - 28 * MS_PER_DAY;
     const recentDates = dates.filter(d => new Date(d + 'T12:00:00').getTime() >= fourWeeksAgo);
     const weeks = new Set(recentDates.map(d => getWeekKey(d)));
 
@@ -2085,7 +2090,7 @@
   function updatePRStreakBar() {
     const el = $('pr-streak-bar');
     if (!dashboardWidgets.prStreak) { el.style.display = 'none'; return; }
-    const now = Date.now(), day = 86400000;
+    const now = Date.now(), day = MS_PER_DAY;
     const prs30 = prs.filter(p => (now - p.timestamp) <= 30 * day).length;
     const prs90 = prs.filter(p => (now - p.timestamp) <= 90 * day).length;
     if (prs90 === 0) { el.style.display = 'none'; return; }
@@ -2101,7 +2106,7 @@
   function calcWeeklyRecap() {
     const now = new Date();
     const today = now.toISOString().split('T')[0];
-    const day = 86400000;
+    const day = MS_PER_DAY;
     const startOfWeek = new Date(now.getTime() - ((now.getDay() + 6) % 7) * day);
     startOfWeek.setHours(0, 0, 0, 0);
     const startOfLastWeek = new Date(startOfWeek.getTime() - 7 * day);
@@ -2129,7 +2134,7 @@
 
     // Per-lift volume
     const liftVolume = {};
-    ['squat', 'bench', 'deadlift'].forEach(l => {
+    LIFTS.forEach(l => {
       liftVolume[l] = thisWeek.filter(e => e.lift === l).reduce((s, e) => s + e.weight * e.reps, 0);
     });
 
@@ -2180,7 +2185,7 @@
     // Per-lift volume bars
     const maxLiftVol = Math.max(...Object.values(recap.liftVolume), 1);
     html += `<div style="margin-bottom:12px"><div style="font-size:0.7rem;color:var(--text-dim);font-weight:600;text-transform:uppercase;margin-bottom:6px">Volume by Lift</div>`;
-    ['squat', 'bench', 'deadlift'].forEach(l => {
+    LIFTS.forEach(l => {
       const vol = recap.liftVolume[l];
       const pct = maxLiftVol > 0 ? (vol / maxLiftVol * 100) : 0;
       html += `<div class="recap-lift-bar">
@@ -2212,13 +2217,12 @@
 
     $('edit-modal').querySelector('h3').textContent = 'Weekly Recap';
     body.innerHTML = html;
-    $('edit-modal').style.display = '';
-    document.body.style.overflow = 'hidden';
+    openModal('edit-modal');
   }
 
   function checkAutoRecap() {
     const now = new Date();
-    const startOfWeek = new Date(now.getTime() - ((now.getDay() + 6) % 7) * 86400000);
+    const startOfWeek = new Date(now.getTime() - ((now.getDay() + 6) % 7) * MS_PER_DAY);
     const weekKey = startOfWeek.toISOString().split('T')[0];
     const lastShown = localStorage.getItem(RECAP_WEEK_KEY);
     if (lastShown === weekKey) return;
@@ -2355,7 +2359,7 @@
     const liftEntries = entries.filter(e => e.lift === lift).sort((a, b) => a.timestamp - b.timestamp);
     if (liftEntries.length < 2) return null;
     const first = liftEntries[0], last = liftEntries[liftEntries.length - 1];
-    const daySpan = (last.timestamp - first.timestamp) / 86400000;
+    const daySpan = (last.timestamp - first.timestamp) / MS_PER_DAY;
     if (daySpan < 14) return null;
     const e1rmFirst = first.e1rm, e1rmLast = last.e1rm;
     const ratePerWeek = (e1rmLast - e1rmFirst) / (daySpan / 7);
@@ -2519,7 +2523,7 @@
     html += `<div id="program-desc" style="font-size:0.75rem;color:var(--text-dim);line-height:1.4;margin-bottom:12px;min-height:20px">${initDesc}</div>`;
 
     html += `<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;font-weight:600">Training Maxes</div>`;
-    ['squat', 'bench', 'deadlift'].forEach(lift => {
+    LIFTS.forEach(lift => {
       const best = bestE1RM(lift);
       const suggestedTM = best ? Math.round(best * 0.9) : '';
       const currentTM = programConfig.trainingMaxes[lift] || '';
@@ -2545,8 +2549,7 @@
 
     $('edit-modal').querySelector('h3').textContent = 'Program Setup';
     body.innerHTML = html;
-    $('edit-modal').style.display = '';
-    document.body.style.overflow = 'hidden';
+    openModal('edit-modal');
 
     // Update description on program change
     $('program-select').addEventListener('change', () => {
@@ -2567,7 +2570,7 @@
     $('program-save').addEventListener('click', () => {
       const sel = $('program-select').value;
       programConfig.activeProgram = sel || null;
-      ['squat', 'bench', 'deadlift'].forEach(lift => {
+      LIFTS.forEach(lift => {
         const v = parseFloat($('tm-' + lift).value);
         if (v > 0) programConfig.trainingMaxes[lift] = inputToLbs(v);
       });
@@ -2581,11 +2584,11 @@
     });
   }
 
-  // ===== VOLUME SUMMARIES (F5) =====
+  // ===== VOLUME SUMMARIES =====
   function getWeekKey(date) {
     const d = new Date(date + 'T12:00:00');
     const jan1 = new Date(d.getFullYear(), 0, 1);
-    const week = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+    const week = Math.ceil(((d - jan1) / MS_PER_DAY + jan1.getDay() + 1) / 7);
     return d.getFullYear() + '-W' + String(week).padStart(2, '0');
   }
 
@@ -2634,12 +2637,12 @@
     return results;
   }
 
-  // ===== MEET PREP (F8, F9) =====
+  // ===== MEET PREP =====
   function getProjectedTotal() {
-    const weeksAgo8 = Date.now() - 56 * 86400000;
+    const weeksAgo8 = Date.now() - 56 * MS_PER_DAY;
     const recent = entries.filter(e => e.timestamp >= weeksAgo8);
     const proj = {};
-    ['squat', 'bench', 'deadlift'].forEach(l => {
+    LIFTS.forEach(l => {
       const best = recent.filter(e => e.lift === l).reduce((m, e) => Math.max(m, e.e1rm), 0);
       proj[l] = best > 0 ? Math.round(best * 0.95 * 10) / 10 : null;
     });
@@ -2654,7 +2657,7 @@
     };
   }
 
-  // ===== SESSION GROUPING (F14) =====
+  // ===== SESSION GROUPING =====
   function groupSessions(filteredEntries) {
     const sorted = [...filteredEntries].sort((a, b) => b.timestamp - a.timestamp);
     const sessions = [];
@@ -2678,7 +2681,7 @@
     }));
   }
 
-  // ===== TIMER (F13) =====
+  // ===== REST TIMER =====
   function startTimer(secs) {
     stopTimer();
     timerDuration = secs || timerDuration;
@@ -2740,60 +2743,94 @@
     } catch {}
   }
 
-  // ===== SHAREABLE PR CARD (F17) =====
-  function generatePRCard(lift, weight, e1rm, date) {
+  // ===== SHAREABLE CARDS =====
+  function shareOrDownloadCanvas(canvas, filename, title, text) {
+    canvas.toBlob(blob => {
+      const file = new File([blob], filename, { type: 'image/png' });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title, text });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = file.name; a.click();
+        URL.revokeObjectURL(url);
+        showToast('Card downloaded');
+      }
+    }, 'image/png');
+  }
+
+  function createCardCanvas(w, h) {
     const c = document.createElement('canvas');
-    c.width = 600; c.height = 340;
-    const x = c.getContext('2d');
-    // Background
-    x.fillStyle = '#1a1a1a'; x.beginPath(); x.roundRect(0, 0, 600, 340, 16); x.fill();
+    c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#1a1a1a'; ctx.beginPath(); ctx.roundRect(0, 0, w, h, 16); ctx.fill();
+    return { canvas: c, ctx };
+  }
+
+  function drawCardBranding(ctx, y) {
+    ctx.font = 'bold 12px -apple-system, sans-serif'; ctx.fillStyle = '#444';
+    ctx.textAlign = 'center'; ctx.fillText('1000LB CLUB TRACKER', 300, y);
+  }
+
+  function drawCardDate(ctx, w, y, date) {
+    ctx.font = '14px -apple-system, sans-serif'; ctx.fillStyle = '#555';
+    ctx.textAlign = 'center';
+    ctx.fillText(date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }), w / 2, y);
+  }
+
+  function drawCardWilks(ctx, cx, y) {
+    if (profile.bodyweight && profile.gender) {
+      const total = getTotal();
+      if (total) {
+        const tKg = lbsToKg(total), bKg = lbsToKg(profile.bodyweight);
+        const w = calcWilks(tKg, bKg, profile.gender);
+        if (w) {
+          ctx.font = '18px -apple-system, sans-serif'; ctx.fillStyle = '#aaa';
+          ctx.textAlign = 'center'; ctx.fillText('Wilks: ' + Math.round(w), cx, y);
+          return 28;
+        }
+      }
+    }
+    return 0;
+  }
+
+  function generatePRCard(lift, weight, e1rm, date) {
+    const { canvas: c, ctx } = createCardCanvas(600, 340);
     // Top accent bar
-    x.fillStyle = COLORS[lift]; x.fillRect(0, 0, 600, 6);
+    ctx.fillStyle = COLORS[lift]; ctx.fillRect(0, 0, 600, 6);
     // Branding
-    x.font = 'bold 16px -apple-system, sans-serif'; x.fillStyle = '#666';
-    x.textAlign = 'left'; x.fillText('1000LB CLUB', 30, 40);
+    ctx.font = 'bold 16px -apple-system, sans-serif'; ctx.fillStyle = '#666';
+    ctx.textAlign = 'left'; ctx.fillText('1000LB CLUB', 30, 40);
     // PR label
-    x.font = 'bold 14px -apple-system, sans-serif'; x.fillStyle = '#ffd700';
-    x.textAlign = 'right'; x.fillText('NEW PR', 570, 40);
+    ctx.font = 'bold 14px -apple-system, sans-serif'; ctx.fillStyle = '#ffd700';
+    ctx.textAlign = 'right'; ctx.fillText('NEW PR', 570, 40);
     // Lift name
-    x.font = 'bold 36px -apple-system, sans-serif'; x.fillStyle = COLORS[lift];
-    x.textAlign = 'center'; x.fillText(LIFT_NAMES[lift].toUpperCase(), 300, 110);
+    ctx.font = 'bold 36px -apple-system, sans-serif'; ctx.fillStyle = COLORS[lift];
+    ctx.textAlign = 'center'; ctx.fillText(LIFT_NAMES[lift].toUpperCase(), 300, 110);
     // Weight
-    x.font = 'bold 72px -apple-system, sans-serif'; x.fillStyle = '#fff';
-    x.fillText(formatWeight(weight) + ' ' + unit, 300, 195);
+    ctx.font = 'bold 72px -apple-system, sans-serif'; ctx.fillStyle = '#fff';
+    ctx.fillText(formatWeight(weight) + ' ' + unit, 300, 195);
     // e1RM
-    x.font = '24px -apple-system, sans-serif'; x.fillStyle = '#aaa';
-    x.fillText('e1RM: ' + formatWeight(e1rm) + ' ' + unit, 300, 240);
+    ctx.font = '24px -apple-system, sans-serif'; ctx.fillStyle = '#aaa';
+    ctx.fillText('e1RM: ' + formatWeight(e1rm) + ' ' + unit, 300, 240);
     // Total + Wilks if available
     const total = getTotal();
     if (total && profile.bodyweight && profile.gender) {
       const tKg = lbsToKg(total), bKg = lbsToKg(profile.bodyweight);
       const w = calcWilks(tKg, bKg, profile.gender);
       if (w) {
-        x.font = '16px -apple-system, sans-serif'; x.fillStyle = '#666';
-        x.fillText('Total: ' + formatWeight(total) + ' ' + unit + '  |  Wilks: ' + Math.round(w), 300, 275);
+        ctx.font = '16px -apple-system, sans-serif'; ctx.fillStyle = '#666';
+        ctx.fillText('Total: ' + formatWeight(total) + ' ' + unit + '  |  Wilks: ' + Math.round(w), 300, 275);
       }
     }
     // Date
-    const d = new Date(date + 'T12:00:00');
-    x.font = '14px -apple-system, sans-serif'; x.fillStyle = '#555';
-    x.fillText(d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }), 300, 315);
+    drawCardDate(ctx, 600, 315, new Date(date + 'T12:00:00'));
     return c;
   }
 
   function sharePRCard(lift, weight, e1rm, date) {
     const canvas = generatePRCard(lift, weight, e1rm, date);
-    canvas.toBlob(blob => {
-      const file = new File([blob], '1000lb-pr-' + lift + '.png', { type: 'image/png' });
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        navigator.share({ files: [file], title: '1000lb Club - New PR!', text: LIFT_NAMES[lift] + ' PR: ' + formatWeight(weight) + ' ' + unit });
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = file.name; a.click();
-        URL.revokeObjectURL(url);
-        showToast('PR card downloaded');
-      }
-    }, 'image/png');
+    shareOrDownloadCanvas(canvas, '1000lb-pr-' + lift + '.png', '1000lb Club - New PR!', LIFT_NAMES[lift] + ' PR: ' + formatWeight(weight) + ' ' + unit);
   }
 
   // ===== PR DETECTION =====
@@ -2949,7 +2986,7 @@
     if (entries.length === 0) return;
     const sorted = [...entries].sort((a, b) => b.timestamp - a.timestamp);
     const lastDate = sorted[0].timestamp;
-    const daysSince = Math.floor((Date.now() - lastDate) / 86400000);
+    const daysSince = Math.floor((Date.now() - lastDate) / MS_PER_DAY);
     if (daysSince < 14) return;
     const lastSession = groupSessions([...entries].sort((a, b) => b.timestamp - a.timestamp))[0];
     if (!lastSession) return;
@@ -2982,7 +3019,7 @@
     }
   }
 
-  // ===== MILESTONE CELEBRATION (generalized) =====
+  // ===== MILESTONE CELEBRATION =====
   function checkAndCelebrateMilestone() {
     if (isMergingFromCloud) return;
     const total = getTotal();
@@ -3011,7 +3048,7 @@
 
     // Confetti particles
     const confettiColors = msTheme.confettiColors;
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < CONFETTI_COUNT; i++) {
       const p = document.createElement('div');
       p.className = 'confetti';
       const size = 6 + Math.random() * 8;
@@ -3065,7 +3102,7 @@
 
     content.querySelector('.celebration-close').addEventListener('click', dismiss);
     overlay.addEventListener('click', e => { if (e.target === overlay) dismiss(); });
-    const autoDismiss = setTimeout(dismiss, 15000);
+    const autoDismiss = setTimeout(dismiss, CELEBRATION_DISMISS_MS);
 
     content.querySelector('.celebration-share-btn').addEventListener('click', () => {
       clearTimeout(autoDismiss);
@@ -3075,32 +3112,27 @@
 
   function shareMilestoneCard(total, sq, bp, dl, msTheme) {
     msTheme = msTheme || TOTAL_MILESTONE_THEMES[1000];
-    const c = document.createElement('canvas');
-    c.width = 600; c.height = 400;
-    const x = c.getContext('2d');
-
-    // Background
-    x.fillStyle = '#1a1a1a'; x.beginPath(); x.roundRect(0, 0, 600, 400, 16); x.fill();
+    const { canvas: c, ctx } = createCardCanvas(600, 400);
 
     // SBD gradient top bar
-    const grad = x.createLinearGradient(0, 0, 600, 0);
+    const grad = ctx.createLinearGradient(0, 0, 600, 0);
     grad.addColorStop(0, COLORS.squat); grad.addColorStop(0.5, COLORS.bench); grad.addColorStop(1, COLORS.deadlift);
-    x.fillStyle = grad; x.fillRect(0, 0, 600, 6);
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, 600, 6);
 
     // Crown/emoji
-    x.font = '40px serif'; x.textAlign = 'center';
-    x.fillText(msTheme.emoji, 300, 55);
+    ctx.font = '40px serif'; ctx.textAlign = 'center';
+    ctx.fillText(msTheme.emoji, 300, 55);
 
     // Title with glow
-    x.save();
-    x.shadowColor = msTheme.color; x.shadowBlur = 20;
-    x.font = 'bold 42px -apple-system, sans-serif'; x.fillStyle = msTheme.color;
-    x.fillText(msTheme.title, 300, 110);
-    x.restore();
+    ctx.save();
+    ctx.shadowColor = msTheme.color; ctx.shadowBlur = 20;
+    ctx.font = 'bold 42px -apple-system, sans-serif'; ctx.fillStyle = msTheme.color;
+    ctx.fillText(msTheme.title, 300, 110);
+    ctx.restore();
 
     // Total
-    x.font = 'bold 64px -apple-system, sans-serif'; x.fillStyle = '#fff';
-    x.fillText(formatWeight(total) + ' ' + unit, 300, 190);
+    ctx.font = 'bold 64px -apple-system, sans-serif'; ctx.fillStyle = '#fff';
+    ctx.fillText(formatWeight(total) + ' ' + unit, 300, 190);
 
     // SBD breakdown
     const lifts = [
@@ -3111,93 +3143,70 @@
     const startX = 150;
     lifts.forEach((l, i) => {
       const cx = startX + i * 150;
-      x.font = 'bold 14px -apple-system, sans-serif'; x.fillStyle = l.color;
-      x.fillText(l.label, cx, 230);
-      x.font = 'bold 28px -apple-system, sans-serif'; x.fillStyle = '#fff';
-      x.fillText(l.val ? formatWeight(l.val) : '—', cx, 262);
+      ctx.font = 'bold 14px -apple-system, sans-serif'; ctx.fillStyle = l.color;
+      ctx.fillText(l.label, cx, 230);
+      ctx.font = 'bold 28px -apple-system, sans-serif'; ctx.fillStyle = '#fff';
+      ctx.fillText(l.val ? formatWeight(l.val) : '—', cx, 262);
     });
 
     // Wilks score if available
     let infoY = 300;
-    if (profile.bodyweight && profile.gender) {
-      const tKg = lbsToKg(total), bKg = lbsToKg(profile.bodyweight);
-      const w = calcWilks(tKg, bKg, profile.gender);
-      if (w) {
-        x.font = '18px -apple-system, sans-serif'; x.fillStyle = '#aaa';
-        x.fillText('Wilks: ' + Math.round(w), 300, infoY);
-        infoY += 28;
-      }
-    }
+    infoY += drawCardWilks(ctx, 300, infoY);
 
     // Date
-    x.font = '14px -apple-system, sans-serif'; x.fillStyle = '#555';
-    x.fillText(new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }), 300, infoY);
+    drawCardDate(ctx, 600, infoY, new Date());
 
     // Branding
-    x.font = 'bold 12px -apple-system, sans-serif'; x.fillStyle = '#444';
-    x.fillText('1000LB CLUB TRACKER', 300, 380);
+    drawCardBranding(ctx, 380);
 
-    // Share (same pattern as sharePRCard)
-    c.toBlob(blob => {
-      const file = new File([blob], '1000lb-club-achievement.png', { type: 'image/png' });
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        navigator.share({ files: [file], title: '1000lb Club Achievement', text: 'I joined the 1000lb Club! Total: ' + formatWeight(total) + ' ' + unit });
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = file.name; a.click();
-        URL.revokeObjectURL(url);
-        showToast('Achievement card downloaded');
-      }
-    }, 'image/png');
+    shareOrDownloadCanvas(c, '1000lb-club-achievement.png', '1000lb Club Achievement', 'I joined the 1000lb Club! Total: ' + formatWeight(total) + ' ' + unit);
   }
 
   // ===== DASHBOARD =====
-  function updateDashboard() {
-    ['squat', 'bench', 'deadlift'].forEach(lift => {
-      const el = $('dash-' + lift);
-      const card = el.parentElement;
-      const best = bestE1RM(lift);
-      const bar = $('goal-bar-' + lift);
-      if (best !== null) { el.textContent = formatWeight(best); el.classList.remove('empty'); }
-      else { el.textContent = '\u2014'; el.classList.add('empty'); }
-      if (bar) {
-        if (goals[lift] && best) {
-          bar.style.display = '';
-          bar.querySelector('.goal-fill').style.width = Math.min(100, best / goals[lift] * 100) + '%';
-        } else { bar.style.display = 'none'; }
-      }
-      // xBW subtitle (F2)
-      let bwEl = card.querySelector('.card-bw');
-      if (!bwEl) { bwEl = document.createElement('div'); bwEl.className = 'card-bw'; card.appendChild(bwEl); }
-      if (best && profile.bodyweight) {
-        bwEl.textContent = (best / profile.bodyweight).toFixed(1) + 'x BW';
-        bwEl.style.display = '';
-      } else { bwEl.style.display = 'none'; }
-      // Classification badge (F3)
-      let badgeEl = card.querySelector('.class-badge');
-      if (!badgeEl) { badgeEl = document.createElement('div'); badgeEl.className = 'class-badge'; card.appendChild(badgeEl); }
-      const cls = getClassification(lift, best);
-      if (cls) { badgeEl.textContent = cls; badgeEl.className = 'class-badge ' + cls; badgeEl.style.display = ''; }
-      else { badgeEl.style.display = 'none'; }
-      // Rate of progression (#36)
-      let trendEl = card.querySelector('.card-trend');
-      if (!trendEl) { trendEl = document.createElement('div'); trendEl.className = 'card-trend'; card.appendChild(trendEl); }
-      const prog = calcProgression(lift);
-      if (prog) {
-        const arrow = prog.direction === 'up' ? '\u2191' : prog.direction === 'down' ? '\u2193' : '\u2192';
-        trendEl.textContent = `${arrow} ${Math.abs(prog.monthRate).toFixed(1)} ${unit}/mo`;
-        trendEl.className = 'card-trend ' + prog.direction;
-        trendEl.style.display = '';
-      } else { trendEl.style.display = 'none'; }
-      // Plateau detection (#31)
-      let platEl = card.querySelector('.plateau-icon');
-      if (!platEl) { platEl = document.createElement('span'); platEl.className = 'plateau-icon'; card.querySelector('.card-label').appendChild(platEl); }
-      if (best && detectPlateau(lift)) {
-        platEl.innerHTML = '\u26A0\uFE0F<span class="plateau-tooltip">Plateau detected: no e1RM gain in 4+ weeks</span>';
-        platEl.style.display = 'inline';
-      } else { platEl.style.display = 'none'; }
-    });
+  function ensureChild(parent, cls, tag) {
+    let el = parent.querySelector('.' + cls);
+    if (!el) { el = document.createElement(tag || 'div'); el.className = cls; parent.appendChild(el); }
+    return el;
+  }
 
+  function updateLiftCard(lift) {
+    const el = $('dash-' + lift);
+    const card = el.parentElement;
+    const best = bestE1RM(lift);
+    const bar = $('goal-bar-' + lift);
+    if (best !== null) { el.textContent = formatWeight(best); el.classList.remove('empty'); }
+    else { el.textContent = '\u2014'; el.classList.add('empty'); }
+    if (bar) {
+      if (goals[lift] && best) {
+        bar.style.display = '';
+        bar.querySelector('.goal-fill').style.width = Math.min(100, best / goals[lift] * 100) + '%';
+      } else { bar.style.display = 'none'; }
+    }
+    const bwEl = ensureChild(card, 'card-bw');
+    if (best && profile.bodyweight) {
+      bwEl.textContent = (best / profile.bodyweight).toFixed(1) + 'x BW';
+      bwEl.style.display = '';
+    } else { bwEl.style.display = 'none'; }
+    const badgeEl = ensureChild(card, 'class-badge');
+    const cls = getClassification(lift, best);
+    if (cls) { badgeEl.textContent = cls; badgeEl.className = 'class-badge ' + cls; badgeEl.style.display = ''; }
+    else { badgeEl.style.display = 'none'; }
+    const trendEl = ensureChild(card, 'card-trend');
+    const prog = calcProgression(lift);
+    if (prog) {
+      const arrow = DIRECTION_ARROWS[prog.direction];
+      trendEl.textContent = `${arrow} ${Math.abs(prog.monthRate).toFixed(1)} ${unit}/mo`;
+      trendEl.className = 'card-trend ' + prog.direction;
+      trendEl.style.display = '';
+    } else { trendEl.style.display = 'none'; }
+    const platEl = ensureChild(card.querySelector('.card-label'), 'plateau-icon', 'span');
+    if (best && detectPlateau(lift)) {
+      platEl.innerHTML = '\u26A0\uFE0F<span class="plateau-tooltip">Plateau detected: no e1RM gain in 4+ weeks</span>';
+      platEl.style.display = 'inline';
+    } else { platEl.style.display = 'none'; }
+  }
+
+  function updateTotalCard() {
     const totalEl = $('dash-total');
     const bar = $('goal-bar-total');
     const total = getTotal();
@@ -3209,20 +3218,19 @@
         bar.querySelector('.goal-fill').style.width = Math.min(100, total / goals.total * 100) + '%';
       } else { bar.style.display = 'none'; }
     }
-    // Total xBW
     const totalCard = totalEl.parentElement;
-    let tbw = totalCard.querySelector('.card-bw');
-    if (!tbw) { tbw = document.createElement('div'); tbw.className = 'card-bw'; totalCard.appendChild(tbw); }
+    const tbw = ensureChild(totalCard, 'card-bw');
     if (total && profile.bodyweight) { tbw.textContent = (total / profile.bodyweight).toFixed(1) + 'x BW'; tbw.style.display = ''; }
     else { tbw.style.display = 'none'; }
-    // Overall classification on total card
-    let tBadge = totalCard.querySelector('.class-badge');
-    if (!tBadge) { tBadge = document.createElement('div'); tBadge.className = 'class-badge'; totalCard.appendChild(tBadge); }
+    const tBadge = ensureChild(totalCard, 'class-badge');
     const oc = getOverallClassification();
     if (oc) { tBadge.textContent = oc; tBadge.className = 'class-badge ' + oc; tBadge.style.display = ''; }
     else { tBadge.style.display = 'none'; }
+  }
 
-    // Dashboard widget visibility
+  function updateDashboard() {
+    LIFTS.forEach(updateLiftCard);
+    updateTotalCard();
     if (dashboardWidgets.ratios) updateStrengthRatios(); else $('strength-ratios').style.display = 'none';
     updateScoreLine();
     if (dashboardWidgets.fatigue) updateFatigueBar(); else $('fatigue-bar').style.display = 'none';
@@ -3387,7 +3395,7 @@
   $('repeat-btn').addEventListener('click', () => {
     if (!lastLoggedSet) return;
     const { lift, weight, reps, rpe, notes } = lastLoggedSet;
-    const wDisplay = unit === 'kg' ? Math.round(weight / 2.205 * 10) / 10 : weight;
+    const wDisplay = unit === 'kg' ? Math.round(weight / LBS_PER_KG * 10) / 10 : weight;
     const { entry, isPR, isRepPR, milestone } = addEntry(lift, weight, reps, rpe, notes);
     updateDashboard();
     if (currentTab === 'history') renderHistory();
@@ -3468,7 +3476,7 @@
       </div>
       <button class="modal-save-btn" id="cycle-save">Create Cycle</button>`;
     $('edit-modal').querySelector('h3').textContent = 'New Training Cycle';
-    $('edit-modal').style.display = ''; document.body.style.overflow = 'hidden';
+    openModal('edit-modal');
     $('cycle-save').addEventListener('click', () => {
       const name = $('cycle-name').value.trim();
       if (!name) return;
@@ -3693,7 +3701,7 @@
 
     body.innerHTML = `
       <div class="lift-selector" id="edit-lift-selector">
-        ${['squat','bench','deadlift'].map(l =>
+        ${LIFTS.map(l =>
           `<button class="lift-btn${entry.lift===l?' active':''}" data-lift="${l}">${LIFT_NAMES[l]}</button>`
         ).join('')}
       </div>
@@ -3720,8 +3728,7 @@
       </div>
       <button class="modal-save-btn" id="edit-save">Save Changes</button>
     `;
-    modal.style.display = '';
-    document.body.style.overflow = 'hidden';
+    openModal('edit-modal');
 
     // Edit lift selector
     body.querySelectorAll('#edit-lift-selector .lift-btn').forEach(btn => {
@@ -3753,15 +3760,21 @@
     });
   }
 
+  function openModal(id) {
+    $(id).style.display = '';
+    document.body.style.overflow = 'hidden';
+  }
+
   function closeModal(id) {
     $(id).style.display = 'none';
     document.body.style.overflow = '';
   }
 
+  ['edit-modal', 'settings-modal'].forEach(id => {
+    $(id).addEventListener('click', e => { if (e.target === $(id)) closeModal(id); });
+  });
   $('edit-close').addEventListener('click', () => closeModal('edit-modal'));
-  $('edit-modal').addEventListener('click', e => { if (e.target === $('edit-modal')) closeModal('edit-modal'); });
   $('settings-close').addEventListener('click', () => closeModal('settings-modal'));
-  $('settings-modal').addEventListener('click', e => { if (e.target === $('settings-modal')) closeModal('settings-modal'); });
 
   // ===== SETTINGS MODAL =====
   $('gear-btn').addEventListener('click', () => {
@@ -3791,8 +3804,7 @@
       </div>
       <button class="data-btn danger" id="s-clear" style="width:100%">Clear All Data</button>
     `;
-    $('settings-modal').style.display = '';
-    document.body.style.overflow = 'hidden';
+    openModal('settings-modal');
 
     // Auto-theme toggle
     $('s-auto-theme').addEventListener('change', e => {
@@ -3938,7 +3950,7 @@
   function getChartDateCutoff() {
     if (chartDateRange === 'all') return null;
     const days = parseInt(chartDateRange);
-    const cutoff = new Date(Date.now() - days * 86400000);
+    const cutoff = new Date(Date.now() - days * MS_PER_DAY);
     return cutoff.toISOString().split('T')[0];
   }
 
@@ -4033,14 +4045,17 @@
     });
   }
 
+  function chartSetup(w, h, leftPad) {
+    const pad = { top: 20, right: 16, bottom: 40, left: leftPad || 50 };
+    return { pad, cw: w - pad.left - pad.right, ch: h - pad.top - pad.bottom, dateCutoff: getChartDateCutoff() };
+  }
+
   // e1RM Chart
   function renderE1RMChart(w, h) {
     if (entries.length === 0) { drawEmpty(w, h, 'No data yet'); return; }
-    const pad = { top: 20, right: 16, bottom: 40, left: 50 };
-    const cw = w - pad.left - pad.right, ch = h - pad.top - pad.bottom;
-    const dateCutoff = getChartDateCutoff();
+    const { pad, cw, ch, dateCutoff } = chartSetup(w, h);
 
-    const liftsToShow = chartFilter === 'all' ? ['squat','bench','deadlift']
+    const liftsToShow = chartFilter === 'all' ? LIFTS
       : chartFilter === 'total' ? [] : [chartFilter];
     const showTotal = chartFilter === 'all' || chartFilter === 'total';
 
@@ -4061,7 +4076,7 @@
       const running = { squat: 0, bench: 0, deadlift: 0 };
       series.total = [];
       sortedD.forEach(date => {
-        ['squat','bench','deadlift'].forEach(l => {
+        LIFTS.forEach(l => {
           const b = entries.filter(e => e.lift === l && e.date <= date).reduce((m, e) => Math.max(m, e.e1rm), 0);
           if (b > 0) running[l] = b;
         });
@@ -4113,10 +4128,8 @@
   // Volume Chart
   function renderVolumeChart(w, h) {
     if (entries.length === 0) { drawEmpty(w, h, 'No data yet'); return; }
-    const pad = { top: 20, right: 16, bottom: 40, left: 55 };
-    const cw = w - pad.left - pad.right, ch = h - pad.top - pad.bottom;
-    const lifts = chartFilter === 'all' ? ['squat','bench','deadlift'] : [chartFilter];
-    const dateCutoff = getChartDateCutoff();
+    const { pad, cw, ch, dateCutoff } = chartSetup(w, h, 55);
+    const lifts = chartFilter === 'all' ? LIFTS : [chartFilter];
 
     const byDate = {};
     entries.forEach(e => {
@@ -4155,9 +4168,7 @@
   function renderBWChart(w, h) {
     const bwh = profile.bodyweightHistory || [];
     if (bwh.length === 0) { drawEmpty(w, h, 'No bodyweight data yet'); return; }
-    const pad = { top: 20, right: 16, bottom: 40, left: 50 };
-    const cw = w - pad.left - pad.right, ch = h - pad.top - pad.bottom;
-    const dateCutoff = getChartDateCutoff();
+    const { pad, cw, ch, dateCutoff } = chartSetup(w, h);
 
     let sorted = [...bwh].sort((a, b) => a.timestamp - b.timestamp);
     if (dateCutoff) sorted = sorted.filter(b => b.date >= dateCutoff);
@@ -4193,7 +4204,7 @@
       ctx.beginPath();
       let started = false;
       sorted.forEach((b, i) => {
-        const windowStart = new Date(new Date(b.date + 'T12:00:00').getTime() - 7 * 86400000).toISOString().split('T')[0];
+        const windowStart = new Date(new Date(b.date + 'T12:00:00').getTime() - 7 * MS_PER_DAY).toISOString().split('T')[0];
         const windowPts = sorted.filter(p => p.date >= windowStart && p.date <= b.date);
         const avg = windowPts.reduce((s, p) => s + displayWeight(p.weight), 0) / windowPts.length;
         const x = xPos(i), y = yPos(avg);
@@ -4223,7 +4234,7 @@
     const dataPoints = [];
 
     allDates.forEach(date => {
-      ['squat','bench','deadlift'].forEach(l => {
+      LIFTS.forEach(l => {
         const b = entries.filter(e => e.lift === l && e.date <= date).reduce((m, e) => Math.max(m, e.e1rm), 0);
         if (b > 0) running[l] = b;
       });
@@ -4289,10 +4300,10 @@
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weeksToShow = Math.min(26, Math.floor(w / 14));
     const daysBack = weeksToShow * 7;
-    const startDate = new Date(today.getTime() - daysBack * 86400000);
+    const startDate = new Date(today.getTime() - daysBack * MS_PER_DAY);
     // Adjust to start on Monday
     const startDay = startDate.getDay();
-    const adjustedStart = new Date(startDate.getTime() - ((startDay + 6) % 7) * 86400000);
+    const adjustedStart = new Date(startDate.getTime() - ((startDay + 6) % 7) * MS_PER_DAY);
 
     // Build volume by date
     const volByDate = {};
@@ -4316,7 +4327,7 @@
     ctx.textAlign = 'center';
     let lastMonth = -1;
     for (let wk = 0; wk <= weeksToShow; wk++) {
-      const weekStart = new Date(adjustedStart.getTime() + wk * 7 * 86400000);
+      const weekStart = new Date(adjustedStart.getTime() + wk * 7 * MS_PER_DAY);
       const month = weekStart.getMonth();
       if (month !== lastMonth) {
         lastMonth = month;
@@ -4328,7 +4339,7 @@
     // Draw cells
     for (let wk = 0; wk <= weeksToShow; wk++) {
       for (let day = 0; day < 7; day++) {
-        const cellDate = new Date(adjustedStart.getTime() + (wk * 7 + day) * 86400000);
+        const cellDate = new Date(adjustedStart.getTime() + (wk * 7 + day) * MS_PER_DAY);
         if (cellDate > today) continue;
         const dateStr = cellDate.toISOString().split('T')[0];
         const vol = volByDate[dateStr] || 0;
@@ -4456,8 +4467,7 @@
         });
         $('edit-modal').querySelector('h3').textContent = 'Session Detail';
         body.innerHTML = mhtml;
-        $('edit-modal').style.display = '';
-        document.body.style.overflow = 'hidden';
+        openModal('edit-modal');
       });
     });
   }
@@ -4497,26 +4507,18 @@
   }
 
   // ===== STATS TAB =====
-  function renderStats() {
-    const c = $('stats-content');
-    const total = getTotal();
-    const sq = bestE1RM('squat'), bp = bestE1RM('bench'), dl = bestE1RM('deadlift');
+  function statsSection(id, label) {
+    const col = statsCollapsed[id] ? ' collapsed' : '';
+    return `<div class="stats-section${col}" data-stats-section="${id}">
+      <div class="stats-header" data-toggle="${id}">${label} <span class="stats-header-chevron">&#9656;</span></div>
+      <div class="stats-body">`;
+  }
+  const SECTION_CLOSE = `</div></div>`;
 
-    let html = '';
-
-    // Helper: open/close a collapsible section
-    function sec(id, label) {
-      const col = statsCollapsed[id] ? ' collapsed' : '';
-      return `<div class="stats-section${col}" data-stats-section="${id}">
-        <div class="stats-header" data-toggle="${id}">${label} <span class="stats-header-chevron">&#9656;</span></div>
-        <div class="stats-body">`;
-    }
-    const secEnd = `</div></div>`;
-
-    // 0. Badges (#17)
+  function renderStatsBadges() {
     const totalBadges = BADGE_DEFINITIONS.length;
     const unlockedCount = Object.keys(unlockedBadges).length;
-    html += sec('badges', `Badges (${unlockedCount}/${totalBadges})`);
+    let html = statsSection('badges', `Badges (${unlockedCount}/${totalBadges})`);
     const categories = ['consistency','strength','milestones','volume'];
     const catLabels = { consistency: 'Consistency', strength: 'Strength', milestones: 'Milestones', volume: 'Volume' };
     categories.forEach(cat => {
@@ -4534,10 +4536,11 @@
       });
       html += `</div>`;
     });
-    html += secEnd;
+    return html + SECTION_CLOSE;
+  }
 
-    // 1. Profile
-    html += sec('profile', 'Profile');
+  function renderStatsProfile() {
+    let html = statsSection('profile', 'Profile');
     html += `<div class="gender-pills">
         <button class="gender-pill${profile.gender==='male'?' active':''}" data-gender="male">Male</button>
         <button class="gender-pill${profile.gender==='female'?' active':''}" data-gender="female">Female</button>
@@ -4561,10 +4564,11 @@
         </div>
       </div>`;
     }
-    html += secEnd;
+    return html + SECTION_CLOSE;
+  }
 
-    // 2. Relative Strength
-    html += sec('relative-strength', 'Relative Strength');
+  function renderStatsRelativeStrength(total) {
+    let html = statsSection('relative-strength', 'Relative Strength');
     if (total && profile.gender && profile.bodyweight) {
       const tKg = lbsToKg(total), bKg = lbsToKg(profile.bodyweight);
       const wi = calcWilks(tKg, bKg, profile.gender);
@@ -4576,21 +4580,22 @@
     } else {
       html += `<div class="stats-hint">Set gender, bodyweight, and log all 3 lifts to see scores</div>`;
     }
-    html += secEnd;
+    return html + SECTION_CLOSE;
+  }
 
-    // 3. Records Board (F7/F11)
-    html += sec('records-board', 'Records Board');
+  function renderStatsRecordsBoard() {
+    let html = statsSection('records-board', 'Records Board');
     if (entries.length > 0) {
       const repPRs = getRepPRs();
       html += `<div class="records-grid">
         <div class="rg-header"></div>`;
       REP_RANGES.forEach(r => { html += `<div class="rg-header">${r}RM</div>`; });
-      ['squat', 'bench', 'deadlift'].forEach(lift => {
+      LIFTS.forEach(lift => {
         html += `<div class="rg-lift" style="color:${COLORS[lift]}">${LIFT_SHORT[lift]}</div>`;
         REP_RANGES.forEach(r => {
           const best = repPRs[lift][r];
           if (best) {
-            const isRecent = (Date.now() - new Date(best.date + 'T12:00:00').getTime()) < 30 * 86400000;
+            const isRecent = (Date.now() - new Date(best.date + 'T12:00:00').getTime()) < 30 * MS_PER_DAY;
             html += `<div class="rg-cell${isRecent ? ' pr-cell' : ''}">${formatWeight(best.weight)}</div>`;
           } else {
             html += `<div class="rg-cell" style="color:var(--text-dim)">—</div>`;
@@ -4601,10 +4606,11 @@
     } else {
       html += `<div class="stats-hint">Log sets to see your records</div>`;
     }
-    html += secEnd;
+    return html + SECTION_CLOSE;
+  }
 
-    // 4. Volume Summaries (F5)
-    html += sec('volume', 'Volume');
+  function renderStatsVolume() {
+    let html = statsSection('volume', 'Volume');
     if (entries.length > 0) {
       html += `<div class="vol-period-toggle">
         <button class="vol-period-btn${volPeriod==='weekly'?' active':''}" data-period="weekly">Weekly</button>
@@ -4614,12 +4620,12 @@
       if (summaries.length > 0) {
         const maxTotal = Math.max(...summaries.map(s => s.total));
         summaries.forEach(s => {
-          const changeStr = s.change !== null ? `<span class="vol-change ${s.change >= 0 ? 'up' : 'down'}">${s.change >= 0 ? '↑' : '↓'}${Math.abs(s.change).toFixed(0)}%</span>` : '';
+          const changeStr = s.change !== null ? `<span class="vol-change ${s.change >= 0 ? 'up' : 'down'}">${s.change >= 0 ? '\u2191' : '\u2193'}${Math.abs(s.change).toFixed(0)}%</span>` : '';
           const label = volPeriod === 'weekly' ? s.key.split('-W')[1] ? 'W' + s.key.split('-W')[1] : s.key : new Date(s.key + '-01T12:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
           html += `<div class="vol-row">
             <span class="vol-period-label">${label}</span>
             <div class="vol-bars">`;
-          ['squat','bench','deadlift'].forEach(l => {
+          LIFTS.forEach(l => {
             const pct = maxTotal > 0 ? (s[l] / maxTotal * 100) : 0;
             if (pct > 0) html += `<div class="vol-bar-seg" style="width:${pct}%;background:${COLORS[l]}"></div>`;
           });
@@ -4633,16 +4639,17 @@
     } else {
       html += `<div class="stats-hint">Log sets to see volume trends</div>`;
     }
-    html += secEnd;
+    return html + SECTION_CLOSE;
+  }
 
-    // 5. Meet Prep (F8/F9)
-    html += sec('meet-prep', 'Meet Prep');
+  function renderStatsMeetPrep() {
+    let html = statsSection('meet-prep', 'Meet Prep');
     const proj = getProjectedTotal();
     if (proj.total) {
       html += `<div style="font-size:var(--text-sm);color:var(--text-dim);margin-bottom:10px">Projected conservative total (95% of recent e1RM)</div>`;
       html += `<div class="attempt-grid">
         <div class="ag-header"></div><div class="ag-header">Opener</div><div class="ag-header">2nd</div><div class="ag-header">3rd</div>`;
-      ['squat','bench','deadlift'].forEach(lift => {
+      LIFTS.forEach(lift => {
         const est = proj[lift];
         const opener = est ? Math.round(est * 0.9 / 2.5) * 2.5 : 0;
         const att = opener ? suggestAttempts(opener) : { second: 0, third: 0 };
@@ -4659,10 +4666,11 @@
     } else {
       html += `<div class="stats-hint">Log all 3 lifts in the last 8 weeks to see projections</div>`;
     }
-    html += secEnd;
+    return html + SECTION_CLOSE;
+  }
 
-    // 6. Goals
-    html += sec('goals', 'Goals');
+  function renderStatsGoals(total) {
+    let html = statsSection('goals', 'Goals');
     ['squat','bench','deadlift','total'].forEach(lift => {
       const cur = lift === 'total' ? total : bestE1RM(lift);
       const goal = goals[lift];
@@ -4677,7 +4685,6 @@
         </div>
         ${goal ? `<div class="goal-track"><div class="goal-fill" style="width:${pct}%;background:${COLORS[lift]}"></div></div>
         <div class="goal-pct">${Math.round(pct)}%</div>` : ''}`;
-      // Projection line
       if (lift !== 'total' && goal && cur && cur < goal) {
         const proj = calcGoalProjection(lift);
         if (proj) {
@@ -4688,43 +4695,43 @@
       }
       html += `</div>`;
     });
-    html += secEnd;
+    return html + SECTION_CLOSE;
+  }
 
-    // 6b. Milestone Roadmap
-    const roadmapLifts = ['squat','bench','deadlift'].filter(lift => {
+  function renderStatsMilestoneRoadmap() {
+    const roadmapLifts = LIFTS.filter(lift => {
       const cur = bestE1RM(lift);
       const goal = goals[lift];
       return goal && cur && cur < goal;
     });
-    if (roadmapLifts.length > 0) {
-      html += sec('milestone-roadmap', 'Milestone Roadmap');
-      roadmapLifts.forEach(lift => {
-        const rm = calcMilestoneRoadmap(lift);
-        if (!rm) return;
-        html += `<div style="margin-bottom:16px">
-          <div style="font-size:var(--text-base);font-weight:600;color:${COLORS[lift]};margin-bottom:8px">${LIFT_NAMES[lift]}</div>
-          <div style="position:relative;padding-left:16px">`;
-        // Vertical line
-        html += `<div style="position:absolute;left:5px;top:4px;bottom:4px;width:2px;background:var(--border)"></div>`;
-        rm.milestones.forEach((ms, i) => {
-          const dotColor = ms.achieved ? COLORS[lift] : 'var(--border)';
-          const textColor = ms.achieved ? 'var(--text)' : 'var(--text-dim)';
-          const estLabel = ms.estDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-          html += `<div style="position:relative;padding:4px 0 8px 12px;font-size:var(--text-sm);color:${textColor}">
-            <div style="position:absolute;left:-3px;top:7px;width:10px;height:10px;border-radius:50%;background:${dotColor};border:2px solid var(--surface)"></div>
-            <div style="display:flex;justify-content:space-between;align-items:baseline">
-              <span><strong>${formatWeight(ms.target)} ${unit}</strong> <span style="font-size:var(--text-xs)">${ms.label}</span></span>
-              <span style="font-size:var(--text-xs);color:var(--text-dim)">${ms.achieved ? 'Achieved' : estLabel + ' (~' + ms.weeksAway + 'w)'}</span>
-            </div>
-          </div>`;
-        });
-        html += `</div></div>`;
+    if (roadmapLifts.length === 0) return '';
+    let html = statsSection('milestone-roadmap', 'Milestone Roadmap');
+    roadmapLifts.forEach(lift => {
+      const rm = calcMilestoneRoadmap(lift);
+      if (!rm) return;
+      html += `<div style="margin-bottom:16px">
+        <div style="font-size:var(--text-base);font-weight:600;color:${COLORS[lift]};margin-bottom:8px">${LIFT_NAMES[lift]}</div>
+        <div style="position:relative;padding-left:16px">`;
+      html += `<div style="position:absolute;left:5px;top:4px;bottom:4px;width:2px;background:var(--border)"></div>`;
+      rm.milestones.forEach(ms => {
+        const dotColor = ms.achieved ? COLORS[lift] : 'var(--border)';
+        const textColor = ms.achieved ? 'var(--text)' : 'var(--text-dim)';
+        const estLabel = ms.estDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        html += `<div style="position:relative;padding:4px 0 8px 12px;font-size:var(--text-sm);color:${textColor}">
+          <div style="position:absolute;left:-3px;top:7px;width:10px;height:10px;border-radius:50%;background:${dotColor};border:2px solid var(--surface)"></div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <span><strong>${formatWeight(ms.target)} ${unit}</strong> <span style="font-size:var(--text-xs)">${ms.label}</span></span>
+            <span style="font-size:var(--text-xs);color:var(--text-dim)">${ms.achieved ? 'Achieved' : estLabel + ' (~' + ms.weeksAway + 'w)'}</span>
+          </div>
+        </div>`;
       });
-      html += secEnd;
-    }
+      html += `</div></div>`;
+    });
+    return html + SECTION_CLOSE;
+  }
 
-    // 7. Training Cycles (F4)
-    html += sec('training-cycles', 'Training Cycles');
+  function renderStatsCycles() {
+    let html = statsSection('training-cycles', 'Training Cycles');
     if (cycles.length > 0) {
       cycles.slice().reverse().forEach(cy => {
         const cycleEntries = entries.filter(e => e.cycleId === cy.id);
@@ -4742,10 +4749,11 @@
     } else {
       html += `<div class="stats-hint">Use the cycle bar in the Log tab to start tracking training phases</div>`;
     }
-    html += secEnd;
+    return html + SECTION_CLOSE;
+  }
 
-    // 8. PR Timeline
-    html += sec('pr-timeline', 'PR Timeline');
+  function renderStatsPRTimeline() {
+    let html = statsSection('pr-timeline', 'PR Timeline');
     if (prs.length > 0) {
       const sorted = [...prs].sort((a, b) => b.timestamp - a.timestamp);
       html += `<div class="pr-timeline">`;
@@ -4772,10 +4780,11 @@
     } else {
       html += `<div class="stats-hint">No PRs yet — start logging!</div>`;
     }
-    html += secEnd;
+    return html + SECTION_CLOSE;
+  }
 
-    // 9. Training Insights (#40)
-    html += sec('training-insights', 'Training Insights');
+  function renderStatsInsights() {
+    let html = statsSection('training-insights', 'Training Insights');
     const btd = calcBestTrainingDay();
     if (btd && btd.length > 0) {
       html += `<div style="font-size:var(--text-sm);color:var(--text-dim);margin-bottom:8px">Your strongest day is <strong style="color:var(--text)">${btd[0].name}</strong></div>`;
@@ -4791,10 +4800,11 @@
     } else {
       html += `<div class="stats-hint">Need 10+ entries with 3+ per day shown</div>`;
     }
-    html += secEnd;
+    return html + SECTION_CLOSE;
+  }
 
-    // 10. Period Comparison (#33)
-    html += sec('period-comparison', 'Period Comparison');
+  function renderStatsPeriodComparison() {
+    let html = statsSection('period-comparison', 'Period Comparison');
     html += `<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
       <select class="compare-select" id="compare-a">
         <option value="this-month">This Month</option>
@@ -4811,10 +4821,11 @@
       </select>
     </div>
     <div id="compare-results"></div>`;
-    html += secEnd;
+    return html + SECTION_CLOSE;
+  }
 
-    // 11. Challenges (#23)
-    html += sec('challenges', 'Challenges');
+  function renderStatsChallenges() {
+    let html = statsSection('challenges', 'Challenges');
     html += `<button class="data-btn" id="add-challenge-btn" style="margin-bottom:10px;width:100%">+ New Challenge</button>`;
     html += `<div id="challenges-list">`;
     if (challenges.length > 0) {
@@ -4823,7 +4834,7 @@
         const cur = lift === 'total' ? getTotal() : bestE1RM(lift);
         const pct = cur ? Math.min(100, Math.max(0, (cur - ch.start) / (ch.target - ch.start) * 100)) : 0;
         const deadline = new Date(ch.deadline + 'T12:00:00');
-        const daysLeft = Math.ceil((deadline.getTime() - Date.now()) / 86400000);
+        const daysLeft = Math.ceil((deadline.getTime() - Date.now()) / MS_PER_DAY);
         const complete = cur && cur >= ch.target;
         html += `<div class="challenge-card">
           <div class="challenge-header">
@@ -4842,23 +4853,45 @@
       html += `<div class="stats-hint">Set a goal and deadline to challenge yourself</div>`;
     }
     html += `</div>`;
-    html += secEnd;
+    return html + SECTION_CLOSE;
+  }
 
-    // 12. Year in Review (#29)
-    html += sec('year-in-review', 'Year in Review');
+  function renderStatsYIR() {
+    let html = statsSection('year-in-review', 'Year in Review');
     html += `<button class="data-btn" id="yir-btn" style="width:100%">Generate ${new Date().getFullYear()} Review</button>`;
     html += `<div id="yir-content"></div>`;
-    html += secEnd;
+    return html + SECTION_CLOSE;
+  }
 
-    // 13. Data Management
-    html += sec('data-management', 'Data Management');
+  function renderStatsDataMgmt() {
+    let html = statsSection('data-management', 'Data Management');
     html += `<div class="data-row">
         <button class="data-btn" id="stats-export">Export JSON</button>
         <button class="data-btn" id="stats-import">Import JSON</button>
       </div>`;
-    html += secEnd;
+    return html + SECTION_CLOSE;
+  }
 
-    c.innerHTML = html;
+  function renderStats() {
+    const c = $('stats-content');
+    const total = getTotal();
+    c.innerHTML = [
+      renderStatsBadges(),
+      renderStatsProfile(),
+      renderStatsRelativeStrength(total),
+      renderStatsRecordsBoard(),
+      renderStatsVolume(),
+      renderStatsMeetPrep(),
+      renderStatsGoals(total),
+      renderStatsMilestoneRoadmap(),
+      renderStatsCycles(),
+      renderStatsPRTimeline(),
+      renderStatsInsights(),
+      renderStatsPeriodComparison(),
+      renderStatsChallenges(),
+      renderStatsYIR(),
+      renderStatsDataMgmt()
+    ].join('');
     attachStatsListeners();
   }
 
@@ -4970,7 +5003,7 @@
     if (compareA && compareB) {
       function runComparison() {
         function getPeriodRange(val) {
-          const now = new Date(), day = 86400000;
+          const now = new Date(), day = MS_PER_DAY;
           if (val === 'this-month') return { start: now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-01', end: now.toISOString().split('T')[0] };
           if (val === 'last-month') {
             const lm = new Date(now.getFullYear(), now.getMonth()-1, 1);
@@ -5004,7 +5037,7 @@
           <div class="compare-val">${sA.trainingDays} days</div>${ind(sA.trainingDays, sB.trainingDays)}<div class="compare-val">${sB.trainingDays} days</div>
           <div class="compare-val">${sA.prs} PRs</div>${ind(sA.prs, sB.prs)}<div class="compare-val">${sB.prs} PRs</div>
           <div class="compare-label">Best e1RM</div>
-          ${['squat','bench','deadlift'].map(l => `<div class="compare-val" style="color:${COLORS[l]}">${sA[l] > 0 ? formatWeight(sA[l]) : '\u2014'}</div>${ind(sA[l], sB[l])}<div class="compare-val" style="color:${COLORS[l]}">${sB[l] > 0 ? formatWeight(sB[l]) : '\u2014'}</div>`).join('')}
+          ${LIFTS.map(l => `<div class="compare-val" style="color:${COLORS[l]}">${sA[l] > 0 ? formatWeight(sA[l]) : '\u2014'}</div>${ind(sA[l], sB[l])}<div class="compare-val" style="color:${COLORS[l]}">${sB[l] > 0 ? formatWeight(sB[l]) : '\u2014'}</div>`).join('')}
         </div>`;
       }
       compareA.addEventListener('change', runComparison);
@@ -5030,8 +5063,7 @@
         </div>
         <button class="modal-save-btn" id="ch-save">Create Challenge</button>`;
       $('edit-modal').querySelector('h3').textContent = 'New Challenge';
-      $('edit-modal').style.display = '';
-      document.body.style.overflow = 'hidden';
+      openModal('edit-modal');
       $('ch-save').addEventListener('click', () => {
         const lift = $('ch-lift').value;
         const target = parseFloat($('ch-target').value);
@@ -5094,30 +5126,27 @@
       // Share card
       $('yir-share').addEventListener('click', () => {
         const cv = document.createElement('canvas'); cv.width = 1080; cv.height = 1920;
-        const xc = cv.getContext('2d');
-        xc.fillStyle = '#121212'; xc.fillRect(0, 0, 1080, 1920);
+        const ctx = cv.getContext('2d');
+        ctx.fillStyle = '#121212'; ctx.fillRect(0, 0, 1080, 1920);
         // SBD bar
-        const grd = xc.createLinearGradient(0, 0, 1080, 0);
+        const grd = ctx.createLinearGradient(0, 0, 1080, 0);
         grd.addColorStop(0, COLORS.squat); grd.addColorStop(0.5, COLORS.bench); grd.addColorStop(1, COLORS.deadlift);
-        xc.fillStyle = grd; xc.fillRect(0, 0, 1080, 8);
-        xc.textAlign = 'center';
-        xc.font = 'bold 80px -apple-system, sans-serif'; xc.fillStyle = '#ffd700';
-        xc.fillText(year + ' IN REVIEW', 540, 200);
-        xc.font = 'bold 48px -apple-system, sans-serif'; xc.fillStyle = '#fff';
+        ctx.fillStyle = grd; ctx.fillRect(0, 0, 1080, 8);
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 80px -apple-system, sans-serif'; ctx.fillStyle = '#ffd700';
+        ctx.fillText(year + ' IN REVIEW', 540, 200);
+        ctx.font = 'bold 48px -apple-system, sans-serif'; ctx.fillStyle = '#fff';
         const stats = [`${fmtNum(totalSets)} sets`, `${fmtNum(displayWeight(totalVol))} ${unit} volume`, `${days} training days`, `${totalPRs} PRs`];
-        stats.forEach((s, i) => xc.fillText(s, 540, 400 + i * 100));
+        stats.forEach((s, i) => ctx.fillText(s, 540, 400 + i * 100));
         if (biggestPR) {
-          xc.font = 'bold 36px -apple-system, sans-serif'; xc.fillStyle = '#ffd700';
-          xc.fillText('Biggest PR', 540, 900);
-          xc.font = 'bold 56px -apple-system, sans-serif'; xc.fillStyle = COLORS[biggestPR.lift];
-          xc.fillText(`${LIFT_NAMES[biggestPR.lift]} ${formatWeight(biggestPR.e1rm)} ${unit}`, 540, 970);
+          ctx.font = 'bold 36px -apple-system, sans-serif'; ctx.fillStyle = '#ffd700';
+          ctx.fillText('Biggest PR', 540, 900);
+          ctx.font = 'bold 56px -apple-system, sans-serif'; ctx.fillStyle = COLORS[biggestPR.lift];
+          ctx.fillText(`${LIFT_NAMES[biggestPR.lift]} ${formatWeight(biggestPR.e1rm)} ${unit}`, 540, 970);
         }
-        xc.font = '28px -apple-system, sans-serif'; xc.fillStyle = '#666';
-        xc.fillText('1000 LB CLUB TRACKER', 540, 1820);
-        cv.toBlob(blob => {
-          if (navigator.share) navigator.share({ files: [new File([blob], `year-review-${year}.png`, { type: 'image/png' })] }).catch(()=>{});
-          else { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `year-review-${year}.png`; a.click(); }
-        });
+        ctx.font = '28px -apple-system, sans-serif'; ctx.fillStyle = '#666';
+        ctx.fillText('1000 LB CLUB TRACKER', 540, 1820);
+        shareOrDownloadCanvas(cv, `year-review-${year}.png`, `${year} Year in Review`, `My ${year} lifting year in review`);
       });
     });
 
@@ -5128,7 +5157,7 @@
     if (impBtn) impBtn.addEventListener('click', () => $('import-file').click());
   }
 
-  // ===== THEME TOGGLE (F15) =====
+  // ===== THEME =====
   function applyTheme() {
     if (autoTheme) {
       theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -5175,7 +5204,7 @@
   // Add timer settings to settings modal
   const origGearHandler = $('gear-btn').onclick;
 
-  // ===== PWA (F16) =====
+  // ===== PWA =====
   function initPWA() {
     // Inline manifest
     const manifest = {
@@ -5306,8 +5335,7 @@ service cloud.firestore {
       <div id="config-error" style="color:var(--danger);font-size:0.75rem;margin-top:4px;display:none"></div>
       <button class="modal-save-btn" id="save-firebase-config">Connect</button>`;
     $('edit-modal').querySelector('h3').textContent = 'Cloud Sync Setup';
-    $('edit-modal').style.display = '';
-    document.body.style.overflow = 'hidden';
+    openModal('edit-modal');
 
     $('save-firebase-config').addEventListener('click', () => {
       const raw = $('firebase-config-input').value.trim();
