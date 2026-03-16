@@ -1265,19 +1265,32 @@
   <div class="header">
     <button class="theme-btn" id="theme-btn" title="Toggle theme">&#9790;</button>
     <div class="header-brand">
-      <svg class="header-logo" viewBox="0 0 280 48" xmlns="http://www.w3.org/2000/svg">
+      <svg class="header-logo" viewBox="0 0 326 48" xmlns="http://www.w3.org/2000/svg">
+        <!-- Barbell icon -->
+        <g transform="translate(0, 24)">
+          <!-- Bar -->
+          <rect x="2" y="-2" width="36" height="4" rx="2" fill="var(--text-strong)" opacity="0.5"/>
+          <!-- Left outer plate -->
+          <rect x="2" y="-12" width="5" height="24" rx="1.5" fill="var(--squat)"/>
+          <!-- Left inner plate -->
+          <rect x="8" y="-9" width="4" height="18" rx="1" fill="var(--bench)"/>
+          <!-- Right inner plate -->
+          <rect x="28" y="-9" width="4" height="18" rx="1" fill="var(--bench)"/>
+          <!-- Right outer plate -->
+          <rect x="33" y="-12" width="5" height="24" rx="1.5" fill="var(--deadlift)"/>
+        </g>
         <!-- "1000" large bold -->
-        <text x="0" y="32" font-size="38" font-weight="900"
+        <text x="46" y="32" font-size="38" font-weight="900"
               font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
               fill="var(--text-strong)" letter-spacing="-1">1000</text>
         <!-- "LB CLUB" small caps -->
-        <text x="138" y="32" font-size="16" font-weight="700"
+        <text x="184" y="32" font-size="16" font-weight="700"
               font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
               fill="var(--text-dim)" letter-spacing="3">LB CLUB</text>
         <!-- S/B/D accent bar -->
-        <rect x="0" y="40" width="88" height="4" rx="2" fill="var(--squat)"/>
-        <rect x="92" y="40" width="88" height="4" rx="2" fill="var(--bench)"/>
-        <rect x="184" y="40" width="88" height="4" rx="2" fill="var(--deadlift)"/>
+        <rect x="46" y="40" width="88" height="4" rx="2" fill="var(--squat)"/>
+        <rect x="138" y="40" width="88" height="4" rx="2" fill="var(--bench)"/>
+        <rect x="230" y="40" width="88" height="4" rx="2" fill="var(--deadlift)"/>
       </svg>
     </div>
     <div style="position:relative">
@@ -5228,17 +5241,37 @@
     link.href = manifestUrl;
     document.head.appendChild(link);
 
-    // Service worker via Blob
+    // Service worker via Blob — stale-while-revalidate strategy
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE_NAME = '1000lb-tracker-v2';
+        const CACHE_NAME = '1000lb-tracker-v3';
+
         self.addEventListener('install', e => {
           e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll([self.registration.scope])));
           self.skipWaiting();
         });
-        self.addEventListener('activate', e => { e.waitUntil(self.clients.claim()); });
+
+        self.addEventListener('activate', e => {
+          e.waitUntil(
+            caches.keys().then(keys =>
+              Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+            ).then(() => self.clients.claim())
+          );
+        });
+
         self.addEventListener('fetch', e => {
-          e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match(self.registration.scope))));
+          if (e.request.method !== 'GET') return;
+          e.respondWith(
+            caches.open(CACHE_NAME).then(cache =>
+              cache.match(e.request).then(cached => {
+                const fetched = fetch(e.request).then(response => {
+                  if (response.ok) cache.put(e.request, response.clone());
+                  return response;
+                }).catch(() => cached);
+                return cached || fetched;
+              })
+            )
+          );
         });
       `;
       const swBlob = new Blob([swCode], { type: 'application/javascript' });
