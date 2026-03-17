@@ -1260,6 +1260,69 @@
     .session-header { padding: var(--space-3) var(--space-4); }
     .stats-section { padding: var(--space-5); }
   }
+
+  /* ===== Welcome Overlay ===== */
+  .welcome-overlay {
+    position: fixed; inset: 0; z-index: 350;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.85) 100%);
+    animation: celebrationFadeIn 0.4s ease-out;
+  }
+  .welcome-content {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 2.5rem 2rem;
+    max-width: 420px; width: 90%; text-align: center;
+    animation: celebrationScaleIn 0.5s ease-out;
+  }
+  .welcome-barbell {
+    display: flex; align-items: center; justify-content: center;
+    gap: 2px; margin-bottom: 1.5rem;
+  }
+  .welcome-barbell .bar {
+    width: 40px; height: 6px; background: var(--text-muted); border-radius: 3px;
+  }
+  .welcome-barbell .plate {
+    width: 14px; height: 36px; border-radius: 3px;
+  }
+  .welcome-barbell .plate.squat { background: #e53935; }
+  .welcome-barbell .plate.bench { background: #1e88e5; }
+  .welcome-barbell .plate.deadlift { background: #43a047; }
+  .welcome-barbell .collar {
+    width: 6px; height: 16px; background: var(--text-muted); border-radius: 2px;
+  }
+  .welcome-title {
+    font-size: 1.6rem; font-weight: 800; letter-spacing: 1px;
+    color: var(--text-strong); margin-bottom: 0.25rem;
+  }
+  .welcome-tagline {
+    color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.5rem;
+  }
+  .welcome-features {
+    display: flex; flex-direction: column; gap: 0.6rem;
+    margin-bottom: 1.5rem; text-align: left; padding: 0 0.5rem;
+  }
+  .welcome-feature {
+    display: flex; align-items: center; gap: 0.75rem;
+    font-size: 0.9rem; color: var(--text);
+    animation: celebrationFadeUp 0.5s ease-out both;
+  }
+  .welcome-feature:nth-child(1) { animation-delay: 0.2s; }
+  .welcome-feature:nth-child(2) { animation-delay: 0.35s; }
+  .welcome-feature:nth-child(3) { animation-delay: 0.5s; }
+  .welcome-feature .icon { font-size: 1.3rem; flex-shrink: 0; }
+  .welcome-start-btn {
+    background: var(--btn-primary-bg); color: var(--btn-primary-color);
+    font-size: 1rem; font-weight: 700; border: none; border-radius: var(--radius-md);
+    padding: 12px 32px; cursor: pointer; width: 100%;
+    transition: opacity 0.2s;
+  }
+  .welcome-start-btn:hover { opacity: 0.85; }
+  .welcome-hint {
+    color: var(--text-muted); font-size: 0.78rem; margin-top: 1rem;
+  }
+  .welcome-overlay.fade-out {
+    animation: celebrationFadeOut 0.35s ease-in forwards;
+  }
 </style>
 </head>
 <body>
@@ -1509,6 +1572,38 @@
     </div>
   </div>
 
+  <!-- Welcome Overlay -->
+  <div class="welcome-overlay" id="welcome-overlay" style="display:none">
+    <div class="welcome-content">
+      <div class="welcome-barbell">
+        <div class="plate squat"></div>
+        <div class="collar"></div>
+        <div class="bar"></div>
+        <div class="collar"></div>
+        <div class="plate bench"></div>
+        <div class="plate deadlift"></div>
+        <div class="collar"></div>
+        <div class="bar"></div>
+        <div class="collar"></div>
+        <div class="plate deadlift"></div>
+        <div class="plate bench"></div>
+        <div class="collar"></div>
+        <div class="bar"></div>
+        <div class="collar"></div>
+        <div class="plate squat"></div>
+      </div>
+      <div class="welcome-title">1000 LB CLUB</div>
+      <div class="welcome-tagline">Track your Squat, Bench &amp; Deadlift toward the 1000lb total.</div>
+      <div class="welcome-features">
+        <div class="welcome-feature"><span class="icon">🏋️</span> Log sets with auto-calculated e1RM</div>
+        <div class="welcome-feature"><span class="icon">📈</span> Charts, PRs &amp; milestone celebrations</div>
+        <div class="welcome-feature"><span class="icon">🏅</span> Earn badges as you progress</div>
+      </div>
+      <button class="welcome-start-btn" id="welcome-start-btn">Get Started</button>
+      <div class="welcome-hint">Select a lift, enter weight &amp; reps, and hit Log Set.</div>
+    </div>
+  </div>
+
   <input type="file" id="import-file" accept=".json" style="display:none">
 </div>
 
@@ -1634,6 +1729,7 @@
   const CHALLENGES_KEY = 'sbd-tracker-challenges';
   const TAGS_KEY = 'sbd-tracker-tags';
   const TOTAL_CELEBRATED_KEY = 'sbd-tracker-celebrated-totals';
+  const WELCOME_KEY = 'sbd-tracker-welcome-dismissed';
 
   const TOTAL_MILESTONES = [500, 750, 1000, 1250, 1500, 2000];
   const TOTAL_MILESTONE_THEMES = {
@@ -5286,6 +5382,22 @@
     }
   }
 
+  // ===== WELCOME SCREEN =====
+  function showWelcomeScreen() {
+    if (entries.length > 0 || localStorage.getItem(WELCOME_KEY)) return;
+    const overlay = $('welcome-overlay');
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    function dismiss() {
+      localStorage.setItem(WELCOME_KEY, '1');
+      overlay.classList.add('fade-out');
+      document.body.style.overflow = '';
+      overlay.addEventListener('animationend', () => overlay.remove(), { once: true });
+    }
+    $('welcome-start-btn').addEventListener('click', dismiss);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) dismiss(); });
+  }
+
   // ===== INIT =====
   load();
   applyTheme();
@@ -5312,6 +5424,7 @@
   try { initPWA(); } catch {}
   try { checkAutoRecap(); } catch {}
   try { checkComeback(); } catch {}
+  try { showWelcomeScreen(); } catch {}
 
   // ===== FIREBASE AUTH & SYNC =====
   function updateSyncButton() {
