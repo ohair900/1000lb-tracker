@@ -2073,6 +2073,9 @@
     'bn-row': { name: 'Barbell Row', mainLift: 'bench', weakPoints: ['upperback'], pctOfTM: 0.55, sets: 4, repRange: [6,10], equipment: 'barbell', category: 'back' },
     'bn-dbrow': { name: 'Dumbbell Row', mainLift: 'bench', weakPoints: ['upperback'], pctOfTM: 0.25, sets: 3, repRange: [8,12], equipment: 'dumbbell', category: 'back' },
     'bn-reardelt': { name: 'Rear Delt Flies', mainLift: 'bench', weakPoints: ['upperback','shoulders'], pctOfTM: 0.08, sets: 3, repRange: [12,20], equipment: 'dumbbell', category: 'back' },
+    'bn-pullup': { name: 'Pull-ups', mainLift: 'bench', weakPoints: ['upperback'], pctOfTM: 0.10, sets: 3, repRange: [6,12], equipment: 'bodyweight', category: 'back' },
+    'bn-widepullup': { name: 'Wide-Grip Pull-ups', mainLift: 'bench', weakPoints: ['upperback'], pctOfTM: 0.10, sets: 3, repRange: [6,12], equipment: 'bodyweight', category: 'back' },
+    'bn-chinup': { name: 'Chin-ups', mainLift: 'bench', weakPoints: ['upperback'], pctOfTM: 0.10, sets: 3, repRange: [6,12], equipment: 'bodyweight', category: 'back' },
     // === DEADLIFT ACCESSORIES ===
     'dl-deficit': { name: 'Deficit Deadlift', mainLift: 'deadlift', weakPoints: ['floor'], pctOfTM: 0.65, sets: 5, repRange: [3,5], equipment: 'barbell', category: 'dl-variation' },
     'dl-frontsquat': { name: 'Front Squat', mainLift: 'deadlift', weakPoints: ['floor'], pctOfTM: 0.50, sets: 4, repRange: [5,8], equipment: 'barbell', category: 'quad' },
@@ -2087,7 +2090,10 @@
     'dl-row': { name: 'Barbell Row', mainLift: 'deadlift', weakPoints: ['floor','upperback'], pctOfTM: 0.45, sets: 4, repRange: [6,10], equipment: 'barbell', category: 'back' },
     'dl-latpulldown': { name: 'Lat Pulldown', mainLift: 'deadlift', weakPoints: ['floor','upperback'], pctOfTM: 0.30, sets: 3, repRange: [8,12], equipment: 'cable', category: 'back' },
     'dl-facepull': { name: 'Face Pulls', mainLift: 'deadlift', weakPoints: ['upperback'], pctOfTM: 0.10, sets: 3, repRange: [12,20], equipment: 'cable', category: 'back' },
-    'dl-dbshrugs': { name: 'Dumbbell Shrugs', mainLift: 'deadlift', weakPoints: ['grip','upperback'], pctOfTM: 0.25, sets: 3, repRange: [10,15], equipment: 'dumbbell', category: 'back' }
+    'dl-dbshrugs': { name: 'Dumbbell Shrugs', mainLift: 'deadlift', weakPoints: ['grip','upperback'], pctOfTM: 0.25, sets: 3, repRange: [10,15], equipment: 'dumbbell', category: 'back' },
+    'dl-pullup': { name: 'Pull-ups', mainLift: 'deadlift', weakPoints: ['floor','upperback'], pctOfTM: 0.10, sets: 3, repRange: [6,12], equipment: 'bodyweight', category: 'back' },
+    'dl-widepullup': { name: 'Wide-Grip Pull-ups', mainLift: 'deadlift', weakPoints: ['floor','upperback'], pctOfTM: 0.10, sets: 3, repRange: [6,12], equipment: 'bodyweight', category: 'back' },
+    'dl-chinup': { name: 'Chin-ups', mainLift: 'deadlift', weakPoints: ['floor','upperback'], pctOfTM: 0.10, sets: 3, repRange: [6,12], equipment: 'bodyweight', category: 'back' }
   };
 
   const WEAK_POINT_OPTIONS = {
