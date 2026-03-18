@@ -2544,26 +2544,90 @@
     return { acwr, avgRPE7, avgRPE28, status, label };
   }
 
-  function calcFatiguePerLift() {
+  const MUSCLE_GROUPS = ['Quads', 'Hams', 'Back', 'Chest'];
+  const MAIN_LIFT_WEIGHTS = {
+    squat:   { Quads: 0.60, Hams: 0.25, Back: 0.15, Chest: 0 },
+    bench:   { Quads: 0, Hams: 0, Back: 0, Chest: 1.0 },
+    deadlift:{ Quads: 0.20, Hams: 0.35, Back: 0.45, Chest: 0 }
+  };
+  const ACCESSORY_CAT_WEIGHTS = {
+    'squat-variation': { Quads: 0.60, Hams: 0.25, Back: 0.15, Chest: 0 },
+    'quad-compound':   { Quads: 0.80, Hams: 0.20, Back: 0, Chest: 0 },
+    'quad-isolation':  { Quads: 1.0,  Hams: 0, Back: 0, Chest: 0 },
+    'quad':            { Quads: 0.70, Hams: 0.15, Back: 0.15, Chest: 0 },
+    'posterior':       { Quads: 0, Hams: 0.60, Back: 0.40, Chest: 0 },
+    'dl-variation':    { Quads: 0.20, Hams: 0.35, Back: 0.45, Chest: 0 },
+    'back':            { Quads: 0, Hams: 0, Back: 1.0, Chest: 0 },
+    'press-variation': { Quads: 0, Hams: 0, Back: 0, Chest: 1.0 },
+    'chest-accessory': { Quads: 0, Hams: 0, Back: 0, Chest: 1.0 }
+  };
+
+  function calcFatigueByMuscle() {
     const now = Date.now();
     const day = MS_PER_DAY;
     const results = {};
     let anyValid = false;
-    LIFTS.forEach(l => {
-      const le = entries.filter(e => e.lift === l);
-      const e7 = le.filter(e => (now - e.timestamp) <= 7 * day);
-      const e28 = le.filter(e => (now - e.timestamp) <= 28 * day);
-      if (e28.length < 3) { results[l] = null; return; }
-      const ton7 = e7.reduce((s, e) => s + e.weight * e.reps, 0);
-      const ton28 = e28.reduce((s, e) => s + e.weight * e.reps, 0);
+
+    // Pre-filter main lift entries by time window
+    const main7 = entries.filter(e => (now - e.timestamp) <= 7 * day);
+    const main28 = entries.filter(e => (now - e.timestamp) <= 28 * day);
+    // Pre-filter accessory entries by time window
+    const acc7 = accessoryLog.filter(a => (now - a.timestamp) <= 7 * day);
+    const acc28 = accessoryLog.filter(a => (now - a.timestamp) <= 28 * day);
+
+    MUSCLE_GROUPS.forEach(mg => {
+      let ton7 = 0, ton28 = 0, count28 = 0;
+
+      // Main lift contributions
+      main28.forEach(e => {
+        const w = MAIN_LIFT_WEIGHTS[e.lift];
+        if (!w || !w[mg]) return;
+        const ton = e.weight * e.reps * w[mg];
+        ton28 += ton;
+        count28++;
+      });
+      main7.forEach(e => {
+        const w = MAIN_LIFT_WEIGHTS[e.lift];
+        if (!w || !w[mg]) return;
+        ton7 += e.weight * e.reps * w[mg];
+      });
+
+      // Accessory contributions (0.5 multiplier)
+      acc28.forEach(a => {
+        const ex = ACCESSORY_DB[a.exerciseId];
+        if (!ex) return;
+        const cw = ACCESSORY_CAT_WEIGHTS[ex.category];
+        if (!cw || !cw[mg]) return;
+        const sets = a.setsCompleted || [];
+        const accTon = sets.reduce((s, reps) => {
+          const w = a.weight || 0;
+          return s + w * reps;
+        }, 0) * cw[mg] * 0.5;
+        ton28 += accTon;
+        count28++;
+      });
+      acc7.forEach(a => {
+        const ex = ACCESSORY_DB[a.exerciseId];
+        if (!ex) return;
+        const cw = ACCESSORY_CAT_WEIGHTS[ex.category];
+        if (!cw || !cw[mg]) return;
+        const sets = a.setsCompleted || [];
+        const accTon = sets.reduce((s, reps) => {
+          const w = a.weight || 0;
+          return s + w * reps;
+        }, 0) * cw[mg] * 0.5;
+        ton7 += accTon;
+      });
+
+      if (count28 < 3) { results[mg] = null; return; }
       const weeklyAvg28 = ton28 / 4;
       const acwr = weeklyAvg28 > 0 ? ton7 / weeklyAvg28 : null;
-      let status = 'green', label = 'Good';
+      let status = 'green', label = 'Low';
       if (acwr !== null) {
         if (acwr > 1.3) { status = 'red'; label = 'High'; }
-        else if (acwr > 1.1) { status = 'yellow'; label = 'Mod'; }
+        else if (acwr > 1.1) { status = 'yellow'; label = 'Med'; }
       }
-      results[l] = { acwr, status, label };
+      results[mg] = { acwr, status, label };
       anyValid = true;
     });
     return anyValid ? results : null;
@@ -4481,20 +4545,19 @@
     dsEl.className = 'ratio-value ' + (dsRatio >= 110 && dsRatio <= 125 ? 'balanced' : dsRatio >= 100 && dsRatio <= 135 ? 'warning' : 'imbalanced');
   }
 
-  // F6: Fatigue indicator (per-lift)
+  // F6: Fatigue indicator (muscle-group based)
   function updateFatigueBar() {
     const el = $('fatigue-bar');
-    const perLift = calcFatiguePerLift();
-    if (!perLift) { el.style.display = 'none'; return; }
+    const byMuscle = calcFatigueByMuscle();
+    if (!byMuscle) { el.style.display = 'none'; return; }
     el.style.display = 'block';
-    const levelMap = { green: 'L', yellow: 'M', red: 'H' };
     let html = '';
-    LIFTS.forEach(l => {
-      const f = perLift[l];
+    MUSCLE_GROUPS.forEach(mg => {
+      const f = byMuscle[mg];
       const st = f ? f.status : 'none';
-      const val = f ? levelMap[f.status] : '&mdash;';
+      const val = f ? f.label : '&mdash;';
       html += `<div class="fatigue-card">` +
-        `<div class="fatigue-card-label" style="color:${COLORS[l]}">${LIFT_SHORT[l]}</div>` +
+        `<div class="fatigue-card-label">${mg}</div>` +
         `<div class="fatigue-card-status">` +
           `<span class="fatigue-dot ${st}"></span>` +
           `<span class="fatigue-level ${st}">${val}</span>` +
