@@ -342,22 +342,6 @@
   }
 
   /* Challenge mode */
-  .challenge-card {
-    background: var(--surface2); border-radius: var(--radius-md); padding: 10px;
-    margin-bottom: 8px;
-  }
-  .challenge-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .challenge-title { font-size: var(--text-sm); font-weight: 600; color: var(--text); }
-  .challenge-deadline { font-size: var(--text-xs); color: var(--text-dim); }
-  .challenge-progress-track {
-    height: 6px; background: var(--surface); border-radius: 3px; overflow: hidden;
-  }
-  .challenge-progress-fill {
-    height: 100%; border-radius: 3px; transition: width var(--transition-slow);
-  }
-  .challenge-pct { font-size: var(--text-xs); color: var(--text-dim); margin-top: 3px; text-align: right; }
-  .challenge-complete { color: var(--green); font-weight: 700; }
-
   /* Accent color picker */
   .accent-picker { display: flex; gap: 8px; margin: 8px 0; }
   .accent-swatch {
@@ -1993,7 +1977,7 @@
   const BADGES_KEY = 'sbd-tracker-badges';
   const DASH_WIDGETS_KEY = 'sbd-tracker-dash-widgets';
   const ACCENT_KEY = 'sbd-tracker-accent';
-  const CHALLENGES_KEY = 'sbd-tracker-challenges';
+
   const TAGS_KEY = 'sbd-tracker-tags';
   const TOTAL_CELEBRATED_KEY = 'sbd-tracker-celebrated-totals';
   const WELCOME_KEY = 'sbd-tracker-welcome-dismissed';
@@ -2287,8 +2271,6 @@
   let workoutConfig = { weakPoints: { squat: null, bench: null, deadlift: null }, setupComplete: false };
   let accessoryLog = [];
   let workoutSession = null;
-  let challenges = [];
-  try { challenges = JSON.parse(localStorage.getItem(CHALLENGES_KEY)) || []; } catch { challenges = []; }
   let calendarMonth = new Date();
 
   // ===== DOM REFS =====
@@ -5138,7 +5120,6 @@
 
   function renderSettingsBody() {
     const total = getTotal();
-    const roadmapHTML = buildMilestoneRoadmapHTML();
     let html = '';
     // Profile
     html += sectionLabel('Profile');
@@ -5147,12 +5128,6 @@
     // Goals
     html += sectionLabel('Goals');
     html += buildGoalsHTML(total);
-    // Milestone Roadmap (conditional)
-    if (roadmapHTML) {
-      html += settingsDivider;
-      html += sectionLabel('Milestone Roadmap');
-      html += roadmapHTML;
-    }
     html += settingsDivider;
     // Appearance
     html += sectionLabel('Theme');
@@ -5289,7 +5264,7 @@
       localStorage.removeItem(TOTAL_CELEBRATED_KEY);
       localStorage.removeItem(DASH_WIDGETS_KEY);
       localStorage.removeItem(ACCENT_KEY);
-      localStorage.removeItem(CHALLENGES_KEY);
+
       localStorage.removeItem(WORKOUT_KEY);
       localStorage.removeItem(ACCESSORY_LOG_KEY);
       localStorage.removeItem(WORKOUT_SESSION_KEY);
@@ -5298,7 +5273,7 @@
       goals = { squat: null, bench: null, deadlift: null, total: null };
       activeCycleId = null; lastLoggedSet = null;
       programConfig = { activeProgram: null, trainingMaxes: {}, currentWeek: 1, completedSets: {}, amrapResults: {}, tmHistory: [], autoProgressEnabled: true };
-      unlockedBadges = {}; challenges = [];
+      unlockedBadges = {};
       workoutConfig = { weakPoints: { squat: null, bench: null, deadlift: null }, setupComplete: false };
       accessoryLog = []; workoutSession = null;
       dashboardWidgets = { ratios: true, fatigue: true, streak: true, recap: true, prStreak: true };
@@ -5327,7 +5302,7 @@
       programs: programConfig,
       unit: localStorage.getItem(UNIT_KEY) || 'lbs',
       theme, badges: unlockedBadges,
-      dashboardWidgets, accentColor, challenges,
+      dashboardWidgets, accentColor,
       celebratedTotals: JSON.parse(localStorage.getItem(TOTAL_CELEBRATED_KEY) || '{}'),
       workoutConfig, accessoryLog
     };
@@ -5390,7 +5365,7 @@
         if (data.badges) { unlockedBadges = data.badges; saveBadges(); }
         if (data.dashboardWidgets) { dashboardWidgets = { ...dashboardWidgets, ...data.dashboardWidgets }; localStorage.setItem(DASH_WIDGETS_KEY, JSON.stringify(dashboardWidgets)); }
         if (data.accentColor) { accentColor = data.accentColor; localStorage.setItem(ACCENT_KEY, accentColor); applyAccentColor(); }
-        if (data.challenges) { challenges = data.challenges; localStorage.setItem(CHALLENGES_KEY, JSON.stringify(challenges)); }
+
         if (data.celebratedTotals) { localStorage.setItem(TOTAL_CELEBRATED_KEY, JSON.stringify(data.celebratedTotals)); }
         if (data.workoutConfig) { workoutConfig = data.workoutConfig; saveWorkoutConfig(); }
         if (data.accessoryLog) { accessoryLog = data.accessoryLog; saveAccessoryLog(); }
@@ -6317,38 +6292,6 @@
     return html + SECTION_CLOSE;
   }
 
-  function renderStatsChallenges() {
-    let html = statsSection('challenges', 'Challenges');
-    html += `<button class="data-btn" id="add-challenge-btn" style="margin-bottom:10px;width:100%">+ New Challenge</button>`;
-    html += `<div id="challenges-list">`;
-    if (challenges.length > 0) {
-      challenges.forEach((ch, i) => {
-        const lift = ch.lift;
-        const cur = lift === 'total' ? getTotal() : bestE1RM(lift);
-        const pct = cur ? Math.min(100, Math.max(0, (cur - ch.start) / (ch.target - ch.start) * 100)) : 0;
-        const deadline = new Date(ch.deadline + 'T12:00:00');
-        const daysLeft = Math.ceil((deadline.getTime() - Date.now()) / MS_PER_DAY);
-        const complete = cur && cur >= ch.target;
-        html += `<div class="challenge-card">
-          <div class="challenge-header">
-            <span class="challenge-title" style="color:${COLORS[lift] || 'var(--text)'}">${ch.name || LIFT_NAMES[lift] || lift} ${formatWeight(ch.target)} ${unit}</span>
-            <span class="challenge-deadline">${complete ? '<span class="challenge-complete">\u2713 Done!</span>' : (daysLeft > 0 ? daysLeft + 'd left' : 'Expired')}</span>
-          </div>
-          <div class="challenge-progress-track">
-            <div class="challenge-progress-fill" style="width:${pct}%;background:${COLORS[lift] || 'var(--bench)'}"></div>
-          </div>
-          <div class="challenge-pct">${Math.round(pct)}% &middot; ${cur ? formatWeight(cur) : '\u2014'} / ${formatWeight(ch.target)}
-            <button class="delete-btn" data-del-challenge="${i}" style="margin-left:8px;font-size:0.6rem">Del</button>
-          </div>
-        </div>`;
-      });
-    } else {
-      html += `<div class="stats-hint">Set a goal and deadline to challenge yourself</div>`;
-    }
-    html += `</div>`;
-    return html + SECTION_CLOSE;
-  }
-
   function renderStatsYIR() {
     let html = statsSection('year-in-review', 'Year in Review');
     html += `<button class="data-btn" id="yir-btn" style="width:100%">Generate ${new Date().getFullYear()} Review</button>`;
@@ -6379,7 +6322,8 @@
       renderStatsPRTimeline(),
       renderStatsInsights(),
       renderStatsPeriodComparison(),
-      renderStatsChallenges(),
+      renderStatsGoals(total),
+      renderStatsMilestoneRoadmap(),
       renderStatsYIR()
     ].join('');
     attachStatsListeners();
@@ -6496,48 +6440,14 @@
       runComparison();
     }
 
-    // Challenge listeners (#23)
-    const addChBtn = $('add-challenge-btn');
-    if (addChBtn) addChBtn.addEventListener('click', () => {
-      const body = $('edit-body');
-      body.innerHTML = `
-        <div class="input-group" style="margin-bottom:8px"><label>Lift</label>
-          <select id="ch-lift" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-size:0.9rem">
-            ${['squat','bench','deadlift','total'].map(l => `<option value="${l}">${l === 'total' ? 'Total' : LIFT_NAMES[l]}</option>`).join('')}
-          </select>
-        </div>
-        <div class="input-group" style="margin-bottom:8px"><label>Target (${unit})</label>
-          <input type="number" id="ch-target" placeholder="e.g. 405" inputmode="decimal" step="any" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-size:0.9rem;outline:none">
-        </div>
-        <div class="input-group" style="margin-bottom:12px"><label>Deadline</label>
-          <input type="date" id="ch-deadline" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-size:0.9rem;outline:none">
-        </div>
-        <button class="modal-save-btn" id="ch-save">Create Challenge</button>`;
-      $('edit-modal').querySelector('h3').textContent = 'New Challenge';
-      openModal('edit-modal');
-      $('ch-save').addEventListener('click', () => {
-        const lift = $('ch-lift').value;
-        const target = parseFloat($('ch-target').value);
-        const deadline = $('ch-deadline').value;
-        if (!(target > 0) || !deadline) return;
-        const cur = lift === 'total' ? getTotal() : bestE1RM(lift);
-        challenges.push({ lift, target: inputToLbs(target), deadline, start: cur || 0, created: Date.now() });
-        localStorage.setItem(CHALLENGES_KEY, JSON.stringify(challenges));
-        scheduleCloudSync();
-        closeModal('edit-modal');
-        renderStats();
-        showToast('Challenge created!');
-      });
-    });
-
-    // Delete challenge
-    document.querySelectorAll('[data-del-challenge]').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        const idx = parseInt(btn.dataset.delChallenge);
-        challenges.splice(idx, 1);
-        localStorage.setItem(CHALLENGES_KEY, JSON.stringify(challenges));
-        scheduleCloudSync();
+    // Goal input listeners in Stats tab
+    document.querySelectorAll('#stats-content .goal-input').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const lift = inp.dataset.lift;
+        const val = parseFloat(inp.value);
+        goals[lift] = val > 0 ? inputToLbs(val) : null;
+        saveGoals();
+        updateDashboard();
         renderStats();
       });
     });
@@ -6972,7 +6882,6 @@ service cloud.firestore {
       badges: unlockedBadges,
       dashboardWidgets,
       accentColor,
-      challenges,
       celebratedTotals: JSON.parse(localStorage.getItem(TOTAL_CELEBRATED_KEY) || '{}'),
       workoutConfig,
       accessoryLog,
@@ -7093,7 +7002,7 @@ service cloud.firestore {
         saveBadges();
       }
 
-      // Dashboard widgets, accent, challenges: cloud wins
+      // Dashboard widgets, accent: cloud wins
       if (cloudData.dashboardWidgets) {
         dashboardWidgets = { ...dashboardWidgets, ...cloudData.dashboardWidgets };
         localStorage.setItem(DASH_WIDGETS_KEY, JSON.stringify(dashboardWidgets));
@@ -7103,13 +7012,6 @@ service cloud.firestore {
         localStorage.setItem(ACCENT_KEY, accentColor);
         applyAccentColor();
       }
-      if (cloudData.challenges && Array.isArray(cloudData.challenges)) {
-        // Merge by created timestamp
-        const localMap = new Map(challenges.map(c => [c.created, c]));
-        cloudData.challenges.forEach(cc => { if (!localMap.has(cc.created)) challenges.push(cc); });
-        localStorage.setItem(CHALLENGES_KEY, JSON.stringify(challenges));
-      }
-
       // Merge celebrated totals (union, keep earliest)
       if (cloudData.celebratedTotals) {
         let localCelebrated = {};
