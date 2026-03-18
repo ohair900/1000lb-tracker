@@ -168,19 +168,34 @@
   .class-badge.advanced { background: rgba(171,71,188,0.15); color: #ab47bc; }
   .class-badge.elite { background: var(--gold-bg); color: var(--gold); }
 
-  /* Fatigue indicator */
-  .fatigue-bar {
-    display: flex; gap: var(--space-2); margin-bottom: var(--space-2); align-items: center;
-    background: var(--surface); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3);
+  /* Fatigue indicator — per-lift cards */
+  .fatigue-row {
+    display: flex; gap: 8px; margin-bottom: 8px;
   }
-  .fatigue-light {
-    width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+  .fatigue-card {
+    flex: 1; background: var(--surface); border-radius: var(--radius-md);
+    padding: var(--space-2); text-align: center;
   }
-  .fatigue-light.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
-  .fatigue-light.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
-  .fatigue-light.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
-  .fatigue-text { font-size: var(--text-sm); color: var(--text-dim); flex: 1; }
-  .fatigue-text strong { color: var(--text); }
+  .fatigue-card-label {
+    font-size: var(--text-xs); text-transform: uppercase; font-weight: 700; margin-bottom: 2px;
+  }
+  .fatigue-card-status {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .fatigue-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .fatigue-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .fatigue-dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .fatigue-dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .fatigue-dot.none { background: var(--text-dim); opacity: 0.3; }
+  .fatigue-acwr {
+    font-size: var(--text-sm); font-weight: 700;
+  }
+  .fatigue-acwr.green { color: var(--green); }
+  .fatigue-acwr.yellow { color: var(--yellow); }
+  .fatigue-acwr.red { color: var(--red); }
+  .fatigue-acwr.none { color: var(--text-dim); opacity: 0.4; }
 
   /* Streak tracker */
   .streak-bar {
@@ -1448,11 +1463,13 @@
     #app { padding: var(--space-3); }
     .strength-ratios { flex-direction: column; gap: var(--space-1); }
     .ratio-card { padding: var(--space-1) var(--space-2); }
+    .fatigue-row { flex-direction: column; gap: var(--space-1); }
   }
 
   /* ===== Responsive: Mobile (≤599px) ===== */
   @media (max-width: 599px) {
     .strength-ratios { flex-direction: column; }
+    .fatigue-row { flex-direction: column; }
     .records-grid { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .filter-bar { flex-wrap: wrap; }
   }
@@ -1643,10 +1660,7 @@
     <div class="ratio-card"><div class="ratio-label">Deadlift : Squat</div><div class="ratio-value" id="ratio-ds">&mdash;</div></div>
   </div>
   <div class="score-line" id="score-line" style="display:none"></div>
-  <div class="fatigue-bar" id="fatigue-bar" style="display:none">
-    <div class="fatigue-light" id="fatigue-light"></div>
-    <div class="fatigue-text" id="fatigue-text"></div>
-  </div>
+  <div class="fatigue-row" id="fatigue-bar" style="display:none"></div>
   <div class="streak-bar" id="streak-bar" style="display:none">
     <span class="streak-icon" id="streak-icon"></span>
     <div class="streak-info" id="streak-info"></div>
@@ -2522,6 +2536,31 @@
     }
 
     return { acwr, avgRPE7, avgRPE28, status, label };
+  }
+
+  function calcFatiguePerLift() {
+    const now = Date.now();
+    const day = MS_PER_DAY;
+    const results = {};
+    let anyValid = false;
+    LIFTS.forEach(l => {
+      const le = entries.filter(e => e.lift === l);
+      const e7 = le.filter(e => (now - e.timestamp) <= 7 * day);
+      const e28 = le.filter(e => (now - e.timestamp) <= 28 * day);
+      if (e28.length < 3) { results[l] = null; return; }
+      const ton7 = e7.reduce((s, e) => s + e.weight * e.reps, 0);
+      const ton28 = e28.reduce((s, e) => s + e.weight * e.reps, 0);
+      const weeklyAvg28 = ton28 / 4;
+      const acwr = weeklyAvg28 > 0 ? ton7 / weeklyAvg28 : null;
+      let status = 'green', label = 'Good';
+      if (acwr !== null) {
+        if (acwr > 1.3) { status = 'red'; label = 'High'; }
+        else if (acwr > 1.1) { status = 'yellow'; label = 'Mod'; }
+      }
+      results[l] = { acwr, status, label };
+      anyValid = true;
+    });
+    return anyValid ? results : null;
   }
 
   // ===== STREAK TRACKER =====
@@ -4436,17 +4475,25 @@
     dsEl.className = 'ratio-value ' + (dsRatio >= 110 && dsRatio <= 125 ? 'balanced' : dsRatio >= 100 && dsRatio <= 135 ? 'warning' : 'imbalanced');
   }
 
-  // F6: Fatigue indicator
+  // F6: Fatigue indicator (per-lift)
   function updateFatigueBar() {
     const el = $('fatigue-bar');
-    const fatigue = calcFatigue();
-    if (!fatigue) { el.style.display = 'none'; return; }
+    const perLift = calcFatiguePerLift();
+    if (!perLift) { el.style.display = 'none'; return; }
     el.style.display = 'flex';
-    $('fatigue-light').className = 'fatigue-light ' + fatigue.status;
-    let txt = `<strong>${fatigue.label}</strong>`;
-    if (fatigue.acwr !== null) txt += ` &middot; ACWR: ${fatigue.acwr.toFixed(2)}`;
-    if (fatigue.avgRPE7 !== null) txt += ` &middot; RPE 7d: ${fatigue.avgRPE7.toFixed(1)}`;
-    $('fatigue-text').innerHTML = txt;
+    let html = '';
+    LIFTS.forEach(l => {
+      const f = perLift[l];
+      const st = f ? f.status : 'none';
+      const val = f && f.acwr !== null ? f.acwr.toFixed(2) : '&mdash;';
+      html += `<div class="fatigue-card">` +
+        `<div class="fatigue-card-label" style="color:${COLORS[l]}">${LIFT_SHORT[l]}</div>` +
+        `<div class="fatigue-card-status">` +
+          `<span class="fatigue-dot ${st}"></span>` +
+          `<span class="fatigue-acwr ${st}">${val}</span>` +
+        `</div></div>`;
+    });
+    el.innerHTML = html;
   }
 
   function updateScoreLine() {
