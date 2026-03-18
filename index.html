@@ -1466,13 +1466,12 @@
     .rpe-pill { padding: 5px 8px; font-size: var(--text-sm); }
     .tab-btn { font-size: var(--text-sm); }
     #app { padding: var(--space-3); }
-    .strength-ratios { flex-direction: column; gap: var(--space-1); }
     .ratio-card { padding: var(--space-1) var(--space-2); }
   }
 
   /* ===== Responsive: Mobile (≤599px) ===== */
   @media (max-width: 599px) {
-    .strength-ratios { flex-direction: column; }
+    .strength-ratios { gap: var(--space-1); }
     .records-grid { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .filter-bar { flex-wrap: wrap; }
   }
