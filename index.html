@@ -506,6 +506,42 @@
   }
   .tm-input:focus { border-color: #555; }
 
+  /* Week completion celebration */
+  @keyframes programGlow {
+    0%, 100% { box-shadow: 0 0 8px rgba(76,175,80,0.3), 0 1px 3px rgba(0,0,0,0.08); }
+    50% { box-shadow: 0 0 16px rgba(76,175,80,0.5), 0 0 24px rgba(255,215,0,0.2), 0 1px 3px rgba(0,0,0,0.08); }
+  }
+  .program-section.week-complete {
+    border: 2px solid var(--green);
+    animation: programGlow 2s ease-in-out infinite;
+    background: linear-gradient(135deg, rgba(76,175,80,0.06), rgba(255,215,0,0.04));
+  }
+  @keyframes checkBounce {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.4); }
+    50% { transform: scale(0.9); }
+    70% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+  .program-set-check.cascade {
+    animation: checkBounce 0.5s ease-out forwards;
+  }
+  @keyframes miniConfettiFall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translateY(300px) rotate(720deg); opacity: 0; }
+  }
+  .mini-confetti {
+    position: absolute; width: 6px; height: 6px; border-radius: 50%;
+    pointer-events: none; z-index: 10;
+    animation: miniConfettiFall 2.5s ease-in forwards;
+  }
+  .week-streak-badge {
+    display: inline-block; font-size: 0.65rem; font-weight: 700;
+    padding: 2px 6px; border-radius: 8px; margin-left: 6px;
+    background: rgba(255,215,0,0.15); color: #ffd700;
+  }
+
   /* Session grouping */
   .session-card {
     background: var(--surface); border-radius: var(--radius-lg);
@@ -1954,7 +1990,7 @@
   const STATS_COLLAPSED_KEY = 'sbd-tracker-stats-collapsed';
   let statsCollapsed = {};
   try { statsCollapsed = JSON.parse(localStorage.getItem(STATS_COLLAPSED_KEY)) || {}; } catch { statsCollapsed = {}; }
-  let programConfig = { activeProgram: null, trainingMaxes: {}, currentWeek: 1, completedSets: {}, amrapResults: {}, tmHistory: [], autoProgressEnabled: true };
+  let programConfig = { activeProgram: null, trainingMaxes: {}, currentWeek: 1, completedSets: {}, amrapResults: {}, tmHistory: [], autoProgressEnabled: true, completedWeeks: {}, weekStreak: 0 };
   let autoTheme = localStorage.getItem(AUTO_THEME_KEY) === 'true';
   let chartDateRange = 'all';
   let historySearch = '';
@@ -2397,10 +2433,69 @@
     if (!programConfig.amrapResults) programConfig.amrapResults = {};
     if (!programConfig.tmHistory) programConfig.tmHistory = [];
     if (programConfig.autoProgressEnabled === undefined) programConfig.autoProgressEnabled = true;
+    if (!programConfig.completedWeeks) programConfig.completedWeeks = {};
+    if (!programConfig.weekStreak) programConfig.weekStreak = 0;
   }
 
   function saveProgramConfig() {
     localStorage.setItem(PROGRAMS_KEY, JSON.stringify(programConfig));
+  }
+
+  function isWeekComplete() {
+    if (!programConfig.activeProgram) return false;
+    const liftsWithTM = LIFTS.filter(l => programConfig.trainingMaxes[l]);
+    if (liftsWithTM.length === 0) return false;
+    return liftsWithTM.every(lift => {
+      const workout = getProgramWorkout(lift);
+      if (!workout) return false;
+      return workout.sets.every(s => s.completed);
+    });
+  }
+
+  function triggerWeekCompleteCelebration() {
+    // Checkmark cascade
+    const checks = document.querySelectorAll('.program-set-check');
+    checks.forEach((el, i) => {
+      el.style.animationDelay = (i * 80) + 'ms';
+      el.classList.add('cascade');
+    });
+    // Mini confetti
+    const section = $('program-section');
+    const prevOverflow = section.style.overflow;
+    const prevPosition = section.style.position;
+    section.style.position = 'relative';
+    section.style.overflow = 'hidden';
+    const colors = ['#4caf50', '#ffd700', '#66bb6a', '#ffeb3b', '#81c784', '#fff176'];
+    for (let i = 0; i < 25; i++) {
+      const particle = document.createElement('div');
+      particle.className = 'mini-confetti';
+      particle.style.left = Math.random() * 100 + '%';
+      particle.style.top = '-8px';
+      particle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+      particle.style.animationDuration = (1.5 + Math.random() * 1.5) + 's';
+      particle.style.animationDelay = (Math.random() * 0.5) + 's';
+      section.appendChild(particle);
+    }
+    setTimeout(() => {
+      section.querySelectorAll('.mini-confetti').forEach(p => p.remove());
+      section.style.overflow = prevOverflow;
+      section.style.position = prevPosition;
+    }, 3000);
+    // Toast
+    showToast('Week ' + programConfig.currentWeek + ' complete!');
+    // Streak
+    updateWeekStreak();
+  }
+
+  function updateWeekStreak() {
+    programConfig.completedWeeks[programConfig.currentWeek] = true;
+    let streak = 0;
+    for (let w = programConfig.currentWeek; w >= 1; w--) {
+      if (programConfig.completedWeeks[w]) streak++;
+      else break;
+    }
+    programConfig.weekStreak = streak;
+    saveProgramConfig();
   }
 
   // ===== AUTO-PROGRESSION =====
@@ -2585,6 +2680,7 @@
     const el = $('program-section');
     if (!programConfig.activeProgram) {
       el.style.display = 'block';
+      el.classList.remove('week-complete');
       $('program-title').textContent = '';
       $('program-week').textContent = '';
       $('program-sets').innerHTML = `<div style="text-align:center;padding:8px 0;font-size:0.8rem;color:var(--text-dim)">No program active</div>`;
@@ -2602,6 +2698,7 @@
       $('program-title').textContent = tmpl ? tmpl.name : programConfig.activeProgram;
       $('program-week').textContent = '';
       $('program-sets').innerHTML = `<div style="text-align:center;padding:8px 0;font-size:0.8rem;color:var(--text-dim)">Set a training max for ${LIFT_NAMES[currentLift]} in Setup</div>`;
+      el.classList.remove('week-complete');
       return;
     }
     const tmpl = PROGRAM_TEMPLATES[programConfig.activeProgram];
@@ -2623,11 +2720,29 @@
         <span class="program-set-pct">${s.pct}%</span>
       </div>`;
     }).join('');
+    // Week completion visual state
+    const weekComplete = isWeekComplete();
+    if (weekComplete) {
+      el.classList.add('week-complete');
+      $('program-week').innerHTML = workout.label + ' — Complete! ✓' + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
+    } else {
+      el.classList.remove('week-complete');
+    }
+    // Streak badge
+    const existingBadge = el.querySelector('.week-streak-badge');
+    if (existingBadge) existingBadge.remove();
+    if (programConfig.weekStreak >= 2) {
+      const badge = document.createElement('span');
+      badge.className = 'week-streak-badge';
+      badge.textContent = '\uD83D\uDD25 ' + programConfig.weekStreak + '-week streak';
+      el.querySelector('.program-header').appendChild(badge);
+    }
     // Click to auto-fill
     setsEl.querySelectorAll('.program-set-row').forEach(row => {
       row.addEventListener('click', () => {
         const idx = parseInt(row.dataset.setIdx);
         const set = workout.sets[idx];
+        const wasComplete = isWeekComplete();
         if (set.completed) {
           // Toggle off completed
           delete programConfig.completedSets[`${currentLift}-${programConfig.currentWeek}-${idx}`];
@@ -2642,12 +2757,13 @@
           // Mark completed
           programConfig.completedSets[`${currentLift}-${programConfig.currentWeek}-${idx}`] = true;
           // Check session-type auto-progression (SL5x5 / SS)
-          const tmpl = PROGRAM_TEMPLATES[programConfig.activeProgram];
-          if (tmpl && tmpl.progression && tmpl.progression.type === 'session') {
+          const tmpl2 = PROGRAM_TEMPLATES[programConfig.activeProgram];
+          if (tmpl2 && tmpl2.progression && tmpl2.progression.type === 'session') {
             const result = checkAutoProgression(currentLift);
             if (result) {
               saveProgramConfig();
               renderProgramSection();
+              if (!wasComplete && isWeekComplete()) triggerWeekCompleteCelebration();
               setTimeout(() => applyProgression(result), 300);
               return;
             }
@@ -2655,6 +2771,20 @@
         }
         saveProgramConfig();
         renderProgramSection();
+        // Check week completion transitions
+        if (!wasComplete && isWeekComplete()) {
+          triggerWeekCompleteCelebration();
+        } else if (wasComplete && !isWeekComplete()) {
+          delete programConfig.completedWeeks[programConfig.currentWeek];
+          let streak = 0;
+          for (let w = programConfig.currentWeek; w >= 1; w--) {
+            if (programConfig.completedWeeks[w]) streak++;
+            else break;
+          }
+          programConfig.weekStreak = streak;
+          saveProgramConfig();
+          renderProgramSection();
+        }
       });
     });
   }
@@ -2730,6 +2860,8 @@
       programConfig.currentWeek = parseInt($('program-week-input').value) || 1;
       programConfig.autoProgressEnabled = $('auto-progress-toggle').checked;
       programConfig.completedSets = {};
+      programConfig.completedWeeks = {};
+      programConfig.weekStreak = 0;
       saveProgramConfig();
       closeModal('edit-modal');
       renderProgramSection();
@@ -3582,11 +3714,17 @@
   $('program-next').addEventListener('click', () => {
     const tmpl = PROGRAM_TEMPLATES[programConfig.activeProgram];
     if (tmpl) {
+      // If current week incomplete, reset streak
+      if (!isWeekComplete()) {
+        programConfig.weekStreak = 0;
+      }
       if (programConfig.currentWeek >= tmpl.weeks) {
         // Cycle complete — restart at week 1 with fresh state
         programConfig.currentWeek = 1;
         programConfig.completedSets = {};
         programConfig.amrapResults = {};
+        programConfig.completedWeeks = {};
+        programConfig.weekStreak = 0;
         showToast('New cycle started — weights updated');
       } else {
         programConfig.currentWeek++;
