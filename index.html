@@ -169,12 +169,17 @@
   .class-badge.elite { background: var(--gold-bg); color: var(--gold); }
 
   /* Fatigue indicator — per-lift cards */
+  .fatigue-container { margin-bottom: 8px; }
+  .fatigue-header {
+    font-size: var(--text-xs); text-transform: uppercase; color: var(--text-dim);
+    font-weight: 700; margin-bottom: 4px; letter-spacing: 0.5px;
+  }
   .fatigue-row {
-    display: flex; gap: 8px; margin-bottom: 8px;
+    display: flex; gap: 8px;
   }
   .fatigue-card {
     flex: 1; background: var(--surface); border-radius: var(--radius-md);
-    padding: var(--space-2); text-align: center;
+    padding: var(--space-2); text-align: center; min-width: 0;
   }
   .fatigue-card-label {
     font-size: var(--text-xs); text-transform: uppercase; font-weight: 700; margin-bottom: 2px;
@@ -189,13 +194,13 @@
   .fatigue-dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
   .fatigue-dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
   .fatigue-dot.none { background: var(--text-dim); opacity: 0.3; }
-  .fatigue-acwr {
+  .fatigue-level {
     font-size: var(--text-sm); font-weight: 700;
   }
-  .fatigue-acwr.green { color: var(--green); }
-  .fatigue-acwr.yellow { color: var(--yellow); }
-  .fatigue-acwr.red { color: var(--red); }
-  .fatigue-acwr.none { color: var(--text-dim); opacity: 0.4; }
+  .fatigue-level.green { color: var(--green); }
+  .fatigue-level.yellow { color: var(--yellow); }
+  .fatigue-level.red { color: var(--red); }
+  .fatigue-level.none { color: var(--text-dim); opacity: 0.4; }
 
   /* Streak tracker */
   .streak-bar {
@@ -1463,13 +1468,11 @@
     #app { padding: var(--space-3); }
     .strength-ratios { flex-direction: column; gap: var(--space-1); }
     .ratio-card { padding: var(--space-1) var(--space-2); }
-    .fatigue-row { flex-direction: column; gap: var(--space-1); }
   }
 
   /* ===== Responsive: Mobile (≤599px) ===== */
   @media (max-width: 599px) {
     .strength-ratios { flex-direction: column; }
-    .fatigue-row { flex-direction: column; }
     .records-grid { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .filter-bar { flex-wrap: wrap; }
   }
@@ -1660,7 +1663,10 @@
     <div class="ratio-card"><div class="ratio-label">Deadlift : Squat</div><div class="ratio-value" id="ratio-ds">&mdash;</div></div>
   </div>
   <div class="score-line" id="score-line" style="display:none"></div>
-  <div class="fatigue-row" id="fatigue-bar" style="display:none"></div>
+  <div class="fatigue-container" id="fatigue-bar" style="display:none">
+    <div class="fatigue-header">Fatigue</div>
+    <div class="fatigue-row" id="fatigue-row"></div>
+  </div>
   <div class="streak-bar" id="streak-bar" style="display:none">
     <span class="streak-icon" id="streak-icon"></span>
     <div class="streak-info" id="streak-info"></div>
@@ -4480,20 +4486,21 @@
     const el = $('fatigue-bar');
     const perLift = calcFatiguePerLift();
     if (!perLift) { el.style.display = 'none'; return; }
-    el.style.display = 'flex';
+    el.style.display = 'block';
+    const levelMap = { green: 'L', yellow: 'M', red: 'H' };
     let html = '';
     LIFTS.forEach(l => {
       const f = perLift[l];
       const st = f ? f.status : 'none';
-      const val = f && f.acwr !== null ? f.acwr.toFixed(2) : '&mdash;';
+      const val = f ? levelMap[f.status] : '&mdash;';
       html += `<div class="fatigue-card">` +
         `<div class="fatigue-card-label" style="color:${COLORS[l]}">${LIFT_SHORT[l]}</div>` +
         `<div class="fatigue-card-status">` +
           `<span class="fatigue-dot ${st}"></span>` +
-          `<span class="fatigue-acwr ${st}">${val}</span>` +
+          `<span class="fatigue-level ${st}">${val}</span>` +
         `</div></div>`;
     });
-    el.innerHTML = html;
+    $('fatigue-row').innerHTML = html;
   }
 
   function updateScoreLine() {
