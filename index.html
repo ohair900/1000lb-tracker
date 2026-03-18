@@ -541,6 +541,10 @@
     padding: 2px 6px; border-radius: 8px; margin-left: 6px;
     background: rgba(255,215,0,0.15); color: #ffd700;
   }
+  .program-section.lift-complete {
+    border: 1px solid var(--green);
+    background: rgba(76,175,80,0.04);
+  }
 
   /* Session grouping */
   .session-card {
@@ -2452,6 +2456,13 @@
     });
   }
 
+  function isLiftComplete(lift) {
+    if (!programConfig.activeProgram || !programConfig.trainingMaxes[lift]) return false;
+    const workout = getProgramWorkout(lift);
+    if (!workout) return false;
+    return workout.sets.every(s => s.completed);
+  }
+
   function triggerWeekCompleteCelebration() {
     // Checkmark cascade
     const checks = document.querySelectorAll('.program-set-check');
@@ -2485,6 +2496,17 @@
     showToast('Week ' + programConfig.currentWeek + ' complete!');
     // Streak
     updateWeekStreak();
+  }
+
+  function triggerLiftCompleteCelebration() {
+    // Checkmark cascade (reuse same animation)
+    const checks = document.querySelectorAll('.program-set-check');
+    checks.forEach((el, i) => {
+      el.style.animationDelay = (i * 80) + 'ms';
+      el.classList.add('cascade');
+    });
+    // Toast
+    showToast(LIFT_NAMES[currentLift] + ' complete!');
   }
 
   function updateWeekStreak() {
@@ -2681,6 +2703,7 @@
     if (!programConfig.activeProgram) {
       el.style.display = 'block';
       el.classList.remove('week-complete');
+      el.classList.remove('lift-complete');
       $('program-title').textContent = '';
       $('program-week').textContent = '';
       $('program-sets').innerHTML = `<div style="text-align:center;padding:8px 0;font-size:0.8rem;color:var(--text-dim)">No program active</div>`;
@@ -2699,6 +2722,7 @@
       $('program-week').textContent = '';
       $('program-sets').innerHTML = `<div style="text-align:center;padding:8px 0;font-size:0.8rem;color:var(--text-dim)">Set a training max for ${LIFT_NAMES[currentLift]} in Setup</div>`;
       el.classList.remove('week-complete');
+      el.classList.remove('lift-complete');
       return;
     }
     const tmpl = PROGRAM_TEMPLATES[programConfig.activeProgram];
@@ -2720,13 +2744,20 @@
         <span class="program-set-pct">${s.pct}%</span>
       </div>`;
     }).join('');
-    // Week completion visual state
+    // Week/lift completion visual state
     const weekComplete = isWeekComplete();
+    const liftComplete = isLiftComplete(currentLift);
     if (weekComplete) {
       el.classList.add('week-complete');
-      $('program-week').innerHTML = workout.label + ' — Complete! ✓' + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
+      el.classList.remove('lift-complete');
+      $('program-week').innerHTML = workout.label + ' \u2014 Complete! \u2713' + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
+    } else if (liftComplete) {
+      el.classList.remove('week-complete');
+      el.classList.add('lift-complete');
+      $('program-week').innerHTML = workout.label + ' \u2014 Complete! \u2713' + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
     } else {
       el.classList.remove('week-complete');
+      el.classList.remove('lift-complete');
     }
     // Streak badge
     const existingBadge = el.querySelector('.week-streak-badge');
@@ -2742,6 +2773,7 @@
       row.addEventListener('click', () => {
         const idx = parseInt(row.dataset.setIdx);
         const set = workout.sets[idx];
+        const wasLiftComplete = isLiftComplete(currentLift);
         const wasComplete = isWeekComplete();
         if (set.completed) {
           // Toggle off completed
@@ -2764,6 +2796,7 @@
               saveProgramConfig();
               renderProgramSection();
               if (!wasComplete && isWeekComplete()) triggerWeekCompleteCelebration();
+              else if (!wasLiftComplete && isLiftComplete(currentLift)) triggerLiftCompleteCelebration();
               setTimeout(() => applyProgression(result), 300);
               return;
             }
@@ -2771,9 +2804,11 @@
         }
         saveProgramConfig();
         renderProgramSection();
-        // Check week completion transitions
+        // Check week/lift completion transitions
         if (!wasComplete && isWeekComplete()) {
           triggerWeekCompleteCelebration();
+        } else if (!wasLiftComplete && isLiftComplete(currentLift)) {
+          triggerLiftCompleteCelebration();
         } else if (wasComplete && !isWeekComplete()) {
           delete programConfig.completedWeeks[programConfig.currentWeek];
           let streak = 0;
