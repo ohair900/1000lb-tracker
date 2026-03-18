@@ -5129,19 +5129,6 @@
     html += sectionLabel('Goals');
     html += buildGoalsHTML(total);
     html += settingsDivider;
-    // Appearance
-    html += sectionLabel('Theme');
-    html += `<label class="widget-toggle" style="margin-bottom:4px">
-        <input type="checkbox" id="s-auto-theme" ${autoTheme ? 'checked' : ''}>
-        Follow system theme (auto)
-      </label>`;
-    html += `<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin:12px 0 6px">Accent Color</div>`;
-    html += `<div class="accent-picker" id="s-accent-picker">
-        ${Object.entries(ACCENT_COLORS).map(([name, color]) =>
-          `<div class="accent-swatch${accentColor === name ? ' active' : ''}" data-accent="${name}" style="background:${color}" title="${name}"></div>`
-        ).join('')}
-      </div>`;
-    html += settingsDivider;
     // Dashboard
     html += sectionLabel('Dashboard Widgets');
     html += `<label class="widget-toggle"><input type="checkbox" data-widget="ratios" ${dashboardWidgets.ratios ? 'checked' : ''}> Strength Ratios</label>
@@ -5205,31 +5192,6 @@
         attachSettingsListeners();
       });
     });
-
-    // Auto-theme toggle
-    const autoThemeEl = $('s-auto-theme');
-    if (autoThemeEl) {
-      autoThemeEl.addEventListener('change', e => {
-        autoTheme = e.target.checked;
-        applyTheme();
-        if (currentTab === 'charts') renderChart();
-      });
-    }
-
-    // Accent picker
-    const accentPicker = $('s-accent-picker');
-    if (accentPicker) {
-      accentPicker.addEventListener('click', e => {
-        const swatch = e.target.closest('.accent-swatch');
-        if (!swatch) return;
-        accentPicker.querySelectorAll('.accent-swatch').forEach(s => s.classList.remove('active'));
-        swatch.classList.add('active');
-        accentColor = swatch.dataset.accent;
-        localStorage.setItem(ACCENT_KEY, accentColor);
-        applyAccentColor();
-        scheduleCloudSync();
-      });
-    }
 
     // Dashboard widget toggles
     body.querySelectorAll('[data-widget]').forEach(cb => {
