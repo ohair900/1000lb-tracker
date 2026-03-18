@@ -5011,54 +5011,128 @@
   $('settings-close').addEventListener('click', () => closeModal('settings-modal'));
 
   // ===== SETTINGS MODAL =====
-  $('gear-btn').addEventListener('click', () => {
-    clearConfirm = false;
-    const body = $('settings-body');
-    body.innerHTML = `
-      <div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-bottom:6px">Theme</div>
-      <label class="widget-toggle" style="margin-bottom:4px">
+  const sectionLabel = text => `<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-bottom:6px">${text}</div>`;
+  const settingsDivider = '<hr style="border:none;border-top:1px solid var(--border);margin:14px 0">';
+
+  function renderSettingsBody() {
+    const total = getTotal();
+    const roadmapHTML = buildMilestoneRoadmapHTML();
+    let html = '';
+    // Profile
+    html += sectionLabel('Profile');
+    html += buildProfileHTML();
+    html += settingsDivider;
+    // Goals
+    html += sectionLabel('Goals');
+    html += buildGoalsHTML(total);
+    // Milestone Roadmap (conditional)
+    if (roadmapHTML) {
+      html += settingsDivider;
+      html += sectionLabel('Milestone Roadmap');
+      html += roadmapHTML;
+    }
+    html += settingsDivider;
+    // Appearance
+    html += sectionLabel('Theme');
+    html += `<label class="widget-toggle" style="margin-bottom:4px">
         <input type="checkbox" id="s-auto-theme" ${autoTheme ? 'checked' : ''}>
         Follow system theme (auto)
-      </label>
-      <div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin:12px 0 6px">Accent Color</div>
-      <div class="accent-picker" id="s-accent-picker">
+      </label>`;
+    html += `<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin:12px 0 6px">Accent Color</div>`;
+    html += `<div class="accent-picker" id="s-accent-picker">
         ${Object.entries(ACCENT_COLORS).map(([name, color]) =>
           `<div class="accent-swatch${accentColor === name ? ' active' : ''}" data-accent="${name}" style="background:${color}" title="${name}"></div>`
         ).join('')}
-      </div>
-      <div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin:12px 0 6px">Dashboard Widgets</div>
-      <label class="widget-toggle"><input type="checkbox" data-widget="ratios" ${dashboardWidgets.ratios ? 'checked' : ''}> Strength Ratios</label>
+      </div>`;
+    html += settingsDivider;
+    // Dashboard
+    html += sectionLabel('Dashboard Widgets');
+    html += `<label class="widget-toggle"><input type="checkbox" data-widget="ratios" ${dashboardWidgets.ratios ? 'checked' : ''}> Strength Ratios</label>
       <label class="widget-toggle"><input type="checkbox" data-widget="fatigue" ${dashboardWidgets.fatigue ? 'checked' : ''}> Fatigue Indicator</label>
       <label class="widget-toggle"><input type="checkbox" data-widget="streak" ${dashboardWidgets.streak ? 'checked' : ''}> Streak Tracker</label>
       <label class="widget-toggle"><input type="checkbox" data-widget="recap" ${dashboardWidgets.recap ? 'checked' : ''}> Weekly Recap</label>
-      <label class="widget-toggle" style="margin-bottom:12px"><input type="checkbox" data-widget="prStreak" ${dashboardWidgets.prStreak ? 'checked' : ''}> PR Tracker</label>
-      <div class="data-row" style="margin-bottom:12px">
+      <label class="widget-toggle" style="margin-bottom:12px"><input type="checkbox" data-widget="prStreak" ${dashboardWidgets.prStreak ? 'checked' : ''}> PR Tracker</label>`;
+    html += settingsDivider;
+    // Data
+    html += sectionLabel('Data');
+    html += `<div class="data-row" style="margin-bottom:12px">
         <button class="data-btn" id="s-export">Export JSON</button>
         <button class="data-btn" id="s-export-csv">Export CSV</button>
         <button class="data-btn" id="s-import">Import JSON</button>
       </div>
-      <button class="data-btn danger" id="s-clear" style="width:100%">Clear All Data</button>
-    `;
-    openModal('settings-modal');
+      <button class="data-btn danger" id="s-clear" style="width:100%">Clear All Data</button>`;
+    return html;
+  }
+
+  function attachSettingsListeners() {
+    const body = $('settings-body');
+
+    // Gender pills
+    body.querySelectorAll('.gender-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        body.querySelectorAll('.gender-pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        profile.gender = btn.dataset.gender;
+        saveProfile(); updateDashboard();
+      });
+    });
+
+    // Bodyweight log
+    const bwLogBtn = body.querySelector('#bw-log-btn');
+    if (bwLogBtn) {
+      bwLogBtn.addEventListener('click', () => {
+        const v = parseFloat($('bw-input').value);
+        if (!(v > 0)) return;
+        const bwLbs = inputToLbs(v);
+        profile.bodyweight = bwLbs;
+        const now = new Date();
+        profile.bodyweightHistory.push({
+          date: now.toISOString().split('T')[0],
+          weight: bwLbs,
+          timestamp: now.getTime()
+        });
+        saveProfile(); updateDashboard();
+        showToast('Bodyweight logged');
+      });
+    }
+
+    // Goal inputs
+    body.querySelectorAll('.goal-input').forEach(input => {
+      input.addEventListener('change', () => {
+        const lift = input.dataset.lift;
+        const v = parseFloat(input.value);
+        goals[lift] = v > 0 ? inputToLbs(v) : null;
+        saveGoals(); updateDashboard();
+        // Re-render settings body so roadmap updates live
+        body.innerHTML = renderSettingsBody();
+        attachSettingsListeners();
+      });
+    });
 
     // Auto-theme toggle
-    $('s-auto-theme').addEventListener('change', e => {
-      autoTheme = e.target.checked;
-      applyTheme();
-      if (currentTab === 'charts') renderChart();
-    });
+    const autoThemeEl = $('s-auto-theme');
+    if (autoThemeEl) {
+      autoThemeEl.addEventListener('change', e => {
+        autoTheme = e.target.checked;
+        applyTheme();
+        if (currentTab === 'charts') renderChart();
+      });
+    }
 
     // Accent picker
-    $('s-accent-picker').addEventListener('click', e => {
-      const swatch = e.target.closest('.accent-swatch');
-      if (!swatch) return;
-      $('s-accent-picker').querySelectorAll('.accent-swatch').forEach(s => s.classList.remove('active'));
-      swatch.classList.add('active');
-      accentColor = swatch.dataset.accent;
-      localStorage.setItem(ACCENT_KEY, accentColor);
-      applyAccentColor();
-      scheduleCloudSync();
-    });
+    const accentPicker = $('s-accent-picker');
+    if (accentPicker) {
+      accentPicker.addEventListener('click', e => {
+        const swatch = e.target.closest('.accent-swatch');
+        if (!swatch) return;
+        accentPicker.querySelectorAll('.accent-swatch').forEach(s => s.classList.remove('active'));
+        swatch.classList.add('active');
+        accentColor = swatch.dataset.accent;
+        localStorage.setItem(ACCENT_KEY, accentColor);
+        applyAccentColor();
+        scheduleCloudSync();
+      });
+    }
 
     // Dashboard widget toggles
     body.querySelectorAll('[data-widget]').forEach(cb => {
@@ -5070,6 +5144,7 @@
       });
     });
 
+    // Data management
     $('s-export').addEventListener('click', exportData);
     $('s-export-csv').addEventListener('click', exportCSV);
     $('s-import').addEventListener('click', () => $('import-file').click());
@@ -5112,6 +5187,14 @@
       dismissTimer();
       showToast('All data cleared');
     });
+  }
+
+  $('gear-btn').addEventListener('click', () => {
+    clearConfirm = false;
+    const body = $('settings-body');
+    body.innerHTML = renderSettingsBody();
+    openModal('settings-modal');
+    attachSettingsListeners();
   });
 
   // ===== EXPORT / IMPORT =====
@@ -5814,9 +5897,8 @@
     return html + SECTION_CLOSE;
   }
 
-  function renderStatsProfile() {
-    let html = statsSection('profile', 'Profile');
-    html += `<div class="gender-pills">
+  function buildProfileHTML() {
+    let html = `<div class="gender-pills">
         <button class="gender-pill${profile.gender==='male'?' active':''}" data-gender="male">Male</button>
         <button class="gender-pill${profile.gender==='female'?' active':''}" data-gender="female">Female</button>
       </div>
@@ -5839,7 +5921,11 @@
         </div>
       </div>`;
     }
-    return html + SECTION_CLOSE;
+    return html;
+  }
+
+  function renderStatsProfile() {
+    return statsSection('profile', 'Profile') + buildProfileHTML() + SECTION_CLOSE;
   }
 
   function renderStatsRelativeStrength(total) {
@@ -5853,7 +5939,7 @@
         <div class="score-card"><div class="score-label">DOTS</div><div class="score-value">${dt ? Math.round(dt) : '—'}</div></div>
       </div>`;
     } else {
-      html += `<div class="stats-hint">Set gender, bodyweight, and log all 3 lifts to see scores</div>`;
+      html += `<div class="stats-hint">Set gender &amp; bodyweight in \u2699 Settings, then log all 3 lifts</div>`;
     }
     return html + SECTION_CLOSE;
   }
@@ -5944,8 +6030,8 @@
     return html + SECTION_CLOSE;
   }
 
-  function renderStatsGoals(total) {
-    let html = statsSection('goals', 'Goals');
+  function buildGoalsHTML(total) {
+    let html = '';
     ['squat','bench','deadlift','total'].forEach(lift => {
       const cur = lift === 'total' ? total : bestE1RM(lift);
       const goal = goals[lift];
@@ -5970,17 +6056,21 @@
       }
       html += `</div>`;
     });
-    return html + SECTION_CLOSE;
+    return html;
   }
 
-  function renderStatsMilestoneRoadmap() {
+  function renderStatsGoals(total) {
+    return statsSection('goals', 'Goals') + buildGoalsHTML(total) + SECTION_CLOSE;
+  }
+
+  function buildMilestoneRoadmapHTML() {
     const roadmapLifts = LIFTS.filter(lift => {
       const cur = bestE1RM(lift);
       const goal = goals[lift];
       return goal && cur && cur < goal;
     });
     if (roadmapLifts.length === 0) return '';
-    let html = statsSection('milestone-roadmap', 'Milestone Roadmap');
+    let html = '';
     roadmapLifts.forEach(lift => {
       const rm = calcMilestoneRoadmap(lift);
       if (!rm) return;
@@ -6002,7 +6092,13 @@
       });
       html += `</div></div>`;
     });
-    return html + SECTION_CLOSE;
+    return html;
+  }
+
+  function renderStatsMilestoneRoadmap() {
+    const html = buildMilestoneRoadmapHTML();
+    if (!html) return '';
+    return statsSection('milestone-roadmap', 'Milestone Roadmap') + html + SECTION_CLOSE;
   }
 
   function renderStatsCycles() {
@@ -6153,20 +6249,16 @@
     const total = getTotal();
     c.innerHTML = [
       renderStatsBadges(),
-      renderStatsProfile(),
       renderStatsRelativeStrength(total),
       renderStatsRecordsBoard(),
       renderStatsVolume(),
       renderStatsMeetPrep(),
-      renderStatsGoals(total),
-      renderStatsMilestoneRoadmap(),
       renderStatsCycles(),
       renderStatsPRTimeline(),
       renderStatsInsights(),
       renderStatsPeriodComparison(),
       renderStatsChallenges(),
-      renderStatsYIR(),
-      renderStatsDataMgmt()
+      renderStatsYIR()
     ].join('');
     attachStatsListeners();
   }
@@ -6181,45 +6273,6 @@
         const isCollapsed = section.classList.contains('collapsed');
         statsCollapsed[id] = isCollapsed;
         localStorage.setItem(STATS_COLLAPSED_KEY, JSON.stringify(statsCollapsed));
-      });
-    });
-
-    // Gender pills
-    document.querySelectorAll('.gender-pill').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.gender-pill').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        profile.gender = btn.dataset.gender;
-        saveProfile(); updateDashboard();
-      });
-    });
-
-    // Bodyweight log
-    const bwLogBtn = $('bw-log-btn');
-    if (bwLogBtn) {
-      bwLogBtn.addEventListener('click', () => {
-        const v = parseFloat($('bw-input').value);
-        if (!(v > 0)) return;
-        const bwLbs = inputToLbs(v);
-        profile.bodyweight = bwLbs;
-        const now = new Date();
-        profile.bodyweightHistory.push({
-          date: now.toISOString().split('T')[0],
-          weight: bwLbs,
-          timestamp: now.getTime()
-        });
-        saveProfile(); updateDashboard();
-        showToast('Bodyweight logged');
-      });
-    }
-
-    // Goal inputs
-    document.querySelectorAll('.goal-input').forEach(input => {
-      input.addEventListener('change', () => {
-        const lift = input.dataset.lift;
-        const v = parseFloat(input.value);
-        goals[lift] = v > 0 ? inputToLbs(v) : null;
-        saveGoals(); updateDashboard(); renderStats();
       });
     });
 
@@ -6426,13 +6479,6 @@
       });
     });
 
-    // Data management in stats
-    const expBtn = $('stats-export');
-    if (expBtn) expBtn.addEventListener('click', exportData);
-    const csvBtn = $('stats-export-csv');
-    if (csvBtn) csvBtn.addEventListener('click', exportCSV);
-    const impBtn = $('stats-import');
-    if (impBtn) impBtn.addEventListener('click', () => $('import-file').click());
   }
 
   // ===== THEME =====
