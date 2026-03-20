@@ -776,6 +776,255 @@
   }
   .weakpoint-lift-title:first-child { margin-top: 0; }
 
+  /* Workout choice sheet */
+  .choice-sheet-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 250;
+    animation: fadeIn 0.15s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .choice-sheet {
+    position: fixed; bottom: 0; left: 0; right: 0; max-height: 85vh; z-index: 251;
+    border-radius: 16px 16px 0 0; background: var(--bg);
+    animation: slideUp 0.25s ease; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .choice-sheet-handle {
+    width: 40px; height: 4px; border-radius: 2px; background: var(--text-dim);
+    opacity: 0.3; margin: 10px auto 0;
+  }
+  .choice-sheet-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--space-3) var(--space-4) 0;
+  }
+  .choice-sheet-header h3 { font-size: var(--text-lg); font-weight: 700; color: var(--text-strong); }
+  .choice-sheet-body { padding: var(--space-3) var(--space-4) var(--space-5); }
+  .choice-card {
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg);
+    background: var(--surface); margin-bottom: var(--space-2); cursor: pointer;
+    transition: all var(--transition-fast); border: 2px solid transparent;
+  }
+  .choice-card:hover { border-color: var(--text-dim); }
+  .choice-card:active { transform: scale(0.98); }
+  .choice-card.meso-active { border-color: var(--bench); background: rgba(30,136,229,0.06); }
+  .choice-card-icon {
+    width: 40px; height: 40px; border-radius: var(--radius-md);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; flex-shrink: 0;
+  }
+  .choice-card-icon.green { background: rgba(67,160,71,0.12); color: var(--green); }
+  .choice-card-icon.blue { background: rgba(30,136,229,0.12); color: var(--bench); }
+  .choice-card-icon.gold { background: rgba(255,215,0,0.12); color: var(--gold); }
+  .choice-card-icon.purple { background: rgba(171,71,188,0.12); color: #ab47bc; }
+  .choice-card-icon.red { background: rgba(229,57,53,0.12); color: var(--red); }
+  .choice-card-text { flex: 1; min-width: 0; }
+  .choice-card-title { font-size: var(--text-base); font-weight: 600; color: var(--text-strong); }
+  .choice-card-desc { font-size: var(--text-xs); color: var(--text-dim); margin-top: 2px; }
+  .choice-card-arrow { color: var(--text-dim); font-size: 1.1rem; }
+
+  /* Builder overlay */
+  .builder-overlay {
+    position: fixed; inset: 0; z-index: 300;
+    background: var(--bg); display: flex; flex-direction: column;
+    animation: slideUp 0.25s ease;
+  }
+  .builder-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border); min-height: 56px; flex-shrink: 0;
+  }
+  .builder-header-title { font-size: var(--text-lg); font-weight: 700; color: var(--text-strong); }
+  .builder-body { flex: 1; overflow-y: auto; padding: var(--space-3) var(--space-4); -webkit-overflow-scrolling: touch; }
+  .builder-footer {
+    padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border);
+    flex-shrink: 0; background: var(--bg); display: flex; gap: var(--space-2);
+  }
+  .builder-footer .btn-primary {
+    flex: 1; padding: 14px; border: none; border-radius: var(--radius-lg);
+    background: var(--green); color: #fff; font-size: var(--text-base);
+    font-weight: 700; cursor: pointer;
+  }
+  .builder-footer .btn-secondary {
+    padding: 14px 20px; border: 2px solid var(--border); border-radius: var(--radius-lg);
+    background: transparent; color: var(--text); font-size: var(--text-base);
+    font-weight: 600; cursor: pointer;
+  }
+  .builder-exercise {
+    background: var(--surface); border-radius: var(--radius-lg);
+    padding: var(--space-3); margin-bottom: var(--space-2);
+    display: flex; align-items: center; gap: var(--space-2);
+  }
+  .builder-exercise.main-lift { border-left: 4px solid var(--text-dim); }
+  .builder-exercise.main-lift.squat { border-left-color: var(--squat); }
+  .builder-exercise.main-lift.bench { border-left-color: var(--bench); }
+  .builder-exercise.main-lift.deadlift { border-left-color: var(--deadlift); }
+  .builder-exercise-info { flex: 1; min-width: 0; }
+  .builder-exercise-name { font-size: var(--text-sm); font-weight: 700; color: var(--text-strong); }
+  .builder-exercise-meta { font-size: var(--text-xs); color: var(--text-dim); margin-top: 2px; }
+  .builder-exercise-controls {
+    display: flex; gap: 4px; flex-shrink: 0;
+  }
+  .builder-exercise-controls input {
+    width: 48px; padding: 6px; text-align: center; font-size: var(--text-sm);
+    border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--surface2); color: var(--text); outline: none;
+  }
+  .builder-exercise-controls input:focus { border-color: var(--bench); }
+  .builder-btn-sm {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 1.5px solid var(--border); background: var(--surface2);
+    color: var(--text-dim); font-size: 0.85rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .builder-btn-sm:hover { color: var(--text); border-color: var(--text-dim); }
+  .builder-btn-sm.danger:hover { color: var(--red); border-color: var(--red); }
+
+  /* Exercise browser */
+  .exercise-browser {
+    background: var(--surface); border-radius: var(--radius-lg);
+    margin-top: var(--space-3); overflow: hidden;
+  }
+  .exercise-browser-header {
+    padding: var(--space-3); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: var(--space-2);
+  }
+  .exercise-browser-search {
+    flex: 1; padding: 8px 12px; border: 1.5px solid var(--border);
+    border-radius: var(--radius-pill); background: var(--surface2);
+    color: var(--text); font-size: var(--text-sm); outline: none;
+  }
+  .exercise-browser-search:focus { border-color: var(--bench); }
+  .exercise-browser-list { max-height: 300px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .exercise-browser-cat {
+    font-size: var(--text-xs); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-dim); padding: 8px var(--space-3) 4px;
+  }
+  .exercise-browser-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px var(--space-3); cursor: pointer; transition: background var(--transition-fast);
+  }
+  .exercise-browser-item:hover { background: var(--surface2); }
+  .exercise-browser-item-name { font-size: var(--text-sm); color: var(--text); }
+  .exercise-browser-item-equip { font-size: var(--text-xs); color: var(--text-dim); }
+  .exercise-browser-item.added { opacity: 0.4; pointer-events: none; }
+
+  /* Custom exercise form */
+  .custom-exercise-form {
+    padding: var(--space-3); border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: var(--space-2);
+  }
+  .custom-exercise-form input, .custom-exercise-form select {
+    padding: 8px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-md);
+    background: var(--surface2); color: var(--text); font-size: var(--text-sm); outline: none;
+  }
+  .custom-exercise-form input:focus, .custom-exercise-form select:focus { border-color: var(--bench); }
+  .custom-exercise-row { display: flex; gap: var(--space-2); }
+  .custom-exercise-row input, .custom-exercise-row select { flex: 1; }
+
+  /* Smart recommendation styles */
+  .smart-reason {
+    display: inline-block; font-size: 0.6rem; padding: 2px 6px;
+    border-radius: var(--radius-pill); background: var(--surface2);
+    color: var(--text-dim); margin-right: 4px; margin-top: 4px;
+  }
+  .smart-score-bar {
+    height: 4px; border-radius: 2px; background: var(--surface2);
+    overflow: hidden; margin-top: 4px;
+  }
+  .smart-score-fill { height: 100%; border-radius: 2px; background: var(--green); }
+  .smart-swap-btn, .smart-remove-btn {
+    padding: 4px 10px; border-radius: var(--radius-pill);
+    border: 1.5px solid var(--border); background: transparent;
+    color: var(--text-dim); font-size: var(--text-xs); cursor: pointer;
+    font-weight: 600;
+  }
+  .smart-swap-btn:hover { border-color: var(--bench); color: var(--bench); }
+  .smart-remove-btn:hover { border-color: var(--red); color: var(--red); }
+  .smart-alternatives {
+    background: var(--surface2); border-radius: var(--radius-md);
+    padding: var(--space-2); margin-top: var(--space-2);
+    max-height: 200px; overflow-y: auto;
+  }
+  .smart-alt-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px var(--space-2); cursor: pointer; border-radius: var(--radius-sm);
+  }
+  .smart-alt-item:hover { background: var(--surface); }
+  .smart-lift-selector {
+    display: flex; gap: var(--space-2); margin-bottom: var(--space-3);
+  }
+  .smart-lift-btn {
+    flex: 1; padding: 10px; border: 2px solid var(--border); border-radius: var(--radius-md);
+    background: transparent; color: var(--text); font-size: var(--text-sm);
+    font-weight: 600; cursor: pointer; text-align: center;
+  }
+  .smart-lift-btn.active { border-color: var(--green); background: rgba(67,160,71,0.08); color: var(--green); }
+  .smart-lift-btn.suggested { position: relative; }
+  .smart-lift-btn.suggested::after {
+    content: 'Suggested'; position: absolute; top: -8px; right: -4px;
+    font-size: 0.5rem; padding: 1px 5px; border-radius: var(--radius-pill);
+    background: var(--green); color: #fff; font-weight: 700;
+  }
+
+  /* Mesocycle timeline */
+  .meso-timeline {
+    display: flex; gap: var(--space-2); overflow-x: auto; padding: var(--space-2) 0;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .meso-timeline::-webkit-scrollbar { display: none; }
+  .meso-week-card {
+    min-width: 80px; padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md); background: var(--surface);
+    border: 2px solid transparent; text-align: center; flex-shrink: 0; cursor: pointer;
+  }
+  .meso-week-card.current { border-color: var(--bench); background: rgba(30,136,229,0.06); }
+  .meso-week-card.completed { opacity: 0.6; }
+  .meso-week-card.adapted { border-color: var(--gold); }
+  .meso-week-num { font-size: var(--text-xs); font-weight: 700; color: var(--text-strong); }
+  .meso-week-phase { font-size: 0.6rem; color: var(--text-dim); margin-top: 2px; }
+  .meso-week-check { color: var(--green); font-size: var(--text-xs); margin-top: 2px; }
+  .meso-week-rpe { font-size: 0.6rem; color: var(--text-dim); margin-top: 2px; }
+
+  /* Meso generator pills */
+  .meso-pills { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
+  .meso-pill {
+    padding: 8px 16px; border: 2px solid var(--border); border-radius: var(--radius-pill);
+    background: transparent; color: var(--text); font-size: var(--text-sm);
+    font-weight: 600; cursor: pointer; transition: all var(--transition-fast);
+  }
+  .meso-pill.active { border-color: var(--bench); background: rgba(30,136,229,0.08); color: var(--bench); }
+
+  /* Template list */
+  .template-list { display: flex; flex-direction: column; gap: var(--space-2); }
+  .template-card {
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: var(--space-3); background: var(--surface); border-radius: var(--radius-lg);
+    cursor: pointer; transition: all var(--transition-fast);
+  }
+  .template-card:hover { background: var(--surface2); }
+  .template-card-info { flex: 1; min-width: 0; }
+  .template-card-name { font-size: var(--text-sm); font-weight: 700; color: var(--text-strong); }
+  .template-card-meta { font-size: var(--text-xs); color: var(--text-dim); margin-top: 2px; }
+  .template-card-actions { display: flex; gap: 4px; }
+
+  /* Post-workout summary */
+  .meso-summary-card {
+    background: var(--surface); border-radius: var(--radius-lg);
+    padding: var(--space-4); margin: var(--space-3) 0;
+    border: 1px solid var(--border);
+  }
+  .meso-summary-title {
+    font-size: var(--text-base); font-weight: 700; color: var(--text-strong);
+    margin-bottom: var(--space-3);
+  }
+  .meso-summary-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0; font-size: var(--text-sm); border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  .meso-summary-row:last-child { border-bottom: none; }
+  .meso-summary-label { color: var(--text-dim); }
+  .meso-summary-value { font-weight: 600; color: var(--text-strong); }
+
   .workout-no-program {
     text-align: center; padding: var(--space-4); font-size: var(--text-sm);
     color: var(--text-dim); line-height: 1.5;
@@ -1916,6 +2165,32 @@
 
   <input type="file" id="import-file" accept=".json" style="display:none">
 
+  <!-- Workout Choice Sheet -->
+  <div class="choice-sheet-backdrop" id="choice-sheet-backdrop" style="display:none"></div>
+  <div class="choice-sheet" id="choice-sheet" style="display:none">
+    <div class="choice-sheet-handle"></div>
+    <div class="choice-sheet-header">
+      <h3 id="choice-sheet-title">Start Workout</h3>
+      <button class="modal-close" id="choice-sheet-close">&times;</button>
+    </div>
+    <div class="choice-sheet-body" id="choice-sheet-body"></div>
+  </div>
+
+  <!-- Builder Overlay -->
+  <div class="builder-overlay" id="builder-overlay" style="display:none">
+    <div class="builder-header">
+      <div>
+        <div class="builder-header-title" id="builder-title">Build Workout</div>
+      </div>
+      <button class="workout-close-btn" id="builder-close">&times;</button>
+    </div>
+    <div class="builder-body" id="builder-body"></div>
+    <div class="builder-footer">
+      <button class="btn-secondary" id="builder-save-template">Save Template</button>
+      <button class="btn-primary" id="builder-start">Start Workout</button>
+    </div>
+  </div>
+
   <!-- Workout Overlay -->
   <div class="workout-overlay" id="workout-overlay" style="display:none">
     <div class="workout-header">
@@ -2068,6 +2343,9 @@
   const WORKOUT_KEY = 'sbd-tracker-workout';
   const ACCESSORY_LOG_KEY = 'sbd-tracker-acc-log';
   const WORKOUT_SESSION_KEY = 'sbd-tracker-workout-session';
+  const CUSTOM_TEMPLATES_KEY = 'sbd-tracker-custom-templates';
+  const MESOCYCLE_KEY = 'sbd-tracker-mesocycle';
+  const MESOCYCLE_HISTORY_KEY = 'sbd-tracker-mesocycle-history';
 
   const TOTAL_MILESTONES = [500, 750, 1000, 1250, 1500, 2000];
   const TOTAL_MILESTONE_THEMES = {
@@ -2355,6 +2633,10 @@
   let workoutConfig = { weakPoints: { squat: null, bench: null, deadlift: null }, setupComplete: false };
   let accessoryLog = [];
   let workoutSession = null;
+  let customTemplates = [];
+  let activeMesocycle = null;
+  let mesocycleHistory = [];
+  let builderExercises = [];
   let calendarMonth = new Date();
 
   // ===== DOM REFS =====
@@ -2382,6 +2664,9 @@
     loadWorkoutConfig();
     loadAccessoryLog();
     loadWorkoutSession();
+    loadCustomTemplates();
+    loadMesocycle();
+    loadMesocycleHistory();
 
     const version = parseInt(localStorage.getItem(VERSION_KEY)) || 0;
     if (version < CURRENT_VERSION) migrate(version);
@@ -2444,6 +2729,34 @@
       if (workoutSession) localStorage.setItem(WORKOUT_SESSION_KEY, JSON.stringify(workoutSession));
       else localStorage.removeItem(WORKOUT_SESSION_KEY);
     } catch (e) {
+      if (e.name === 'QuotaExceededError' || e.code === 22) showToast('Storage full! Export your data.');
+    }
+  }
+
+  function loadCustomTemplates() {
+    try { customTemplates = JSON.parse(localStorage.getItem(CUSTOM_TEMPLATES_KEY)) || []; } catch { customTemplates = []; }
+  }
+  function saveCustomTemplates() {
+    try { localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(customTemplates)); } catch (e) {
+      if (e.name === 'QuotaExceededError' || e.code === 22) showToast('Storage full! Export your data.');
+    }
+  }
+  function loadMesocycle() {
+    try { const s = localStorage.getItem(MESOCYCLE_KEY); activeMesocycle = s ? JSON.parse(s) : null; } catch { activeMesocycle = null; }
+  }
+  function saveMesocycle() {
+    try {
+      if (activeMesocycle) localStorage.setItem(MESOCYCLE_KEY, JSON.stringify(activeMesocycle));
+      else localStorage.removeItem(MESOCYCLE_KEY);
+    } catch (e) {
+      if (e.name === 'QuotaExceededError' || e.code === 22) showToast('Storage full! Export your data.');
+    }
+  }
+  function loadMesocycleHistory() {
+    try { mesocycleHistory = JSON.parse(localStorage.getItem(MESOCYCLE_HISTORY_KEY)) || []; } catch { mesocycleHistory = []; }
+  }
+  function saveMesocycleHistory() {
+    try { localStorage.setItem(MESOCYCLE_HISTORY_KEY, JSON.stringify(mesocycleHistory)); } catch (e) {
       if (e.name === 'QuotaExceededError' || e.code === 22) showToast('Storage full! Export your data.');
     }
   }
@@ -3374,6 +3687,1316 @@
       recent.setsCompleted.every(reps => reps >= ex.repRange[1]);
   }
 
+  // ===== SMART WORKOUT SYSTEM =====
+
+  // --- Phase 2: Smart Recommendations ---
+  function suggestMainLift() {
+    const scores = {};
+    const reasons = {};
+    LIFTS.forEach(lift => {
+      let score = 0;
+      const r = [];
+      // Recency
+      const liftEntries = entries.filter(e => e.lift === lift).sort((a, b) => b.timestamp - a.timestamp);
+      if (liftEntries.length > 0) {
+        const daysSince = Math.floor((Date.now() - liftEntries[0].timestamp) / MS_PER_DAY);
+        const recencyScore = Math.min(30, daysSince * 5);
+        score += recencyScore;
+        if (daysSince >= 3) r.push(`${daysSince}d since last session`);
+      } else {
+        score += 30;
+        r.push('Never trained');
+      }
+      // Fatigue
+      const liftFatigue = calcFatigueLift(lift);
+      if (liftFatigue) {
+        if (liftFatigue.status === 'green') { score += 20; r.push('Well recovered'); }
+        else if (liftFatigue.status === 'yellow') { score += 10; r.push('Moderate fatigue'); }
+        else { score -= 10; r.push('High fatigue'); }
+      }
+      // Plateau
+      if (detectPlateau(lift)) { score += 15; r.push('Plateau detected'); }
+      // Declining trend
+      const prog = calcProgression(lift);
+      if (prog && prog.direction === 'down') { score += 10; r.push('Declining trend'); }
+      scores[lift] = score;
+      reasons[lift] = r;
+    });
+    const best = LIFTS.reduce((a, b) => scores[a] >= scores[b] ? a : b);
+    return { lift: best, scores, reasons };
+  }
+
+  function calcFatigueLift(lift) {
+    const now = Date.now(), day = MS_PER_DAY;
+    const e7 = entries.filter(e => e.lift === lift && (now - e.timestamp) <= 7 * day);
+    const e28 = entries.filter(e => e.lift === lift && (now - e.timestamp) <= 28 * day);
+    if (e28.length < 2) return null;
+    const ton7 = e7.reduce((s, e) => s + e.weight * e.reps, 0);
+    const ton28 = e28.reduce((s, e) => s + e.weight * e.reps, 0);
+    const weeklyAvg28 = ton28 / 4;
+    const acwr = weeklyAvg28 > 0 ? ton7 / weeklyAvg28 : null;
+    let status = 'green';
+    if (acwr !== null) {
+      if (acwr > 1.3) status = 'red';
+      else if (acwr > 1.1) status = 'yellow';
+    }
+    return { acwr, status };
+  }
+
+  function suggestIntensity(lift) {
+    // If mesocycle active, use mesocycle prescription
+    if (activeMesocycle && activeMesocycle.status === 'active') {
+      const week = activeMesocycle.weeks[activeMesocycle.currentWeek - 1];
+      if (week && week.workouts[lift]) {
+        const w = week.workouts[lift];
+        const liftFatigue = calcFatigueLift(lift);
+        // Temper if red fatigue
+        if (liftFatigue && liftFatigue.status === 'red') {
+          return { pctTM: Math.max(60, (w.mainSets[0]?.pct || 75) - 10), rpe: Math.max(6, week.targetRPE - 1), sets: Math.max(3, w.mainSets.length - 1), reps: w.mainSets[0]?.reps || 5 };
+        }
+        return { pctTM: w.mainSets[0]?.pct || 75, rpe: week.targetRPE, sets: w.mainSets.length, reps: w.mainSets[0]?.reps || 5 };
+      }
+    }
+    // Fatigue-based
+    const fatigue = calcFatigueLift(lift);
+    const status = fatigue ? fatigue.status : 'green';
+    if (status === 'red') return { pctTM: 65, rpe: 6, sets: 3, reps: 5 };
+    if (status === 'yellow') return { pctTM: 75, rpe: 7, sets: 4, reps: 5 };
+    return { pctTM: 82.5, rpe: 8, sets: 5, reps: 3 };
+  }
+
+  function scoreAccessories(mainLift) {
+    const weakPoint = workoutConfig.weakPoints[mainLift];
+    const now = Date.now();
+    const muscleFatigue = calcFatigueByMuscle();
+    return Object.entries(ACCESSORY_DB)
+      .filter(([, ex]) => ex.mainLift === mainLift)
+      .map(([id, ex]) => {
+        let score = 0;
+        const r = [];
+        // Weak point alignment
+        if (weakPoint && ex.weakPoints.includes(weakPoint)) { score += 25; r.push('Targets weak point'); }
+        // Recency
+        const recent = accessoryLog.filter(l => l.exerciseId === id).sort((a, b) => b.timestamp - a.timestamp)[0];
+        if (recent) {
+          const daysSince = Math.floor((now - recent.timestamp) / MS_PER_DAY);
+          const recencyScore = Math.min(20, daysSince * 2);
+          score += recencyScore;
+          if (daysSince >= 5) r.push(`${daysSince}d since last`);
+        } else {
+          score += 20;
+          r.push('Not yet performed');
+        }
+        // Muscle group fatigue
+        if (muscleFatigue) {
+          const catWeights = ACCESSORY_CAT_WEIGHTS[ex.category];
+          if (catWeights) {
+            MUSCLE_GROUPS.forEach(mg => {
+              if (catWeights[mg] > 0 && muscleFatigue[mg]) {
+                if (muscleFatigue[mg].status === 'green') { score += 5; }
+                else if (muscleFatigue[mg].status === 'red') { score -= 10; r.push(`${mg} fatigued`); }
+              }
+            });
+          }
+        }
+        // Progression signal
+        if (recent && checkAccessoryProgression(id, mainLift)) { score += 10; r.push('Ready for weight increase'); }
+        return { id, ...ex, score, reasons: r };
+      })
+      .sort((a, b) => b.score - a.score);
+  }
+
+  function selectSmartAccessories(mainLift, count) {
+    count = count || 5;
+    const scored = scoreAccessories(mainLift);
+    const picked = [];
+    const usedCategories = new Set();
+    const usedEquip = new Set();
+    // Pass 1: one per category (highest scorer)
+    for (const ex of scored) {
+      if (picked.length >= count) break;
+      if (!usedCategories.has(ex.category)) {
+        picked.push(ex);
+        usedCategories.add(ex.category);
+        usedEquip.add(ex.equipment);
+      }
+    }
+    // Pass 2: equipment diversity
+    for (const ex of scored) {
+      if (picked.length >= count) break;
+      if (!picked.some(p => p.id === ex.id) && !usedEquip.has(ex.equipment)) {
+        picked.push(ex);
+        usedEquip.add(ex.equipment);
+      }
+    }
+    // Pass 3: pure score
+    for (const ex of scored) {
+      if (picked.length >= count) break;
+      if (!picked.some(p => p.id === ex.id)) picked.push(ex);
+    }
+    return picked;
+  }
+
+  // --- Phase 3: Mesocycle Generator ---
+  const MESO_GOALS = {
+    hypertrophy: { label: 'Hypertrophy', pctRange: [65, 75], repRange: [8, 10], rpeRange: [6, 8], defaultWeeks: 6 },
+    strength: { label: 'Strength', pctRange: [75, 92.5], repRange: [2, 5], rpeRange: [7, 9], defaultWeeks: 6 },
+    peaking: { label: 'Peaking', pctRange: [85, 97.5], repRange: [1, 3], rpeRange: [8, 9.5], defaultWeeks: 4 },
+    deload: { label: 'Deload', pctRange: [50, 60], repRange: [5, 5], rpeRange: [5, 5], defaultWeeks: 1 }
+  };
+
+  function generateMesocycle(goal, model, durationWeeks, includeOptional) {
+    const goalDef = MESO_GOALS[goal];
+    if (!goalDef) return null;
+    const baseTMs = {};
+    LIFTS.forEach(l => {
+      baseTMs[l] = programConfig.trainingMaxes[l] || (bestE1RM(l) ? Math.round(bestE1RM(l) * 0.9) : 0);
+    });
+    if (LIFTS.some(l => !baseTMs[l])) return null;
+
+    const now = new Date();
+    const meso = {
+      id: now.getTime().toString(36) + Math.random().toString(36).slice(2, 6),
+      name: `${goalDef.label} ${model.charAt(0).toUpperCase() + model.slice(1)} ${durationWeeks}W`,
+      goal, model, durationWeeks,
+      startDate: now.toISOString().split('T')[0],
+      createdAt: now.getTime(),
+      baseTMs: { ...baseTMs },
+      currentWeek: 1,
+      weeks: [],
+      adaptationLog: [],
+      status: 'active'
+    };
+
+    for (let w = 1; w <= durationWeeks; w++) {
+      const isDeload = (goal !== 'deload' && w === durationWeeks);
+      const weekData = generateMesoWeek(w, durationWeeks, goal, model, goalDef, baseTMs, isDeload, includeOptional);
+      meso.weeks.push(weekData);
+    }
+    return meso;
+  }
+
+  function generateMesoWeek(weekNum, totalWeeks, goal, model, goalDef, baseTMs, isDeload, includeOptional) {
+    let phase, targetRPE, pct, reps, numSets;
+    if (isDeload) {
+      phase = 'Deload';
+      targetRPE = 5;
+      pct = 55;
+      reps = 5;
+      numSets = 3;
+    } else if (model === 'linear') {
+      const progress = (weekNum - 1) / Math.max(1, totalWeeks - 2);
+      pct = goalDef.pctRange[0] + (goalDef.pctRange[1] - goalDef.pctRange[0]) * progress;
+      reps = Math.round(goalDef.repRange[1] - (goalDef.repRange[1] - goalDef.repRange[0]) * progress);
+      targetRPE = goalDef.rpeRange[0] + (goalDef.rpeRange[1] - goalDef.rpeRange[0]) * progress;
+      numSets = goal === 'hypertrophy' ? 4 : (goal === 'peaking' ? 3 : 5);
+      phase = progress < 0.33 ? 'Accumulation' : progress < 0.66 ? 'Intensification' : 'Realization';
+    } else if (model === 'dup') {
+      const stimuli = ['hypertrophy', 'strength', 'power'];
+      const stimIdx = (weekNum - 1) % 3;
+      const stim = stimuli[stimIdx];
+      if (stim === 'hypertrophy') { pct = 67; reps = 10; targetRPE = 7; numSets = 4; phase = 'Hypertrophy'; }
+      else if (stim === 'strength') { pct = 82; reps = 4; targetRPE = 8; numSets = 5; phase = 'Strength'; }
+      else { pct = 75; reps = 3; targetRPE = 7.5; numSets = 4; phase = 'Power'; }
+      // Progressive overload across cycles
+      const cycleNum = Math.floor((weekNum - 1) / 3);
+      pct += cycleNum * 2;
+    } else { // block
+      const progress = (weekNum - 1) / Math.max(1, totalWeeks - 2);
+      if (progress < 0.4) {
+        phase = 'Accumulation'; pct = goalDef.pctRange[0]; reps = goalDef.repRange[1]; targetRPE = goalDef.rpeRange[0];
+        numSets = goal === 'hypertrophy' ? 5 : 5;
+      } else if (progress < 0.7) {
+        phase = 'Intensification'; pct = (goalDef.pctRange[0] + goalDef.pctRange[1]) / 2; reps = Math.round((goalDef.repRange[0] + goalDef.repRange[1]) / 2);
+        targetRPE = (goalDef.rpeRange[0] + goalDef.rpeRange[1]) / 2; numSets = 4;
+      } else {
+        phase = 'Realization'; pct = goalDef.pctRange[1]; reps = goalDef.repRange[0]; targetRPE = goalDef.rpeRange[1]; numSets = 3;
+      }
+    }
+
+    pct = Math.round(pct * 10) / 10;
+    targetRPE = Math.round(targetRPE * 10) / 10;
+    const accCount = isDeload ? 2 : (phase === 'Accumulation' ? 5 : phase === 'Realization' ? 3 : 4);
+
+    const workouts = {};
+    LIFTS.forEach(lift => {
+      const tm = baseTMs[lift];
+      const mainSets = [];
+      for (let s = 0; s < numSets; s++) {
+        const setPct = isDeload ? 55 : pct + (s - Math.floor(numSets / 2)) * 2.5;
+        mainSets.push({
+          pct: Math.round(Math.max(50, Math.min(100, setPct)) * 10) / 10,
+          weight: roundToPlate(tm * Math.max(50, Math.min(100, setPct)) / 100),
+          reps,
+          completed: false
+        });
+      }
+      const smartAccs = selectSmartAccessories(lift, accCount);
+      workouts[lift] = {
+        mainSets,
+        accessories: smartAccs.map(a => ({ exerciseId: a.id, name: a.name, sets: a.sets, repRange: a.repRange, equipment: a.equipment })),
+        volumeTarget: numSets * reps
+      };
+    });
+
+    const week = {
+      weekNum, label: `Week ${weekNum}`, phase, targetRPE,
+      workouts, completed: {}, performance: {}, adapted: false
+    };
+
+    // Optional light days
+    if (includeOptional && !isDeload) {
+      week.optionalDays = LIFTS.map(lift => ({
+        lift, pct: 60,
+        mainSets: [{ pct: 60, weight: roundToPlate(baseTMs[lift] * 0.6), reps: 5, completed: false }],
+        accessories: selectSmartAccessories(lift, 4).map(a => ({ exerciseId: a.id, name: a.name, sets: a.sets, repRange: a.repRange, equipment: a.equipment }))
+      }));
+    }
+
+    return week;
+  }
+
+  // --- Phase 4: Performance Adaptation ---
+  function recordMesocyclePerformance(session) {
+    if (!activeMesocycle || activeMesocycle.status !== 'active') return;
+    const weekIdx = activeMesocycle.currentWeek - 1;
+    const week = activeMesocycle.weeks[weekIdx];
+    if (!week) return;
+    const lift = session.mainLift;
+
+    // Estimate actual RPE from AMRAP or completion
+    const completedMain = session.mainSets.filter(s => s.completed);
+    let actualRPE = week.targetRPE;
+    const lastSet = completedMain[completedMain.length - 1];
+    if (lastSet && typeof lastSet.reps === 'string' && lastSet.reps.includes('+')) {
+      const minReps = parseInt(lastSet.reps);
+      const amrapKey = `${lift}-${session.programWeek || 1}-${session.mainSets.indexOf(lastSet)}`;
+      const amrapReps = programConfig.amrapResults[amrapKey] || minReps;
+      const extraReps = amrapReps - minReps;
+      actualRPE = Math.max(5, week.targetRPE - extraReps * 0.5);
+    } else {
+      // Estimate: if all sets done, RPE ~= target; if missed sets, higher RPE
+      const prescribed = week.workouts[lift]?.mainSets?.length || 0;
+      if (prescribed > 0 && completedMain.length < prescribed) {
+        actualRPE = Math.min(10, week.targetRPE + (prescribed - completedMain.length));
+      }
+    }
+
+    const totalReps = completedMain.reduce((s, set) => {
+      const r = typeof set.reps === 'string' ? parseInt(set.reps) : set.reps;
+      return s + (r || 0);
+    }, 0);
+
+    week.performance[lift] = {
+      completedSets: completedMain.length,
+      totalReps,
+      actualRPE: Math.round(actualRPE * 10) / 10,
+      timestamp: Date.now()
+    };
+
+    // Check if all 3 lifts done this week
+    const allDone = LIFTS.every(l => week.performance[l]);
+    if (allDone) {
+      week.completed = true;
+      if (activeMesocycle.currentWeek < activeMesocycle.durationWeeks) {
+        activeMesocycle.currentWeek++;
+      } else {
+        activeMesocycle.status = 'completed';
+        mesocycleHistory.push({ ...activeMesocycle });
+        saveMesocycleHistory();
+        activeMesocycle = null;
+        showToast('Mesocycle completed!');
+      }
+    }
+    saveMesocycle();
+  }
+
+  function adaptRemainingWeeks(lift) {
+    if (!activeMesocycle || activeMesocycle.status !== 'active') return null;
+    const weekIdx = activeMesocycle.currentWeek - 2; // Just completed week (currentWeek already advanced)
+    const week = activeMesocycle.weeks[weekIdx];
+    if (!week || !week.performance[lift]) return null;
+
+    const perf = week.performance[lift];
+    const rpeDiff = perf.actualRPE - week.targetRPE;
+    let adaptation = null;
+
+    if (rpeDiff <= -1.5) {
+      // Exceeding targets: increase intensity
+      const increase = rpeDiff <= -2.5 ? 5 : 2.5;
+      adaptation = { type: 'increase', pctChange: increase, reason: `RPE ${perf.actualRPE} well below target ${week.targetRPE}` };
+      for (let i = activeMesocycle.currentWeek - 1; i < activeMesocycle.weeks.length; i++) {
+        const futureWeek = activeMesocycle.weeks[i];
+        if (futureWeek.phase === 'Deload') continue;
+        if (futureWeek.workouts[lift]) {
+          futureWeek.workouts[lift].mainSets.forEach(s => {
+            s.pct = Math.min(100, s.pct + increase);
+            s.weight = roundToPlate(activeMesocycle.baseTMs[lift] * s.pct / 100);
+          });
+          futureWeek.adapted = true;
+        }
+      }
+    } else if (rpeDiff >= 1.5) {
+      // Missing targets: reduce intensity and volume
+      const decrease = 2.5;
+      adaptation = { type: 'decrease', pctChange: -decrease, reason: `RPE ${perf.actualRPE} above target ${week.targetRPE}` };
+      for (let i = activeMesocycle.currentWeek - 1; i < activeMesocycle.weeks.length; i++) {
+        const futureWeek = activeMesocycle.weeks[i];
+        if (futureWeek.phase === 'Deload') continue;
+        if (futureWeek.workouts[lift]) {
+          futureWeek.workouts[lift].mainSets.forEach(s => {
+            s.pct = Math.max(50, s.pct - decrease);
+            s.weight = roundToPlate(activeMesocycle.baseTMs[lift] * s.pct / 100);
+          });
+          // Reduce volume by removing last set if > 3
+          if (futureWeek.workouts[lift].mainSets.length > 3) {
+            futureWeek.workouts[lift].mainSets.pop();
+          }
+          futureWeek.adapted = true;
+        }
+      }
+    }
+
+    if (adaptation) {
+      activeMesocycle.adaptationLog.push({
+        weekNum: week.weekNum, lift, reason: adaptation.reason,
+        adjustment: `${adaptation.type === 'increase' ? '+' : ''}${adaptation.pctChange}% intensity`,
+        timestamp: Date.now()
+      });
+      saveMesocycle();
+    }
+    return adaptation;
+  }
+
+  // --- Choice Sheet UI ---
+  function openChoiceSheet() {
+    const lift = currentLift;
+    // If resuming an active session for THIS lift, skip choice sheet
+    if (workoutSession && !workoutSession.completed && workoutSession.mainLift === lift) {
+      openWorkoutView(lift);
+      return;
+    }
+    const body = $('choice-sheet-body');
+    $('choice-sheet-title').textContent = `${LIFT_NAMES[lift]} Workout`;
+    let html = '';
+
+    // Mesocycle card (if active)
+    if (activeMesocycle && activeMesocycle.status === 'active') {
+      const week = activeMesocycle.weeks[activeMesocycle.currentWeek - 1];
+      const phase = week ? week.phase : '';
+      const liftDone = week && week.performance[lift];
+      html += `<div class="meso-timeline" id="choice-meso-timeline">`;
+      activeMesocycle.weeks.forEach((w, i) => {
+        const isCurrent = i === activeMesocycle.currentWeek - 1;
+        const isCompleted = w.completed;
+        const liftsDone = LIFTS.filter(l => w.performance[l]).length;
+        html += `<div class="meso-week-card${isCurrent ? ' current' : ''}${isCompleted ? ' completed' : ''}${w.adapted ? ' adapted' : ''}" data-week="${i}">
+          <div class="meso-week-num">W${w.weekNum}</div>
+          <div class="meso-week-phase">${w.phase}</div>
+          ${isCompleted ? '<div class="meso-week-check">&#10003; &#10003; &#10003;</div>' : `<div class="meso-week-check">${'&#10003; '.repeat(liftsDone)}</div>`}
+          <div class="meso-week-rpe">RPE ${w.targetRPE}</div>
+        </div>`;
+      });
+      html += `</div>`;
+      html += `<div class="choice-card meso-active" data-action="mesocycle">
+        <div class="choice-card-icon blue">&#9776;</div>
+        <div class="choice-card-text">
+          <div class="choice-card-title">Mesocycle: Week ${activeMesocycle.currentWeek} ${liftDone ? '(Done)' : ''}</div>
+          <div class="choice-card-desc">${activeMesocycle.name} &bull; ${phase}</div>
+        </div>
+        <div class="choice-card-arrow">&#8250;</div>
+      </div>`;
+      // Scroll timeline to current week
+      setTimeout(() => {
+        const timeline = $('choice-meso-timeline');
+        if (timeline) {
+          const current = timeline.querySelector('.current');
+          if (current) current.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+      }, 50);
+    }
+
+    // Quick Start
+    html += `<div class="choice-card" data-action="quick">
+      <div class="choice-card-icon green">&#9889;</div>
+      <div class="choice-card-text">
+        <div class="choice-card-title">Quick Start</div>
+        <div class="choice-card-desc">Auto-generate based on weak points${programConfig.activeProgram ? ' + ' + PROGRAM_TEMPLATES[programConfig.activeProgram].name : ''}</div>
+      </div>
+      <div class="choice-card-arrow">&#8250;</div>
+    </div>`;
+
+    // Smart Workout
+    html += `<div class="choice-card" data-action="smart">
+      <div class="choice-card-icon gold">&#129504;</div>
+      <div class="choice-card-text">
+        <div class="choice-card-title">Smart Workout</div>
+        <div class="choice-card-desc">AI-suggested based on history, fatigue & progression</div>
+      </div>
+      <div class="choice-card-arrow">&#8250;</div>
+    </div>`;
+
+    // Build Custom
+    html += `<div class="choice-card" data-action="custom">
+      <div class="choice-card-icon purple">&#9998;</div>
+      <div class="choice-card-text">
+        <div class="choice-card-title">Build Custom</div>
+        <div class="choice-card-desc">Full workout builder with exercise browser</div>
+      </div>
+      <div class="choice-card-arrow">&#8250;</div>
+    </div>`;
+
+    // Saved Templates (only if templates exist)
+    if (customTemplates.length > 0) {
+      const liftTemplates = customTemplates.filter(t => t.mainLift === currentLift);
+      html += `<div class="choice-card" data-action="templates">
+        <div class="choice-card-icon blue">&#128196;</div>
+        <div class="choice-card-text">
+          <div class="choice-card-title">Saved Templates (${liftTemplates.length})</div>
+          <div class="choice-card-desc">Load a saved workout template</div>
+        </div>
+        <div class="choice-card-arrow">&#8250;</div>
+      </div>`;
+    }
+
+    // Generate Mesocycle (only if no active)
+    if (!activeMesocycle) {
+      html += `<div class="choice-card" data-action="mesogen">
+        <div class="choice-card-icon red">&#128197;</div>
+        <div class="choice-card-text">
+          <div class="choice-card-title">Generate Mesocycle</div>
+          <div class="choice-card-desc">Create a multi-week periodized plan</div>
+        </div>
+        <div class="choice-card-arrow">&#8250;</div>
+      </div>`;
+    } else {
+      // Abandon mesocycle option
+      html += `<div class="choice-card" data-action="abandon-meso" style="opacity:0.6">
+        <div class="choice-card-icon red">&#10005;</div>
+        <div class="choice-card-text">
+          <div class="choice-card-title">Abandon Mesocycle</div>
+          <div class="choice-card-desc">Stop current mesocycle and move to history</div>
+        </div>
+        <div class="choice-card-arrow">&#8250;</div>
+      </div>`;
+    }
+
+    body.innerHTML = html;
+    $('choice-sheet-backdrop').style.display = 'block';
+    $('choice-sheet').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+
+    // Attach click handlers
+    body.querySelectorAll('.choice-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const action = card.dataset.action;
+        closeChoiceSheet();
+        if (action === 'quick') {
+          if (!workoutConfig.weakPoints[currentLift]) { showWeakPointSetupModal(currentLift); return; }
+          openWorkoutView(currentLift);
+        }
+        else if (action === 'smart') openSmartRecommendation();
+        else if (action === 'custom') openBuilder(currentLift);
+        else if (action === 'templates') showTemplateList();
+        else if (action === 'mesocycle') openMesocycleWorkout(currentLift);
+        else if (action === 'mesogen') showMesocycleGenerator();
+        else if (action === 'abandon-meso') abandonMesocycle();
+      });
+    });
+
+    // Week card clicks for detail
+    body.querySelectorAll('.meso-week-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showMesoWeekDetail(parseInt(card.dataset.week));
+      });
+    });
+  }
+
+  function closeChoiceSheet() {
+    $('choice-sheet-backdrop').style.display = 'none';
+    $('choice-sheet').style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  // --- Builder UI ---
+  function openBuilder(mainLift, preloadExercises) {
+    builderExercises = preloadExercises || [];
+    // Always add main lift as first exercise if not present
+    if (!builderExercises.some(e => e.type === 'main')) {
+      builderExercises.unshift({
+        type: 'main', exerciseId: mainLift, name: LIFT_NAMES[mainLift],
+        sets: 5, reps: 5, weightMode: 'program', weightValue: 0,
+        equipment: 'barbell', repRange: [1, 5], order: 0
+      });
+    }
+    $('builder-title').textContent = `Build ${LIFT_NAMES[mainLift]} Workout`;
+    $('builder-overlay').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    renderBuilder(mainLift);
+  }
+
+  function closeBuilder() {
+    $('builder-overlay').style.display = 'none';
+    document.body.style.overflow = '';
+    builderExercises = [];
+  }
+
+  function renderBuilder(mainLift) {
+    const body = $('builder-body');
+    let html = '';
+
+    // Exercise list
+    builderExercises.forEach((ex, i) => {
+      const isMain = ex.type === 'main';
+      html += `<div class="builder-exercise${isMain ? ` main-lift ${mainLift}` : ''}">
+        <div class="builder-exercise-info">
+          <div class="builder-exercise-name">${escapeHTML(ex.name)}</div>
+          <div class="builder-exercise-meta">${ex.equipment}${!isMain ? ` &bull; ${ex.sets}x${Array.isArray(ex.repRange) ? ex.repRange.join('-') : ex.reps}` : ''}</div>
+        </div>
+        <div class="builder-exercise-controls">
+          <input type="number" value="${ex.sets}" min="1" max="10" data-field="sets" data-idx="${i}" inputmode="numeric" title="Sets">
+          <span style="color:var(--text-dim);font-size:0.7rem;align-self:center">x</span>
+          <input type="number" value="${Array.isArray(ex.repRange) ? ex.repRange[1] : ex.reps}" min="1" max="30" data-field="reps" data-idx="${i}" inputmode="numeric" title="Reps">
+        </div>
+        ${!isMain ? `<div style="display:flex;flex-direction:column;gap:2px">
+          <button class="builder-btn-sm" data-move="up" data-idx="${i}" title="Move up">&uarr;</button>
+          <button class="builder-btn-sm" data-move="down" data-idx="${i}" title="Move down">&darr;</button>
+        </div>
+        <button class="builder-btn-sm danger" data-remove="${i}" title="Remove">&times;</button>` : ''}
+      </div>`;
+    });
+
+    // Exercise browser
+    html += `<div class="exercise-browser">
+      <div class="exercise-browser-header">
+        <input type="text" class="exercise-browser-search" id="builder-search" placeholder="Search exercises...">
+      </div>
+      <div class="exercise-browser-list" id="builder-exercise-list">`;
+    html += renderExerciseBrowserList(mainLift, '');
+    html += `</div>`;
+
+    // Custom exercise form
+    html += `<div class="custom-exercise-form" id="builder-custom-form" style="display:none">
+      <div style="font-size:var(--text-xs);font-weight:700;color:var(--text-dim);text-transform:uppercase">Custom Exercise</div>
+      <input type="text" id="custom-ex-name" placeholder="Exercise name">
+      <div class="custom-exercise-row">
+        <input type="number" id="custom-ex-sets" placeholder="Sets" value="3" min="1" inputmode="numeric">
+        <input type="number" id="custom-ex-reps" placeholder="Reps" value="10" min="1" inputmode="numeric">
+      </div>
+      <div class="custom-exercise-row">
+        <select id="custom-ex-equip">
+          <option value="barbell">Barbell</option>
+          <option value="dumbbell">Dumbbell</option>
+          <option value="cable">Cable</option>
+          <option value="machine">Machine</option>
+          <option value="bodyweight">Bodyweight</option>
+        </select>
+        <button class="btn-primary" id="custom-ex-add" style="padding:8px 16px;font-size:var(--text-sm)">Add</button>
+      </div>
+    </div>`;
+
+    html += `<button style="width:100%;padding:10px;margin-top:var(--space-2);border:2px dashed var(--border);border-radius:var(--radius-lg);background:transparent;color:var(--text-dim);font-size:var(--text-sm);cursor:pointer" id="builder-toggle-custom">+ Add Custom Exercise</button>`;
+    html += `</div>`;
+
+    body.innerHTML = html;
+    attachBuilderListeners(mainLift);
+  }
+
+  function renderExerciseBrowserList(mainLift, query) {
+    const addedIds = new Set(builderExercises.filter(e => e.type !== 'main').map(e => e.exerciseId));
+    const allForLift = Object.entries(ACCESSORY_DB).filter(([, ex]) => ex.mainLift === mainLift);
+    const filtered = query
+      ? allForLift.filter(([, ex]) => ex.name.toLowerCase().includes(query.toLowerCase()) || ex.category.toLowerCase().includes(query.toLowerCase()))
+      : allForLift;
+
+    // Group by category
+    const groups = {};
+    filtered.forEach(([id, ex]) => {
+      if (!groups[ex.category]) groups[ex.category] = [];
+      groups[ex.category].push({ id, ...ex });
+    });
+
+    let html = '';
+    Object.keys(groups).sort().forEach(cat => {
+      html += `<div class="exercise-browser-cat">${cat.replace(/-/g, ' ')}</div>`;
+      groups[cat].forEach(ex => {
+        const added = addedIds.has(ex.id);
+        html += `<div class="exercise-browser-item${added ? ' added' : ''}" data-exid="${ex.id}">
+          <span class="exercise-browser-item-name">${ex.name}</span>
+          <span class="exercise-browser-item-equip">${ex.equipment}</span>
+        </div>`;
+      });
+    });
+    return html || '<div style="padding:16px;text-align:center;color:var(--text-dim);font-size:var(--text-sm)">No exercises found</div>';
+  }
+
+  function attachBuilderListeners(mainLift) {
+    const body = $('builder-body');
+
+    // Sets/reps inputs
+    body.querySelectorAll('input[data-field]').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const idx = parseInt(inp.dataset.idx);
+        const field = inp.dataset.field;
+        const val = parseInt(inp.value) || 1;
+        if (field === 'sets') builderExercises[idx].sets = val;
+        else if (field === 'reps') {
+          builderExercises[idx].reps = val;
+          if (Array.isArray(builderExercises[idx].repRange)) {
+            builderExercises[idx].repRange[1] = val;
+          }
+        }
+      });
+      inp.addEventListener('click', e => e.stopPropagation());
+    });
+
+    // Move buttons
+    body.querySelectorAll('[data-move]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.idx);
+        const dir = btn.dataset.move === 'up' ? -1 : 1;
+        const newIdx = idx + dir;
+        if (newIdx < 1 || newIdx >= builderExercises.length) return; // can't move past main lift
+        [builderExercises[idx], builderExercises[newIdx]] = [builderExercises[newIdx], builderExercises[idx]];
+        renderBuilder(mainLift);
+      });
+    });
+
+    // Remove buttons
+    body.querySelectorAll('[data-remove]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        builderExercises.splice(parseInt(btn.dataset.remove), 1);
+        renderBuilder(mainLift);
+      });
+    });
+
+    // Exercise browser items
+    body.querySelectorAll('.exercise-browser-item:not(.added)').forEach(item => {
+      item.addEventListener('click', () => {
+        const exId = item.dataset.exid;
+        const ex = ACCESSORY_DB[exId];
+        if (!ex) return;
+        builderExercises.push({
+          type: 'accessory', exerciseId: exId, name: ex.name,
+          sets: ex.sets, reps: ex.repRange[1], weightMode: 'auto', weightValue: 0,
+          equipment: ex.equipment, repRange: [...ex.repRange], order: builderExercises.length
+        });
+        renderBuilder(mainLift);
+      });
+    });
+
+    // Search
+    const search = $('builder-search');
+    if (search) {
+      search.addEventListener('input', () => {
+        $('builder-exercise-list').innerHTML = renderExerciseBrowserList(mainLift, search.value);
+        // Re-attach click handlers
+        $('builder-exercise-list').querySelectorAll('.exercise-browser-item:not(.added)').forEach(item => {
+          item.addEventListener('click', () => {
+            const exId = item.dataset.exid;
+            const ex = ACCESSORY_DB[exId];
+            if (!ex) return;
+            builderExercises.push({
+              type: 'accessory', exerciseId: exId, name: ex.name,
+              sets: ex.sets, reps: ex.repRange[1], weightMode: 'auto', weightValue: 0,
+              equipment: ex.equipment, repRange: [...ex.repRange], order: builderExercises.length
+            });
+            renderBuilder(mainLift);
+          });
+        });
+      });
+    }
+
+    // Toggle custom form
+    const toggleBtn = $('builder-toggle-custom');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => {
+        const form = $('builder-custom-form');
+        form.style.display = form.style.display === 'none' ? 'flex' : 'none';
+      });
+    }
+
+    // Add custom exercise
+    const addCustom = $('custom-ex-add');
+    if (addCustom) {
+      addCustom.addEventListener('click', () => {
+        const name = $('custom-ex-name').value.trim();
+        if (!name) { showToast('Enter exercise name'); return; }
+        const sets = parseInt($('custom-ex-sets').value) || 3;
+        const reps = parseInt($('custom-ex-reps').value) || 10;
+        const equip = $('custom-ex-equip').value;
+        builderExercises.push({
+          type: 'accessory', exerciseId: 'custom-' + Date.now(), name,
+          sets, reps, weightMode: 'manual', weightValue: 0,
+          equipment: equip, repRange: [reps, reps], order: builderExercises.length, custom: true
+        });
+        $('custom-ex-name').value = '';
+        $('builder-custom-form').style.display = 'none';
+        renderBuilder(mainLift);
+      });
+    }
+  }
+
+  function builderToSession(mainLift) {
+    const now = new Date();
+    const accessories = builderExercises.filter(e => e.type !== 'main').map(ex => {
+      const dbEx = ACCESSORY_DB[ex.exerciseId];
+      const weight = dbEx ? getAccessoryWeight(ex.exerciseId, mainLift) : 0;
+      return {
+        exerciseId: ex.exerciseId,
+        name: ex.name,
+        setWeights: computeSetWeights(weight, ex.sets),
+        targetSets: ex.sets,
+        repRange: Array.isArray(ex.repRange) ? [...ex.repRange] : [ex.reps, ex.reps],
+        equipment: ex.equipment,
+        setsCompleted: [],
+        progressed: dbEx ? checkAccessoryProgression(ex.exerciseId, mainLift) : false
+      };
+    });
+    const session = {
+      id: now.getTime().toString(36) + Math.random().toString(36).slice(2, 6),
+      mainLift,
+      programWeek: findFirstIncompleteWeek(mainLift),
+      date: now.toISOString().split('T')[0],
+      startTime: now.getTime(),
+      mainSets: [],
+      accessories,
+      completed: false,
+      source: 'custom'
+    };
+    const workout = getProgramWorkout(mainLift, session.programWeek);
+    if (workout) {
+      session.mainSets = workout.sets.map(s => ({
+        num: s.num, weight: s.weight, reps: s.reps, pct: s.pct,
+        tier: s.tier, day: s.day, completed: s.completed
+      }));
+    }
+    return session;
+  }
+
+  // --- Template Management ---
+  function saveAsTemplate(mainLift) {
+    const name = prompt('Template name:');
+    if (!name) return;
+    const template = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name: name.trim(),
+      mainLift,
+      createdAt: Date.now(),
+      lastUsed: Date.now(),
+      exercises: builderExercises.map(e => ({ ...e }))
+    };
+    customTemplates.push(template);
+    saveCustomTemplates();
+    scheduleCloudSync();
+    showToast('Template saved: ' + name);
+  }
+
+  function showTemplateList() {
+    const lift = currentLift;
+    const liftTemplates = customTemplates.filter(t => t.mainLift === lift).sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
+    if (liftTemplates.length === 0) {
+      showToast('No templates for ' + LIFT_NAMES[lift]);
+      return;
+    }
+    const body = $('choice-sheet-body');
+    $('choice-sheet-title').textContent = 'Saved Templates';
+    let html = '<div class="template-list">';
+    liftTemplates.forEach(t => {
+      const accCount = t.exercises.filter(e => e.type !== 'main').length;
+      const lastUsed = t.lastUsed ? new Date(t.lastUsed).toLocaleDateString() : 'Never';
+      html += `<div class="template-card" data-tid="${t.id}">
+        <div class="template-card-info">
+          <div class="template-card-name">${escapeHTML(t.name)}</div>
+          <div class="template-card-meta">${accCount} exercises &bull; Last used: ${lastUsed}</div>
+        </div>
+        <div class="template-card-actions">
+          <button class="builder-btn-sm" data-edit-template="${t.id}" title="Edit">&#9998;</button>
+          <button class="builder-btn-sm" data-dup-template="${t.id}" title="Duplicate">&#9901;</button>
+          <button class="builder-btn-sm danger" data-del-template="${t.id}" title="Delete">&times;</button>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+    body.innerHTML = html;
+
+    $('choice-sheet-backdrop').style.display = 'block';
+    $('choice-sheet').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+
+    // Load template
+    body.querySelectorAll('.template-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('[data-edit-template]') || e.target.closest('[data-del-template]') || e.target.closest('[data-dup-template]')) return;
+        const tid = card.dataset.tid;
+        const template = customTemplates.find(t => t.id === tid);
+        if (!template) return;
+        template.lastUsed = Date.now();
+        saveCustomTemplates();
+        closeChoiceSheet();
+        openBuilder(lift, template.exercises.map(e => ({ ...e })));
+      });
+    });
+
+    // Edit template
+    body.querySelectorAll('[data-edit-template]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tid = btn.dataset.editTemplate;
+        const template = customTemplates.find(t => t.id === tid);
+        if (!template) return;
+        closeChoiceSheet();
+        openBuilder(lift, template.exercises.map(e => ({ ...e })));
+        // Override save to update this template
+        $('builder-save-template')._templateId = tid;
+      });
+    });
+
+    // Duplicate template
+    body.querySelectorAll('[data-dup-template]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tid = btn.dataset.dupTemplate;
+        const template = customTemplates.find(t => t.id === tid);
+        if (!template) return;
+        const dup = {
+          ...template,
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+          name: template.name + ' (Copy)',
+          createdAt: Date.now(),
+          lastUsed: null,
+          exercises: template.exercises.map(e => ({ ...e }))
+        };
+        customTemplates.push(dup);
+        saveCustomTemplates();
+        showTemplateList(); // Refresh
+        showToast('Template duplicated');
+      });
+    });
+
+    // Delete template
+    body.querySelectorAll('[data-del-template]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tid = btn.dataset.delTemplate;
+        const idx = customTemplates.findIndex(t => t.id === tid);
+        if (idx === -1) return;
+        const removed = customTemplates.splice(idx, 1)[0];
+        saveCustomTemplates();
+        showTemplateList(); // Refresh
+        // Undo toast
+        const el = $('toast');
+        el.className = 'toast';
+        el.innerHTML = 'Template deleted <button class="toast-undo" id="tmpl-undo-btn">Undo</button>';
+        el.classList.add('show');
+        setTimeout(() => {
+          const undoBtn = $('tmpl-undo-btn');
+          if (undoBtn) undoBtn.addEventListener('click', () => {
+            customTemplates.push(removed);
+            saveCustomTemplates();
+            showToast('Restored');
+          });
+        }, 0);
+        setTimeout(() => el.classList.remove('show'), 10000);
+      });
+    });
+  }
+
+  // --- Smart Recommendation UI ---
+  function openSmartRecommendation() {
+    const suggestion = suggestMainLift();
+    let selectedLift = currentLift;
+
+    function render(lift) {
+      selectedLift = lift;
+      const intensity = suggestIntensity(lift);
+      const smartAccs = selectSmartAccessories(lift, 5);
+      builderExercises = [
+        { type: 'main', exerciseId: lift, name: LIFT_NAMES[lift],
+          sets: intensity.sets, reps: intensity.reps, weightMode: 'program', weightValue: 0,
+          equipment: 'barbell', repRange: [1, intensity.reps], order: 0 }
+      ];
+      smartAccs.forEach((acc, i) => {
+        builderExercises.push({
+          type: 'accessory', exerciseId: acc.id, name: acc.name,
+          sets: acc.sets, reps: acc.repRange[1], weightMode: 'auto', weightValue: 0,
+          equipment: acc.equipment, repRange: [...acc.repRange], order: i + 1,
+          _score: acc.score, _reasons: acc.reasons
+        });
+      });
+
+      const body = $('builder-body');
+      let html = '';
+
+      // Lift selector
+      html += '<div class="smart-lift-selector">';
+      LIFTS.forEach(l => {
+        const isSuggested = l === suggestion.lift;
+        const isActive = l === lift;
+        html += `<button class="smart-lift-btn${isActive ? ' active' : ''}${isSuggested && !isActive ? ' suggested' : ''}" data-smart-lift="${l}">
+          ${LIFT_NAMES[l]}
+          <div style="font-size:0.6rem;color:var(--text-dim)">${suggestion.scores[l]}pts</div>
+        </button>`;
+      });
+      html += '</div>';
+
+      // Reasons for suggested lift
+      if (suggestion.reasons[lift].length > 0) {
+        html += '<div style="margin-bottom:var(--space-3)">';
+        suggestion.reasons[lift].forEach(r => { html += `<span class="smart-reason">${r}</span>`; });
+        html += '</div>';
+      }
+
+      // Intensity suggestion
+      const tm = programConfig.trainingMaxes[lift] || (bestE1RM(lift) ? Math.round(bestE1RM(lift) * 0.9) : 0);
+      const suggestedWeight = tm ? roundToPlate(tm * intensity.pctTM / 100) : 0;
+      html += `<div class="builder-exercise main-lift ${lift}">
+        <div class="builder-exercise-info">
+          <div class="builder-exercise-name">${LIFT_NAMES[lift]}</div>
+          <div class="builder-exercise-meta">${intensity.sets} sets x ${intensity.reps} @ ${intensity.pctTM}% TM${suggestedWeight ? ` (${formatWeight(suggestedWeight)} ${unit})` : ''} &bull; RPE ${intensity.rpe}</div>
+        </div>
+      </div>`;
+
+      // Accessories with scores
+      smartAccs.forEach((acc, i) => {
+        const accIdx = i + 1;
+        html += `<div class="builder-exercise" data-smart-acc="${accIdx}">
+          <div class="builder-exercise-info">
+            <div class="builder-exercise-name">${acc.name}</div>
+            <div class="builder-exercise-meta">${acc.equipment} &bull; ${acc.sets}x${acc.repRange.join('-')}</div>
+            <div class="smart-score-bar"><div class="smart-score-fill" style="width:${acc.score}%"></div></div>
+            <div style="margin-top:2px">${acc.reasons.map(r => `<span class="smart-reason">${r}</span>`).join('')}</div>
+          </div>
+          <div style="display:flex;gap:4px;flex-shrink:0">
+            <button class="smart-swap-btn" data-swap="${accIdx}">Swap</button>
+            <button class="smart-remove-btn" data-smart-remove="${accIdx}">&#10005;</button>
+          </div>
+        </div>`;
+      });
+
+      // Add more button
+      html += `<button style="width:100%;padding:10px;margin-top:var(--space-2);border:2px dashed var(--border);border-radius:var(--radius-lg);background:transparent;color:var(--text-dim);font-size:var(--text-sm);cursor:pointer" id="smart-add-more">+ Add More</button>`;
+
+      body.innerHTML = html;
+
+      // Lift selector clicks
+      body.querySelectorAll('[data-smart-lift]').forEach(btn => {
+        btn.addEventListener('click', () => render(btn.dataset.smartLift));
+      });
+
+      // Remove accessory
+      body.querySelectorAll('[data-smart-remove]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.dataset.smartRemove);
+          builderExercises.splice(idx, 1);
+          render(lift);
+        });
+      });
+
+      // Swap accessory
+      body.querySelectorAll('[data-swap]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const idx = parseInt(btn.dataset.swap);
+          const current = builderExercises[idx];
+          const allScored = scoreAccessories(lift);
+          const usedIds = new Set(builderExercises.map(e => e.exerciseId));
+          const alternatives = allScored.filter(a => !usedIds.has(a.id)).slice(0, 5);
+
+          const container = btn.closest('.builder-exercise');
+          let altEl = container.querySelector('.smart-alternatives');
+          if (altEl) { altEl.remove(); return; }
+
+          altEl = document.createElement('div');
+          altEl.className = 'smart-alternatives';
+          alternatives.forEach(alt => {
+            const item = document.createElement('div');
+            item.className = 'smart-alt-item';
+            item.innerHTML = `<span style="font-size:var(--text-sm)">${alt.name}</span><span style="font-size:var(--text-xs);color:var(--text-dim)">${alt.score}pts</span>`;
+            item.addEventListener('click', () => {
+              builderExercises[idx] = {
+                type: 'accessory', exerciseId: alt.id, name: alt.name,
+                sets: alt.sets, reps: alt.repRange[1], weightMode: 'auto', weightValue: 0,
+                equipment: alt.equipment, repRange: [...alt.repRange], order: idx,
+                _score: alt.score, _reasons: alt.reasons
+              };
+              render(lift);
+            });
+            altEl.appendChild(item);
+          });
+          container.appendChild(altEl);
+        });
+      });
+
+      // Add more
+      const addMoreBtn = $('smart-add-more');
+      if (addMoreBtn) {
+        addMoreBtn.addEventListener('click', () => {
+          const allScored = scoreAccessories(lift);
+          const usedIds = new Set(builderExercises.map(e => e.exerciseId));
+          const next = allScored.find(a => !usedIds.has(a.id));
+          if (next) {
+            builderExercises.push({
+              type: 'accessory', exerciseId: next.id, name: next.name,
+              sets: next.sets, reps: next.repRange[1], weightMode: 'auto', weightValue: 0,
+              equipment: next.equipment, repRange: [...next.repRange], order: builderExercises.length,
+              _score: next.score, _reasons: next.reasons
+            });
+            render(lift);
+          } else {
+            showToast('No more exercises available');
+          }
+        });
+      }
+    }
+
+    $('builder-title').textContent = 'Smart Workout';
+    $('builder-overlay').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    render(currentLift);
+  }
+
+  // --- Mesocycle Generator UI ---
+  function showMesocycleGenerator() {
+    const body = $('edit-body');
+    let selectedGoal = 'strength', selectedModel = 'linear', selectedDuration = 6;
+    let includeOptional = false;
+
+    function renderGenUI() {
+      const hasTMs = LIFTS.every(l => programConfig.trainingMaxes[l] || bestE1RM(l));
+      let html = '<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;font-weight:600">Goal</div>';
+      html += '<div class="meso-pills">';
+      ['hypertrophy', 'strength', 'peaking', 'deload'].forEach(g => {
+        html += `<button class="meso-pill${selectedGoal === g ? ' active' : ''}" data-goal="${g}">${MESO_GOALS[g].label}</button>`;
+      });
+      html += '</div>';
+
+      html += '<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;font-weight:600">Model</div>';
+      html += '<div class="meso-pills">';
+      ['linear', 'dup', 'block'].forEach(m => {
+        const labels = { linear: 'Linear', dup: 'DUP', block: 'Block' };
+        html += `<button class="meso-pill${selectedModel === m ? ' active' : ''}" data-model="${m}">${labels[m]}</button>`;
+      });
+      html += '</div>';
+
+      html += '<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;font-weight:600">Duration</div>';
+      html += '<div class="meso-pills">';
+      [4, 6, 8].forEach(d => {
+        html += `<button class="meso-pill${selectedDuration === d ? ' active' : ''}" data-duration="${d}">${d} weeks</button>`;
+      });
+      html += '</div>';
+
+      html += '<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;font-weight:600;margin-top:var(--space-3)">Training Maxes</div>';
+      LIFTS.forEach(l => {
+        const tm = programConfig.trainingMaxes[l];
+        const best = bestE1RM(l);
+        const val = tm || (best ? Math.round(best * 0.9) : 0);
+        html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="color:${COLORS[l]};font-weight:700;font-size:var(--text-sm);width:60px">${LIFT_NAMES[l]}</span>
+          <span style="font-size:var(--text-sm);color:var(--text)">${val ? formatWeight(val) + ' ' + unit : 'Not set'}</span>
+          ${!val ? '<span style="font-size:0.6rem;color:var(--red)">Required</span>' : ''}
+        </div>`;
+      });
+      if (!hasTMs) {
+        html += `<div style="font-size:var(--text-xs);color:var(--red);margin-bottom:var(--space-3)">Set training maxes in Program Setup first</div>`;
+      }
+
+      html += `<label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--text);margin:var(--space-3) 0;cursor:pointer">
+        <input type="checkbox" id="meso-optional-days" ${includeOptional ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--bench)">
+        Add optional light days
+      </label>`;
+
+      html += `<button class="modal-save-btn" id="meso-generate-btn" ${!hasTMs ? 'disabled style="opacity:0.4"' : ''}>Generate Mesocycle</button>`;
+      body.innerHTML = html;
+
+      // Pill clicks
+      body.querySelectorAll('[data-goal]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectedGoal = btn.dataset.goal;
+          if (selectedGoal === 'deload') selectedDuration = 1;
+          else if (selectedDuration === 1) selectedDuration = MESO_GOALS[selectedGoal].defaultWeeks;
+          renderGenUI();
+        });
+      });
+      body.querySelectorAll('[data-model]').forEach(btn => {
+        btn.addEventListener('click', () => { selectedModel = btn.dataset.model; renderGenUI(); });
+      });
+      body.querySelectorAll('[data-duration]').forEach(btn => {
+        btn.addEventListener('click', () => { selectedDuration = parseInt(btn.dataset.duration); renderGenUI(); });
+      });
+      const optToggle = $('meso-optional-days');
+      if (optToggle) optToggle.addEventListener('change', () => { includeOptional = optToggle.checked; });
+
+      // Generate button
+      const genBtn = $('meso-generate-btn');
+      if (genBtn) {
+        genBtn.addEventListener('click', () => {
+          const meso = generateMesocycle(selectedGoal, selectedModel, selectedDuration, includeOptional);
+          if (!meso) { showToast('Set training maxes first'); return; }
+          activeMesocycle = meso;
+          saveMesocycle();
+          scheduleCloudSync();
+          closeModal('edit-modal');
+          showToast('Mesocycle generated: ' + meso.name);
+          updateWorkoutButton();
+        });
+      }
+    }
+
+    $('edit-modal').querySelector('h3').textContent = 'Generate Mesocycle';
+    renderGenUI();
+    openModal('edit-modal');
+  }
+
+  // --- Mesocycle Workout ---
+  function openMesocycleWorkout(lift) {
+    if (!activeMesocycle || activeMesocycle.status !== 'active') { showToast('No active mesocycle'); return; }
+    const weekIdx = activeMesocycle.currentWeek - 1;
+    const week = activeMesocycle.weeks[weekIdx];
+    if (!week) return;
+    const liftWorkout = week.workouts[lift];
+    if (!liftWorkout) return;
+
+    if (week.performance[lift]) {
+      showToast(`${LIFT_NAMES[lift]} already done this week`);
+      return;
+    }
+
+    const now = new Date();
+    const session = {
+      id: now.getTime().toString(36) + Math.random().toString(36).slice(2, 6),
+      mainLift: lift,
+      programWeek: activeMesocycle.currentWeek,
+      date: now.toISOString().split('T')[0],
+      startTime: now.getTime(),
+      mainSets: liftWorkout.mainSets.map((s, i) => ({
+        num: i + 1, weight: s.weight, reps: s.reps, pct: s.pct, completed: false
+      })),
+      accessories: liftWorkout.accessories.map(a => {
+        const dbEx = ACCESSORY_DB[a.exerciseId];
+        return {
+          exerciseId: a.exerciseId, name: a.name,
+          setWeights: computeSetWeights(dbEx ? getAccessoryWeight(a.exerciseId, lift) : 0, a.sets),
+          targetSets: a.sets, repRange: [...a.repRange], equipment: a.equipment,
+          setsCompleted: [], progressed: dbEx ? checkAccessoryProgression(a.exerciseId, lift) : false
+        };
+      }),
+      completed: false,
+      source: 'mesocycle',
+      mesocycleId: activeMesocycle.id,
+      mesocycleWeek: activeMesocycle.currentWeek
+    };
+    workoutSession = session;
+    saveWorkoutSession();
+    $('workout-overlay').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    renderWorkoutView();
+  }
+
+  function abandonMesocycle() {
+    if (!activeMesocycle) return;
+    if (!confirm('Abandon current mesocycle? This cannot be undone.')) return;
+    activeMesocycle.status = 'abandoned';
+    mesocycleHistory.push({ ...activeMesocycle });
+    saveMesocycleHistory();
+    activeMesocycle = null;
+    saveMesocycle();
+    scheduleCloudSync();
+    showToast('Mesocycle abandoned');
+    updateWorkoutButton();
+  }
+
+  function showMesoWeekDetail(weekIdx) {
+    if (!activeMesocycle) return;
+    const week = activeMesocycle.weeks[weekIdx];
+    if (!week) return;
+
+    const body = $('fatigue-sheet-body');
+    $('fatigue-sheet-title').textContent = `${activeMesocycle.name} - ${week.label}`;
+    let html = `<div class="fatigue-detail-banner ${week.phase === 'Deload' ? 'green' : 'blue'}" style="background:rgba(30,136,229,0.12);color:var(--bench)">
+      <span>${week.phase}</span><span style="margin-left:auto">RPE ${week.targetRPE}</span>
+    </div>`;
+
+    LIFTS.forEach(l => {
+      const w = week.workouts[l];
+      if (!w) return;
+      const perf = week.performance[l];
+      html += `<div style="margin-bottom:12px">
+        <div style="font-weight:700;color:${COLORS[l]};font-size:var(--text-sm);margin-bottom:4px">${LIFT_NAMES[l]}${perf ? ' &#10003;' : ''}</div>`;
+      w.mainSets.forEach((s, i) => {
+        html += `<div style="font-size:var(--text-xs);color:var(--text-dim);padding:2px 0">Set ${i + 1}: ${formatWeight(s.weight)} ${unit} x ${s.reps} (${s.pct}%)</div>`;
+      });
+      if (w.accessories.length > 0) {
+        html += `<div style="font-size:0.6rem;color:var(--text-dim);margin-top:4px">Accessories: ${w.accessories.map(a => a.name).join(', ')}</div>`;
+      }
+      if (perf) {
+        html += `<div style="font-size:0.6rem;color:var(--green);margin-top:2px">RPE ${perf.actualRPE} &bull; ${perf.completedSets} sets &bull; ${perf.totalReps} reps</div>`;
+      }
+      html += '</div>';
+    });
+
+    // Adaptation log for this week
+    const adaptations = activeMesocycle.adaptationLog.filter(a => a.weekNum === week.weekNum);
+    if (adaptations.length > 0) {
+      html += '<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin:8px 0 4px;font-weight:600">Adaptations</div>';
+      adaptations.forEach(a => {
+        html += `<div style="font-size:var(--text-xs);color:var(--gold);padding:2px 0">${LIFT_NAMES[a.lift]}: ${a.adjustment} - ${a.reason}</div>`;
+      });
+    }
+
+    $('fatigue-sheet-body').innerHTML = html;
+    openFatigueSheet();
+  }
+
+  // --- Post-Workout Summary Card ---
+  function showMesoSummaryCard(session, adaptation) {
+    if (!activeMesocycle && !mesocycleHistory.length) return;
+    const meso = activeMesocycle || mesocycleHistory[mesocycleHistory.length - 1];
+    const weekIdx = (session.mesocycleWeek || 1) - 1;
+    const week = meso.weeks[weekIdx];
+    if (!week) return;
+
+    const perf = week.performance[session.mainLift];
+    if (!perf) return;
+
+    let html = `<div class="meso-summary-card">
+      <div class="meso-summary-title">Mesocycle Performance</div>
+      <div class="meso-summary-row"><span class="meso-summary-label">Target RPE</span><span class="meso-summary-value">${week.targetRPE}</span></div>
+      <div class="meso-summary-row"><span class="meso-summary-label">Actual RPE</span><span class="meso-summary-value" style="color:${perf.actualRPE <= week.targetRPE ? 'var(--green)' : 'var(--red)'}">${perf.actualRPE}</span></div>
+      <div class="meso-summary-row"><span class="meso-summary-label">Sets Completed</span><span class="meso-summary-value">${perf.completedSets}/${week.workouts[session.mainLift]?.mainSets?.length || '?'}</span></div>
+      <div class="meso-summary-row"><span class="meso-summary-label">Total Reps</span><span class="meso-summary-value">${perf.totalReps}</span></div>`;
+
+    if (adaptation) {
+      html += `<div class="meso-summary-row" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+        <span class="meso-summary-label">Adaptation</span>
+        <span class="meso-summary-value" style="color:var(--gold)">${adaptation.type === 'increase' ? '+' : ''}${adaptation.pctChange}% intensity</span>
+      </div>`;
+    } else {
+      html += `<div class="meso-summary-row"><span class="meso-summary-label">Adaptation</span><span class="meso-summary-value" style="color:var(--green)">No change needed</span></div>`;
+    }
+
+    // Next week preview
+    if (meso.status === 'active' && meso.currentWeek <= meso.durationWeeks) {
+      const nextWeek = meso.weeks[meso.currentWeek - 1];
+      if (nextWeek) {
+        html += `<div style="margin-top:12px;padding-top:8px;border-top:1px solid var(--border)">
+          <div style="font-size:var(--text-xs);color:var(--text-dim);font-weight:600;margin-bottom:4px">Next: ${nextWeek.label} (${nextWeek.phase})</div>
+          <div style="font-size:var(--text-xs);color:var(--text-dim)">RPE ${nextWeek.targetRPE}</div>
+        </div>`;
+      }
+    }
+    html += '</div>';
+
+    // Show in a temporary overlay below the toast
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    container.style.cssText = 'position:fixed;bottom:60px;left:16px;right:16px;z-index:500;animation:slideUp 0.25s ease';
+    document.body.appendChild(container);
+    container.addEventListener('click', () => container.remove());
+    setTimeout(() => { if (container.parentNode) container.remove(); }, 8000);
+  }
+
   function createWorkoutSession(mainLift) {
     const now = new Date();
     const accessories = selectAccessories(mainLift);
@@ -3429,12 +5052,24 @@
       });
     });
     saveAccessoryLog();
+    // Mesocycle performance recording & adaptation
+    let mesoAdaptation = null;
+    const completedSession = workoutSession;
+    if (workoutSession.source === 'mesocycle' && activeMesocycle && activeMesocycle.status === 'active') {
+      recordMesocyclePerformance(workoutSession);
+      mesoAdaptation = adaptRemainingWeeks(workoutSession.mainLift);
+    }
     workoutSession = null;
     saveWorkoutSession();
     closeWorkoutView();
     showToast('Workout complete!');
     if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
     updateWorkoutButton();
+    // Show mesocycle summary card if applicable
+    if (completedSession.source === 'mesocycle') {
+      scheduleCloudSync();
+      setTimeout(() => showMesoSummaryCard(completedSession, mesoAdaptation), 500);
+    }
   }
 
   function getProgramWorkout(lift, weekOverride) {
@@ -3704,6 +5339,11 @@
     if (workoutSession && !workoutSession.completed && workoutSession.mainLift === currentLift) {
       btn.textContent = `Resume ${LIFT_NAMES[currentLift]} Workout`;
       btn.classList.add('has-session');
+    } else if (activeMesocycle && activeMesocycle.status === 'active') {
+      const week = activeMesocycle.weeks[activeMesocycle.currentWeek - 1];
+      const liftDone = week && week.performance[currentLift];
+      btn.textContent = liftDone ? `${LIFT_NAMES[currentLift]} - Week ${activeMesocycle.currentWeek} Done` : `Start ${LIFT_NAMES[currentLift]} Workout`;
+      btn.classList.remove('has-session');
     } else {
       btn.textContent = `Start ${LIFT_NAMES[currentLift]} Workout`;
       btn.classList.remove('has-session');
@@ -4764,7 +6404,7 @@
       const f = byMuscle[mg];
       const st = f ? f.status : 'none';
       const val = f ? f.label : '&mdash;';
-      html += `<div class="fatigue-card" onclick="showFatigueDetail('${mg}')">` +
+      html += `<div class="fatigue-card" data-muscle="${mg}">` +
         `<div class="fatigue-card-label">${mg}</div>` +
         `<div class="fatigue-card-status">` +
           `<span class="fatigue-dot ${st}"></span>` +
@@ -4772,6 +6412,9 @@
         `</div></div>`;
     });
     $('fatigue-row').innerHTML = html;
+    $('fatigue-row').querySelectorAll('.fatigue-card[data-muscle]').forEach(card => {
+      card.addEventListener('click', () => showFatigueDetail(card.dataset.muscle));
+    });
   }
 
   function openFatigueSheet() {
@@ -5049,9 +6692,38 @@
   $('program-setup').addEventListener('click', showProgramSetupModal);
 
   // Workout builder button
-  $('create-workout-btn').addEventListener('click', () => openWorkoutView(currentLift));
+  $('create-workout-btn').addEventListener('click', () => openChoiceSheet());
   $('workout-close').addEventListener('click', () => closeWorkoutView());
   $('workout-complete-btn').addEventListener('click', completeWorkout);
+  $('choice-sheet-close').addEventListener('click', closeChoiceSheet);
+  $('choice-sheet-backdrop').addEventListener('click', closeChoiceSheet);
+  $('builder-close').addEventListener('click', closeBuilder);
+  $('builder-start').addEventListener('click', () => {
+    if (builderExercises.length < 1) { showToast('Add at least one exercise'); return; }
+    const session = builderToSession(currentLift);
+    workoutSession = session;
+    saveWorkoutSession();
+    closeBuilder();
+    $('workout-overlay').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    renderWorkoutView();
+  });
+  $('builder-save-template').addEventListener('click', () => {
+    const existingId = $('builder-save-template')._templateId;
+    if (existingId) {
+      const template = customTemplates.find(t => t.id === existingId);
+      if (template) {
+        template.exercises = builderExercises.map(e => ({ ...e }));
+        template.lastUsed = Date.now();
+        saveCustomTemplates();
+        scheduleCloudSync();
+        showToast('Template updated');
+        $('builder-save-template')._templateId = null;
+        return;
+      }
+    }
+    saveAsTemplate(currentLift);
+  });
   $('workout-discard-btn').addEventListener('click', () => {
     if (!confirm('Discard this workout? All progress will be lost.')) return;
     stopExerciseTimer();
@@ -5542,6 +7214,9 @@
       localStorage.removeItem(WORKOUT_KEY);
       localStorage.removeItem(ACCESSORY_LOG_KEY);
       localStorage.removeItem(WORKOUT_SESSION_KEY);
+      localStorage.removeItem(CUSTOM_TEMPLATES_KEY);
+      localStorage.removeItem(MESOCYCLE_KEY);
+      localStorage.removeItem(MESOCYCLE_HISTORY_KEY);
       entries = []; prs = []; cycles = [];
       profile = { gender: null, bodyweight: null, bodyweightHistory: [] };
       goals = { squat: null, bench: null, deadlift: null, total: null };
@@ -5550,6 +7225,7 @@
       unlockedBadges = {};
       workoutConfig = { weakPoints: { squat: null, bench: null, deadlift: null }, setupComplete: false };
       accessoryLog = []; workoutSession = null;
+      customTemplates = []; activeMesocycle = null; mesocycleHistory = [];
       dashboardWidgets = { ratios: true, fatigue: true, streak: true, recap: true, prStreak: true };
       accentColor = 'gold'; applyAccentColor();
       closeModal('settings-modal');
@@ -5578,7 +7254,8 @@
       theme, badges: unlockedBadges,
       dashboardWidgets, accentColor,
       celebratedTotals: JSON.parse(localStorage.getItem(TOTAL_CELEBRATED_KEY) || '{}'),
-      workoutConfig, accessoryLog
+      workoutConfig, accessoryLog,
+      customTemplates, activeMesocycle, mesocycleHistory
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -5643,6 +7320,9 @@
         if (data.celebratedTotals) { localStorage.setItem(TOTAL_CELEBRATED_KEY, JSON.stringify(data.celebratedTotals)); }
         if (data.workoutConfig) { workoutConfig = data.workoutConfig; saveWorkoutConfig(); }
         if (data.accessoryLog) { accessoryLog = data.accessoryLog; saveAccessoryLog(); }
+        if (data.customTemplates) { customTemplates = data.customTemplates; saveCustomTemplates(); }
+        if (data.activeMesocycle) { activeMesocycle = data.activeMesocycle; saveMesocycle(); }
+        if (data.mesocycleHistory) { mesocycleHistory = data.mesocycleHistory; saveMesocycleHistory(); }
         if (!profile.bodyweightHistory) profile.bodyweightHistory = [];
         activeCycleId = (cycles.find(c => c.active) || {}).id || null;
         localStorage.setItem(VERSION_KEY, CURRENT_VERSION.toString());
@@ -6583,10 +8263,51 @@
     return html + SECTION_CLOSE;
   }
 
+  function renderStatsMesocycle() {
+    const meso = activeMesocycle;
+    if (!meso || meso.status !== 'active') return '';
+    const isCollapsed = statsCollapsed['mesocycle'];
+    const week = meso.weeks[meso.currentWeek - 1];
+    const completedWeeks = meso.weeks.filter(w => w.completed).length;
+    const pct = Math.round((completedWeeks / meso.durationWeeks) * 100);
+
+    let html = `<div class="stats-section${isCollapsed ? ' collapsed' : ''}">
+      <div class="stats-header" data-toggle="mesocycle"><span>Mesocycle</span><span class="collapse-arrow">${isCollapsed ? '&#9654;' : '&#9660;'}</span></div>
+      <div class="stats-body">
+        <div style="font-weight:700;color:var(--text-strong);margin-bottom:8px">${escapeHTML(meso.name)}</div>
+        <div class="recap-stat-grid">
+          <div class="recap-stat"><div class="recap-stat-label">Week</div><div class="recap-stat-value">${meso.currentWeek}/${meso.durationWeeks}</div></div>
+          <div class="recap-stat"><div class="recap-stat-label">Phase</div><div class="recap-stat-value">${week ? week.phase : '-'}</div></div>
+          <div class="recap-stat"><div class="recap-stat-label">Progress</div><div class="recap-stat-value">${pct}%</div></div>
+          <div class="recap-stat"><div class="recap-stat-label">Adaptations</div><div class="recap-stat-value">${meso.adaptationLog.length}</div></div>
+        </div>
+        <div class="meso-timeline" style="margin-top:8px">`;
+    meso.weeks.forEach((w, i) => {
+      const isCurrent = i === meso.currentWeek - 1;
+      const liftsDone = LIFTS.filter(l => w.performance[l]).length;
+      html += `<div class="meso-week-card${isCurrent ? ' current' : ''}${w.completed ? ' completed' : ''}${w.adapted ? ' adapted' : ''}" data-meso-stat-week="${i}">
+        <div class="meso-week-num">W${w.weekNum}</div>
+        <div class="meso-week-phase">${w.phase}</div>
+        ${w.completed ? '<div class="meso-week-check">&#10003;</div>' : `<div class="meso-week-check">${'&#10003;'.repeat(liftsDone)}</div>`}
+      </div>`;
+    });
+    html += `</div>`;
+    if (meso.adaptationLog.length > 0) {
+      html += `<div style="margin-top:8px">`;
+      meso.adaptationLog.slice(-3).forEach(a => {
+        html += `<div style="font-size:var(--text-xs);color:var(--gold);padding:2px 0">W${a.weekNum} ${LIFT_NAMES[a.lift]}: ${a.adjustment}</div>`;
+      });
+      html += '</div>';
+    }
+    html += '</div></div>';
+    return html;
+  }
+
   function renderStats() {
     const c = $('stats-content');
     const total = getTotal();
     c.innerHTML = [
+      renderStatsMesocycle(),
       renderStatsBadges(),
       renderStatsRelativeStrength(total),
       renderStatsRecordsBoard(),
@@ -6614,6 +8335,11 @@
         statsCollapsed[id] = isCollapsed;
         localStorage.setItem(STATS_COLLAPSED_KEY, JSON.stringify(statsCollapsed));
       });
+    });
+
+    // Mesocycle week detail clicks
+    document.querySelectorAll('[data-meso-stat-week]').forEach(card => {
+      card.addEventListener('click', () => showMesoWeekDetail(parseInt(card.dataset.mesoStatWeek)));
     });
 
     // Volume period toggle (F5)
@@ -7159,6 +8885,9 @@ service cloud.firestore {
       celebratedTotals: JSON.parse(localStorage.getItem(TOTAL_CELEBRATED_KEY) || '{}'),
       workoutConfig,
       accessoryLog,
+      customTemplates,
+      activeMesocycle,
+      mesocycleHistory,
       schemaVersion: SCHEMA_VERSION
     };
   }
@@ -7310,6 +9039,31 @@ service cloud.firestore {
           if (!localAccMap.has(ca.id)) accessoryLog.push(ca);
         });
         saveAccessoryLog();
+      }
+      // Merge custom templates (union by ID, latest wins)
+      if (cloudData.customTemplates && Array.isArray(cloudData.customTemplates)) {
+        const localTmplMap = new Map(customTemplates.map(t => [t.id, t]));
+        cloudData.customTemplates.forEach(ct => {
+          const local = localTmplMap.get(ct.id);
+          if (!local) customTemplates.push(ct);
+          else if (ct.lastUsed > (local.lastUsed || 0)) Object.assign(local, ct);
+        });
+        saveCustomTemplates();
+      }
+      // Merge mesocycle (last-write-wins)
+      if (cloudData.activeMesocycle) {
+        if (!activeMesocycle || (cloudData.activeMesocycle.createdAt > activeMesocycle.createdAt)) {
+          activeMesocycle = cloudData.activeMesocycle;
+          saveMesocycle();
+        }
+      }
+      // Merge mesocycle history (union by ID)
+      if (cloudData.mesocycleHistory && Array.isArray(cloudData.mesocycleHistory)) {
+        const localMesoMap = new Map(mesocycleHistory.map(m => [m.id, m]));
+        cloudData.mesocycleHistory.forEach(cm => {
+          if (!localMesoMap.has(cm.id)) mesocycleHistory.push(cm);
+        });
+        saveMesocycleHistory();
       }
 
       // Clear stale undo state (B2)
