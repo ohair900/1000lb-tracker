@@ -801,6 +801,8 @@
   let autoTheme = localStorage.getItem(AUTO_THEME_KEY) === 'true';
   let chartDateRange = 'all';
   let historySearch = '';
+  let historyPage = 1;
+  const HISTORY_PAGE_SIZE = 20;
   let unlockedBadges = {};
   try { unlockedBadges = JSON.parse(localStorage.getItem(BADGES_KEY)) || {}; } catch { unlockedBadges = {}; }
   let dashboardWidgets = { ratios: true, fatigue: true, streak: true, recap: true, prStreak: true };
@@ -1474,7 +1476,7 @@
 
     // Per-lift volume bars
     const maxLiftVol = Math.max(...Object.values(recap.liftVolume), 1);
-    html += `<div style="margin-bottom:12px"><div style="font-size:0.7rem;color:var(--text-dim);font-weight:600;text-transform:uppercase;margin-bottom:6px">Volume by Lift</div>`;
+    html += `<div style="margin-bottom:12px"><div class="section-label-lg">Volume by Lift</div>`;
     LIFTS.forEach(l => {
       const vol = recap.liftVolume[l];
       const pct = maxLiftVol > 0 ? (vol / maxLiftVol * 100) : 0;
@@ -1490,7 +1492,7 @@
 
     // PRs
     if (recap.prsThisWeek.length > 0) {
-      html += `<div style="margin-bottom:12px"><div style="font-size:0.7rem;color:var(--text-dim);font-weight:600;text-transform:uppercase;margin-bottom:6px">PRs This Week</div>`;
+      html += `<div style="margin-bottom:12px"><div class="section-label-lg">PRs This Week</div>`;
       recap.prsThisWeek.forEach(e => {
         html += `<div class="recap-pr-item"><span style="color:${COLORS[e.lift]}">${LIFT_NAMES[e.lift]}</span> ${formatWeight(e.weight)} ${unit} &times; ${e.reps} = ${formatWeight(e.e1rm)} e1RM</div>`;
       });
@@ -2286,7 +2288,7 @@
     const hasProg = !!programConfig.activeProgram;
 
     if (hasMeso || hasProg) {
-      html += `<div style="font-size:var(--text-xs);font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:var(--space-2)">Active Plan</div>`;
+      html += `<div class="section-label">Active Plan</div>`;
 
       if (hasMeso) {
         const week = activeMesocycle.weeks[activeMesocycle.currentWeek - 1];
@@ -2336,7 +2338,7 @@
     }
 
     // --- Workout options ---
-    html += `<div style="font-size:var(--text-xs);font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:var(--space-2)">${hasMeso || hasProg ? 'Or start a different workout' : 'Choose a workout'}</div>`;
+    html += `<div class="section-label">${hasMeso || hasProg ? 'Or start a different workout' : 'Choose a workout'}</div>`;
 
     // Smart Workout
     html += `<div class="choice-card" data-action="smart">
@@ -2387,7 +2389,7 @@
 
     // --- Plan setup ---
     if (!hasMeso && !hasProg) {
-      html += `<div style="font-size:var(--text-xs);font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin:var(--space-3) 0 var(--space-2)">Set up a training plan</div>`;
+      html += `<div class="section-label" style="margin:var(--space-3) 0 var(--space-2)">Set up a training plan</div>`;
       html += `<div class="choice-card" data-action="setup-program">
         <div class="choice-card-icon green">&#128203;</div>
         <div class="choice-card-text">
@@ -2601,7 +2603,7 @@
 
     // Custom exercise form
     html += `<div class="custom-exercise-form" id="builder-custom-form" style="display:none">
-      <div style="font-size:var(--text-xs);font-weight:700;color:var(--text-dim);text-transform:uppercase">Custom Exercise</div>
+      <div class="section-label" style="margin-bottom:0">Custom Exercise</div>
       <input type="text" id="custom-ex-name" placeholder="Exercise name">
       <div class="custom-exercise-row">
         <input type="number" id="custom-ex-sets" placeholder="Sets" value="3" min="1" inputmode="numeric">
@@ -2619,7 +2621,7 @@
       </div>
     </div>`;
 
-    html += `<button style="width:100%;padding:10px;margin-top:var(--space-2);border:2px dashed var(--border);border-radius:var(--radius-lg);background:transparent;color:var(--text-dim);font-size:var(--text-sm);cursor:pointer" id="builder-toggle-custom">+ Add Custom Exercise</button>`;
+    html += `<button class="btn-dashed" id="builder-toggle-custom">+ Add Custom Exercise</button>`;
     html += `</div>`;
 
     body.innerHTML = html;
@@ -2654,50 +2656,39 @@
     return html || '<div style="padding:16px;text-align:center;color:var(--text-dim);font-size:var(--text-sm)">No exercises found</div>';
   }
 
-  function attachBuilderListeners(mainLift) {
+  // Builder delegation — attached once, never re-attached
+  let _builderMainLift = null;
+  (function initBuilderDelegation() {
     const body = $('builder-body');
 
-    // Sets/reps inputs
-    body.querySelectorAll('input[data-field]').forEach(inp => {
-      inp.addEventListener('change', () => {
-        const idx = parseInt(inp.dataset.idx);
-        const field = inp.dataset.field;
-        const val = parseInt(inp.value) || 1;
-        if (field === 'sets') builderExercises[idx].sets = val;
-        else if (field === 'reps') {
-          builderExercises[idx].reps = val;
-          if (Array.isArray(builderExercises[idx].repRange)) {
-            builderExercises[idx].repRange[1] = val;
-          }
-        }
-      });
-      inp.addEventListener('click', e => e.stopPropagation());
-    });
+    body.addEventListener('click', (e) => {
+      const mainLift = _builderMainLift;
+      if (!mainLift) return;
 
-    // Move buttons
-    body.querySelectorAll('[data-move]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt(btn.dataset.idx);
-        const dir = btn.dataset.move === 'up' ? -1 : 1;
+      // Move buttons
+      const moveBtn = e.target.closest('[data-move]');
+      if (moveBtn) {
+        const idx = parseInt(moveBtn.dataset.idx);
+        const dir = moveBtn.dataset.move === 'up' ? -1 : 1;
         const newIdx = idx + dir;
-        if (newIdx < 1 || newIdx >= builderExercises.length) return; // can't move past main lift
+        if (newIdx < 1 || newIdx >= builderExercises.length) return;
         [builderExercises[idx], builderExercises[newIdx]] = [builderExercises[newIdx], builderExercises[idx]];
         renderBuilder(mainLift);
-      });
-    });
+        return;
+      }
 
-    // Remove buttons
-    body.querySelectorAll('[data-remove]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        builderExercises.splice(parseInt(btn.dataset.remove), 1);
+      // Remove buttons
+      const removeBtn = e.target.closest('[data-remove]');
+      if (removeBtn) {
+        builderExercises.splice(parseInt(removeBtn.dataset.remove), 1);
         renderBuilder(mainLift);
-      });
-    });
+        return;
+      }
 
-    // Exercise browser items
-    body.querySelectorAll('.exercise-browser-item:not(.added)').forEach(item => {
-      item.addEventListener('click', () => {
-        const exId = item.dataset.exid;
+      // Exercise browser items
+      const browserItem = e.target.closest('.exercise-browser-item:not(.added)');
+      if (browserItem) {
+        const exId = browserItem.dataset.exid;
         const ex = ACCESSORY_DB[exId];
         if (!ex) return;
         builderExercises.push({
@@ -2706,44 +2697,18 @@
           equipment: ex.equipment, repRange: [...ex.repRange], order: builderExercises.length
         });
         renderBuilder(mainLift);
-      });
-    });
+        return;
+      }
 
-    // Search
-    const search = $('builder-search');
-    if (search) {
-      search.addEventListener('input', () => {
-        $('builder-exercise-list').innerHTML = renderExerciseBrowserList(mainLift, search.value);
-        // Re-attach click handlers
-        $('builder-exercise-list').querySelectorAll('.exercise-browser-item:not(.added)').forEach(item => {
-          item.addEventListener('click', () => {
-            const exId = item.dataset.exid;
-            const ex = ACCESSORY_DB[exId];
-            if (!ex) return;
-            builderExercises.push({
-              type: 'accessory', exerciseId: exId, name: ex.name,
-              sets: ex.sets, reps: ex.repRange[1], weightMode: 'auto', weightValue: 0,
-              equipment: ex.equipment, repRange: [...ex.repRange], order: builderExercises.length
-            });
-            renderBuilder(mainLift);
-          });
-        });
-      });
-    }
-
-    // Toggle custom form
-    const toggleBtn = $('builder-toggle-custom');
-    if (toggleBtn) {
-      toggleBtn.addEventListener('click', () => {
+      // Toggle custom form
+      if (e.target.closest('#builder-toggle-custom')) {
         const form = $('builder-custom-form');
         form.style.display = form.style.display === 'none' ? 'flex' : 'none';
-      });
-    }
+        return;
+      }
 
-    // Add custom exercise
-    const addCustom = $('custom-ex-add');
-    if (addCustom) {
-      addCustom.addEventListener('click', () => {
+      // Add custom exercise
+      if (e.target.closest('#custom-ex-add')) {
         const name = $('custom-ex-name').value.trim();
         if (!name) { showToast('Enter exercise name'); return; }
         const sets = parseInt($('custom-ex-sets').value) || 3;
@@ -2757,8 +2722,36 @@
         $('custom-ex-name').value = '';
         $('builder-custom-form').style.display = 'none';
         renderBuilder(mainLift);
-      });
-    }
+        return;
+      }
+    });
+
+    // Delegated change for sets/reps inputs
+    body.addEventListener('change', (e) => {
+      const inp = e.target.closest('input[data-field]');
+      if (!inp) return;
+      const idx = parseInt(inp.dataset.idx);
+      const field = inp.dataset.field;
+      const val = parseInt(inp.value) || 1;
+      if (field === 'sets') builderExercises[idx].sets = val;
+      else if (field === 'reps') {
+        builderExercises[idx].reps = val;
+        if (Array.isArray(builderExercises[idx].repRange)) {
+          builderExercises[idx].repRange[1] = val;
+        }
+      }
+    });
+
+    // Delegated search input
+    body.addEventListener('input', (e) => {
+      if (e.target.id === 'builder-search') {
+        $('builder-exercise-list').innerHTML = renderExerciseBrowserList(_builderMainLift, e.target.value);
+      }
+    });
+  })();
+
+  function attachBuilderListeners(mainLift) {
+    _builderMainLift = mainLift;
   }
 
   function builderToSession(mainLift) {
@@ -3006,7 +2999,7 @@
       });
 
       // Add more button
-      html += `<button style="width:100%;padding:10px;margin-top:var(--space-2);border:2px dashed var(--border);border-radius:var(--radius-lg);background:transparent;color:var(--text-dim);font-size:var(--text-sm);cursor:pointer" id="smart-add-more">+ Add More</button>`;
+      html += `<button class="btn-dashed" id="smart-add-more">+ Add More</button>`;
 
       body.innerHTML = html;
 
@@ -3095,14 +3088,14 @@
 
     function renderGenUI() {
       const hasTMs = LIFTS.every(l => programConfig.trainingMaxes[l] || bestE1RM(l));
-      let html = '<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;font-weight:600">Goal</div>';
+      let html = '<div class="section-label-lg">Goal</div>';
       html += '<div class="meso-pills">';
       ['hypertrophy', 'strength', 'peaking', 'deload'].forEach(g => {
         html += `<button class="meso-pill${selectedGoal === g ? ' active' : ''}" data-goal="${g}">${MESO_GOALS[g].label}</button>`;
       });
       html += '</div>';
 
-      html += '<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;font-weight:600">Model</div>';
+      html += '<div class="section-label-lg">Model</div>';
       html += '<div class="meso-pills">';
       ['linear', 'dup', 'block'].forEach(m => {
         const labels = { linear: 'Linear', dup: 'DUP', block: 'Block' };
@@ -3110,14 +3103,14 @@
       });
       html += '</div>';
 
-      html += '<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;font-weight:600">Duration</div>';
+      html += '<div class="section-label-lg">Duration</div>';
       html += '<div class="meso-pills">';
       [4, 6, 8].forEach(d => {
         html += `<button class="meso-pill${selectedDuration === d ? ' active' : ''}" data-duration="${d}">${d} weeks</button>`;
       });
       html += '</div>';
 
-      html += '<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;font-weight:600;margin-top:var(--space-3)">Training Maxes</div>';
+      html += '<div class="section-label-lg" style="margin-top:var(--space-3)">Training Maxes</div>';
       LIFTS.forEach(l => {
         const tm = programConfig.trainingMaxes[l];
         const best = bestE1RM(l);
@@ -3269,7 +3262,7 @@
     // Adaptation log for this week
     const adaptations = activeMesocycle.adaptationLog.filter(a => a.weekNum === week.weekNum);
     if (adaptations.length > 0) {
-      html += '<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin:8px 0 4px;font-weight:600">Adaptations</div>';
+      html += '<div class="section-label-lg" style="margin:8px 0 4px">Adaptations</div>';
       adaptations.forEach(a => {
         html += `<div style="font-size:var(--text-xs);color:var(--gold);padding:2px 0">${LIFT_NAMES[a.lift]}: ${a.adjustment} - ${a.reason}</div>`;
       });
@@ -3447,7 +3440,7 @@
       document.querySelectorAll('.lift-btn').forEach(btn => btn.classList.remove('lift-done'));
       $('program-title').textContent = '';
       $('program-week').textContent = '';
-      $('program-sets').innerHTML = `<div style="text-align:center;padding:8px 0;font-size:0.8rem;color:var(--text-dim)">No program active</div>`;
+      $('program-sets').innerHTML = `<div class="empty-msg">No program active</div>`;
       document.querySelector('.program-actions').style.display = 'flex';
       $('program-prev').style.display = 'none';
       $('program-next').style.display = 'none';
@@ -3461,7 +3454,7 @@
       const tmpl = PROGRAM_TEMPLATES[programConfig.activeProgram];
       $('program-title').textContent = tmpl ? tmpl.name : programConfig.activeProgram;
       $('program-week').textContent = '';
-      $('program-sets').innerHTML = `<div style="text-align:center;padding:8px 0;font-size:0.8rem;color:var(--text-dim)">Set a training max for ${LIFT_NAMES[currentLift]} in Setup</div>`;
+      $('program-sets').innerHTML = `<div class="empty-msg">Set a training max for ${LIFT_NAMES[currentLift]} in Setup</div>`;
       el.classList.remove('week-complete');
       el.classList.remove('lift-complete');
       document.querySelectorAll('.lift-btn').forEach(btn => {
@@ -3599,7 +3592,7 @@
     const initDesc = current ? PROGRAM_TEMPLATES[current].description : '';
     html += `<div id="program-desc" style="font-size:0.75rem;color:var(--text-dim);line-height:1.4;margin-bottom:12px;min-height:20px">${initDesc}</div>`;
 
-    html += `<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;font-weight:600">Training Maxes</div>`;
+    html += `<div class="section-label-lg" style="margin-bottom:8px">Training Maxes</div>`;
     LIFTS.forEach(lift => {
       const best = bestE1RM(lift);
       const suggestedTM = best ? Math.round(best * 0.9) : '';
@@ -3764,40 +3757,71 @@
     updateCompleteButton();
   }
 
-  function attachWorkoutEventListeners() {
+  // Workout delegation — attached once, never re-attached
+  (function initWorkoutDelegation() {
     const body = $('workout-body');
 
-    // Main set clicks
-    body.querySelectorAll('.workout-set-row[data-type="main"]').forEach(row => {
-      row.addEventListener('click', (e) => {
-        if (e.target.closest('.workout-set-input')) return;
-        const idx = parseInt(row.dataset.idx);
+    body.addEventListener('click', (e) => {
+      if (!workoutSession) return;
+
+      // Prevent set-input clicks from toggling the row
+      if (e.target.closest('.workout-set-input')) return;
+
+      // Per-set weight +/- buttons
+      const weightBtn = e.target.closest('.acc-set-weight-btn');
+      if (weightBtn) {
+        e.stopPropagation();
+        const ai = parseInt(weightBtn.dataset.acc);
+        const si = parseInt(weightBtn.dataset.set);
+        const dir = parseInt(weightBtn.dataset.dir);
+        const acc = workoutSession.accessories[ai];
+        const increment = unit === 'kg' ? 2.5 * LBS_PER_KG : 5;
+        acc.setWeights[si] = Math.max(0, acc.setWeights[si] + dir * increment);
+        acc.setWeights[si] = roundToPlate(acc.setWeights[si]);
+        saveWorkoutSession();
+        renderWorkoutView();
+        return;
+      }
+
+      // Time-based +/- buttons
+      const timeBtn = e.target.closest('.acc-time-adj-btn');
+      if (timeBtn) {
+        e.stopPropagation();
+        const ai = parseInt(timeBtn.dataset.acc);
+        const dir = parseInt(timeBtn.dataset.dir);
+        const acc = workoutSession.accessories[ai];
+        acc.repRange[1] = Math.max(5, acc.repRange[1] + dir * 5);
+        saveWorkoutSession();
+        renderWorkoutView();
+        return;
+      }
+
+      // Main set row clicks
+      const mainRow = e.target.closest('.workout-set-row[data-type="main"]');
+      if (mainRow) {
+        const idx = parseInt(mainRow.dataset.idx);
         const set = workoutSession.mainSets[idx];
         const week = workoutSession.programWeek || programConfig.currentWeek;
         if (set.completed) {
-          // Un-complete
           set.completed = false;
           delete programConfig.completedSets[`${workoutSession.mainLift}-${week}-${idx}`];
           delete programConfig.amrapResults[`${workoutSession.mainLift}-${week}-${idx}`];
           saveProgramConfig();
         } else {
-          // Complete — log to main history
           const isAmrap = typeof set.reps === 'string' && set.reps.toString().includes('+');
           let repsToLog = typeof set.reps === 'string' ? parseInt(set.reps) : set.reps;
           if (isAmrap) {
-            const amrapInput = row.querySelector('.workout-set-input');
+            const amrapInput = mainRow.querySelector('.workout-set-input');
             if (amrapInput && amrapInput.value) repsToLog = parseInt(amrapInput.value);
           }
           const weight = set.weight;
           addEntry(workoutSession.mainLift, weight, repsToLog, null, '', []);
           updateDashboard();
-          // Mark program set completed
           set.completed = true;
           programConfig.completedSets[`${workoutSession.mainLift}-${week}-${idx}`] = true;
           if (isAmrap && repsToLog) {
             programConfig.amrapResults[`${workoutSession.mainLift}-${week}-${idx}`] = repsToLog;
           }
-          // Check auto-progression
           const tmpl = PROGRAM_TEMPLATES[programConfig.activeProgram];
           if (tmpl && tmpl.progression && tmpl.progression.type === 'session') {
             checkAutoProgression(workoutSession.mainLift);
@@ -3809,27 +3833,24 @@
         saveWorkoutSession();
         renderWorkoutView();
         renderProgramSection();
-      });
-    });
+        return;
+      }
 
-    // Accessory set clicks
-    body.querySelectorAll('.workout-set-row[data-type="acc"]').forEach(row => {
-      row.addEventListener('click', (e) => {
-        if (e.target.closest('.workout-set-input') || e.target.closest('.acc-set-weight-btn')) return;
-        const ai = parseInt(row.dataset.acc);
-        const si = parseInt(row.dataset.set);
+      // Accessory set row clicks
+      const accRow = e.target.closest('.workout-set-row[data-type="acc"]');
+      if (accRow) {
+        const ai = parseInt(accRow.dataset.acc);
+        const si = parseInt(accRow.dataset.set);
         const acc = workoutSession.accessories[ai];
         const ex = ACCESSORY_DB[acc.exerciseId];
         const isTimeBased = !!(ex && ex.timeBased);
 
-        // Handle cancel button click
         if (e.target.closest('.exercise-countdown-cancel')) {
           e.stopPropagation();
           cancelExerciseTimer();
           return;
         }
 
-        // Handle start button click
         if (e.target.closest('.exercise-start-btn')) {
           e.stopPropagation();
           ensureAudioContext();
@@ -3839,17 +3860,14 @@
           return;
         }
 
-        // Ignore row taps on uncompleted time-based sets (use the Start button)
         if (isTimeBased && si >= acc.setsCompleted.length) return;
 
         if (si < acc.setsCompleted.length) {
-          // Un-complete last set only
           if (si === acc.setsCompleted.length - 1) {
             acc.setsCompleted.pop();
           }
         } else if (si === acc.setsCompleted.length) {
-          // Complete this set (non-time-based)
-          const input = row.querySelector('.workout-set-input');
+          const input = accRow.querySelector('.workout-set-input');
           const reps = input && input.value ? parseInt(input.value) : acc.repRange[1];
           acc.setsCompleted.push(reps);
           startTimer(timerDuration);
@@ -3857,42 +3875,13 @@
         }
         saveWorkoutSession();
         renderWorkoutView();
-      });
+        return;
+      }
     });
+  })();
 
-    // Per-set weight +/- buttons
-    body.querySelectorAll('.acc-set-weight-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const ai = parseInt(btn.dataset.acc);
-        const si = parseInt(btn.dataset.set);
-        const dir = parseInt(btn.dataset.dir);
-        const acc = workoutSession.accessories[ai];
-        const increment = unit === 'kg' ? 2.5 * LBS_PER_KG : 5;
-        acc.setWeights[si] = Math.max(0, acc.setWeights[si] + dir * increment);
-        acc.setWeights[si] = roundToPlate(acc.setWeights[si]);
-        saveWorkoutSession();
-        renderWorkoutView();
-      });
-    });
-
-    // Time-based +/- buttons (adjust target duration by 5s)
-    body.querySelectorAll('.acc-time-adj-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const ai = parseInt(btn.dataset.acc);
-        const dir = parseInt(btn.dataset.dir);
-        const acc = workoutSession.accessories[ai];
-        acc.repRange[1] = Math.max(5, acc.repRange[1] + dir * 5);
-        saveWorkoutSession();
-        renderWorkoutView();
-      });
-    });
-
-    // Prevent set-input clicks from toggling the row
-    body.querySelectorAll('.workout-set-input').forEach(inp => {
-      inp.addEventListener('click', e => e.stopPropagation());
-    });
+  function attachWorkoutEventListeners() {
+    // Delegation handles everything — nothing to attach per-render
   }
 
   function updateCompleteButton() {
@@ -4796,7 +4785,7 @@
       const pct = Math.round(rec.percentRecovered * 100);
       const hrsAgo = detail.hoursSince !== null ? Math.round(detail.hoursSince) : null;
       const lastStr = hrsAgo !== null ? (hrsAgo < 24 ? `${hrsAgo}h ago` : `${Math.round(hrsAgo / 24)}d ago`) : 'N/A';
-      html += `<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-bottom:6px">Recovery (${pct}%)</div>`;
+      html += `<div class="section-label-lg">Recovery (${pct}%)</div>`;
       html += `<div class="fatigue-recovery-track"><div class="fatigue-recovery-fill ${detail.status}" style="width:${pct}%"></div></div>`;
       html += `<div class="fatigue-recovery-meta"><span>Last trained: ${lastStr}</span><span>Est. ready: ${rec.readyLabel}</span></div>`;
     }
@@ -4807,7 +4796,7 @@
 
     // 5. Weekly tonnage trend
     const maxTrend = Math.max(...detail.weeklyTrend, 1);
-    html += `<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-bottom:6px">Weekly Tonnage Trend</div>`;
+    html += `<div class="section-label-lg">Weekly Tonnage Trend</div>`;
     html += `<div class="fatigue-trend-chart">`;
     detail.weeklyTrend.forEach((val, i) => {
       const h = Math.max(2, (val / maxTrend) * 100);
@@ -4820,7 +4809,7 @@
     // 6. Contributing exercises
     if (detail.contributors.length > 0) {
       const maxContrib = Math.max(...detail.contributors.map(c => c.ton7), 1);
-      html += `<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-bottom:6px">Contributing Exercises</div>`;
+      html += `<div class="section-label-lg">Contributing Exercises</div>`;
       detail.contributors.forEach(c => {
         const pct = (c.ton7 / maxContrib) * 100;
         const barColor = c.lift && COLORS[c.lift] ? COLORS[c.lift] : 'var(--text-dim)';
@@ -4874,8 +4863,9 @@
     }
   }
 
-  weightInput.addEventListener('input', updatePreview);
-  repsInput.addEventListener('input', updatePreview);
+  const debouncedPreview = debounce(updatePreview, 150);
+  weightInput.addEventListener('input', debouncedPreview);
+  repsInput.addEventListener('input', debouncedPreview);
 
   logBtn.addEventListener('click', () => {
     const w = parseFloat(weightInput.value), r = parseInt(repsInput.value);
@@ -5196,12 +5186,14 @@
     $('history-filter-pills').querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     historyFilter = btn.dataset.filter;
+    historyPage = 1;
     renderHistory();
   });
 
   // History search (#80)
   $('history-search').addEventListener('input', debounce(e => {
     historySearch = e.target.value.trim().toLowerCase();
+    historyPage = 1;
     renderHistory();
   }, 200));
 
@@ -5211,8 +5203,8 @@
     $('date-filters').style.display = showDateFilters ? 'flex' : 'none';
     $('date-toggle-btn').classList.toggle('active', showDateFilters);
   });
-  $('filter-from').addEventListener('change', e => { historyFrom = e.target.value; renderHistory(); });
-  $('filter-to').addEventListener('change', e => { historyTo = e.target.value; renderHistory(); });
+  $('filter-from').addEventListener('change', e => { historyFrom = e.target.value; historyPage = 1; renderHistory(); });
+  $('filter-to').addEventListener('change', e => { historyTo = e.target.value; historyPage = 1; renderHistory(); });
 
   function renderHistory() {
     const container = $('history-list');
@@ -5243,7 +5235,7 @@
         (hasFilters ? ' match filters.<button class="clear-filters-btn" id="clear-all-filters">Clear all filters</button>' : ' yet.<br>Log your first set!') + '</div>';
       if (hasFilters) {
         $('clear-all-filters').addEventListener('click', () => {
-          historyFilter = 'all'; historySearch = ''; historyFrom = ''; historyTo = '';
+          historyFilter = 'all'; historySearch = ''; historyFrom = ''; historyTo = ''; historyPage = 1;
           $('history-search').value = '';
           $('filter-from').value = '';
           $('filter-to').value = '';
@@ -5257,7 +5249,10 @@
     }
 
     // Session grouping (F14)
-    const sessions = groupSessions(filtered);
+    const allSessions = groupSessions(filtered);
+    const visibleCount = historyPage * HISTORY_PAGE_SIZE;
+    const sessions = allSessions.slice(0, visibleCount);
+    const hasMore = allSessions.length > visibleCount;
     let html = '';
     sessions.forEach((session, si) => {
       const d = new Date(session.date + 'T12:00:00');
@@ -5304,24 +5299,39 @@
 
       html += '</div></div>';
     });
+    if (hasMore) {
+      html += `<button class="load-more-btn" id="history-load-more">Load More (${allSessions.length - visibleCount} remaining)</button>`;
+    }
     container.innerHTML = html;
 
-    // Session expand/collapse
-    container.querySelectorAll('.session-header').forEach(hdr => {
-      const toggle = () => {
-        const card = hdr.parentElement;
-        card.classList.toggle('expanded');
-        hdr.setAttribute('aria-expanded', card.classList.contains('expanded'));
-      };
-      hdr.addEventListener('click', toggle);
-      hdr.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
-      });
-    });
   }
 
-  // Attach history click delegation once
+  // Attach history click delegation once (handles expand/collapse, load more, edit, delete)
   $('history-list').addEventListener('click', handleHistoryClick);
+  $('history-list').addEventListener('click', (e) => {
+    // Load More button
+    if (e.target.closest('#history-load-more')) {
+      historyPage++;
+      renderHistory();
+      return;
+    }
+    // Session expand/collapse
+    const hdr = e.target.closest('.session-header');
+    if (hdr) {
+      const card = hdr.parentElement;
+      card.classList.toggle('expanded');
+      hdr.setAttribute('aria-expanded', card.classList.contains('expanded'));
+    }
+  });
+  $('history-list').addEventListener('keydown', (e) => {
+    const hdr = e.target.closest('.session-header');
+    if (hdr && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      const card = hdr.parentElement;
+      card.classList.toggle('expanded');
+      hdr.setAttribute('aria-expanded', card.classList.contains('expanded'));
+    }
+  });
 
   function handleHistoryClick(e) {
     const del = e.target.closest('.delete-btn');
@@ -5330,6 +5340,7 @@
       const entry = entries.find(en => en.id === id);
       if (!entry) return;
       const body = $('edit-body');
+      body.dataset.deleteId = id;
       const dateStr = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       body.innerHTML = `<div class="confirm-dialog">
         <div style="font-size:1.3rem">&#128465;&#65039;</div>
@@ -5342,25 +5353,69 @@
         </div>
       </div>`;
       openModal('edit-modal');
-      $('confirm-cancel-btn').addEventListener('click', () => closeModal('edit-modal'));
-      $('confirm-delete-btn').addEventListener('click', () => {
-        deleteEntry(id);
-        closeModal('edit-modal');
-        updateDashboard(); renderHistory();
-        showToastWithUndo('Entry deleted');
-      });
       return;
     }
     const edit = e.target.closest('.edit-btn');
     if (edit) { openEditModal(edit.dataset.id); }
   }
 
+  // Edit-body delegation — attached once, handles confirm dialog + edit modal
+  (function initEditBodyDelegation() {
+    const body = $('edit-body');
+    body.addEventListener('click', (e) => {
+      // Confirm cancel
+      if (e.target.closest('#confirm-cancel-btn')) {
+        closeModal('edit-modal');
+        return;
+      }
+      // Confirm delete
+      if (e.target.closest('#confirm-delete-btn')) {
+        const id = body.dataset.deleteId;
+        if (id) {
+          deleteEntry(id);
+          closeModal('edit-modal');
+          updateDashboard(); renderHistory();
+          showToastWithUndo('Entry deleted');
+        }
+        return;
+      }
+      // Edit lift selector
+      const liftBtn = e.target.closest('#edit-lift-selector .lift-btn');
+      if (liftBtn) {
+        body.querySelectorAll('#edit-lift-selector .lift-btn').forEach(b => b.classList.remove('active'));
+        liftBtn.classList.add('active');
+        return;
+      }
+      // Edit RPE
+      const rpeBtn = e.target.closest('#edit-rpe-row .rpe-pill');
+      if (rpeBtn) {
+        body.querySelectorAll('#edit-rpe-row .rpe-pill').forEach(b => b.classList.remove('active'));
+        rpeBtn.classList.add('active');
+        return;
+      }
+      // Save edit
+      if (e.target.closest('#edit-save')) {
+        const lift = body.querySelector('#edit-lift-selector .lift-btn.active').dataset.lift;
+        const w = parseFloat($('edit-weight').value);
+        const r = parseInt($('edit-reps').value);
+        const rpePill = body.querySelector('#edit-rpe-row .rpe-pill.active');
+        const rpe = rpePill.dataset.rpe ? parseFloat(rpePill.dataset.rpe) : null;
+        const notes = $('edit-notes').value.trim();
+        if (!(w > 0 && r > 0)) return;
+        editEntry(editingEntryId, lift, inputToLbs(w), r, rpe, notes);
+        closeModal('edit-modal');
+        updateDashboard(); renderHistory();
+        showToastWithUndo('Entry updated');
+        return;
+      }
+    });
+  })();
+
   // ===== EDIT MODAL =====
   function openEditModal(id) {
     const entry = entries.find(e => e.id === id);
     if (!entry) return;
     editingEntryId = id;
-    const modal = $('edit-modal');
     const body = $('edit-body');
 
     body.innerHTML = `
@@ -5393,35 +5448,6 @@
       <button class="modal-save-btn" id="edit-save">Save Changes</button>
     `;
     openModal('edit-modal');
-
-    // Edit lift selector
-    body.querySelectorAll('#edit-lift-selector .lift-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        body.querySelectorAll('#edit-lift-selector .lift-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-    });
-    // Edit RPE
-    body.querySelectorAll('#edit-rpe-row .rpe-pill').forEach(btn => {
-      btn.addEventListener('click', () => {
-        body.querySelectorAll('#edit-rpe-row .rpe-pill').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-    });
-    // Save
-    $('edit-save').addEventListener('click', () => {
-      const lift = body.querySelector('#edit-lift-selector .lift-btn.active').dataset.lift;
-      const w = parseFloat($('edit-weight').value);
-      const r = parseInt($('edit-reps').value);
-      const rpeBtn = body.querySelector('#edit-rpe-row .rpe-pill.active');
-      const rpe = rpeBtn.dataset.rpe ? parseFloat(rpeBtn.dataset.rpe) : null;
-      const notes = $('edit-notes').value.trim();
-      if (!(w > 0 && r > 0)) return;
-      editEntry(editingEntryId, lift, inputToLbs(w), r, rpe, notes);
-      closeModal('edit-modal');
-      updateDashboard(); renderHistory();
-      showToastWithUndo('Entry updated');
-    });
   }
 
   function openModal(id) {
@@ -5443,7 +5469,7 @@
   $('fatigue-sheet-backdrop').addEventListener('click', closeFatigueSheet);
 
   // ===== SETTINGS MODAL =====
-  const sectionLabel = text => `<div style="font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-bottom:6px">${text}</div>`;
+  const sectionLabel = text => `<div class="section-label-lg">${text}</div>`;
   const settingsDivider = '<hr style="border:none;border-top:1px solid var(--border);margin:14px 0">';
 
   function renderSettingsBody() {
