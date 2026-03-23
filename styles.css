@@ -198,16 +198,19 @@
   /* Fatigue detail bottom sheet */
   .fatigue-sheet-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 250;
+    will-change: opacity;
   }
   .fatigue-sheet {
     position: fixed; bottom: 0; left: 0; right: 0; max-height: 85vh; z-index: 251;
     border-radius: 16px 16px 0 0; background: var(--bg);
     animation: slideUp 0.25s ease; overflow-y: auto; -webkit-overflow-scrolling: touch;
     padding-bottom: env(safe-area-inset-bottom, 0);
+    overscroll-behavior-y: contain; will-change: transform;
   }
   .sheet-handle {
     width: 40px; height: 4px; border-radius: 2px; background: var(--text-dim);
-    opacity: 0.3; margin: 10px auto 0;
+    opacity: 0.3; padding: 10px 0; margin: 0 auto; cursor: grab;
+    background-clip: content-box;
   }
   .fatigue-sheet-handle { }
   .fatigue-sheet-header {
@@ -792,7 +795,7 @@
   /* Workout choice sheet */
   .choice-sheet-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 250;
-    animation: fadeIn 0.15s ease;
+    animation: fadeIn 0.15s ease; will-change: opacity;
   }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   .choice-sheet {
@@ -800,6 +803,7 @@
     border-radius: 16px 16px 0 0; background: var(--bg);
     animation: slideUp 0.25s ease; overflow-y: auto; -webkit-overflow-scrolling: touch;
     padding-bottom: env(safe-area-inset-bottom, 0);
+    overscroll-behavior-y: contain; will-change: transform;
   }
   .choice-sheet-handle { }
   .choice-sheet-header {
@@ -1051,12 +1055,14 @@
   /* Workout summary bottom sheet */
   .workout-summary-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 250;
+    will-change: opacity;
   }
   .workout-summary-sheet {
     position: fixed; bottom: 0; left: 0; right: 0; max-height: 85vh; z-index: 251;
     border-radius: 16px 16px 0 0; background: var(--bg);
     animation: slideUp 0.25s ease; overflow-y: auto; -webkit-overflow-scrolling: touch;
     padding-bottom: env(safe-area-inset-bottom, 0);
+    overscroll-behavior-y: contain; will-change: transform;
   }
   .summary-stat-grid {
     display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin-bottom: var(--space-3);

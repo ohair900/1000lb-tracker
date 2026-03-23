@@ -2476,8 +2476,11 @@
   }
 
   function closeChoiceSheet() {
-    $('choice-sheet-backdrop').style.display = 'none';
-    $('choice-sheet').style.display = 'none';
+    const sheet = $('choice-sheet'), backdrop = $('choice-sheet-backdrop');
+    sheet.style.transform = ''; sheet.style.transition = '';
+    backdrop.style.opacity = ''; backdrop.style.transition = '';
+    backdrop.style.display = 'none';
+    sheet.style.display = 'none';
     document.body.style.overflow = '';
   }
 
@@ -3388,8 +3391,11 @@
   }
 
   function closeWorkoutSummary() {
-    $('workout-summary-backdrop').style.display = 'none';
-    $('workout-summary-sheet').style.display = 'none';
+    const sheet = $('workout-summary-sheet'), backdrop = $('workout-summary-backdrop');
+    sheet.style.transform = ''; sheet.style.transition = '';
+    backdrop.style.opacity = ''; backdrop.style.transition = '';
+    backdrop.style.display = 'none';
+    sheet.style.display = 'none';
     document.body.style.overflow = '';
   }
 
@@ -4838,9 +4844,70 @@
     document.body.style.overflow = 'hidden';
   }
   function closeFatigueSheet() {
-    $('fatigue-sheet-backdrop').style.display = 'none';
-    $('fatigue-sheet').style.display = 'none';
+    const sheet = $('fatigue-sheet'), backdrop = $('fatigue-sheet-backdrop');
+    sheet.style.transform = ''; sheet.style.transition = '';
+    backdrop.style.opacity = ''; backdrop.style.transition = '';
+    backdrop.style.display = 'none';
+    sheet.style.display = 'none';
     document.body.style.overflow = '';
+  }
+
+  function enableSheetSwipeDismiss(sheetId, backdropId, closeFn) {
+    const sheet = $(sheetId), backdrop = $(backdropId);
+    let startY, startTime, offset, swiping, locked, onHandle;
+    const DEAD_ZONE = 8;
+
+    sheet.addEventListener('touchstart', e => {
+      if (sheet.style.display === 'none') return;
+      const t = e.touches[0];
+      startY = t.clientY; startTime = Date.now();
+      offset = 0; swiping = false; locked = false;
+      onHandle = !!e.target.closest('.sheet-handle');
+    }, { passive: true });
+
+    sheet.addEventListener('touchmove', e => {
+      if (locked && !swiping) return;
+      const dy = e.touches[0].clientY - startY;
+      if (!locked) {
+        if (Math.abs(dy) < DEAD_ZONE) return;
+        locked = true;
+        if (dy > 0 && (onHandle || sheet.scrollTop <= 1)) {
+          swiping = true;
+        } else {
+          return;
+        }
+      }
+      if (!swiping) return;
+      e.preventDefault();
+      offset = Math.max(0, dy);
+      sheet.style.transition = 'none';
+      sheet.style.transform = 'translateY(' + offset + 'px)';
+      backdrop.style.transition = 'none';
+      backdrop.style.opacity = Math.max(0, 1 - offset / sheet.offsetHeight);
+    }, { passive: false });
+
+    sheet.addEventListener('touchend', () => {
+      if (!swiping) return;
+      const elapsed = Date.now() - startTime;
+      const velocity = offset / elapsed;
+      if (offset > sheet.offsetHeight * 0.3 || velocity > 0.5) {
+        sheet.style.transition = 'transform 0.2s ease';
+        sheet.style.transform = 'translateY(100%)';
+        backdrop.style.transition = 'opacity 0.2s ease';
+        backdrop.style.opacity = '0';
+        setTimeout(closeFn, 200);
+      } else {
+        sheet.style.transition = 'transform 0.25s ease';
+        sheet.style.transform = 'translateY(0)';
+        backdrop.style.transition = 'opacity 0.25s ease';
+        backdrop.style.opacity = '1';
+        setTimeout(() => {
+          sheet.style.transform = ''; sheet.style.transition = '';
+          backdrop.style.opacity = ''; backdrop.style.transition = '';
+        }, 250);
+      }
+      swiping = false;
+    }, { passive: true });
   }
 
   function showFatigueDetail(mg) {
@@ -5236,7 +5303,7 @@
   (function() {
     let startX = null, startY = null, startTime = 0;
     document.addEventListener('touchstart', e => {
-      if (e.target.closest('.chart-container') || e.target.closest('.modal-backdrop') || e.target.closest('.workout-overlay') || e.target.closest('input') || e.target.closest('textarea')) return;
+      if (e.target.closest('.chart-container') || e.target.closest('.modal-backdrop') || e.target.closest('.workout-overlay') || e.target.closest('input') || e.target.closest('textarea') || e.target.closest('.fatigue-sheet') || e.target.closest('.choice-sheet') || e.target.closest('.workout-summary-sheet')) return;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       startTime = Date.now();
@@ -5636,6 +5703,10 @@
   $('fatigue-sheet-backdrop').addEventListener('click', closeFatigueSheet);
   $('workout-summary-close').addEventListener('click', closeWorkoutSummary);
   $('workout-summary-backdrop').addEventListener('click', closeWorkoutSummary);
+
+  enableSheetSwipeDismiss('fatigue-sheet', 'fatigue-sheet-backdrop', closeFatigueSheet);
+  enableSheetSwipeDismiss('choice-sheet', 'choice-sheet-backdrop', closeChoiceSheet);
+  enableSheetSwipeDismiss('workout-summary-sheet', 'workout-summary-backdrop', closeWorkoutSummary);
 
   // ===== SETTINGS MODAL =====
   const sectionLabel = text => `<div class="section-label-lg">${text}</div>`;
