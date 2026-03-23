@@ -920,23 +920,19 @@
 
   // ===== DATA LAYER =====
   function load() {
-    try { entries = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { entries = []; }
-    try { profile = JSON.parse(localStorage.getItem(PROFILE_KEY)) || { gender: null, bodyweight: null, bodyweightHistory: [] }; } catch { profile = { gender: null, bodyweight: null, bodyweightHistory: [] }; }
-    try { goals = JSON.parse(localStorage.getItem(GOALS_KEY)) || { squat: null, bench: null, deadlift: null, total: null }; } catch { goals = { squat: null, bench: null, deadlift: null, total: null }; }
-    try { prs = JSON.parse(localStorage.getItem(PRS_KEY)) || []; } catch { prs = []; }
-    try { cycles = JSON.parse(localStorage.getItem(CYCLES_KEY)) || []; } catch { cycles = []; }
+    Object.keys(STORES).forEach(loadStore);
     if (!profile.bodyweightHistory) profile.bodyweightHistory = [];
     activeCycleId = (cycles.find(c => c.active) || {}).id || null;
-    loadProgramConfig();
-    loadWorkoutConfig();
-    loadAccessoryLog();
-    loadWorkoutSession();
-    loadCustomTemplates();
-    loadMesocycle();
-    loadMesocycleHistory();
 
     const version = parseInt(localStorage.getItem(VERSION_KEY)) || 0;
     if (version < CURRENT_VERSION) migrate(version);
+    rebuildPRs();
+
+    // Prune accessory log entries older than 6 months
+    const accCutoff = Date.now() - 180 * 86400000;
+    const accBefore = accessoryLog.length;
+    accessoryLog = accessoryLog.filter(a => a.timestamp > accCutoff);
+    if (accessoryLog.length < accBefore) saveAccessoryLog();
   }
 
   function migrate(fromVersion) {
@@ -954,79 +950,97 @@
     saveAll();
   }
 
-  const STORES = { entries: STORAGE_KEY, profile: PROFILE_KEY, goals: GOALS_KEY, prs: PRS_KEY, cycles: CYCLES_KEY };
-  function saveStore(name) {
+  function patchProgramConfig() {
+    if (!programConfig.completedSets) programConfig.completedSets = {};
+    if (!programConfig.amrapResults) programConfig.amrapResults = {};
+    if (!programConfig.tmHistory) programConfig.tmHistory = [];
+    if (programConfig.autoProgressEnabled === undefined) programConfig.autoProgressEnabled = true;
+    if (!programConfig.completedWeeks) programConfig.completedWeeks = {};
+    if (!programConfig.weekStreak) programConfig.weekStreak = 0;
+  }
+  function patchWorkoutConfig() {
+    if (!workoutConfig.weakPoints) workoutConfig.weakPoints = { squat: null, bench: null, deadlift: null };
+  }
+
+  const STORES = {
+    entries:          { key: STORAGE_KEY,          get: () => entries,          set: v => { entries = v; },          default: [] },
+    profile:          { key: PROFILE_KEY,          get: () => profile,          set: v => { profile = v; },          default: { gender: null, bodyweight: null, bodyweightHistory: [] } },
+    goals:            { key: GOALS_KEY,            get: () => goals,            set: v => { goals = v; },            default: { squat: null, bench: null, deadlift: null, total: null } },
+    prs:              { key: PRS_KEY,              get: () => prs,              set: v => { prs = v; },              default: [] },
+    cycles:           { key: CYCLES_KEY,           get: () => cycles,           set: v => { cycles = v; },           default: [] },
+    programs:         { key: PROGRAMS_KEY,          get: () => programConfig,    set: v => { programConfig = v; },    default: { activeProgram: null, trainingMaxes: {}, currentWeek: 1, completedSets: {}, amrapResults: {}, tmHistory: [], autoProgressEnabled: true, completedWeeks: {}, weekStreak: 0 }, postLoad: patchProgramConfig },
+    workoutConfig:    { key: WORKOUT_KEY,           get: () => workoutConfig,    set: v => { workoutConfig = v; },    default: { weakPoints: { squat: null, bench: null, deadlift: null }, setupComplete: false }, postLoad: patchWorkoutConfig },
+    accessoryLog:     { key: ACCESSORY_LOG_KEY,     get: () => accessoryLog,     set: v => { accessoryLog = v; },     default: [] },
+    workoutSession:   { key: WORKOUT_SESSION_KEY,   get: () => workoutSession,   set: v => { workoutSession = v; },   default: null, nullable: true },
+    customTemplates:  { key: CUSTOM_TEMPLATES_KEY,   get: () => customTemplates,  set: v => { customTemplates = v; },  default: [] },
+    mesocycle:        { key: MESOCYCLE_KEY,          get: () => activeMesocycle,  set: v => { activeMesocycle = v; },  default: null, nullable: true },
+    mesocycleHistory: { key: MESOCYCLE_HISTORY_KEY,  get: () => mesocycleHistory, set: v => { mesocycleHistory = v; }, default: [] },
+  };
+
+  function loadStore(name) {
+    const s = STORES[name];
     try {
-      localStorage.setItem(STORES[name], JSON.stringify({ entries, profile, goals, prs, cycles }[name]));
-    } catch (e) {
-      if (e.name === 'QuotaExceededError' || e.code === 22) {
-        showToast('Storage full! Export your data to avoid data loss.');
+      const raw = localStorage.getItem(s.key);
+      s.set(raw ? JSON.parse(raw) : (s.nullable ? null : JSON.parse(JSON.stringify(s.default))));
+    } catch { s.set(s.nullable ? null : JSON.parse(JSON.stringify(s.default))); }
+    if (s.postLoad) s.postLoad();
+  }
+
+  let _dirtyStores = new Set();
+  let _flushScheduled = false;
+
+  function flushSaves() {
+    _flushScheduled = false;
+    const names = [..._dirtyStores];
+    _dirtyStores.clear();
+    names.forEach(name => {
+      const s = STORES[name];
+      const val = s.get();
+      try {
+        if (val == null && s.nullable) localStorage.removeItem(s.key);
+        else localStorage.setItem(s.key, JSON.stringify(val));
+      } catch (e) {
+        if (e.name === 'QuotaExceededError' || e.code === 22)
+          showToast('Storage full! Export your data.');
       }
+    });
+    if (names.length > 0 && typeof scheduleCloudSync === 'function') scheduleCloudSync();
+  }
+
+  function saveStore(name) {
+    _dirtyStores.add(name);
+    if (!_flushScheduled) {
+      _flushScheduled = true;
+      queueMicrotask(flushSaves);
     }
   }
+
+  function saveStoreNow(name) {
+    _dirtyStores.delete(name);
+    const s = STORES[name];
+    const val = s.get();
+    try {
+      if (val == null && s.nullable) localStorage.removeItem(s.key);
+      else localStorage.setItem(s.key, JSON.stringify(val));
+    } catch (e) {
+      if (e.name === 'QuotaExceededError' || e.code === 22)
+        showToast('Storage full! Export your data.');
+    }
+  }
+
   function saveEntries() { saveStore('entries'); }
   function saveProfile() { saveStore('profile'); }
   function saveGoals() { saveStore('goals'); }
   function savePRs() { saveStore('prs'); }
   function saveCycles() { saveStore('cycles'); }
-  function saveAll() { Object.keys(STORES).forEach(saveStore); saveProgramConfig(); }
-
-  function loadWorkoutConfig() {
-    try { const s = localStorage.getItem(WORKOUT_KEY); if (s) workoutConfig = JSON.parse(s); } catch {}
-    if (!workoutConfig.weakPoints) workoutConfig.weakPoints = { squat: null, bench: null, deadlift: null };
-  }
-  function saveWorkoutConfig() {
-    try { localStorage.setItem(WORKOUT_KEY, JSON.stringify(workoutConfig)); } catch (e) {
-      if (e.name === 'QuotaExceededError' || e.code === 22) showToast('Storage full! Export your data.');
-    }
-  }
-  function loadAccessoryLog() {
-    try { accessoryLog = JSON.parse(localStorage.getItem(ACCESSORY_LOG_KEY)) || []; } catch { accessoryLog = []; }
-  }
-  function saveAccessoryLog() {
-    try { localStorage.setItem(ACCESSORY_LOG_KEY, JSON.stringify(accessoryLog)); } catch (e) {
-      if (e.name === 'QuotaExceededError' || e.code === 22) showToast('Storage full! Export your data.');
-    }
-  }
-  function loadWorkoutSession() {
-    try { const s = localStorage.getItem(WORKOUT_SESSION_KEY); workoutSession = s ? JSON.parse(s) : null; } catch { workoutSession = null; }
-  }
-  function saveWorkoutSession() {
-    try {
-      if (workoutSession) localStorage.setItem(WORKOUT_SESSION_KEY, JSON.stringify(workoutSession));
-      else localStorage.removeItem(WORKOUT_SESSION_KEY);
-    } catch (e) {
-      if (e.name === 'QuotaExceededError' || e.code === 22) showToast('Storage full! Export your data.');
-    }
-  }
-
-  function loadCustomTemplates() {
-    try { customTemplates = JSON.parse(localStorage.getItem(CUSTOM_TEMPLATES_KEY)) || []; } catch { customTemplates = []; }
-  }
-  function saveCustomTemplates() {
-    try { localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(customTemplates)); } catch (e) {
-      if (e.name === 'QuotaExceededError' || e.code === 22) showToast('Storage full! Export your data.');
-    }
-  }
-  function loadMesocycle() {
-    try { const s = localStorage.getItem(MESOCYCLE_KEY); activeMesocycle = s ? JSON.parse(s) : null; } catch { activeMesocycle = null; }
-  }
-  function saveMesocycle() {
-    try {
-      if (activeMesocycle) localStorage.setItem(MESOCYCLE_KEY, JSON.stringify(activeMesocycle));
-      else localStorage.removeItem(MESOCYCLE_KEY);
-    } catch (e) {
-      if (e.name === 'QuotaExceededError' || e.code === 22) showToast('Storage full! Export your data.');
-    }
-  }
-  function loadMesocycleHistory() {
-    try { mesocycleHistory = JSON.parse(localStorage.getItem(MESOCYCLE_HISTORY_KEY)) || []; } catch { mesocycleHistory = []; }
-  }
-  function saveMesocycleHistory() {
-    try { localStorage.setItem(MESOCYCLE_HISTORY_KEY, JSON.stringify(mesocycleHistory)); } catch (e) {
-      if (e.name === 'QuotaExceededError' || e.code === 22) showToast('Storage full! Export your data.');
-    }
-  }
+  function saveProgramConfig() { saveStore('programs'); }
+  function saveWorkoutConfig() { saveStore('workoutConfig'); }
+  function saveAccessoryLog() { saveStore('accessoryLog'); }
+  function saveWorkoutSession() { saveStoreNow('workoutSession'); }
+  function saveCustomTemplates() { saveStore('customTemplates'); }
+  function saveMesocycle() { saveStore('mesocycle'); }
+  function saveMesocycleHistory() { saveStore('mesocycleHistory'); }
+  function saveAll() { Object.keys(STORES).forEach(saveStore); }
 
   function escapeHTML(str) {
     if (!str) return '';
@@ -1222,7 +1236,7 @@
       const cw = ACCESSORY_CAT_WEIGHTS[ex.category];
       if (!cw || !cw[muscleGroup]) return;
       const sets = a.setsCompleted || [];
-      tonnage += sets.reduce((s, reps) => s + (a.weight || 0) * reps, 0) * cw[muscleGroup] * 0.5;
+      tonnage += sets.reduce((s, reps, i) => s + ((a.setWeights && a.setWeights[i]) || a.weight || 0) * reps, 0) * cw[muscleGroup] * 0.5;
     });
     return tonnage;
   }
@@ -1323,7 +1337,7 @@
       const cw = ACCESSORY_CAT_WEIGHTS[ex.category];
       if (!cw || !cw[mg]) return;
       const sets = a.setsCompleted || [];
-      const accTon = sets.reduce((s, reps) => s + (a.weight || 0) * reps, 0) * cw[mg] * 0.5;
+      const accTon = sets.reduce((s, reps, i) => s + ((a.setWeights && a.setWeights[i]) || a.weight || 0) * reps, 0) * cw[mg] * 0.5;
       ton28 += accTon;
       count28++;
     });
@@ -1333,7 +1347,7 @@
       const cw = ACCESSORY_CAT_WEIGHTS[ex.category];
       if (!cw || !cw[mg]) return;
       const sets = a.setsCompleted || [];
-      const accTon = sets.reduce((s, reps) => s + (a.weight || 0) * reps, 0) * cw[mg] * 0.5;
+      const accTon = sets.reduce((s, reps, i) => s + ((a.setWeights && a.setWeights[i]) || a.weight || 0) * reps, 0) * cw[mg] * 0.5;
       ton7 += accTon;
       addContrib('acc-' + a.exerciseId, ex.name, 'Acc', ex.mainLift, cw[mg], accTon);
     });
@@ -1357,7 +1371,7 @@
         const cw = ex ? ACCESSORY_CAT_WEIGHTS[ex.category] : null;
         const mw = cw ? (cw[mg] || 0) : 0;
         const sets = a.setsCompleted || [];
-        return { ts: a.timestamp, lift: ex?.mainLift, ton: sets.reduce((s, r) => s + (a.weight || 0) * r, 0) * mw * 0.5 };
+        return { ts: a.timestamp, lift: ex?.mainLift, ton: sets.reduce((s, r, i) => s + ((a.setWeights && a.setWeights[i]) || a.weight || 0) * r, 0) * mw * 0.5 };
       })
     ];
     allItems28.forEach(item => {
@@ -1616,23 +1630,6 @@
   }
 
   // ===== PROGRAM SUPPORT =====
-  function loadProgramConfig() {
-    try {
-      const stored = localStorage.getItem(PROGRAMS_KEY);
-      if (stored) programConfig = JSON.parse(stored);
-    } catch {}
-    if (!programConfig.completedSets) programConfig.completedSets = {};
-    if (!programConfig.amrapResults) programConfig.amrapResults = {};
-    if (!programConfig.tmHistory) programConfig.tmHistory = [];
-    if (programConfig.autoProgressEnabled === undefined) programConfig.autoProgressEnabled = true;
-    if (!programConfig.completedWeeks) programConfig.completedWeeks = {};
-    if (!programConfig.weekStreak) programConfig.weekStreak = 0;
-  }
-
-  function saveProgramConfig() {
-    localStorage.setItem(PROGRAMS_KEY, JSON.stringify(programConfig));
-  }
-
   function isWeekComplete() {
     if (!programConfig.activeProgram) return false;
     const liftsWithTM = LIFTS.filter(l => programConfig.trainingMaxes[l]);
@@ -2872,7 +2869,6 @@
     };
     customTemplates.push(template);
     saveCustomTemplates();
-    scheduleCloudSync();
     showToast('Template saved: ' + name);
   }
 
@@ -3230,7 +3226,6 @@
           if (!meso) { showToast('Set training maxes first'); return; }
           activeMesocycle = meso;
           saveMesocycle();
-          scheduleCloudSync();
           closeModal('edit-modal');
           showToast('Mesocycle generated: ' + meso.name);
           updateWorkoutButton();
@@ -3296,7 +3291,6 @@
     saveMesocycleHistory();
     activeMesocycle = null;
     saveMesocycle();
-    scheduleCloudSync();
     showToast('Mesocycle abandoned');
     updateWorkoutButton();
   }
@@ -3397,11 +3391,19 @@
       session.accessories.forEach(acc => {
         const done = acc.setsCompleted.length;
         const target = acc.targetSets;
+        let weightStr = '';
+        if (acc.setWeights && acc.setWeights.some(w => w > 0)) {
+          const uniqueWeights = new Set(acc.setWeights);
+          weightStr = uniqueWeights.size > 1
+            ? acc.setWeights.slice(0, done || target).map(w => formatWeight(w)).join('/') + ' ' + unit
+            : formatWeight(acc.setWeights[0]) + ' ' + unit;
+          weightStr += ' \u00b7 ';
+        }
         const repDetail = done > 0 ? acc.setsCompleted.join('/') + ' reps' : 'skipped';
         const color = done >= target ? 'var(--green)' : done > 0 ? 'var(--yellow)' : 'var(--text-dim)';
         html += `<div class="summary-acc-row">
           <span class="summary-acc-name">${acc.name}</span>
-          <span class="summary-acc-detail" style="color:${color}">${done}/${target} sets \u00b7 ${repDetail}</span>
+          <span class="summary-acc-detail" style="color:${color}">${weightStr}${done}/${target} sets \u00b7 ${repDetail}</span>
         </div>`;
       });
     }
@@ -3508,7 +3510,7 @@
         mainLift: workoutSession.mainLift
       });
     });
-    saveAccessoryLog();
+    saveStoreNow('accessoryLog');
     // Mesocycle performance recording & adaptation
     let mesoAdaptation = null;
     const completedSession = workoutSession;
@@ -3522,7 +3524,6 @@
     showToast('Workout complete!');
     if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
     updateWorkoutButton();
-    if (completedSession.source === 'mesocycle') scheduleCloudSync();
     setTimeout(() => showWorkoutSummary(completedSession, mesoAdaptation), 300);
   }
 
@@ -3815,7 +3816,7 @@
   function getLastAccPerformance(exerciseId) {
     const recent = accessoryLog.filter(l => l.exerciseId === exerciseId).sort((a, b) => b.timestamp - a.timestamp)[0];
     if (!recent) return null;
-    return { weight: recent.weight, setsCompleted: recent.setsCompleted, date: recent.date };
+    return { weight: recent.weight, setWeights: recent.setWeights, setsCompleted: recent.setsCompleted, date: recent.date };
   }
 
   function renderWorkoutView() {
@@ -3867,7 +3868,14 @@
       html += `<div class="workout-exercise-meta">${acc.equipment}${!isBodyweight ? ` &bull; hit ${targetReps}${isTimeBased ? 's' : ' reps'} on all sets to increase weight` : ''}</div>`;
       const lastAcc = getLastAccPerformance(acc.exerciseId);
       if (lastAcc) {
-        const lastWeight = lastAcc.weight === 0 ? 'BW' : `${formatWeight(lastAcc.weight)} ${unit}`;
+        let lastWeight;
+        if (lastAcc.weight === 0) {
+          lastWeight = 'BW';
+        } else if (lastAcc.setWeights && lastAcc.setWeights.length > 1 && new Set(lastAcc.setWeights).size > 1) {
+          lastWeight = lastAcc.setWeights.map(w => formatWeight(w)).join('/') + ' ' + unit;
+        } else {
+          lastWeight = formatWeight(lastAcc.weight) + ' ' + unit;
+        }
         const lastReps = lastAcc.setsCompleted.join('/');
         html += `<div class="prev-perf">Last: ${lastWeight} &times; ${lastReps} reps <span class="prev-perf-date">${lastAcc.date}</span></div>`;
       }
@@ -4466,7 +4474,6 @@
       }
     });
     saveEntries();
-    savePRs();
   }
 
   function checkPR(lift, e1rm) {
@@ -4502,7 +4509,6 @@
     entries.push(entry);
     if (isPR) {
       prs.push({ lift, e1rm, entryId: entry.id, date: entry.date, timestamp: entry.timestamp, milestone });
-      savePRs();
     }
     saveEntries();
     lastLoggedSet = { lift, weight, reps, rpe, notes };
@@ -5264,7 +5270,6 @@
         template.exercises = builderExercises.map(e => ({ ...e }));
         template.lastUsed = Date.now();
         saveCustomTemplates();
-        scheduleCloudSync();
         showToast('Template updated');
         $('builder-save-template')._templateId = null;
         return;
@@ -5974,6 +5979,7 @@
         if (!profile.bodyweightHistory) profile.bodyweightHistory = [];
         activeCycleId = (cycles.find(c => c.active) || {}).id || null;
         localStorage.setItem(VERSION_KEY, CURRENT_VERSION.toString());
+        rebuildPRs();
         saveAll();
         // Re-init UI
         document.querySelectorAll('.unit-btn').forEach(b => b.classList.toggle('active', b.dataset.unit === unit));
@@ -7781,26 +7787,6 @@ service cloud.firestore {
       }
     });
   }
-
-  // ===== WRAP SAVE FUNCTIONS WITH CLOUD SYNC =====
-  const _origSaveEntries = saveEntries;
-  saveEntries = function() { _origSaveEntries(); scheduleCloudSync(); };
-  const _origSaveProfile = saveProfile;
-  saveProfile = function() { _origSaveProfile(); scheduleCloudSync(); };
-  const _origSaveGoals = saveGoals;
-  saveGoals = function() { _origSaveGoals(); scheduleCloudSync(); };
-  const _origSavePRs = savePRs;
-  savePRs = function() { _origSavePRs(); scheduleCloudSync(); };
-  const _origSaveCycles = saveCycles;
-  saveCycles = function() { _origSaveCycles(); scheduleCloudSync(); };
-  const _origSaveProgramConfig = saveProgramConfig;
-  saveProgramConfig = function() { _origSaveProgramConfig(); scheduleCloudSync(); };
-  const _origSaveAll = saveAll;
-  saveAll = function() { _origSaveAll(); scheduleCloudSync(); };
-  const _origSaveWorkoutConfig = saveWorkoutConfig;
-  saveWorkoutConfig = function() { _origSaveWorkoutConfig(); scheduleCloudSync(); };
-  const _origSaveAccessoryLog = saveAccessoryLog;
-  saveAccessoryLog = function() { _origSaveAccessoryLog(); scheduleCloudSync(); };
 
   updateSyncButton();
 
