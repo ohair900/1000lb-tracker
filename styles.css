@@ -2036,3 +2036,33 @@
   .tm-unit-label { font-size: 0.7rem; color: var(--text-dim); }
   .tm-suggest-btn { font-size: var(--text-2xs); }
   .smart-score-label { font-size: var(--text-2xs); color: var(--text-dim); }
+
+  /* Exercise preview card (long-press) */
+  #exercise-preview {
+    position: fixed; inset: 0; z-index: 300;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.35);
+  }
+  .exercise-preview-card {
+    background: var(--bg); border-radius: var(--radius-lg);
+    padding: var(--space-4); margin: var(--space-4);
+    max-width: 320px; width: 90%;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+  .exercise-preview-name {
+    font-size: var(--text-lg); font-weight: 700; color: var(--text-strong);
+    margin-bottom: var(--space-2);
+  }
+  .exercise-preview-desc {
+    font-size: var(--text-sm); color: var(--text); line-height: 1.5;
+    margin-bottom: var(--space-3);
+  }
+  .exercise-preview-meta {
+    font-size: var(--text-xs); color: var(--text-dim);
+    margin-bottom: var(--space-3);
+  }
+  .exercise-preview-video {
+    display: inline-block; font-size: var(--text-sm); font-weight: 600;
+    color: var(--bench); text-decoration: none;
+    padding: 8px 0;
+  }

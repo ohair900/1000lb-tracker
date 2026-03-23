@@ -651,6 +651,61 @@
     'dl-chinup': { name: 'Chin-ups', mainLift: 'deadlift', weakPoints: ['floor','upperback'], pctOfTM: 0.10, sets: 3, repRange: [6,12], equipment: 'bodyweight', category: 'back' }
   };
 
+  const EXERCISE_INFO = {
+    // Squat accessories
+    'sq-pause':       { desc: 'Squat with a 2-3s pause in the bottom position. Builds strength out of the hole and reinforces bracing.', yt: '' },
+    'sq-front':       { desc: 'Barbell racked on front delts with an upright torso. Targets quads and core stability.', yt: '' },
+    'sq-legpress':    { desc: 'Machine press using legs. Heavy quad builder without spinal loading.', yt: '' },
+    'sq-goodmorning': { desc: 'Barbell on back, hinge at the hips until torso is near parallel. Strengthens posterior chain and core.', yt: '' },
+    'sq-hipthrust':   { desc: 'Back against a bench, drive barbell up with hips. Isolates glutes for lockout power.', yt: '' },
+    'sq-glutebridge': { desc: 'Lie flat, drive hips up with barbell across hips. Glute activation with less range than hip thrust.', yt: '' },
+    'sq-rdl':         { desc: 'Stand with barbell, hinge at hips keeping legs nearly straight. Targets hamstrings and lower back.', yt: '' },
+    'sq-legext':      { desc: 'Seated machine extension. Isolates the quadriceps.', yt: '' },
+    'sq-bss':         { desc: 'Rear foot elevated on bench, lunge down on front leg. Unilateral quad and balance work.', yt: '' },
+    'sq-lunge':       { desc: 'Step forward or backward and lower until both knees are at 90 degrees. Builds single-leg quad strength.', yt: '' },
+    'sq-abwheel':     { desc: 'Kneel and roll a wheel forward, extending the body. Deep core anti-extension exercise.', yt: '' },
+    'sq-pallof':      { desc: 'Press cable outward and hold against rotational pull. Anti-rotation core stability drill.', yt: '' },
+    'sq-plank':       { desc: 'Hold a rigid push-up position on forearms. Isometric core endurance.', yt: '' },
+    'sq-wallsit':     { desc: 'Back flat against a wall, thighs parallel to floor. Isometric quad endurance hold.', yt: '' },
+    // Bench accessories
+    'bn-pause':       { desc: 'Bench press with a 2-3s pause on the chest. Builds power off the chest and eliminates bounce.', yt: '' },
+    'bn-spoto':       { desc: 'Lower the bar to 1-2 inches above the chest and press. Strengthens the mid-range sticking point.', yt: '' },
+    'bn-dbpress':     { desc: 'Flat bench press with dumbbells. Greater range of motion and pec stretch.', yt: '' },
+    'bn-flies':       { desc: 'Dumbbells in each hand, arc outward and squeeze together. Chest isolation with a deep stretch.', yt: '' },
+    'bn-cgbp':        { desc: 'Bench press with hands shoulder-width apart. Emphasizes tricep lockout strength.', yt: '' },
+    'bn-tricepext':   { desc: 'Cable or rope pushdowns extending the elbows. Tricep isolation.', yt: '' },
+    'bn-skulls':      { desc: 'Lying barbell extension lowered toward forehead. Targets the long head of the triceps.', yt: '' },
+    'bn-jmpress':     { desc: 'Hybrid of close-grip bench and skull crusher. Overloads triceps in the bench press path.', yt: '' },
+    'bn-ohp':         { desc: 'Press barbell overhead from shoulders. Builds shoulders and overhead pressing strength.', yt: '' },
+    'bn-incline':     { desc: 'Bench press on a 30-45 degree incline. Targets upper chest and front delts.', yt: '' },
+    'bn-latraise':    { desc: 'Raise dumbbells out to the sides to shoulder height. Isolates lateral deltoids.', yt: '' },
+    'bn-facepull':    { desc: 'Pull cable rope toward the face with elbows high. Builds rear delts and external rotation.', yt: '' },
+    'bn-row':         { desc: 'Hinge forward, row barbell to lower chest. Builds upper back thickness for bench stability.', yt: '' },
+    'bn-dbrow':       { desc: 'One-arm dumbbell row from a bench. Unilateral upper back and lat strength.', yt: '' },
+    'bn-reardelt':    { desc: 'Bent-over dumbbell flies targeting rear delts. Balances pressing with pulling.', yt: '' },
+    'bn-pullup':      { desc: 'Hang from a bar, pull chin over. Lat and upper back strength.', yt: '' },
+    'bn-widepullup':  { desc: 'Pull-up with a wider-than-shoulder grip. Emphasizes lat width.', yt: '' },
+    'bn-chinup':      { desc: 'Underhand-grip pull-up. Engages biceps more than standard pull-ups.', yt: '' },
+    // Deadlift accessories
+    'dl-deficit':     { desc: 'Deadlift while standing on a 1-2 inch platform. Increases range of motion off the floor.', yt: '' },
+    'dl-frontsquat':  { desc: 'Barbell on front delts, upright squat. Builds quad drive for breaking the floor.', yt: '' },
+    'dl-legpress':    { desc: 'Machine leg press. Quad strength for the initial pull without spinal load.', yt: '' },
+    'dl-blockpull':   { desc: 'Deadlift from elevated blocks (mid-shin or above). Overloads the lockout portion.', yt: '' },
+    'dl-hipthrust':   { desc: 'Back on bench, drive barbell up with hips. Glute power for hip extension at lockout.', yt: '' },
+    'dl-goodmorning': { desc: 'Barbell on back, hinge at hips. Builds posterior chain for maintaining back position.', yt: '' },
+    'dl-glutebridge': { desc: 'Lying hip extension with barbell. Glute activation for lockout.', yt: '' },
+    'dl-farmerwalk':  { desc: 'Walk holding heavy dumbbells at sides. Builds grip endurance and full-body stability.', yt: '' },
+    'dl-deadhang':    { desc: 'Hang from a pull-up bar as long as possible. Pure grip endurance training.', yt: '' },
+    'dl-shrugs':      { desc: 'Barbell in hands, shrug shoulders toward ears. Builds upper traps and grip.', yt: '' },
+    'dl-row':         { desc: 'Hinged barbell row. Upper back strength to prevent rounding during pulls.', yt: '' },
+    'dl-latpulldown': { desc: 'Cable pulldown to chest. Lat engagement for keeping the bar close during deadlifts.', yt: '' },
+    'dl-facepull':    { desc: 'Cable rope pull to face. Rear delts and upper back posture work.', yt: '' },
+    'dl-dbshrugs':    { desc: 'Dumbbell shrugs. Trap and grip work with a freer range of motion.', yt: '' },
+    'dl-pullup':      { desc: 'Overhand pull-up. Lat and upper back for maintaining position off the floor.', yt: '' },
+    'dl-widepullup':  { desc: 'Wide-grip pull-up. Emphasizes lat width and upper back.', yt: '' },
+    'dl-chinup':      { desc: 'Underhand pull-up. Lats and biceps for pulling strength.', yt: '' }
+  };
+
   const WEAK_POINT_OPTIONS = {
     squat: [
       { id: 'hole', label: 'Out of the hole (bottom weakness)' },
@@ -2935,7 +2990,7 @@
   function renderSmartAccCard(acc, accIdx) {
     return `<div class="builder-exercise" data-smart-acc="${accIdx}">
       <div class="builder-exercise-info">
-        <div class="builder-exercise-name">${acc.name}</div>
+        <div class="builder-exercise-name" data-exid="${acc.exerciseId || ''}">${acc.name}</div>
         <div class="builder-exercise-meta">${acc.equipment} &bull; ${acc.sets}x${Array.isArray(acc.repRange) ? acc.repRange.join('-') : acc.reps}</div>
         ${acc._score != null ? `<div class="smart-score-bar"><div class="smart-score-fill" style="width:${acc._score}%"></div></div>` : ''}
         ${acc._reasons ? `<div style="margin-top:2px">${acc._reasons.map(r => `<span class="smart-reason">${r}</span>`).join('')}</div>` : ''}
@@ -3808,7 +3863,7 @@
       const isTimeBased = !!(ex && ex.timeBased);
       const targetReps = acc.repRange[1];
       html += `<div class="workout-exercise">`;
-      html += `<div class="workout-exercise-name">${acc.name}${acc.progressed ? '<span class="acc-progression-badge">WEIGHT UP</span>' : ''}</div>`;
+      html += `<div class="workout-exercise-name" data-exid="${acc.exerciseId}">${acc.name}${acc.progressed ? '<span class="acc-progression-badge">WEIGHT UP</span>' : ''}</div>`;
       html += `<div class="workout-exercise-meta">${acc.equipment}${!isBodyweight ? ` &bull; hit ${targetReps}${isTimeBased ? 's' : ' reps'} on all sets to increase weight` : ''}</div>`;
       const lastAcc = getLastAccPerformance(acc.exerciseId);
       if (lastAcc) {
@@ -7748,6 +7803,74 @@ service cloud.firestore {
   saveAccessoryLog = function() { _origSaveAccessoryLog(); scheduleCloudSync(); };
 
   updateSyncButton();
+
+  // --- Exercise Preview Card (long-press) ---
+  (function() {
+    // Create overlay element once
+    const overlay = document.createElement('div');
+    overlay.id = 'exercise-preview';
+    overlay.style.display = 'none';
+    overlay.innerHTML = `<div class="exercise-preview-card">
+      <div class="exercise-preview-name" id="ep-name"></div>
+      <div class="exercise-preview-desc" id="ep-desc"></div>
+      <div class="exercise-preview-meta" id="ep-meta"></div>
+      <a class="exercise-preview-video" id="ep-video" target="_blank" rel="noopener">Watch form video</a>
+    </div>`;
+    document.body.appendChild(overlay);
+
+    function showExercisePreview(exId) {
+      const db = ACCESSORY_DB[exId];
+      const info = EXERCISE_INFO[exId];
+      if (!db && !info) return;
+      $('ep-name').textContent = db ? db.name : exId;
+      $('ep-desc').textContent = info ? info.desc : '';
+      const meta = [];
+      if (db) {
+        meta.push(db.equipment);
+        meta.push(db.sets + ' x ' + db.repRange.join('-') + (db.timeBased ? 's' : ' reps'));
+        if (db.weakPoints.length) meta.push('Targets: ' + db.weakPoints.join(', '));
+      }
+      $('ep-meta').textContent = meta.join('  \u2022  ');
+      const vid = $('ep-video');
+      if (info && info.yt) {
+        vid.href = 'https://www.youtube.com/watch?v=' + info.yt;
+        vid.style.display = '';
+      } else {
+        vid.style.display = 'none';
+      }
+      overlay.style.display = '';
+    }
+
+    function hideExercisePreview() {
+      overlay.style.display = 'none';
+    }
+
+    // Long-press detection (delegated)
+    let timer = null;
+    document.addEventListener('touchstart', function(e) {
+      const target = e.target.closest('[data-exid]');
+      if (!target || !target.dataset.exid) return;
+      const exId = target.dataset.exid;
+      if (!EXERCISE_INFO[exId]) return;
+      timer = setTimeout(function() {
+        showExercisePreview(exId);
+        timer = null;
+      }, 500);
+    }, { passive: true });
+
+    document.addEventListener('touchmove', function() {
+      if (timer) { clearTimeout(timer); timer = null; }
+    }, { passive: true });
+
+    document.addEventListener('touchend', function() {
+      if (timer) { clearTimeout(timer); timer = null; }
+    }, { passive: true });
+
+    // Dismiss on tapping the backdrop
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) hideExercisePreview();
+    });
+  })();
 </script>
 </body>
 </html>
