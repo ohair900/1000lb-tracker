@@ -1,0 +1,15 @@
+{
+  "name": "1000lb Club Tracker",
+  "short_name": "1000lb",
+  "description": "Powerlifting tracker — e1RM, PR detection, Wilks/DOTS, and cloud sync",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#121212",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

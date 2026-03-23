@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
 <meta name="description" content="Powerlifting tracker for the 1000lb club — e1RM, PR detection, Wilks/DOTS scoring, and cloud sync">
 <meta property="og:title" content="1000lb Club Tracker">
 <meta property="og:description" content="Track your Squat, Bench, and Deadlift toward the 1000lb total. Features e1RM calculation, PR detection, Wilks/DOTS scoring, training programs, and cloud sync.">
@@ -112,6 +113,15 @@
       <button class="modal-close" id="fatigue-sheet-close">&times;</button>
     </div>
     <div class="fatigue-sheet-body" id="fatigue-sheet-body"></div>
+  </div>
+  <div class="workout-summary-backdrop" id="workout-summary-backdrop" style="display:none"></div>
+  <div class="workout-summary-sheet" id="workout-summary-sheet" style="display:none">
+    <div class="fatigue-sheet-handle"></div>
+    <div class="fatigue-sheet-header">
+      <h3 id="workout-summary-title">Workout Summary</h3>
+      <button class="modal-close" id="workout-summary-close">&times;</button>
+    </div>
+    <div class="fatigue-sheet-body" id="workout-summary-body"></div>
   </div>
   <div class="streak-bar" id="streak-bar" style="display:none">
     <span class="streak-icon" id="streak-icon"></span>
@@ -1794,54 +1804,18 @@
   function formatPlates(totalWeight) {
     const plates = calcPlatesPerSide(totalWeight);
     if (!plates || plates.length === 0) return '';
-    const counts = {};
-    plates.forEach(p => { counts[p] = (counts[p] || 0) + 1; });
-    return Object.entries(counts).map(([p, c]) => c > 1 ? `${p}x${c}` : `${p}`).join(' + ');
+    const seen = [];
+    plates.forEach(p => {
+      const existing = seen.find(s => s.plate === p);
+      if (existing) existing.count++;
+      else seen.push({ plate: p, count: 1 });
+    });
+    return seen.map(s => s.count > 1 ? `${s.plate}x${s.count}` : `${s.plate}`).join(' + ');
   }
 
   // ===== WORKOUT BUILDER LOGIC =====
   function selectAccessories(mainLift) {
-    const weakPoint = workoutConfig.weakPoints[mainLift];
-    const allForLift = Object.entries(ACCESSORY_DB).filter(([,ex]) => ex.mainLift === mainLift);
-    const primary = allForLift.filter(([,ex]) => ex.weakPoints.includes(weakPoint));
-    const secondary = allForLift.filter(([,ex]) => !ex.weakPoints.includes(weakPoint));
-    const shuffle = arr => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-
-    const picked = [];
-    const usedCategories = new Set();
-    const usedEquip = new Set();
-
-    // Up to 3 primary, one per category
-    for (const item of shuffle(primary)) {
-      if (picked.length >= 3) break;
-      if (!usedCategories.has(item[1].category)) {
-        picked.push(item);
-        usedCategories.add(item[1].category);
-        usedEquip.add(item[1].equipment);
-      }
-    }
-
-    // Fill to 5 from secondary — prefer new equipment, then allow duplicate equipment
-    const shuffledSec = shuffle(secondary);
-    const targetTotal = Math.min(5, picked.length + shuffledSec.length);
-    for (const item of shuffledSec) {
-      if (picked.length >= targetTotal) break;
-      if (!usedCategories.has(item[1].category) && !usedEquip.has(item[1].equipment)) {
-        picked.push(item);
-        usedCategories.add(item[1].category);
-        usedEquip.add(item[1].equipment);
-      }
-    }
-    for (const item of shuffledSec) {
-      if (picked.length >= targetTotal) break;
-      if (!usedCategories.has(item[1].category) && !picked.some(p => p[0] === item[0])) {
-        picked.push(item);
-        usedCategories.add(item[1].category);
-        usedEquip.add(item[1].equipment);
-      }
-    }
-
-    return picked.map(([id, ex]) => ({ id, ...ex }));
+    return selectSmartAccessories(mainLift, 5);
   }
 
   function computeSetWeights(workingWeight, numSets) {
@@ -1980,7 +1954,8 @@
         // Weak point alignment
         if (weakPoint && ex.weakPoints.includes(weakPoint)) { score += 25; r.push('Targets weak point'); }
         // Recency
-        const recent = accessoryLog.filter(l => l.exerciseId === id).sort((a, b) => b.timestamp - a.timestamp)[0];
+        const recentLogs = accessoryLog.filter(l => l.exerciseId === id).sort((a, b) => b.timestamp - a.timestamp);
+        const recent = recentLogs[0];
         if (recent) {
           const daysSince = Math.floor((now - recent.timestamp) / MS_PER_DAY);
           const recencyScore = Math.min(20, daysSince * 2);
@@ -2004,6 +1979,13 @@
         }
         // Progression signal
         if (recent && checkAccessoryProgression(id, mainLift)) { score += 10; r.push('Ready for weight increase'); }
+        // Completion rate penalty
+        const last5 = recentLogs.slice(0, 5);
+        if (last5.length >= 2) {
+          const avgCompletion = last5.reduce((sum, log) => sum + (log.setsCompleted.length / log.targetSets), 0) / last5.length;
+          if (avgCompletion < 0.5) { score -= 15; r.push('Low completion rate'); }
+          else if (avgCompletion < 0.75) { score -= 5; r.push('Moderate completion'); }
+        }
         return { id, ...ex, score, reasons: r };
       })
       .sort((a, b) => b.score - a.score);
@@ -3272,52 +3254,112 @@
     openFatigueSheet();
   }
 
-  // --- Post-Workout Summary Card ---
-  function showMesoSummaryCard(session, adaptation) {
-    if (!activeMesocycle && !mesocycleHistory.length) return;
-    const meso = activeMesocycle || mesocycleHistory[mesocycleHistory.length - 1];
-    const weekIdx = (session.mesocycleWeek || 1) - 1;
-    const week = meso.weeks[weekIdx];
-    if (!week) return;
+  // --- Post-Workout Summary Sheet ---
+  function showWorkoutSummary(session, mesoAdaptation) {
+    const duration = Date.now() - session.startTime;
+    const mins = Math.floor(duration / 60000);
+    const secs = Math.floor((duration % 60000) / 1000);
+    const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
 
-    const perf = week.performance[session.mainLift];
-    if (!perf) return;
+    // Main lift sets
+    const mainCompleted = session.mainSets.filter(s => s.completed).length;
+    const mainTotal = session.mainSets.length;
+    const mainReps = session.mainSets.filter(s => s.completed).reduce((sum, s) => sum + (s.reps || 0), 0);
 
-    let html = `<div class="meso-summary-card">
-      <div class="meso-summary-title">Mesocycle Performance</div>
-      <div class="meso-summary-row"><span class="meso-summary-label">Target RPE</span><span class="meso-summary-value">${week.targetRPE}</span></div>
-      <div class="meso-summary-row"><span class="meso-summary-label">Actual RPE</span><span class="meso-summary-value" style="color:${perf.actualRPE <= week.targetRPE ? 'var(--green)' : 'var(--red)'}">${perf.actualRPE}</span></div>
-      <div class="meso-summary-row"><span class="meso-summary-label">Sets Completed</span><span class="meso-summary-value">${perf.completedSets}/${week.workouts[session.mainLift]?.mainSets?.length || '?'}</span></div>
-      <div class="meso-summary-row"><span class="meso-summary-label">Total Reps</span><span class="meso-summary-value">${perf.totalReps}</span></div>`;
+    // Accessory stats
+    const accCompleted = session.accessories.reduce((sum, a) => sum + a.setsCompleted.length, 0);
+    const accTotal = session.accessories.reduce((sum, a) => sum + a.targetSets, 0);
 
-    if (adaptation) {
-      html += `<div class="meso-summary-row" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
-        <span class="meso-summary-label">Adaptation</span>
-        <span class="meso-summary-value" style="color:var(--gold)">${adaptation.type === 'increase' ? '+' : ''}${adaptation.pctChange}% intensity</span>
-      </div>`;
-    } else {
-      html += `<div class="meso-summary-row"><span class="meso-summary-label">Adaptation</span><span class="meso-summary-value" style="color:var(--green)">No change needed</span></div>`;
-    }
+    const totalCompleted = mainCompleted + accCompleted;
+    const totalSets = mainTotal + accTotal;
+    const completionPct = totalSets > 0 ? Math.round((totalCompleted / totalSets) * 100) : 0;
+    const completionColor = completionPct >= 80 ? 'var(--green)' : completionPct >= 50 ? 'var(--yellow)' : 'var(--red)';
 
-    // Next week preview
-    if (meso.status === 'active' && meso.currentWeek <= meso.durationWeeks) {
-      const nextWeek = meso.weeks[meso.currentWeek - 1];
-      if (nextWeek) {
-        html += `<div style="margin-top:12px;padding-top:8px;border-top:1px solid var(--border)">
-          <div style="font-size:var(--text-xs);color:var(--text-dim);font-weight:600;margin-bottom:4px">Next: ${nextWeek.label} (${nextWeek.phase})</div>
-          <div style="font-size:var(--text-xs);color:var(--text-dim)">RPE ${nextWeek.targetRPE}</div>
-        </div>`;
-      }
-    }
+    let html = '';
+
+    // Stat grid
+    html += '<div class="summary-stat-grid">';
+    html += `<div class="summary-stat"><div class="summary-stat-label">Duration</div><div class="summary-stat-value">${durationStr}</div></div>`;
+    html += `<div class="summary-stat"><div class="summary-stat-label">Completion</div><div class="summary-stat-value" style="color:${completionColor}">${completionPct}%</div></div>`;
+    html += `<div class="summary-stat"><div class="summary-stat-label">Main Sets</div><div class="summary-stat-value">${mainCompleted}/${mainTotal}</div></div>`;
+    html += `<div class="summary-stat"><div class="summary-stat-label">Acc. Sets</div><div class="summary-stat-value">${accCompleted}/${accTotal}</div></div>`;
     html += '</div>';
 
-    // Show in a temporary overlay below the toast
-    const container = document.createElement('div');
-    container.innerHTML = html;
-    container.style.cssText = 'position:fixed;bottom:60px;left:16px;right:16px;z-index:500;animation:slideUp 0.25s ease';
-    document.body.appendChild(container);
-    container.addEventListener('click', () => container.remove());
-    setTimeout(() => { if (container.parentNode) container.remove(); }, 8000);
+    // Completion bar
+    html += `<div class="summary-completion-bar"><div class="fill" style="width:${completionPct}%;background:${completionColor}"></div></div>`;
+
+    // Main lift sets detail
+    if (mainTotal > 0) {
+      html += `<div class="section-label-lg" style="margin:12px 0 6px">${LIFT_NAMES[session.mainLift] || session.mainLift} Sets</div>`;
+      session.mainSets.forEach(s => {
+        const cls = s.completed ? 'completed' : 'missed';
+        const status = s.completed ? '\u2713' : '\u2717';
+        const pctLabel = s.pct ? ` (${s.pct}%)` : '';
+        html += `<div class="summary-set-row ${cls}">
+          <span>Set ${s.num}: ${s.weight}${unit} \u00d7 ${s.reps}${pctLabel}</span>
+          <span style="font-weight:700;color:${s.completed ? 'var(--green)' : 'var(--red)'}">${status}</span>
+        </div>`;
+      });
+    }
+
+    // Accessories detail
+    if (session.accessories.length > 0) {
+      html += '<div class="section-label-lg" style="margin:12px 0 6px">Accessories</div>';
+      session.accessories.forEach(acc => {
+        const done = acc.setsCompleted.length;
+        const target = acc.targetSets;
+        const repDetail = done > 0 ? acc.setsCompleted.join('/') + ' reps' : 'skipped';
+        const color = done >= target ? 'var(--green)' : done > 0 ? 'var(--yellow)' : 'var(--text-dim)';
+        html += `<div class="summary-acc-row">
+          <span class="summary-acc-name">${acc.name}</span>
+          <span class="summary-acc-detail" style="color:${color}">${done}/${target} sets \u00b7 ${repDetail}</span>
+        </div>`;
+      });
+    }
+
+    // Mesocycle data
+    if (session.source === 'mesocycle') {
+      const meso = activeMesocycle || (mesocycleHistory.length ? mesocycleHistory[mesocycleHistory.length - 1] : null);
+      if (meso) {
+        const weekIdx = (session.mesocycleWeek || 1) - 1;
+        const week = meso.weeks[weekIdx];
+        const perf = week ? week.performance[session.mainLift] : null;
+        if (week && perf) {
+          html += '<div class="section-label-lg" style="margin:12px 0 6px">Mesocycle</div>';
+          html += `<div class="summary-set-row ${perf.actualRPE <= week.targetRPE ? 'completed' : 'missed'}">
+            <span>RPE Target / Actual</span><span style="font-weight:700">${week.targetRPE} / ${perf.actualRPE}</span>
+          </div>`;
+          html += `<div class="summary-set-row completed"><span>Total Reps</span><span style="font-weight:700">${perf.totalReps}</span></div>`;
+          if (mesoAdaptation) {
+            html += `<div class="summary-set-row completed">
+              <span>Adaptation</span>
+              <span style="font-weight:700;color:var(--gold)">${mesoAdaptation.type === 'increase' ? '+' : ''}${mesoAdaptation.pctChange}% intensity</span>
+            </div>`;
+          } else {
+            html += `<div class="summary-set-row completed"><span>Adaptation</span><span style="font-weight:700;color:var(--green)">No change needed</span></div>`;
+          }
+          // Next week preview
+          if (meso.status === 'active' && meso.currentWeek <= meso.durationWeeks) {
+            const nextWeek = meso.weeks[meso.currentWeek - 1];
+            if (nextWeek) {
+              html += `<div style="margin-top:8px;font-size:var(--text-xs);color:var(--text-dim)">Next: ${nextWeek.label} (${nextWeek.phase}) \u00b7 RPE ${nextWeek.targetRPE}</div>`;
+            }
+          }
+        }
+      }
+    }
+
+    $('workout-summary-title').textContent = `${LIFT_NAMES[session.mainLift] || session.mainLift} Workout Summary`;
+    $('workout-summary-body').innerHTML = html;
+    $('workout-summary-backdrop').style.display = 'block';
+    $('workout-summary-sheet').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeWorkoutSummary() {
+    $('workout-summary-backdrop').style.display = 'none';
+    $('workout-summary-sheet').style.display = 'none';
+    document.body.style.overflow = '';
   }
 
   function createWorkoutSession(mainLift) {
@@ -3388,11 +3430,8 @@
     showToast('Workout complete!');
     if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
     updateWorkoutButton();
-    // Show mesocycle summary card if applicable
-    if (completedSession.source === 'mesocycle') {
-      scheduleCloudSync();
-      setTimeout(() => showMesoSummaryCard(completedSession, mesoAdaptation), 500);
-    }
+    if (completedSession.source === 'mesocycle') scheduleCloudSync();
+    setTimeout(() => showWorkoutSummary(completedSession, mesoAdaptation), 300);
   }
 
   function getProgramWorkout(lift, weekOverride) {
@@ -3675,6 +3714,18 @@
     }
   }
 
+  function getLastMainPerformance(lift) {
+    const recent = entries.filter(e => e.lift === lift).sort((a, b) => b.timestamp - a.timestamp)[0];
+    if (!recent) return null;
+    return { weight: recent.weight, reps: recent.reps, e1rm: recent.e1rm, date: recent.date };
+  }
+
+  function getLastAccPerformance(exerciseId) {
+    const recent = accessoryLog.filter(l => l.exerciseId === exerciseId).sort((a, b) => b.timestamp - a.timestamp)[0];
+    if (!recent) return null;
+    return { weight: recent.weight, setsCompleted: recent.setsCompleted, date: recent.date };
+  }
+
   function renderWorkoutView() {
     if (!workoutSession) return;
     const body = $('workout-body');
@@ -3687,6 +3738,10 @@
     // Main lift section
     html += `<div class="workout-exercise main-lift ${lift}">`;
     html += `<div class="workout-exercise-name">${LIFT_NAMES[lift]}</div>`;
+    const lastMain = getLastMainPerformance(lift);
+    if (lastMain) {
+      html += `<div class="prev-perf">Last: ${formatWeight(lastMain.weight)} ${unit} &times; ${lastMain.reps} = ${formatWeight(lastMain.e1rm)} e1RM <span class="prev-perf-date">${lastMain.date}</span></div>`;
+    }
     if (workoutSession.mainSets.length > 0) {
       html += `<div class="workout-exercise-meta">Program sets — tap to log</div>`;
       workoutSession.mainSets.forEach((s, i) => {
@@ -3718,6 +3773,12 @@
       html += `<div class="workout-exercise">`;
       html += `<div class="workout-exercise-name">${acc.name}${acc.progressed ? '<span class="acc-progression-badge">WEIGHT UP</span>' : ''}</div>`;
       html += `<div class="workout-exercise-meta">${acc.equipment}${!isBodyweight ? ` &bull; hit ${targetReps}${isTimeBased ? 's' : ' reps'} on all sets to increase weight` : ''}</div>`;
+      const lastAcc = getLastAccPerformance(acc.exerciseId);
+      if (lastAcc) {
+        const lastWeight = lastAcc.weight === 0 ? 'BW' : `${formatWeight(lastAcc.weight)} ${unit}`;
+        const lastReps = lastAcc.setsCompleted.join('/');
+        html += `<div class="prev-perf">Last: ${lastWeight} &times; ${lastReps} reps <span class="prev-perf-date">${lastAcc.date}</span></div>`;
+      }
 
       // Set rows with per-set weights
       for (let si = 0; si < acc.targetSets; si++) {
@@ -5281,18 +5342,21 @@
         if (e.notes) metaParts.push(`"${escapeHTML(e.notes)}"`);
         const repPRBadge = (e.repPRs && e.repPRs.length > 0) ? ' <span class="pr-badge" style="font-size:0.55rem">REP PR</span>' : '';
 
-        html += `<div class="session-entry" data-lift="${e.lift}">
-          <span class="history-lift" style="color:${COLORS[e.lift]};font-size:0.65rem;min-width:20px">${LIFT_SHORT[e.lift]}</span>
-          <div class="history-detail" style="flex:1">
-            <div><span class="history-main" style="font-size:0.8rem">${formatWeight(e.weight)} ${unit} &times; ${e.reps}</span>
-            <span class="history-e1rm" style="font-size:0.7rem"> = ${formatWeight(e.e1rm)} e1RM</span>
-            ${e.isPR ? ' <span class="pr-badge">PR</span>' : ''}${repPRBadge}</div>
-            ${metaParts.length ? `<div class="history-meta" style="font-size:0.65rem">${metaParts.join(' &middot; ')}</div>` : ''}
-            ${(e.tags && e.tags.length) ? e.tags.map(t => `<span class="tag-chip">${escapeHTML(t)}</span>`).join('') : ''}
-          </div>
-          <div class="history-actions">
-            <button class="edit-btn" data-id="${e.id}" title="Edit">&#9998;</button>
-            <button class="delete-btn" data-id="${e.id}">Del</button>
+        html += `<div class="swipe-container" data-id="${e.id}">
+          <div class="swipe-delete-bg"><span class="swipe-delete-label">Delete</span></div>
+          <div class="session-entry" data-lift="${e.lift}">
+            <span class="history-lift" style="color:${COLORS[e.lift]};font-size:0.65rem;min-width:20px">${LIFT_SHORT[e.lift]}</span>
+            <div class="history-detail" style="flex:1">
+              <div><span class="history-main" style="font-size:0.8rem">${formatWeight(e.weight)} ${unit} &times; ${e.reps}</span>
+              <span class="history-e1rm" style="font-size:0.7rem"> = ${formatWeight(e.e1rm)} e1RM</span>
+              ${e.isPR ? ' <span class="pr-badge">PR</span>' : ''}${repPRBadge}</div>
+              ${metaParts.length ? `<div class="history-meta" style="font-size:0.65rem">${metaParts.join(' &middot; ')}</div>` : ''}
+              ${(e.tags && e.tags.length) ? e.tags.map(t => `<span class="tag-chip">${escapeHTML(t)}</span>`).join('') : ''}
+            </div>
+            <div class="history-actions">
+              <button class="edit-btn" data-id="${e.id}" title="Edit">&#9998;</button>
+              <button class="delete-btn" data-id="${e.id}">Del</button>
+            </div>
           </div>
         </div>`;
       });
@@ -5333,7 +5397,77 @@
     }
   });
 
+  let recentSwipe = false;
+
+  // Swipe-to-delete for touch devices
+  (function initSwipeToDelete() {
+    const list = $('history-list');
+    let startX = 0, startY = 0, currentContainer = null, dirLocked = false, isHorizontal = false;
+
+    list.addEventListener('touchstart', (e) => {
+      const container = e.target.closest('.swipe-container');
+      if (!container) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      currentContainer = container;
+      dirLocked = false;
+      isHorizontal = false;
+    }, { passive: true });
+
+    list.addEventListener('touchmove', (e) => {
+      if (!currentContainer) return;
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+
+      if (!dirLocked) {
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+        dirLocked = true;
+        isHorizontal = Math.abs(dx) > Math.abs(dy);
+      }
+      if (!isHorizontal) return;
+
+      e.preventDefault();
+      const offset = Math.min(0, dx);
+      const entry = currentContainer.querySelector('.session-entry');
+      if (entry) entry.style.transform = `translateX(${offset}px)`;
+      if (offset < -10) {
+        currentContainer.classList.add('swiping');
+      }
+    }, { passive: false });
+
+    list.addEventListener('touchend', () => {
+      if (!currentContainer) return;
+      const entry = currentContainer.querySelector('.session-entry');
+      if (!entry) { currentContainer = null; return; }
+
+      const currentX = parseFloat(entry.style.transform.replace(/[^-\d.]/g, '')) || 0;
+      currentContainer.classList.remove('swiping');
+
+      if (currentX <= -80) {
+        // Swipe threshold met — delete
+        recentSwipe = true;
+        setTimeout(() => { recentSwipe = false; }, 300);
+        const id = currentContainer.dataset.id;
+        currentContainer.classList.add('removing');
+        currentContainer.style.maxHeight = currentContainer.offsetHeight + 'px';
+        requestAnimationFrame(() => {
+          currentContainer.style.maxHeight = '0';
+        });
+        setTimeout(() => {
+          deleteEntry(id);
+          renderHistory();
+          showToastWithUndo('Entry deleted');
+        }, 350);
+      } else {
+        // Snap back
+        entry.style.transform = '';
+      }
+      currentContainer = null;
+    }, { passive: true });
+  })();
+
   function handleHistoryClick(e) {
+    if (recentSwipe) return;
     const del = e.target.closest('.delete-btn');
     if (del) {
       const id = del.dataset.id;
@@ -5467,6 +5601,8 @@
   $('settings-close').addEventListener('click', () => closeModal('settings-modal'));
   $('fatigue-sheet-close').addEventListener('click', closeFatigueSheet);
   $('fatigue-sheet-backdrop').addEventListener('click', closeFatigueSheet);
+  $('workout-summary-close').addEventListener('click', closeWorkoutSummary);
+  $('workout-summary-backdrop').addEventListener('click', closeWorkoutSummary);
 
   // ===== SETTINGS MODAL =====
   const sectionLabel = text => `<div class="section-label-lg">${text}</div>`;
@@ -6932,68 +7068,8 @@
 
   // ===== PWA =====
   function initPWA() {
-    // Inline manifest
-    const manifest = {
-      name: '1000lb Club Tracker',
-      short_name: '1000lb',
-      description: 'Powerlifting tracker for the 1000lb club — e1RM, PR detection, Wilks/DOTS scoring, and cloud sync',
-      start_url: location.href.split('?')[0],
-      display: 'standalone',
-      background_color: '#121212',
-      theme_color: '#121212',
-      icons: [{
-        src: 'apple-touch-icon.png',
-        sizes: '180x180',
-        type: 'image/png'
-      }, {
-        src: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#121212"/><rect x="4" y="14.5" width="24" height="3" rx="1.5" fill="#888"/><rect x="3" y="9" width="4" height="14" rx="1.5" fill="#e74c3c"/><rect x="8" y="10.5" width="3" height="11" rx="1" fill="#3b82f6"/><rect x="21" y="10.5" width="3" height="11" rx="1" fill="#3b82f6"/><rect x="25" y="9" width="4" height="14" rx="1.5" fill="#22c55e"/></svg>'),
-        sizes: 'any',
-        type: 'image/svg+xml'
-      }]
-    };
-    const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
-    const manifestUrl = URL.createObjectURL(manifestBlob);
-    const link = document.createElement('link');
-    link.rel = 'manifest';
-    link.href = manifestUrl;
-    document.head.appendChild(link);
-
-    // Service worker via Blob — stale-while-revalidate strategy
     if ('serviceWorker' in navigator) {
-      const swCode = `
-        const CACHE_NAME = '1000lb-tracker-v3';
-
-        self.addEventListener('install', e => {
-          e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll([self.registration.scope])));
-          self.skipWaiting();
-        });
-
-        self.addEventListener('activate', e => {
-          e.waitUntil(
-            caches.keys().then(keys =>
-              Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-            ).then(() => self.clients.claim())
-          );
-        });
-
-        self.addEventListener('fetch', e => {
-          if (e.request.method !== 'GET') return;
-          e.respondWith(
-            caches.open(CACHE_NAME).then(cache =>
-              cache.match(e.request).then(cached => {
-                const fetched = fetch(e.request).then(response => {
-                  if (response.ok) cache.put(e.request, response.clone());
-                  return response;
-                }).catch(() => cached);
-                return cached || fetched;
-              })
-            )
-          );
-        });
-      `;
-      const swBlob = new Blob([swCode], { type: 'application/javascript' });
-      const swUrl = URL.createObjectURL(swBlob);
-      navigator.serviceWorker.register(swUrl).catch(() => {});
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
   }
 
