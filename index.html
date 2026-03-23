@@ -107,7 +107,7 @@
   </div>
   <div class="fatigue-sheet-backdrop" id="fatigue-sheet-backdrop" style="display:none"></div>
   <div class="fatigue-sheet" id="fatigue-sheet" style="display:none">
-    <div class="fatigue-sheet-handle"></div>
+    <div class="sheet-handle fatigue-sheet-handle"></div>
     <div class="fatigue-sheet-header">
       <h3 id="fatigue-sheet-title">Fatigue</h3>
       <button class="modal-close" id="fatigue-sheet-close">&times;</button>
@@ -116,7 +116,7 @@
   </div>
   <div class="workout-summary-backdrop" id="workout-summary-backdrop" style="display:none"></div>
   <div class="workout-summary-sheet" id="workout-summary-sheet" style="display:none">
-    <div class="fatigue-sheet-handle"></div>
+    <div class="sheet-handle fatigue-sheet-handle"></div>
     <div class="fatigue-sheet-header">
       <h3 id="workout-summary-title">Workout Summary</h3>
       <button class="modal-close" id="workout-summary-close">&times;</button>
@@ -352,7 +352,7 @@
   <!-- Workout Choice Sheet -->
   <div class="choice-sheet-backdrop" id="choice-sheet-backdrop" style="display:none"></div>
   <div class="choice-sheet" id="choice-sheet" style="display:none">
-    <div class="choice-sheet-handle"></div>
+    <div class="sheet-handle choice-sheet-handle"></div>
     <div class="choice-sheet-header">
       <h3 id="choice-sheet-title">Start Workout</h3>
       <button class="modal-close" id="choice-sheet-close">&times;</button>
@@ -523,7 +523,6 @@
   const DASH_WIDGETS_KEY = 'sbd-tracker-dash-widgets';
   const ACCENT_KEY = 'sbd-tracker-accent';
 
-  const TAGS_KEY = 'sbd-tracker-tags';
   const TOTAL_CELEBRATED_KEY = 'sbd-tracker-celebrated-totals';
   const WELCOME_KEY = 'sbd-tracker-welcome-dismissed';
   const WORKOUT_KEY = 'sbd-tracker-workout';
@@ -532,6 +531,31 @@
   const CUSTOM_TEMPLATES_KEY = 'sbd-tracker-custom-templates';
   const MESOCYCLE_KEY = 'sbd-tracker-mesocycle';
   const MESOCYCLE_HISTORY_KEY = 'sbd-tracker-mesocycle-history';
+
+  const ALL_DATA_KEYS = [
+    STORAGE_KEY, PROFILE_KEY, GOALS_KEY, PRS_KEY, VERSION_KEY, CYCLES_KEY,
+    PROGRAMS_KEY, RECAP_WEEK_KEY, CELEBRATION_KEY, BADGES_KEY, TOTAL_CELEBRATED_KEY,
+    DASH_WIDGETS_KEY, ACCENT_KEY, WORKOUT_KEY, ACCESSORY_LOG_KEY,
+    WORKOUT_SESSION_KEY, CUSTOM_TEMPLATES_KEY, MESOCYCLE_KEY, MESOCYCLE_HISTORY_KEY,
+    TIMER_KEY, 'sbd-tracker-stats-collapsed'
+  ];
+
+  // Plate sizes per side
+  const PLATES_KG = [25, 20, 15, 10, 5, 2.5, 1.25];
+  const PLATES_LBS = [45, 35, 25, 10, 5, 2.5];
+
+  // Fatigue ACWR thresholds
+  const FATIGUE_THRESHOLD_HIGH = 1.3;
+  const FATIGUE_THRESHOLD_MOD = 1.1;
+  const FATIGUE_RECOVERY_MULT = { high: 1.3, mod: 1.15, low: 1.0 };
+
+  // Weight increments
+  const WEIGHT_INCREMENT_KG = 2.5;
+  const WEIGHT_INCREMENT_LBS = 5;
+
+  // Share card dimensions
+  const SHARE_CARD_WIDTH = 600;
+  const SHARE_CARD_HEIGHT = 340;
 
   const TOTAL_MILESTONES = [500, 750, 1000, 1250, 1500, 2000];
   const TOTAL_MILESTONE_THEMES = {
@@ -1109,8 +1133,8 @@
 
     let status = 'green', label = 'Recovery: Good';
     if (acwr !== null) {
-      if (acwr > 1.3) { status = 'red'; label = 'High fatigue'; }
-      else if (acwr > 1.1) { status = 'yellow'; label = 'Moderate load'; }
+      if (acwr > FATIGUE_THRESHOLD_HIGH) { status = 'red'; label = 'High fatigue'; }
+      else if (acwr > FATIGUE_THRESHOLD_MOD) { status = 'yellow'; label = 'Moderate load'; }
     }
 
     return { acwr, avgRPE7, avgRPE28, status, label };
@@ -1134,6 +1158,28 @@
     'press-variation': { Quads: 0, Hams: 0, Back: 0, Chest: 1.0 },
     'chest-accessory': { Quads: 0, Hams: 0, Back: 0, Chest: 1.0 }
   };
+
+  function calcAccessoryTonnage(accEntries, muscleGroup) {
+    let tonnage = 0;
+    accEntries.forEach(a => {
+      const ex = ACCESSORY_DB[a.exerciseId];
+      if (!ex) return;
+      const cw = ACCESSORY_CAT_WEIGHTS[ex.category];
+      if (!cw || !cw[muscleGroup]) return;
+      const sets = a.setsCompleted || [];
+      tonnage += sets.reduce((s, reps) => s + (a.weight || 0) * reps, 0) * cw[muscleGroup] * 0.5;
+    });
+    return tonnage;
+  }
+
+  function countAccessoryEntries(accEntries, muscleGroup) {
+    return accEntries.filter(a => {
+      const ex = ACCESSORY_DB[a.exerciseId];
+      if (!ex) return false;
+      const cw = ACCESSORY_CAT_WEIGHTS[ex.category];
+      return cw && cw[muscleGroup];
+    }).length;
+  }
 
   function calcFatigueByMuscle() {
     const now = Date.now();
@@ -1166,39 +1212,17 @@
       });
 
       // Accessory contributions (0.5 multiplier)
-      acc28.forEach(a => {
-        const ex = ACCESSORY_DB[a.exerciseId];
-        if (!ex) return;
-        const cw = ACCESSORY_CAT_WEIGHTS[ex.category];
-        if (!cw || !cw[mg]) return;
-        const sets = a.setsCompleted || [];
-        const accTon = sets.reduce((s, reps) => {
-          const w = a.weight || 0;
-          return s + w * reps;
-        }, 0) * cw[mg] * 0.5;
-        ton28 += accTon;
-        count28++;
-      });
-      acc7.forEach(a => {
-        const ex = ACCESSORY_DB[a.exerciseId];
-        if (!ex) return;
-        const cw = ACCESSORY_CAT_WEIGHTS[ex.category];
-        if (!cw || !cw[mg]) return;
-        const sets = a.setsCompleted || [];
-        const accTon = sets.reduce((s, reps) => {
-          const w = a.weight || 0;
-          return s + w * reps;
-        }, 0) * cw[mg] * 0.5;
-        ton7 += accTon;
-      });
+      ton28 += calcAccessoryTonnage(acc28, mg);
+      count28 += countAccessoryEntries(acc28, mg);
+      ton7 += calcAccessoryTonnage(acc7, mg);
 
       if (count28 < 3) { results[mg] = null; return; }
       const weeklyAvg28 = ton28 / 4;
       const acwr = weeklyAvg28 > 0 ? ton7 / weeklyAvg28 : null;
       let status = 'green', label = 'Low';
       if (acwr !== null) {
-        if (acwr > 1.3) { status = 'red'; label = 'High'; }
-        else if (acwr > 1.1) { status = 'yellow'; label = 'Med'; }
+        if (acwr > FATIGUE_THRESHOLD_HIGH) { status = 'red'; label = 'High'; }
+        else if (acwr > FATIGUE_THRESHOLD_MOD) { status = 'yellow'; label = 'Med'; }
       }
       results[mg] = { acwr, status, label };
       anyValid = true;
@@ -1265,8 +1289,8 @@
     const acwr = weeklyAvg28 > 0 ? ton7 / weeklyAvg28 : null;
     let status = 'green', label = 'Low';
     if (acwr !== null) {
-      if (acwr > 1.3) { status = 'red'; label = 'High'; }
-      else if (acwr > 1.1) { status = 'yellow'; label = 'Med'; }
+      if (acwr > FATIGUE_THRESHOLD_HIGH) { status = 'red'; label = 'High'; }
+      else if (acwr > FATIGUE_THRESHOLD_MOD) { status = 'yellow'; label = 'Med'; }
     }
 
     // Weekly trend (4 one-week buckets)
@@ -1305,7 +1329,7 @@
 
     // Recovery estimate
     const baseHours = MUSCLE_RECOVERY_HOURS[mg];
-    const acwrMult = status === 'red' ? 1.3 : status === 'yellow' ? 1.15 : 1.0;
+    const acwrMult = status === 'red' ? FATIGUE_RECOVERY_MULT.high : status === 'yellow' ? FATIGUE_RECOVERY_MULT.mod : FATIGUE_RECOVERY_MULT.low;
     const spikeMult = (weeklyAvg28 > 0 && ton7 > 1.5 * weeklyAvg28) ? 12 : 0;
     const adjustedHours = baseHours * acwrMult + spikeMult;
     const percentRecovered = hoursSince !== null ? Math.min(1, Math.max(0, hoursSince / adjustedHours)) : null;
@@ -1780,7 +1804,7 @@
   }
 
   function roundToPlate(weight) {
-    const increment = unit === 'kg' ? 2.5 : 5;
+    const increment = unit === 'kg' ? WEIGHT_INCREMENT_KG : WEIGHT_INCREMENT_LBS;
     return Math.round(weight / increment) * increment;
   }
 
@@ -1788,9 +1812,7 @@
     const barWeight = unit === 'kg' ? 20 : 45;
     if (totalWeight <= barWeight) return null;
     let remaining = (totalWeight - barWeight) / 2;
-    const plates = unit === 'kg'
-      ? [25, 20, 15, 10, 5, 2.5, 1.25]
-      : [45, 35, 25, 10, 5, 2.5];
+    const plates = unit === 'kg' ? PLATES_KG : PLATES_LBS;
     const result = [];
     for (const plate of plates) {
       while (remaining >= plate - 0.01) {
@@ -1914,8 +1936,8 @@
     const acwr = weeklyAvg28 > 0 ? ton7 / weeklyAvg28 : null;
     let status = 'green';
     if (acwr !== null) {
-      if (acwr > 1.3) status = 'red';
-      else if (acwr > 1.1) status = 'yellow';
+      if (acwr > FATIGUE_THRESHOLD_HIGH) status = 'red';
+      else if (acwr > FATIGUE_THRESHOLD_MOD) status = 'yellow';
     }
     return { acwr, status };
   }
@@ -2254,6 +2276,23 @@
   }
 
   // --- Choice Sheet UI ---
+  function renderMesoTimeline(mesocycle) {
+    let html = `<div class="meso-timeline" id="choice-meso-timeline">`;
+    mesocycle.weeks.forEach((w, i) => {
+      const isCurrent = i === mesocycle.currentWeek - 1;
+      const isCompleted = w.completed;
+      const liftsDone = LIFTS.filter(l => w.performance[l]).length;
+      html += `<div class="meso-week-card${isCurrent ? ' current' : ''}${isCompleted ? ' completed' : ''}${w.adapted ? ' adapted' : ''}" data-week="${i}">
+        <div class="meso-week-num">W${w.weekNum}</div>
+        <div class="meso-week-phase">${w.phase}</div>
+        ${isCompleted ? '<div class="meso-week-check">&#10003; &#10003; &#10003;</div>' : `<div class="meso-week-check">${'&#10003; '.repeat(liftsDone)}</div>`}
+        <div class="meso-week-rpe">RPE ${w.targetRPE}</div>
+      </div>`;
+    });
+    html += `</div>`;
+    return html;
+  }
+
   function openChoiceSheet() {
     const lift = currentLift;
     // If resuming an active session for THIS lift, skip choice sheet
@@ -2276,19 +2315,7 @@
         const week = activeMesocycle.weeks[activeMesocycle.currentWeek - 1];
         const phase = week ? week.phase : '';
         const liftDone = week && week.performance[lift];
-        html += `<div class="meso-timeline" id="choice-meso-timeline">`;
-        activeMesocycle.weeks.forEach((w, i) => {
-          const isCurrent = i === activeMesocycle.currentWeek - 1;
-          const isCompleted = w.completed;
-          const liftsDone = LIFTS.filter(l => w.performance[l]).length;
-          html += `<div class="meso-week-card${isCurrent ? ' current' : ''}${isCompleted ? ' completed' : ''}${w.adapted ? ' adapted' : ''}" data-week="${i}">
-            <div class="meso-week-num">W${w.weekNum}</div>
-            <div class="meso-week-phase">${w.phase}</div>
-            ${isCompleted ? '<div class="meso-week-check">&#10003; &#10003; &#10003;</div>' : `<div class="meso-week-check">${'&#10003; '.repeat(liftsDone)}</div>`}
-            <div class="meso-week-rpe">RPE ${w.targetRPE}</div>
-          </div>`;
-        });
-        html += `</div>`;
+        html += renderMesoTimeline(activeMesocycle);
         html += `<div class="choice-card meso-active" data-action="mesocycle">
           <div class="choice-card-icon blue">&#9776;</div>
           <div class="choice-card-text">
@@ -2833,7 +2860,7 @@
         template.lastUsed = Date.now();
         saveCustomTemplates();
         closeChoiceSheet();
-        openBuilder(lift, template.exercises.map(e => ({ ...e })));
+        openBuilder(lift, (template.exercises || []).map(e => ({ ...e })));
       });
     });
 
@@ -2845,7 +2872,7 @@
         const template = customTemplates.find(t => t.id === tid);
         if (!template) return;
         closeChoiceSheet();
-        openBuilder(lift, template.exercises.map(e => ({ ...e })));
+        openBuilder(lift, (template.exercises || []).map(e => ({ ...e })));
         // Override save to update this template
         $('builder-save-template')._templateId = tid;
       });
@@ -2864,7 +2891,7 @@
           name: template.name + ' (Copy)',
           createdAt: Date.now(),
           lastUsed: null,
-          exercises: template.exercises.map(e => ({ ...e }))
+          exercises: (template.exercises || []).map(e => ({ ...e }))
         };
         customTemplates.push(dup);
         saveCustomTemplates();
@@ -2902,6 +2929,21 @@
   }
 
   // --- Smart Recommendation UI ---
+  function renderSmartAccCard(acc, accIdx) {
+    return `<div class="builder-exercise" data-smart-acc="${accIdx}">
+      <div class="builder-exercise-info">
+        <div class="builder-exercise-name">${acc.name}</div>
+        <div class="builder-exercise-meta">${acc.equipment} &bull; ${acc.sets}x${Array.isArray(acc.repRange) ? acc.repRange.join('-') : acc.reps}</div>
+        ${acc._score != null ? `<div class="smart-score-bar"><div class="smart-score-fill" style="width:${acc._score}%"></div></div>` : ''}
+        ${acc._reasons ? `<div style="margin-top:2px">${acc._reasons.map(r => `<span class="smart-reason">${r}</span>`).join('')}</div>` : ''}
+      </div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button class="smart-swap-btn" data-swap="${accIdx}">Swap</button>
+        <button class="smart-remove-btn" data-smart-remove="${accIdx}">&#10005;</button>
+      </div>
+    </div>`;
+  }
+
   function openSmartRecommendation() {
     const suggestion = suggestMainLift();
     let selectedLift = currentLift;
@@ -2941,7 +2983,7 @@
         const isActive = l === lift;
         html += `<button class="smart-lift-btn${isActive ? ' active' : ''}${isSuggested && !isActive ? ' suggested' : ''}" data-smart-lift="${l}">
           ${LIFT_NAMES[l]}
-          <div style="font-size:0.6rem;color:var(--text-dim)">${suggestion.scores[l]}pts</div>
+          <div class="smart-score-label">${suggestion.scores[l]}pts</div>
         </button>`;
       });
       html += '</div>';
@@ -2966,18 +3008,7 @@
       // Accessories with scores (render from builderExercises, not smartAccs)
       builderExercises.forEach((acc, accIdx) => {
         if (acc.type === 'main') return;
-        html += `<div class="builder-exercise" data-smart-acc="${accIdx}">
-          <div class="builder-exercise-info">
-            <div class="builder-exercise-name">${acc.name}</div>
-            <div class="builder-exercise-meta">${acc.equipment} &bull; ${acc.sets}x${Array.isArray(acc.repRange) ? acc.repRange.join('-') : acc.reps}</div>
-            ${acc._score != null ? `<div class="smart-score-bar"><div class="smart-score-fill" style="width:${acc._score}%"></div></div>` : ''}
-            ${acc._reasons ? `<div style="margin-top:2px">${acc._reasons.map(r => `<span class="smart-reason">${r}</span>`).join('')}</div>` : ''}
-          </div>
-          <div style="display:flex;gap:4px;flex-shrink:0">
-            <button class="smart-swap-btn" data-swap="${accIdx}">Swap</button>
-            <button class="smart-remove-btn" data-smart-remove="${accIdx}">&#10005;</button>
-          </div>
-        </div>`;
+        html += renderSmartAccCard(acc, accIdx);
       });
 
       // Add more button
@@ -3227,16 +3258,16 @@
       const w = week.workouts[l];
       if (!w) return;
       const perf = week.performance[l];
-      html += `<div style="margin-bottom:12px">
+      html += `<div class="meso-detail-section">
         <div style="font-weight:700;color:${COLORS[l]};font-size:var(--text-sm);margin-bottom:4px">${LIFT_NAMES[l]}${perf ? ' &#10003;' : ''}</div>`;
       w.mainSets.forEach((s, i) => {
-        html += `<div style="font-size:var(--text-xs);color:var(--text-dim);padding:2px 0">Set ${i + 1}: ${formatWeight(s.weight)} ${unit} x ${s.reps} (${s.pct}%)</div>`;
+        html += `<div class="meso-detail-set">Set ${i + 1}: ${formatWeight(s.weight)} ${unit} x ${s.reps} (${s.pct}%)</div>`;
       });
       if (w.accessories.length > 0) {
-        html += `<div style="font-size:0.6rem;color:var(--text-dim);margin-top:4px">Accessories: ${w.accessories.map(a => a.name).join(', ')}</div>`;
+        html += `<div class="meso-detail-acc">Accessories: ${w.accessories.map(a => a.name).join(', ')}</div>`;
       }
       if (perf) {
-        html += `<div style="font-size:0.6rem;color:var(--green);margin-top:2px">RPE ${perf.actualRPE} &bull; ${perf.completedSets} sets &bull; ${perf.totalReps} reps</div>`;
+        html += `<div class="meso-detail-perf">RPE ${perf.actualRPE} &bull; ${perf.completedSets} sets &bull; ${perf.totalReps} reps</div>`;
       }
       html += '</div>';
     });
@@ -3639,8 +3670,8 @@
       html += `<div class="tm-row">
         <span class="tm-lift-label" style="color:${COLORS[lift]}">${LIFT_NAMES[lift]}</span>
         <input type="number" class="tm-input" id="tm-${lift}" value="${currentTM ? displayWeight(currentTM) : ''}" placeholder="${suggestedTM ? displayWeight(suggestedTM) : '0'}" inputmode="decimal" step="any">
-        <span style="font-size:0.7rem;color:var(--text-dim)">${unit}</span>
-        ${best ? `<button class="program-nav-btn" data-suggest="${lift}" style="font-size:0.6rem">90% e1RM</button>` : ''}
+        <span class="tm-unit-label">${unit}</span>
+        ${best ? `<button class="program-nav-btn tm-suggest-btn" data-suggest="${lift}">90% e1RM</button>` : ''}
       </div>`;
     });
 
@@ -3836,7 +3867,7 @@
         const si = parseInt(weightBtn.dataset.set);
         const dir = parseInt(weightBtn.dataset.dir);
         const acc = workoutSession.accessories[ai];
-        const increment = unit === 'kg' ? 2.5 * LBS_PER_KG : 5;
+        const increment = unit === 'kg' ? WEIGHT_INCREMENT_KG * LBS_PER_KG : WEIGHT_INCREMENT_LBS;
         acc.setWeights[si] = Math.max(0, acc.setWeights[si] + dir * increment);
         acc.setWeights[si] = roundToPlate(acc.setWeights[si]);
         saveWorkoutSession();
@@ -4316,15 +4347,15 @@
   }
 
   function generatePRCard(lift, weight, e1rm, date) {
-    const { canvas: c, ctx } = createCardCanvas(600, 340);
+    const { canvas: c, ctx } = createCardCanvas(SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
     // Top accent bar
-    ctx.fillStyle = COLORS[lift]; ctx.fillRect(0, 0, 600, 6);
+    ctx.fillStyle = COLORS[lift]; ctx.fillRect(0, 0, SHARE_CARD_WIDTH, 6);
     // Branding
     ctx.font = 'bold 16px -apple-system, sans-serif'; ctx.fillStyle = '#666';
     ctx.textAlign = 'left'; ctx.fillText('1000LB CLUB', 30, 40);
     // PR label
     ctx.font = 'bold 14px -apple-system, sans-serif'; ctx.fillStyle = '#ffd700';
-    ctx.textAlign = 'right'; ctx.fillText('NEW PR', 570, 40);
+    ctx.textAlign = 'right'; ctx.fillText('NEW PR', SHARE_CARD_WIDTH - 30, 40);
     // Lift name
     ctx.font = 'bold 36px -apple-system, sans-serif'; ctx.fillStyle = COLORS[lift];
     ctx.textAlign = 'center'; ctx.fillText(LIFT_NAMES[lift].toUpperCase(), 300, 110);
@@ -4345,7 +4376,7 @@
       }
     }
     // Date
-    drawCardDate(ctx, 600, 315, new Date(date + 'T12:00:00'));
+    drawCardDate(ctx, SHARE_CARD_WIDTH, 315, new Date(date + 'T12:00:00'));
     return c;
   }
 
@@ -5529,11 +5560,13 @@
       }
       // Save edit
       if (e.target.closest('#edit-save')) {
-        const lift = body.querySelector('#edit-lift-selector .lift-btn.active').dataset.lift;
+        const activeBtn = body.querySelector('#edit-lift-selector .lift-btn.active');
+        if (!activeBtn) return;
+        const lift = activeBtn.dataset.lift;
         const w = parseFloat($('edit-weight').value);
         const r = parseInt($('edit-reps').value);
         const rpePill = body.querySelector('#edit-rpe-row .rpe-pill.active');
-        const rpe = rpePill.dataset.rpe ? parseFloat(rpePill.dataset.rpe) : null;
+        const rpe = rpePill && rpePill.dataset.rpe ? parseFloat(rpePill.dataset.rpe) : null;
         const notes = $('edit-notes').value.trim();
         if (!(w > 0 && r > 0)) return;
         editEntry(editingEntryId, lift, inputToLbs(w), r, rpe, notes);
@@ -5703,27 +5736,10 @@
         this.textContent = 'Are you sure? Click again to confirm';
         return;
       }
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(PROFILE_KEY);
-      localStorage.removeItem(GOALS_KEY);
-      localStorage.removeItem(PRS_KEY);
-      localStorage.removeItem(VERSION_KEY);
-      localStorage.removeItem(CYCLES_KEY);
-      localStorage.removeItem(PROGRAMS_KEY);
-      localStorage.removeItem(RECAP_WEEK_KEY);
-      localStorage.removeItem(CELEBRATION_KEY);
-      localStorage.removeItem(BADGES_KEY);
-      localStorage.removeItem(TOTAL_CELEBRATED_KEY);
-      localStorage.removeItem(DASH_WIDGETS_KEY);
-      localStorage.removeItem(ACCENT_KEY);
-
-      localStorage.removeItem(WORKOUT_KEY);
-      localStorage.removeItem(ACCESSORY_LOG_KEY);
-      localStorage.removeItem(WORKOUT_SESSION_KEY);
-      localStorage.removeItem(CUSTOM_TEMPLATES_KEY);
-      localStorage.removeItem(MESOCYCLE_KEY);
-      localStorage.removeItem(MESOCYCLE_HISTORY_KEY);
+      ALL_DATA_KEYS.forEach(k => localStorage.removeItem(k));
       entries = []; prs = []; cycles = [];
+      statsCollapsed = {};
+      timerDuration = 180;
       profile = { gender: null, bodyweight: null, bodyweightHistory: [] };
       goals = { squat: null, bench: null, deadlift: null, total: null };
       activeCycleId = null; lastLoggedSet = null;

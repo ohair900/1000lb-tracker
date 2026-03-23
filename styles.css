@@ -38,6 +38,15 @@
     /* Transitions */
     --transition-fast: 0.1s ease; --transition-base: 0.15s ease; --transition-slow: 0.25s ease;
 
+    /* Shadows */
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+
+    /* Accent colors */
+    --purple: #ab47bc;
+
+    /* Extra small text */
+    --text-2xs: 0.6rem;
+
     /* Focus + completed */
     --completed-bg: rgba(67,160,71,0.08);
     --completed-border: rgba(67,160,71,0.25);
@@ -75,7 +84,7 @@
     color: var(--text-dim); font-size: 1.1rem;
     cursor: pointer; border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
-    transition: color 0.15s;
+    transition: color var(--transition-base);
   }
   .theme-btn:hover { color: var(--text); }
 
@@ -86,7 +95,7 @@
     color: var(--text-dim); font-size: 1.1rem;
     cursor: pointer; border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
-    transition: color 0.15s; position: relative;
+    transition: color var(--transition-base); position: relative;
   }
   .sync-btn:hover { color: var(--text); }
   .sync-btn.synced { color: var(--green); }
@@ -112,7 +121,7 @@
   .sync-menu-item {
     width: 100%; padding: 8px 12px; border: none; background: transparent;
     color: var(--text); font-size: 0.8rem; text-align: left;
-    border-radius: 6px; cursor: pointer; transition: background 0.15s;
+    border-radius: 6px; cursor: pointer; transition: background var(--transition-base);
     display: block;
   }
   .sync-menu-item:hover { background: var(--surface2); }
@@ -136,7 +145,7 @@
   .ratio-value.imbalanced { color: var(--red); }
 
   /* xBW subtitle */
-  .card-bw { font-size: 0.6rem; color: var(--text-dim); margin-top: 2px; }
+  .card-bw { font-size: var(--text-2xs); color: var(--text-dim); margin-top: 2px; }
 
   /* Classification badge */
   .class-badge {
@@ -147,7 +156,7 @@
   .class-badge.beginner { background: rgba(136,136,136,0.15); color: #888; }
   .class-badge.novice { background: rgba(67,160,71,0.15); color: var(--green); }
   .class-badge.intermediate { background: rgba(30,136,229,0.15); color: var(--bench); }
-  .class-badge.advanced { background: rgba(171,71,188,0.15); color: #ab47bc; }
+  .class-badge.advanced { background: rgba(171,71,188,0.15); color: var(--purple); }
   .class-badge.elite { background: var(--gold-bg); color: var(--gold); }
 
   /* Fatigue indicator — per-lift cards */
@@ -196,10 +205,11 @@
     animation: slideUp 0.25s ease; overflow-y: auto; -webkit-overflow-scrolling: touch;
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
-  .fatigue-sheet-handle {
+  .sheet-handle {
     width: 40px; height: 4px; border-radius: 2px; background: var(--text-dim);
     opacity: 0.3; margin: 10px auto 0;
   }
+  .fatigue-sheet-handle { }
   .fatigue-sheet-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: var(--space-3) var(--space-4) 0;
@@ -272,7 +282,7 @@
 
   /* Rate of progression trend */
   .card-trend {
-    font-size: 0.6rem; margin-top: 2px; font-weight: 600;
+    font-size: var(--text-2xs); margin-top: 2px; font-weight: 600;
   }
   .card-trend.up { color: var(--green); }
   .card-trend.down { color: var(--red); }
@@ -377,7 +387,7 @@
   .calendar-cell {
     aspect-ratio: 1; display: flex; flex-direction: column; align-items: center;
     justify-content: center; border-radius: var(--radius-sm); cursor: default;
-    position: relative; padding: 2px; font-size: 0.6rem; color: var(--text-dim);
+    position: relative; padding: 2px; font-size: var(--text-2xs); color: var(--text-dim);
   }
   .calendar-cell.has-data { background: var(--surface2); cursor: pointer; }
   .calendar-cell.has-data:hover { outline: 1px solid var(--text-dim); }
@@ -389,7 +399,7 @@
   /* Entry tags */
   .tag-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
   .tag-pill {
-    padding: 2px 8px; border-radius: var(--radius-pill); font-size: 0.6rem;
+    padding: 2px 8px; border-radius: var(--radius-pill); font-size: var(--text-2xs);
     background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border);
     cursor: pointer; transition: all var(--transition-base); user-select: none;
   }
@@ -430,7 +440,7 @@
     background: var(--surface); border-radius: var(--radius-md); padding: var(--space-3);
     margin-bottom: var(--space-2); cursor: pointer; border: 1px solid var(--border);
     transition: border-color var(--transition-base);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: var(--shadow-sm);
   }
   .recap-card:hover { border-color: var(--border-hover); }
   .recap-card-header { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); font-weight: 600; margin-bottom: 4px; }
@@ -469,9 +479,9 @@
     padding: 4px 12px; border: 1px solid var(--border);
     background: transparent; color: var(--text-dim);
     font-size: 0.7rem; font-weight: 600; border-radius: 16px;
-    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    cursor: pointer; transition: all var(--transition-base); white-space: nowrap;
   }
-  .cycle-pill.active { border-color: #ab47bc; color: #ab47bc; background: rgba(171,71,188,0.1); }
+  .cycle-pill.active { border-color: var(--purple); color: var(--purple); background: rgba(171,71,188,0.1); }
   .cycle-pill.add { border-style: dashed; }
 
   /* Rest timer — inline in workout header */
@@ -486,14 +496,14 @@
   .timer-preset {
     padding: 2px 6px; border: 1px solid var(--border);
     background: transparent; color: var(--text-dim);
-    font-size: 0.6rem; font-weight: 600; border-radius: 4px;
-    cursor: pointer; transition: all 0.15s;
+    font-size: var(--text-2xs); font-weight: 600; border-radius: 4px;
+    cursor: pointer; transition: all var(--transition-base);
     min-height: 44px; display: inline-flex; align-items: center;
   }
   .timer-preset.active { border-color: var(--text-strong); color: var(--text-strong); }
   .timer-custom-input {
     width: 36px; padding: 3px 2px; border: 1.5px solid var(--border); border-radius: 6px;
-    background: transparent; color: var(--text); font-size: 0.6rem; text-align: center;
+    background: transparent; color: var(--text); font-size: var(--text-2xs); text-align: center;
     -moz-appearance: textfield;
   }
   .timer-custom-input::-webkit-outer-spin-button,
@@ -502,8 +512,8 @@
   .timer-btn {
     padding: 2px 8px; border: 1px solid var(--border);
     background: transparent; color: var(--text-dim);
-    font-size: 0.6rem; font-weight: 600; border-radius: 4px;
-    cursor: pointer; transition: all 0.15s;
+    font-size: var(--text-2xs); font-weight: 600; border-radius: 4px;
+    cursor: pointer; transition: all var(--transition-base);
   }
   .timer-btn:hover { border-color: var(--border-hover); color: var(--text); }
 
@@ -535,7 +545,7 @@
     background: rgba(67,160,71,0.15); color: var(--green);
     font-size: var(--text-xs); font-weight: 700; border-radius: var(--radius-pill);
     cursor: pointer; white-space: nowrap;
-    transition: all 0.15s;
+    transition: all var(--transition-base);
   }
   .exercise-start-btn:hover { background: rgba(67,160,71,0.25); }
   .acc-time-adj-btn {
@@ -543,7 +553,7 @@
     background: transparent; color: var(--text-dim); font-size: 0.85rem;
     font-weight: 700; border-radius: 50%; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    transition: all 0.15s;
+    transition: all var(--transition-base);
   }
   .acc-time-adj-btn:hover { border-color: var(--text-dim); color: var(--text); }
 
@@ -552,7 +562,7 @@
     width: 100%; padding: 10px; margin-top: 8px;
     border: 1px dashed var(--border); border-radius: 10px;
     background: transparent; color: var(--text-dim);
-    font-size: 0.8rem; cursor: pointer; transition: all 0.15s;
+    font-size: 0.8rem; cursor: pointer; transition: all var(--transition-base);
     display: none;
   }
   .repeat-btn.visible { display: block; }
@@ -562,7 +572,7 @@
   .program-section {
     background: var(--surface); border-radius: var(--radius-lg); padding: var(--space-4);
     margin-top: 10px; margin-bottom: 10px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: var(--shadow-sm);
   }
   .program-header {
     display: flex; align-items: center; justify-content: space-between;
@@ -589,7 +599,7 @@
   .program-set-weight { font-weight: 700; color: var(--text); flex: 1; }
   .program-set-pct { font-size: var(--text-xs); color: var(--text-dim); }
   .plate-display {
-    font-size: 0.6rem; color: var(--text-dim); font-variant-numeric: tabular-nums;
+    font-size: var(--text-2xs); color: var(--text-dim); font-variant-numeric: tabular-nums;
     opacity: 0.7; margin-top: 1px;
   }
   .program-actions { display: flex; gap: 4px; margin-top: 8px; }
@@ -597,7 +607,7 @@
     padding: 4px 10px; border: 1px solid var(--border);
     background: transparent; color: var(--text-dim);
     font-size: 0.7rem; font-weight: 600; border-radius: 6px;
-    cursor: pointer; transition: all 0.15s;
+    cursor: pointer; transition: all var(--transition-base);
     min-height: 44px; display: inline-flex; align-items: center;
   }
   .program-nav-btn:hover { border-color: var(--border-hover); color: var(--text); }
@@ -693,7 +703,7 @@
   .workout-exercise {
     background: var(--surface); border-radius: var(--radius-lg);
     padding: var(--space-3); margin-bottom: var(--space-3);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: var(--shadow-sm);
   }
   .workout-exercise.main-lift { border-left: 4px solid var(--text-dim); }
   .workout-exercise.main-lift.squat { border-left-color: var(--squat); }
@@ -746,7 +756,7 @@
     display: flex; align-items: center; justify-content: center;
   }
   .acc-progression-badge {
-    display: inline-block; font-size: 0.6rem; font-weight: 700;
+    display: inline-block; font-size: var(--text-2xs); font-weight: 700;
     padding: 2px 8px; border-radius: var(--radius-pill);
     background: rgba(67,160,71,0.15); color: var(--green);
     margin-left: var(--space-2);
@@ -791,10 +801,7 @@
     animation: slideUp 0.25s ease; overflow-y: auto; -webkit-overflow-scrolling: touch;
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
-  .choice-sheet-handle {
-    width: 40px; height: 4px; border-radius: 2px; background: var(--text-dim);
-    opacity: 0.3; margin: 10px auto 0;
-  }
+  .choice-sheet-handle { }
   .choice-sheet-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: var(--space-3) var(--space-4) 0;
@@ -818,7 +825,7 @@
   .choice-card-icon.green { background: rgba(67,160,71,0.12); color: var(--green); }
   .choice-card-icon.blue { background: rgba(30,136,229,0.12); color: var(--bench); }
   .choice-card-icon.gold { background: rgba(255,215,0,0.12); color: var(--gold); }
-  .choice-card-icon.purple { background: rgba(171,71,188,0.12); color: #ab47bc; }
+  .choice-card-icon.purple { background: rgba(171,71,188,0.12); color: var(--purple); }
   .choice-card-icon.red { background: rgba(229,57,53,0.12); color: var(--red); }
   .choice-card-text { flex: 1; min-width: 0; }
   .choice-card-title { font-size: var(--text-base); font-weight: 600; color: var(--text-strong); }
@@ -933,7 +940,7 @@
 
   /* Smart recommendation styles */
   .smart-reason {
-    display: inline-block; font-size: 0.6rem; padding: 2px 6px;
+    display: inline-block; font-size: var(--text-2xs); padding: 2px 6px;
     border-radius: var(--radius-pill); background: var(--surface2);
     color: var(--text-dim); margin-right: 4px; margin-top: 4px;
   }
@@ -997,9 +1004,9 @@
   .meso-week-card.completed { opacity: 0.6; }
   .meso-week-card.adapted { border-color: var(--gold); }
   .meso-week-num { font-size: var(--text-xs); font-weight: 700; color: var(--text-strong); }
-  .meso-week-phase { font-size: 0.6rem; color: var(--text-dim); margin-top: 2px; }
+  .meso-week-phase { font-size: var(--text-2xs); color: var(--text-dim); margin-top: 2px; }
   .meso-week-check { color: var(--green); font-size: var(--text-xs); margin-top: 2px; }
-  .meso-week-rpe { font-size: 0.6rem; color: var(--text-dim); margin-top: 2px; }
+  .meso-week-rpe { font-size: var(--text-2xs); color: var(--text-dim); margin-top: 2px; }
 
   /* Meso generator pills */
   .meso-pills { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
@@ -1090,7 +1097,7 @@
   .session-card {
     background: var(--surface); border-radius: var(--radius-lg);
     margin-bottom: var(--space-3); overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: var(--shadow-sm);
   }
   .session-header {
     display: flex; align-items: center; gap: var(--space-2);
@@ -1102,7 +1109,7 @@
   .session-date { font-size: var(--text-sm); font-weight: 600; color: var(--text); flex: 1; }
   .session-tags { display: flex; gap: 4px; }
   .session-tag {
-    padding: 2px 6px; border-radius: 4px; font-size: 0.6rem;
+    padding: 2px 6px; border-radius: 4px; font-size: var(--text-2xs);
     font-weight: 700; text-transform: uppercase;
   }
   .session-tag.squat { background: rgba(229,57,53,0.15); color: var(--squat); }
@@ -1118,7 +1125,7 @@
   }
   .swipe-delete-label {
     color: #fff; font-weight: 700; font-size: var(--text-sm);
-    opacity: 0; transition: opacity 0.15s;
+    opacity: 0; transition: opacity var(--transition-base);
   }
   .swipe-container.swiping .swipe-delete-label { opacity: 1; }
   .swipe-container .session-entry {
@@ -1172,7 +1179,7 @@
   .vol-period-btn {
     flex: 1; padding: 4px 0; border: none; background: transparent;
     color: var(--text-dim); font-size: 0.7rem; font-weight: 600;
-    border-radius: 6px; cursor: pointer; transition: all 0.15s;
+    border-radius: 6px; cursor: pointer; transition: all var(--transition-base);
   }
   .vol-period-btn.active { background: var(--surface); color: var(--text); }
   .vol-row {
@@ -1215,14 +1222,14 @@
     display: inline-block; margin-top: 6px; padding: 4px 12px;
     border: 1px solid rgba(255,255,255,0.3); border-radius: 6px;
     background: transparent; color: #fff; font-size: 0.7rem;
-    font-weight: 600; cursor: pointer; transition: all 0.15s;
+    font-weight: 600; cursor: pointer; transition: all var(--transition-base);
   }
   .toast-share:hover { background: rgba(255,255,255,0.1); }
   .toast-undo {
     display: inline-block; margin-top: 6px; margin-left: 4px; padding: 4px 12px;
     border: 1px solid rgba(255,255,255,0.3); border-radius: 6px;
     background: transparent; color: #fff; font-size: 0.7rem;
-    font-weight: 600; cursor: pointer; transition: all 0.15s;
+    font-weight: 600; cursor: pointer; transition: all var(--transition-base);
   }
   .toast-undo:hover { background: rgba(255,255,255,0.1); }
 
@@ -1268,7 +1275,7 @@
     color: var(--text-dim); font-size: 1.2rem;
     cursor: pointer; border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
-    transition: color 0.15s;
+    transition: color var(--transition-base);
   }
   .gear-btn:hover { color: var(--text-strong); }
 
@@ -1282,7 +1289,7 @@
   .unit-btn {
     padding: 4px 14px; border: none; background: transparent;
     color: var(--text-dim); font-size: 0.75rem; font-weight: 600;
-    border-radius: 6px; cursor: pointer; transition: all 0.15s;
+    border-radius: 6px; cursor: pointer; transition: all var(--transition-base);
   }
   .unit-btn.active { background: var(--surface2); color: var(--text-strong); }
 
@@ -1296,7 +1303,7 @@
     padding: 14px var(--space-3); text-align: center;
     border-top: 3px solid var(--border);
     position: relative; overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: var(--shadow-sm);
   }
   .card[data-lift="squat"] { border-top-color: var(--squat); }
   .card[data-lift="bench"] { border-top-color: var(--bench); }
@@ -1364,7 +1371,7 @@
     width: 100%; padding: 10px 12px; border: 2px solid var(--border);
     border-radius: var(--radius-lg); background: var(--surface); color: var(--text-strong);
     font-size: 1.1rem; font-weight: 600; text-align: center;
-    outline: none; transition: border-color 0.15s;
+    outline: none; transition: border-color var(--transition-base);
   }
   .input-group input:focus { border-color: var(--border-hover); }
   .input-group input::placeholder { color: var(--text-muted); }
@@ -1384,7 +1391,7 @@
     padding: 6px 10px; border: 1px solid var(--border);
     background: transparent; color: var(--text-dim);
     font-size: 0.75rem; font-weight: 600; border-radius: 16px;
-    cursor: pointer; white-space: nowrap; transition: all 0.15s;
+    cursor: pointer; white-space: nowrap; transition: all var(--transition-base);
     flex-shrink: 0;
   }
   .rpe-pill.active { border-color: var(--text-strong); color: var(--text-strong); background: var(--surface2); }
@@ -1399,7 +1406,7 @@
   .notes-input {
     width: 100%; padding: 8px 12px; border: 2px solid var(--border);
     border-radius: var(--radius-lg); background: var(--surface); color: var(--text-strong);
-    font-size: 0.9rem; outline: none; transition: border-color 0.15s;
+    font-size: 0.9rem; outline: none; transition: border-color var(--transition-base);
   }
   .notes-input:focus { border-color: var(--border-hover); }
   .notes-input::placeholder { color: var(--text-muted); }
@@ -1440,7 +1447,7 @@
     padding: 6px 10px; border: 1px solid var(--border);
     background: transparent; color: var(--text-dim);
     font-size: 0.85rem; border-radius: 8px; cursor: pointer;
-    transition: all 0.15s;
+    transition: all var(--transition-base);
   }
   .date-toggle-btn.active { border-color: var(--border-hover); color: var(--text-strong); }
   .date-filters {
@@ -1513,7 +1520,7 @@
   .chart-type-btn {
     flex: 1; padding: 6px 0; border: none; background: transparent;
     color: var(--text-dim); font-size: 0.75rem; font-weight: 600;
-    border-radius: 8px; cursor: pointer; transition: all 0.15s;
+    border-radius: 8px; cursor: pointer; transition: all var(--transition-base);
   }
   .chart-type-btn.active { background: var(--surface2); color: var(--text-strong); }
 
@@ -1524,14 +1531,14 @@
     padding: 6px 14px; border: 1px solid var(--border);
     background: transparent; color: var(--text-dim);
     font-size: 0.75rem; font-weight: 600; border-radius: 20px;
-    cursor: pointer; transition: all 0.15s;
+    cursor: pointer; transition: all var(--transition-base);
   }
   .chart-filter-btn.active { color: var(--text-strong); background: var(--surface2); border-color: var(--border-hover); }
 
   .chart-container {
     position: relative; background: var(--surface);
     border-radius: var(--radius-lg); padding: var(--space-4);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: var(--shadow-sm);
   }
   .chart-container canvas { width: 100%; display: block; }
   .chart-tooltip {
@@ -1546,7 +1553,7 @@
   .stats-section {
     background: var(--surface); border-radius: var(--radius-lg);
     padding: 20px; margin-bottom: var(--space-3);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: var(--shadow-sm);
     overflow: hidden;
   }
   .stats-header {
@@ -1574,7 +1581,7 @@
     flex: 1; padding: 10px; border: 2px solid var(--border);
     background: transparent; color: var(--text-dim);
     font-size: 0.85rem; font-weight: 600; border-radius: 10px;
-    cursor: pointer; transition: all 0.15s; text-align: center;
+    cursor: pointer; transition: all var(--transition-base); text-align: center;
   }
   .gender-pill.active { border-color: var(--text-strong); color: var(--text-strong); background: var(--surface2); }
   .bw-row { display: flex; gap: 8px; align-items: flex-end; }
@@ -1583,7 +1590,7 @@
     padding: 10px 20px; border: none; border-radius: var(--radius-lg);
     background: var(--surface2); color: var(--text-strong);
     font-size: 0.85rem; font-weight: 600; cursor: pointer;
-    transition: opacity 0.15s; margin-bottom: 0;
+    transition: opacity var(--transition-base); margin-bottom: 0;
   }
   .bw-log-btn:hover { opacity: 0.8; }
 
@@ -1660,7 +1667,7 @@
     flex: 1; padding: 10px; border: 1px solid var(--border);
     background: transparent; color: var(--text-dim);
     font-size: 0.8rem; font-weight: 600; border-radius: 10px;
-    cursor: pointer; transition: all 0.15s; text-align: center;
+    cursor: pointer; transition: all var(--transition-base); text-align: center;
     min-width: 120px;
   }
   .data-btn:hover { border-color: var(--border-hover); color: var(--text-strong); }
@@ -1757,7 +1764,7 @@
     position: absolute; top: 12px; right: 16px;
     background: none; border: none; color: var(--text-dim);
     font-size: 1.5rem; cursor: pointer; line-height: 1;
-    transition: color 0.15s;
+    transition: color var(--transition-base);
   }
   .celebration-close:hover { color: var(--text); }
 
@@ -1810,7 +1817,7 @@
     padding: 12px 32px; border: 2px solid var(--gold); border-radius: var(--radius-lg);
     background: var(--gold-bg); color: var(--gold);
     font-size: 0.95rem; font-weight: 700; cursor: pointer;
-    transition: background 0.15s, transform 0.15s;
+    transition: background var(--transition-base), transform var(--transition-base);
   }
   .celebration-share-btn:hover { background: rgba(255,215,0,0.2); transform: scale(1.04); }
 
@@ -1823,7 +1830,7 @@
   .modal-save-btn {
     width: 100%; padding: 14px; border: none; border-radius: var(--radius-lg);
     background: var(--btn-primary-bg); color: var(--btn-primary-color); font-size: 1rem; font-weight: 700;
-    cursor: pointer; margin-top: 16px; transition: opacity 0.15s;
+    cursor: pointer; margin-top: 16px; transition: opacity var(--transition-base);
   }
   .modal-save-btn:hover { opacity: 0.9; }
 
@@ -1848,7 +1855,7 @@
     .dashboard { gap: 4px; }
     .card { padding: var(--space-2) var(--space-1); }
     .card-value { font-size: var(--text-lg); }
-    .card-label { font-size: 0.6rem; }
+    .card-label { font-size: var(--text-2xs); }
     .card-bw, .class-badge { display: none; }
     .rpe-pill { padding: 5px 8px; font-size: var(--text-sm); }
     .tab-btn { font-size: var(--text-sm); }
@@ -1943,7 +1950,7 @@
   .welcome-pill {
     flex: 1; padding: 10px; border: 2px solid var(--border); border-radius: 10px;
     background: var(--surface); color: var(--text); font-size: 0.85rem; font-weight: 600;
-    cursor: pointer; transition: all 0.15s;
+    cursor: pointer; transition: all var(--transition-base);
   }
   .welcome-pill:hover { border-color: var(--text-dim); }
   .welcome-pill.active { border-color: var(--green); background: rgba(67,160,71,0.08); color: var(--green); }
@@ -2014,3 +2021,12 @@
     transition: all var(--transition-base);
   }
   .load-more-btn:hover { border-color: var(--text-dim); color: var(--text); }
+
+  /* Meso week detail utility classes */
+  .meso-detail-section { margin-bottom: 12px; }
+  .meso-detail-set { font-size: var(--text-xs); color: var(--text-dim); padding: 2px 0; }
+  .meso-detail-acc { font-size: var(--text-2xs); color: var(--text-dim); margin-top: 4px; }
+  .meso-detail-perf { font-size: var(--text-2xs); color: var(--green); margin-top: 2px; }
+  .tm-unit-label { font-size: 0.7rem; color: var(--text-dim); }
+  .tm-suggest-btn { font-size: var(--text-2xs); }
+  .smart-score-label { font-size: var(--text-2xs); color: var(--text-dim); }
