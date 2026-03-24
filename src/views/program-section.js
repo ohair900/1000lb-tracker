@@ -19,6 +19,8 @@ import {
   isLiftComplete,
   checkAutoProgression,
   applyProgression,
+  setKey,
+  weekKey,
 } from '../systems/programs.js';
 import { openModal, closeModal } from '../ui/modal.js';
 import { showToast } from '../ui/toast.js';
@@ -91,7 +93,9 @@ export function renderProgramSection() {
   // One-line description (first sentence)
   const desc = tmpl.description || '';
   const firstSentence = desc.split('.')[0];
-  $('program-week').innerHTML = workout.label + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
+  const cycleNum = store.programConfig.currentCycle || 1;
+  const cycleLabel = cycleNum > 1 ? ` (Cycle ${cycleNum})` : '';
+  $('program-week').innerHTML = workout.label + cycleLabel + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
   const setsEl = $('program-sets');
   setsEl.innerHTML = workout.sets.map(s => {
     const tierLabel = s.tier ? `<span style="font-size:var(--text-xs);color:var(--text-dim);margin-right:4px">${s.tier}</span>` : '';
@@ -155,10 +159,12 @@ export function renderProgramSection() {
       const set = workout.sets[idx];
       const wasLiftComplete = isLiftComplete(store.currentLift);
       const wasComplete = isWeekComplete();
+      const cycle = store.programConfig.currentCycle || 1;
+      const sk = setKey(store.currentLift, cycle, store.programConfig.currentWeek, idx);
       if (set.completed) {
         // Toggle off completed
-        delete store.programConfig.completedSets[`${store.currentLift}-${store.programConfig.currentWeek}-${idx}`];
-        delete store.programConfig.amrapResults[`${store.currentLift}-${store.programConfig.currentWeek}-${idx}`];
+        delete store.programConfig.completedSets[sk];
+        delete store.programConfig.amrapResults[sk];
       } else {
         // Auto-fill inputs
         const weightInput = $('input-weight');
@@ -169,7 +175,7 @@ export function renderProgramSection() {
         if (repsInput) repsInput.value = repVal;
         if (_updatePreview) _updatePreview();
         // Mark completed
-        store.programConfig.completedSets[`${store.currentLift}-${store.programConfig.currentWeek}-${idx}`] = true;
+        store.programConfig.completedSets[sk] = true;
         // Check session-type auto-progression (SL5x5 / SS)
         const tmpl2 = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
         if (tmpl2 && tmpl2.progression && tmpl2.progression.type === 'session') {
@@ -192,10 +198,11 @@ export function renderProgramSection() {
       } else if (!wasLiftComplete && isLiftComplete(store.currentLift)) {
         if (_triggerLiftCompleteCelebration) _triggerLiftCompleteCelebration();
       } else if (wasComplete && !isWeekComplete()) {
-        delete store.programConfig.completedWeeks[store.programConfig.currentWeek];
+        const wk = weekKey(store.programConfig.currentCycle || 1, store.programConfig.currentWeek);
+        delete store.programConfig.completedWeeks[wk];
         let streak = 0;
         for (let w = store.programConfig.currentWeek; w >= 1; w--) {
-          if (store.programConfig.completedWeeks[w]) streak++;
+          if (store.programConfig.completedWeeks[weekKey(store.programConfig.currentCycle || 1, w)]) streak++;
           else break;
         }
         store.programConfig.weekStreak = streak;
@@ -285,9 +292,14 @@ export function showProgramSetupModal() {
     const tmplForWeek = sel ? PROGRAM_TEMPLATES[sel] : null;
     store.programConfig.currentWeek = Math.max(1, Math.min(parseInt($('program-week-input').value) || 1, tmplForWeek ? tmplForWeek.weeks : 99));
     store.programConfig.autoProgressEnabled = $('auto-progress-toggle').checked;
-    store.programConfig.completedSets = {};
-    store.programConfig.completedWeeks = {};
-    store.programConfig.weekStreak = 0;
+    // Only clear completion data if the program itself changed
+    if (sel !== store.programConfig.activeProgram) {
+      store.programConfig.completedSets = {};
+      store.programConfig.completedWeeks = {};
+      store.programConfig.amrapResults = {};
+      store.programConfig.weekStreak = 0;
+      store.programConfig.currentCycle = 1;
+    }
     store.saveProgramConfig();
     closeModal('edit-modal');
     renderProgramSection();
@@ -307,9 +319,16 @@ export function initProgramSection() {
   $('program-prev').addEventListener('click', () => {
     if (store.programConfig.currentWeek > 1) {
       store.programConfig.currentWeek--;
-      store.saveProgramConfig();
-      renderProgramSection();
+    } else if ((store.programConfig.currentCycle || 1) > 1) {
+      // Go back to last week of previous cycle
+      store.programConfig.currentCycle--;
+      const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
+      store.programConfig.currentWeek = tmpl ? tmpl.weeks : 1;
+    } else {
+      return; // Already at cycle 1, week 1
     }
+    store.saveProgramConfig();
+    renderProgramSection();
   });
 
   $('program-next').addEventListener('click', () => {
@@ -317,9 +336,13 @@ export function initProgramSection() {
     const maxWeek = tmpl ? tmpl.weeks : 99;
     if (store.programConfig.currentWeek < maxWeek) {
       store.programConfig.currentWeek++;
-      store.saveProgramConfig();
-      renderProgramSection();
+    } else {
+      // Advance to next cycle
+      store.programConfig.currentCycle = (store.programConfig.currentCycle || 1) + 1;
+      store.programConfig.currentWeek = 1;
     }
+    store.saveProgramConfig();
+    renderProgramSection();
   });
 
   $('program-setup')?.addEventListener('click', showProgramSetupModal);

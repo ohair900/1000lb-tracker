@@ -18,6 +18,7 @@ import {
   getProgramWorkout,
   findFirstIncompleteWeek,
   checkAutoProgression,
+  setKey,
 } from '../systems/programs.js';
 import {
   selectAccessories,
@@ -245,7 +246,7 @@ export function openWorkoutView(mainLift) {
     const sessionWeek = store.workoutSession.programWeek || store.programConfig.currentWeek;
     if (store.workoutSession.mainSets.length > 0) {
       store.workoutSession.mainSets.forEach((s, i) => {
-        s.completed = !!store.programConfig.completedSets[`${mainLift}-${sessionWeek}-${i}`];
+        s.completed = !!store.programConfig.completedSets[setKey(mainLift, store.programConfig.currentCycle || 1, sessionWeek, i)];
       });
     }
     // Migrate old-format sessions
@@ -403,10 +404,12 @@ export function initWorkoutOverlay() {
       const idx = parseInt(mainRow.dataset.idx);
       const set = store.workoutSession.mainSets[idx];
       const week = store.workoutSession.programWeek || store.programConfig.currentWeek;
+      const cycle = store.programConfig.currentCycle || 1;
+      const sk = setKey(store.workoutSession.mainLift, cycle, week, idx);
       if (set.completed) {
         set.completed = false;
-        delete store.programConfig.completedSets[`${store.workoutSession.mainLift}-${week}-${idx}`];
-        delete store.programConfig.amrapResults[`${store.workoutSession.mainLift}-${week}-${idx}`];
+        delete store.programConfig.completedSets[sk];
+        delete store.programConfig.amrapResults[sk];
         store.saveProgramConfig();
       } else {
         const isAmrap = typeof set.reps === 'string' && set.reps.toString().includes('+');
@@ -419,9 +422,9 @@ export function initWorkoutOverlay() {
         if (_addEntry) _addEntry(store.workoutSession.mainLift, weight, repsToLog, null, '', []);
         if (_updateDashboard) _updateDashboard();
         set.completed = true;
-        store.programConfig.completedSets[`${store.workoutSession.mainLift}-${week}-${idx}`] = true;
+        store.programConfig.completedSets[sk] = true;
         if (isAmrap && repsToLog) {
-          store.programConfig.amrapResults[`${store.workoutSession.mainLift}-${week}-${idx}`] = repsToLog;
+          store.programConfig.amrapResults[sk] = repsToLog;
         }
         const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
         if (tmpl && tmpl.progression && tmpl.progression.type === 'session') {

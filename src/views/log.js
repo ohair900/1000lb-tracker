@@ -12,6 +12,7 @@ import { calcE1RM } from '../formulas/e1rm.js';
 import { formatWeight, inputToLbs } from '../formulas/units.js';
 import { formatPlates } from '../formulas/plates.js';
 import { checkPR } from '../systems/pr-tracking.js';
+import { setKey } from '../systems/programs.js';
 import { addEntry } from '../state/actions.js';
 import { showToast } from '../ui/toast.js';
 
@@ -135,7 +136,7 @@ export function initLogTab() {
         const loggedWeight = inputToLbs(w);
         workout.sets.forEach((s, idx) => {
           if (typeof s.reps === 'string' && s.reps.includes('+') && Math.abs(s.weight - loggedWeight) <= 3) {
-            const key = `${store.currentLift}-${store.programConfig.currentWeek}-${idx}`;
+            const key = setKey(store.currentLift, store.programConfig.currentCycle || 1, store.programConfig.currentWeek, idx);
             if (!store.programConfig.amrapResults[key]) {
               store.programConfig.amrapResults[key] = r;
               store.programConfig.completedSets[key] = true;

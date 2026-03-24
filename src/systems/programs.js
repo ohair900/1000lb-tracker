@@ -12,6 +12,18 @@ import { roundToPlate } from '../formulas/plates.js';
 import { formatWeight } from '../formulas/units.js';
 
 // ---------------------------------------------------------------------------
+// Key helpers — cycle-aware keys for completedSets/amrapResults/completedWeeks
+// ---------------------------------------------------------------------------
+
+export function setKey(lift, cycle, week, idx) {
+  return `${lift}-c${cycle}-w${week}-${idx}`;
+}
+
+export function weekKey(cycle, week) {
+  return `c${cycle}-w${week}`;
+}
+
+// ---------------------------------------------------------------------------
 // Workout query
 // ---------------------------------------------------------------------------
 
@@ -43,7 +55,7 @@ export function getProgramWorkout(lift, weekOverride) {
       pct: s.pct,
       tier: s.tier || null,
       day: s.day || null,
-      completed: !!store.programConfig.completedSets[`${lift}-${useWeek}-${i}`]
+      completed: !!store.programConfig.completedSets[setKey(lift, store.programConfig.currentCycle || 1, useWeek, i)]
     }))
   };
 }
@@ -110,10 +122,11 @@ export function findFirstIncompleteWeek(lift) {
  * week streak (counting backward from the current week).
  */
 export function updateWeekStreak() {
-  store.programConfig.completedWeeks[store.programConfig.currentWeek] = true;
+  const cycle = store.programConfig.currentCycle || 1;
+  store.programConfig.completedWeeks[weekKey(cycle, store.programConfig.currentWeek)] = true;
   let streak = 0;
   for (let w = store.programConfig.currentWeek; w >= 1; w--) {
-    if (store.programConfig.completedWeeks[w]) streak++;
+    if (store.programConfig.completedWeeks[weekKey(cycle, w)]) streak++;
     else break;
   }
   store.programConfig.weekStreak = streak;
@@ -146,8 +159,9 @@ export function checkAutoProgression(lift) {
     // SL5x5 / SS: all sets completed for this lift this week
     const weekData = tmpl.schedule[week];
     if (!weekData) return null;
+    const cycle = store.programConfig.currentCycle || 1;
     const allDone = weekData.sets.every((_, i) =>
-      store.programConfig.completedSets[`${lift}-${store.programConfig.currentWeek}-${i}`]
+      store.programConfig.completedSets[setKey(lift, cycle, store.programConfig.currentWeek, i)]
     );
     if (!allDone) return null;
     return { lift, oldTM: tm, newTM: tm + increment, reason: 'All sets completed' };
@@ -164,8 +178,9 @@ export function checkAutoProgression(lift) {
       .filter(i => i >= 0);
     if (amrapIdxs.length === 0) return null;
     // Check if any AMRAP result meets minimum
+    const cycle2 = store.programConfig.currentCycle || 1;
     for (const idx of amrapIdxs) {
-      const key = `${lift}-${store.programConfig.currentWeek}-${idx}`;
+      const key = setKey(lift, cycle2, store.programConfig.currentWeek, idx);
       const reps = store.programConfig.amrapResults[key];
       if (reps !== undefined && reps >= prog.minReps) {
         return { lift, oldTM: tm, newTM: tm + increment, reason: `AMRAP: ${reps} reps` };
@@ -182,7 +197,7 @@ export function checkAutoProgression(lift) {
       s => typeof s.reps === 'string' && s.reps.includes('+') && s.day === 'Intensity'
     );
     if (amrapIdx < 0) return null;
-    const key = `${lift}-${store.programConfig.currentWeek}-${amrapIdx}`;
+    const key = setKey(lift, store.programConfig.currentCycle || 1, store.programConfig.currentWeek, amrapIdx);
     const reps = store.programConfig.amrapResults[key];
     if (reps !== undefined && reps >= prog.minReps) {
       return { lift, oldTM: tm, newTM: tm + increment, reason: `Intensity PR: ${reps} reps` };
