@@ -1,0 +1,92 @@
+/* ===== Program Support ===== */
+
+.program-section {
+  background: var(--surface); border-radius: var(--radius-lg); padding: var(--space-4);
+  margin-top: 10px; margin-bottom: 10px;
+  box-shadow: var(--shadow-sm);
+}
+.program-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.program-title { font-size: var(--text-sm); font-weight: 700; color: var(--text); }
+.program-week { font-size: var(--text-xs); color: var(--text-dim); }
+.program-set-row {
+  display: flex; align-items: center; gap: var(--space-2); padding: 8px 10px;
+  border-radius: var(--radius-sm); margin-bottom: 3px; cursor: pointer;
+  background: var(--surface2); transition: all var(--transition-base); font-size: var(--text-base);
+  min-height: 44px; border: 1px solid transparent;
+}
+.program-set-row:hover { background: var(--border); }
+.program-set-row.completed {
+  opacity: 0.7; background: var(--completed-bg);
+  border-color: var(--completed-border); text-decoration: none;
+}
+.program-set-check {
+  color: var(--green); font-weight: 700; font-size: var(--text-sm);
+  margin-right: 2px; flex-shrink: 0;
+}
+.program-set-num { color: var(--text-dim); font-size: var(--text-xs); min-width: 18px; }
+.program-set-weight { font-weight: 700; color: var(--text); flex: 1; }
+.program-set-pct { font-size: var(--text-xs); color: var(--text-dim); }
+.plate-display {
+  font-size: var(--text-2xs); color: var(--text-dim); font-variant-numeric: tabular-nums;
+  opacity: 0.7; margin-top: 1px;
+}
+.program-actions { display: flex; gap: 4px; margin-top: 8px; }
+.program-nav-btn {
+  padding: 4px 10px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-dim);
+  font-size: 0.7rem; font-weight: 600; border-radius: 6px;
+  cursor: pointer; transition: all var(--transition-base);
+  min-height: 44px; display: inline-flex; align-items: center;
+}
+.program-nav-btn:hover { border-color: var(--border-hover); color: var(--text); }
+
+/* Cycle bar */
+.cycle-bar {
+  display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; align-items: center;
+}
+
+/* Week completion celebration */
+.program-section.week-complete {
+  border: 2px solid var(--green);
+  animation: programGlow 2s ease-in-out infinite;
+  background: linear-gradient(135deg, rgba(76,175,80,0.06), rgba(255,215,0,0.04));
+}
+.program-set-check.cascade {
+  animation: checkBounce 0.5s ease-out forwards;
+}
+.mini-confetti {
+  position: absolute; width: 6px; height: 6px; border-radius: 50%;
+  pointer-events: none; z-index: 10;
+  animation: miniConfettiFall 2.5s ease-in forwards;
+}
+.week-streak-badge {
+  display: inline-block; font-size: 0.65rem; font-weight: 700;
+  padding: 2px 6px; border-radius: 8px; margin-left: 6px;
+  background: rgba(255,215,0,0.15); color: #ffd700;
+}
+.program-section.lift-complete {
+  border: 1px solid var(--green);
+  background: rgba(76,175,80,0.04);
+}
+
+/* Mesocycle timeline */
+.meso-timeline {
+  display: flex; gap: var(--space-2); overflow-x: auto; padding: var(--space-2) 0;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.meso-timeline::-webkit-scrollbar { display: none; }
+.meso-week-card {
+  min-width: 80px; padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md); background: var(--surface);
+  border: 2px solid transparent; text-align: center; flex-shrink: 0; cursor: pointer;
+}
+.meso-week-card.current { border-color: var(--bench); background: rgba(30,136,229,0.06); }
+.meso-week-card.completed { opacity: 0.6; }
+.meso-week-card.adapted { border-color: var(--gold); }
+.meso-week-num { font-size: var(--text-xs); font-weight: 700; color: var(--text-strong); }
+.meso-week-phase { font-size: var(--text-2xs); color: var(--text-dim); margin-top: 2px; }
+.meso-week-check { color: var(--green); font-size: var(--text-xs); margin-top: 2px; }
+.meso-week-rpe { font-size: var(--text-2xs); color: var(--text-dim); margin-top: 2px; }

@@ -1,7 +1,7 @@
-const CACHE_NAME = '1000lb-tracker-v5';
+const CACHE_NAME = '1000lb-tracker-v6';
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(['/', '/styles.css'])));
+  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(['/'])));
   self.skipWaiting();
 });
 

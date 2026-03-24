@@ -1,0 +1,197 @@
+/* ===== Cards ===== */
+
+/* Dashboard cards */
+.card {
+  background: var(--surface); border-radius: var(--radius-lg);
+  padding: 14px var(--space-3); text-align: center;
+  border-top: 3px solid var(--border);
+  position: relative; overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.card[data-lift="squat"] { border-top-color: var(--squat); }
+.card[data-lift="bench"] { border-top-color: var(--bench); }
+.card[data-lift="deadlift"] { border-top-color: var(--deadlift); }
+.card[data-lift="total"] { border-top-color: var(--total); }
+
+.card-label {
+  font-size: var(--text-xs); text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: var(--space-1);
+}
+.card-value { font-size: var(--text-xl); font-weight: 700; color: var(--text-strong); }
+.card-value.empty { color: var(--text-dim); font-size: var(--text-base); }
+
+/* xBW subtitle */
+.card-bw { font-size: var(--text-2xs); color: var(--text-dim); margin-top: 2px; }
+
+/* Rate of progression trend */
+.card-trend {
+  font-size: var(--text-2xs); margin-top: 2px; font-weight: 600;
+}
+.card-trend.up { color: var(--green); }
+.card-trend.down { color: var(--red); }
+.card-trend.flat { color: var(--text-dim); }
+
+/* Classification badge */
+.class-badge {
+  display: inline-block; padding: 2px 6px; border-radius: var(--radius-sm);
+  font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.03em;
+  margin-top: 3px; text-transform: uppercase;
+}
+.class-badge.beginner { background: rgba(136,136,136,0.15); color: #888; }
+.class-badge.novice { background: rgba(67,160,71,0.15); color: var(--green); }
+.class-badge.intermediate { background: rgba(30,136,229,0.15); color: var(--bench); }
+.class-badge.advanced { background: rgba(171,71,188,0.15); color: var(--purple); }
+.class-badge.elite { background: var(--gold-bg); color: var(--gold); }
+
+/* Ratio card */
+.ratio-card {
+  flex: 1; background: var(--surface); border-radius: var(--radius-md);
+  padding: var(--space-2); text-align: center; font-size: var(--text-sm);
+}
+.ratio-label { color: var(--text-dim); margin-bottom: 2px; }
+.ratio-value { font-weight: 700; font-size: var(--text-base); }
+.ratio-value.balanced { color: var(--green); }
+.ratio-value.warning { color: var(--yellow); }
+.ratio-value.imbalanced { color: var(--red); }
+
+/* Score cards */
+.score-cards { display: flex; gap: 12px; }
+.score-card {
+  flex: 1; text-align: center; padding: var(--space-3);
+  background: var(--surface2); border-radius: var(--radius-lg);
+}
+.score-label { font-size: var(--text-sm); color: var(--text-dim); margin-bottom: var(--space-1); text-transform: uppercase; letter-spacing: 0.06em; }
+.score-value { font-size: var(--text-2xl); font-weight: 700; color: var(--text-strong); }
+
+/* Badge cards */
+.badge-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px;
+  margin-bottom: 12px;
+}
+.badge-card {
+  background: var(--surface2); border-radius: var(--radius-md); padding: 10px 6px;
+  text-align: center; transition: transform var(--transition-base);
+}
+.badge-card:hover { transform: translateY(-1px); }
+.badge-card.locked { opacity: 0.3; filter: grayscale(1); }
+.badge-icon { font-size: 1.5rem; display: block; margin-bottom: 4px; }
+.badge-name { font-size: var(--text-xs); font-weight: 600; color: var(--text); }
+.badge-date { font-size: 0.55rem; color: var(--text-dim); margin-top: 2px; }
+.badge-category-label {
+  font-size: var(--text-xs); color: var(--text-dim); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em; margin: 8px 0 6px;
+}
+
+/* Choice card */
+.choice-card {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg);
+  background: var(--surface); margin-bottom: var(--space-2); cursor: pointer;
+  transition: all var(--transition-fast); border: 2px solid transparent;
+}
+.choice-card:hover { border-color: var(--text-dim); }
+.choice-card:active { transform: scale(0.98); }
+.choice-card.meso-active { border-color: var(--bench); background: rgba(30,136,229,0.06); }
+.choice-card-icon {
+  width: 40px; height: 40px; border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem; flex-shrink: 0;
+}
+.choice-card-icon.green { background: rgba(67,160,71,0.12); color: var(--green); }
+.choice-card-icon.blue { background: rgba(30,136,229,0.12); color: var(--bench); }
+.choice-card-icon.gold { background: rgba(255,215,0,0.12); color: var(--gold); }
+.choice-card-icon.purple { background: rgba(171,71,188,0.12); color: var(--purple); }
+.choice-card-icon.red { background: rgba(229,57,53,0.12); color: var(--red); }
+.choice-card-text { flex: 1; min-width: 0; }
+.choice-card-title { font-size: var(--text-base); font-weight: 600; color: var(--text-strong); }
+.choice-card-desc { font-size: var(--text-xs); color: var(--text-dim); margin-top: 2px; }
+.choice-card-arrow { color: var(--text-dim); font-size: 1.1rem; }
+.choice-plan-link {
+  font-size: var(--text-xs); color: var(--text-dim); background: none; border: none;
+  cursor: pointer; padding: var(--space-1) 0; text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.choice-plan-link:hover { color: var(--text); }
+
+/* Template cards */
+.template-list { display: flex; flex-direction: column; gap: var(--space-2); }
+.template-card {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3); background: var(--surface); border-radius: var(--radius-lg);
+  cursor: pointer; transition: all var(--transition-fast);
+}
+.template-card:hover { background: var(--surface2); }
+.template-card-info { flex: 1; min-width: 0; }
+.template-card-name { font-size: var(--text-sm); font-weight: 700; color: var(--text-strong); }
+.template-card-meta { font-size: var(--text-xs); color: var(--text-dim); margin-top: 2px; }
+.template-card-actions { display: flex; gap: 4px; }
+
+/* Meso summary card */
+.meso-summary-card {
+  background: var(--surface); border-radius: var(--radius-lg);
+  padding: var(--space-4); margin: var(--space-3) 0;
+  border: 1px solid var(--border);
+}
+.meso-summary-title {
+  font-size: var(--text-base); font-weight: 700; color: var(--text-strong);
+  margin-bottom: var(--space-3);
+}
+.meso-summary-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; font-size: var(--text-sm); border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.meso-summary-row:last-child { border-bottom: none; }
+.meso-summary-label { color: var(--text-dim); }
+.meso-summary-value { font-weight: 600; color: var(--text-strong); }
+
+/* Weight class card */
+.weight-class-card {
+  margin-top: 12px; padding: 10px 12px; background: var(--surface2);
+  border-radius: 8px; display: flex; align-items: center; gap: 10px;
+}
+.weight-class-label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+.weight-class-value { font-size: 1rem; font-weight: 700; color: var(--text); }
+.weight-class-detail { font-size: 0.7rem; color: var(--text-dim); }
+
+/* Exercise preview card (long-press) */
+#exercise-preview {
+  position: fixed; inset: 0; z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.35);
+}
+.exercise-preview-card {
+  background: var(--bg); border-radius: var(--radius-lg);
+  padding: var(--space-4); margin: var(--space-4);
+  max-width: 320px; width: 90%;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+.exercise-preview-name {
+  font-size: var(--text-lg); font-weight: 700; color: var(--text-strong);
+  margin-bottom: var(--space-2);
+}
+.exercise-preview-desc {
+  font-size: var(--text-sm); color: var(--text); line-height: 1.5;
+  margin-bottom: var(--space-3);
+}
+.exercise-preview-meta {
+  font-size: var(--text-xs); color: var(--text-dim);
+  margin-bottom: var(--space-3);
+}
+.exercise-preview-video {
+  display: inline-block; font-size: var(--text-sm); font-weight: 600;
+  color: var(--bench); text-decoration: none;
+  padding: 8px 0;
+}
+
+/* Responsive card styles */
+@media (max-width: 360px) {
+  .card { padding: var(--space-2) var(--space-1); }
+  .card-value { font-size: var(--text-lg); }
+  .card-label { font-size: var(--text-2xs); }
+  .card-bw, .class-badge { display: none; }
+  .ratio-card { padding: var(--space-1) var(--space-2); }
+}
+
+@media (min-width: 600px) {
+  .card { padding: var(--space-4) var(--space-3); }
+}

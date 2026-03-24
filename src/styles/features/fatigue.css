@@ -1,0 +1,90 @@
+/* ===== Fatigue Indicator ===== */
+
+.fatigue-container { margin-bottom: 8px; }
+.fatigue-header {
+  font-size: var(--text-xs); text-transform: uppercase; color: var(--text-dim);
+  font-weight: 700; margin-bottom: 4px; letter-spacing: 0.5px;
+}
+.fatigue-row {
+  display: flex; gap: 8px;
+}
+.fatigue-card {
+  flex: 1; background: var(--surface); border-radius: var(--radius-md);
+  padding: var(--space-2); text-align: center; min-width: 0;
+  cursor: pointer; transition: transform var(--transition-fast);
+}
+.fatigue-card:active { transform: scale(0.96); }
+.fatigue-card-label {
+  font-size: var(--text-xs); text-transform: uppercase; font-weight: 700; margin-bottom: 2px;
+}
+.fatigue-card-status {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.fatigue-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.fatigue-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.fatigue-dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+.fatigue-dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+.fatigue-dot.none { background: var(--text-dim); opacity: 0.3; }
+.fatigue-level {
+  font-size: var(--text-sm); font-weight: 700;
+}
+.fatigue-level.green { color: var(--green); }
+.fatigue-level.yellow { color: var(--yellow); }
+.fatigue-level.red { color: var(--red); }
+.fatigue-level.none { color: var(--text-dim); opacity: 0.4; }
+
+/* Fatigue detail sheet content */
+.fatigue-detail-banner {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-radius: var(--radius-md); margin-bottom: 12px; font-weight: 700;
+}
+.fatigue-detail-banner.green { background: rgba(67,160,71,0.12); color: var(--green); }
+.fatigue-detail-banner.yellow { background: rgba(253,216,53,0.12); color: var(--yellow); }
+.fatigue-detail-banner.red { background: rgba(229,57,53,0.12); color: var(--red); }
+
+.fatigue-recovery-track {
+  height: 8px; border-radius: 4px; background: var(--surface2); overflow: hidden; margin-bottom: 4px;
+}
+.fatigue-recovery-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+.fatigue-recovery-fill.green { background: var(--green); }
+.fatigue-recovery-fill.yellow { background: var(--yellow); }
+.fatigue-recovery-fill.red { background: var(--red); }
+.fatigue-recovery-meta {
+  display: flex; justify-content: space-between; font-size: var(--text-xs); color: var(--text-dim); margin-bottom: 12px;
+}
+
+.fatigue-advice {
+  padding: 10px 14px; border-radius: var(--radius-md); font-size: var(--text-sm);
+  margin-bottom: 12px; font-weight: 600;
+}
+.fatigue-advice.green { background: rgba(67,160,71,0.10); color: var(--green); }
+.fatigue-advice.yellow { background: rgba(253,216,53,0.10); color: var(--yellow); }
+.fatigue-advice.red { background: rgba(229,57,53,0.10); color: var(--red); }
+
+.fatigue-trend-chart {
+  display: flex; align-items: flex-end; gap: 6px; height: 80px; margin-bottom: 4px;
+}
+.fatigue-trend-bar {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%;
+}
+.fatigue-trend-bar-fill { width: 100%; border-radius: 4px 4px 0 0; min-height: 2px; }
+.fatigue-trend-labels {
+  display: flex; gap: 6px; margin-bottom: 12px;
+}
+.fatigue-trend-labels span {
+  flex: 1; text-align: center; font-size: var(--text-xs); color: var(--text-dim);
+}
+
+.fatigue-contributor {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: var(--text-sm);
+}
+.fatigue-contributor-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.fatigue-contributor-badge {
+  font-size: 0.55rem; font-weight: 700; padding: 1px 6px; border-radius: var(--radius-pill);
+  text-transform: uppercase; flex-shrink: 0;
+}
+.fatigue-contributor-bar { flex: 1; background: var(--surface2); border-radius: 3px; overflow: hidden; height: 14px; }
+.fatigue-contributor-bar-fill { height: 100%; border-radius: 3px; }
+.fatigue-contributor-vol { font-size: var(--text-xs); color: var(--text-dim); min-width: 48px; text-align: right; }

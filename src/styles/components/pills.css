@@ -1,0 +1,155 @@
+/* ===== Pills / Chips ===== */
+
+/* Lift selector pills */
+.lift-btn {
+  flex: 1; padding: 10px 0; border: 2px solid var(--border);
+  background: var(--surface); color: var(--text-dim);
+  font-size: var(--text-base); font-weight: 700; border-radius: var(--radius-lg);
+  cursor: pointer; transition: all var(--transition-base);
+}
+.lift-btn[data-lift="squat"].active { border-color: var(--squat); color: var(--squat); background: rgba(229,57,53,0.12); }
+.lift-btn[data-lift="bench"].active { border-color: var(--bench); color: var(--bench); background: rgba(30,136,229,0.12); }
+.lift-btn[data-lift="deadlift"].active { border-color: var(--deadlift); color: var(--deadlift); background: rgba(67,160,71,0.12); }
+.lift-btn:hover:not(.active) { border-color: var(--text-dim); }
+
+/* Lift-done checkmark badge on lift selector */
+.lift-btn.lift-done { position: relative; }
+.lift-btn.lift-done::after {
+  content: '\2713'; position: absolute; top: -4px; right: -4px;
+  font-size: 0.55rem; background: var(--green); color: #fff;
+  width: 14px; height: 14px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1;
+}
+
+/* RPE pills */
+.rpe-pill {
+  padding: 6px 10px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-dim);
+  font-size: 0.75rem; font-weight: 600; border-radius: 16px;
+  cursor: pointer; white-space: nowrap; transition: all var(--transition-base);
+  flex-shrink: 0;
+}
+.rpe-pill.active { border-color: var(--text-strong); color: var(--text-strong); background: var(--surface2); }
+
+/* Filter pills */
+.filter-pill {
+  padding: 6px 14px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-dim);
+  font-size: var(--text-sm); font-weight: 600; border-radius: var(--radius-pill);
+  cursor: pointer; transition: all var(--transition-base);
+  min-height: 44px; display: flex; align-items: center;
+}
+.filter-pill.active { color: var(--text-strong); background: var(--surface2); border-color: var(--border-hover); }
+
+/* Chart filter buttons */
+.chart-filter-btn {
+  padding: 6px 14px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-dim);
+  font-size: 0.75rem; font-weight: 600; border-radius: 20px;
+  cursor: pointer; transition: all var(--transition-base);
+}
+.chart-filter-btn.active { color: var(--text-strong); background: var(--surface2); border-color: var(--border-hover); }
+
+/* Chart type buttons */
+.chart-type-btn {
+  flex: 1; padding: 6px 0; border: none; background: transparent;
+  color: var(--text-dim); font-size: 0.75rem; font-weight: 600;
+  border-radius: 8px; cursor: pointer; transition: all var(--transition-base);
+}
+.chart-type-btn.active { background: var(--surface2); color: var(--text-strong); }
+
+/* Range pills */
+.chart-date-range .range-pill {
+  padding: 3px 10px; border: 1px solid var(--border); border-radius: var(--radius-pill);
+  background: transparent; color: var(--text-dim); font-size: var(--text-xs);
+  cursor: pointer; transition: all var(--transition-base);
+}
+.chart-date-range .range-pill.active {
+  background: var(--text); color: var(--bg); border-color: var(--text);
+}
+
+/* Tag pills */
+.tag-pill {
+  padding: 2px 8px; border-radius: var(--radius-pill); font-size: var(--text-2xs);
+  background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border);
+  cursor: pointer; transition: all var(--transition-base); user-select: none;
+}
+.tag-pill.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+.tag-chip {
+  display: inline-block; padding: 1px 6px; border-radius: var(--radius-pill);
+  font-size: 0.55rem; background: var(--surface2); color: var(--text-dim); margin-left: 3px;
+}
+
+/* Cycle pills */
+.cycle-pill {
+  padding: 4px 12px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-dim);
+  font-size: 0.7rem; font-weight: 600; border-radius: 16px;
+  cursor: pointer; transition: all var(--transition-base); white-space: nowrap;
+}
+.cycle-pill.active { border-color: var(--purple); color: var(--purple); background: rgba(171,71,188,0.1); }
+.cycle-pill.add { border-style: dashed; }
+
+/* Timer preset pills */
+.timer-preset {
+  padding: 2px 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-dim);
+  font-size: var(--text-2xs); font-weight: 600; border-radius: 4px;
+  cursor: pointer; transition: all var(--transition-base);
+  min-height: 44px; display: inline-flex; align-items: center;
+}
+.timer-preset.active { border-color: var(--text-strong); color: var(--text-strong); }
+
+/* Gender pills */
+.gender-pills { display: flex; gap: 8px; margin-bottom: 12px; }
+.gender-pill {
+  flex: 1; padding: 10px; border: 2px solid var(--border);
+  background: transparent; color: var(--text-dim);
+  font-size: 0.85rem; font-weight: 600; border-radius: 10px;
+  cursor: pointer; transition: all var(--transition-base); text-align: center;
+}
+.gender-pill.active { border-color: var(--text-strong); color: var(--text-strong); background: var(--surface2); }
+
+/* Volume period toggle */
+.vol-period-toggle {
+  display: flex; gap: 4px; margin-bottom: 10px;
+  background: var(--surface2); border-radius: 8px; padding: 3px;
+}
+.vol-period-btn {
+  flex: 1; padding: 4px 0; border: none; background: transparent;
+  color: var(--text-dim); font-size: 0.7rem; font-weight: 600;
+  border-radius: 6px; cursor: pointer; transition: all var(--transition-base);
+}
+.vol-period-btn.active { background: var(--surface); color: var(--text); }
+
+/* Meso generator pills */
+.meso-pills { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.meso-pill {
+  padding: 8px 16px; border: 2px solid var(--border); border-radius: var(--radius-pill);
+  background: transparent; color: var(--text); font-size: var(--text-sm);
+  font-weight: 600; cursor: pointer; transition: all var(--transition-fast);
+}
+.meso-pill.active { border-color: var(--bench); background: rgba(30,136,229,0.08); color: var(--bench); }
+
+/* Smart lift selector */
+.smart-lift-selector {
+  display: flex; gap: var(--space-2); margin-bottom: var(--space-3);
+}
+.smart-lift-btn {
+  flex: 1; padding: 10px; border: 2px solid var(--border); border-radius: var(--radius-md);
+  background: transparent; color: var(--text); font-size: var(--text-sm);
+  font-weight: 600; cursor: pointer; text-align: center;
+}
+.smart-lift-btn.active { border-color: var(--green); background: rgba(67,160,71,0.08); color: var(--green); }
+.smart-lift-btn.suggested { position: relative; }
+.smart-lift-btn.suggested::after {
+  content: 'Suggested'; position: absolute; top: -8px; right: -4px;
+  font-size: 0.5rem; padding: 1px 5px; border-radius: var(--radius-pill);
+  background: var(--green); color: #fff; font-weight: 700;
+}
+
+/* Responsive pills */
+@media (max-width: 360px) {
+  .rpe-pill { padding: 5px 8px; font-size: var(--text-sm); }
+}

@@ -1,0 +1,27 @@
+/* ===== Modals ===== */
+
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  z-index: 200; display: flex; align-items: flex-end;
+  justify-content: center;
+  animation: fadeIn 0.15s;
+}
+.modal {
+  background: var(--surface); border-radius: 16px 16px 0 0;
+  width: 100%; max-width: 600px; max-height: 85vh;
+  overflow-y: auto; animation: slideUpSmall 0.2s;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--surface); z-index: 1;
+}
+.modal-header h3 { font-size: 1rem; color: var(--text-strong); }
+.modal-close {
+  width: 32px; height: 32px; border: none; background: var(--surface2);
+  color: var(--text-dim); font-size: 1rem; border-radius: 8px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.modal-close:hover { color: var(--text-strong); }
+.modal-body { padding: 16px; }

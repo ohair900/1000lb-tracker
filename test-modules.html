@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SBD Tracker - Module Tests</title>
+  <style>
+    body { font-family: monospace; background: #1a1a1a; color: #eee; padding: 20px; }
+    .pass { color: #4caf50; }
+    .fail { color: #f44336; font-weight: bold; }
+    .section { color: #64b5f6; margin-top: 16px; font-size: 1.1em; }
+    #results { white-space: pre-wrap; line-height: 1.6; }
+    #summary { font-size: 1.3em; margin-top: 20px; padding: 12px; border-radius: 8px; }
+    #summary.pass { background: rgba(76,175,80,0.2); }
+    #summary.fail { background: rgba(244,67,54,0.2); }
+  </style>
+</head>
+<body>
+<h1>SBD Tracker Module Tests</h1>
+<div id="results"></div>
+<div id="summary"></div>
+
+<script type="module">
+// =========================================================================
+// COMPREHENSIVE TEST SUITE FOR REFACTORED MODULES
+// =========================================================================
+
+import { calcE1RM } from '/src/formulas/e1rm.js';
+import { calcWilks, calcDOTS } from '/src/formulas/scoring.js';
+import { lbsToKg } from '/src/formulas/units.js';
+import { roundToPlate, calcPlatesPerSide } from '/src/formulas/plates.js';
+import { LBS_PER_KG, E1RM_DIVISOR, WILKS, DOTS } from '/src/constants/formulas.js';
+import { LIFTS, COLORS, PLATES_KG, PLATES_LBS, IPF_CLASSES } from '/src/constants/lift-config.js';
+import { MS_PER_DAY, WINDOW_1_WEEK, WINDOW_4_WEEKS } from '/src/constants/time.js';
+import { HISTORY_PAGE_SIZE } from '/src/constants/thresholds.js';
+import { ACCESSORY_DB, EXERCISE_INFO } from '/src/data/accessories.js';
+import { PROGRAM_TEMPLATES } from '/src/data/programs.js';
+import { STRENGTH_STANDARDS } from '/src/data/standards.js';
+import { BADGE_DEFINITIONS } from '/src/data/badges.js';
+import { MESO_GOALS } from '/src/data/meso-goals.js';
+import { MUSCLE_GROUPS, MUSCLE_RECOVERY_HOURS, MAIN_LIFT_WEIGHTS } from '/src/data/muscle-groups.js';
+import { TOTAL_MILESTONES } from '/src/data/milestones.js';
+import {
+  STORAGE_KEY, PROFILE_KEY, GOALS_KEY, PRS_KEY, UNIT_KEY,
+  FIREBASE_CONFIG_KEY
+} from '/src/constants/storage-keys.js';
+import store from '/src/state/store.js';
+import { $ } from '/src/utils/helpers.js';
+import { safeCall, safeJsonParse } from '/src/utils/error.js';
+
+const out = document.getElementById('results');
+const summaryEl = document.getElementById('summary');
+let passed = 0, failed = 0, errors = [];
+
+function log(html) { out.innerHTML += html + '\n'; }
+function section(name) { log(`<span class="section">--- ${name} ---</span>`); }
+
+function assert(condition, msg) {
+  if (condition) { passed++; log(`  <span class="pass">PASS</span>: ${msg}`); }
+  else { failed++; errors.push(msg); log(`  <span class="fail">FAIL</span>: ${msg}`); }
+}
+
+function assertClose(actual, expected, tolerance, msg) {
+  const ok = Math.abs(actual - expected) <= tolerance;
+  if (ok) { passed++; log(`  <span class="pass">PASS</span>: ${msg}`); }
+  else { failed++; errors.push(`${msg} (got ${actual}, expected ${expected})`); log(`  <span class="fail">FAIL</span>: ${msg} (got ${actual}, expected ${expected})`); }
+}
+
+function assertThrows(fn, msg) {
+  try { fn(); failed++; errors.push(msg); log(`  <span class="fail">FAIL</span>: ${msg} (did not throw)`); }
+  catch { passed++; log(`  <span class="pass">PASS</span>: ${msg}`); }
+}
+
+// =========================================================================
+// 1. CONSTANTS
+// =========================================================================
+section('Constants');
+assert(LBS_PER_KG === 2.205, 'LBS_PER_KG = 2.205');
+assert(E1RM_DIVISOR === 30, 'E1RM_DIVISOR = 30');
+assert(MS_PER_DAY === 86400000, 'MS_PER_DAY = 86400000');
+assert(WINDOW_1_WEEK === 7, 'WINDOW_1_WEEK = 7');
+assert(WINDOW_4_WEEKS === 28, 'WINDOW_4_WEEKS = 28');
+assert(HISTORY_PAGE_SIZE === 20, 'HISTORY_PAGE_SIZE = 20');
+assert(LIFTS.length === 3, 'LIFTS has 3 entries');
+assert(LIFTS[0] === 'squat' && LIFTS[1] === 'bench' && LIFTS[2] === 'deadlift', 'LIFTS order correct');
+assert(COLORS.squat && COLORS.bench && COLORS.deadlift, 'COLORS defined for all lifts');
+assert(PLATES_LBS.length > 0, 'PLATES_LBS non-empty');
+assert(PLATES_KG.length > 0, 'PLATES_KG non-empty');
+assert(typeof WILKS.male === 'object' && typeof WILKS.female === 'object', 'WILKS has male/female');
+assert(typeof DOTS.male === 'object' && typeof DOTS.female === 'object', 'DOTS has male/female');
+
+// Storage keys
+assert(typeof STORAGE_KEY === 'string' && STORAGE_KEY.length > 0, 'STORAGE_KEY defined');
+assert(typeof PROFILE_KEY === 'string', 'PROFILE_KEY defined');
+assert(typeof FIREBASE_CONFIG_KEY === 'string', 'FIREBASE_CONFIG_KEY defined');
+
+// IPF Classes
+assert(IPF_CLASSES.male && IPF_CLASSES.female, 'IPF_CLASSES has male/female');
+assert(IPF_CLASSES.male.length > 3, 'IPF_CLASSES.male has weight classes');
+
+// =========================================================================
+// 2. DATA MODULES
+// =========================================================================
+section('Data: Accessories');
+const accKeys = Object.keys(ACCESSORY_DB);
+assert(accKeys.length >= 40, `ACCESSORY_DB has ${accKeys.length} exercises (>= 40)`);
+accKeys.forEach(key => {
+  const ex = ACCESSORY_DB[key];
+  assert(ex.name && ex.category && ex.equipment, `ACCESSORY_DB[${key}] has name/category/equipment`);
+  assert(Array.isArray(ex.targets) && ex.targets.length > 0, `ACCESSORY_DB[${key}] has targets`);
+  assert(Array.isArray(ex.repRange) && ex.repRange.length === 2, `ACCESSORY_DB[${key}] has repRange`);
+});
+const infoKeys = Object.keys(EXERCISE_INFO);
+assert(infoKeys.length === accKeys.length, `EXERCISE_INFO count (${infoKeys.length}) matches ACCESSORY_DB (${accKeys.length})`);
+
+section('Data: Programs');
+const progNames = Object.keys(PROGRAM_TEMPLATES);
+assert(progNames.length >= 6, `PROGRAM_TEMPLATES has ${progNames.length} programs (>= 6)`);
+progNames.forEach(name => {
+  const p = PROGRAM_TEMPLATES[name];
+  assert(p.name && p.weeks > 0, `PROGRAM_TEMPLATES[${name}] has name and weeks`);
+  assert(typeof p.schedule === 'object', `PROGRAM_TEMPLATES[${name}] has schedule`);
+});
+
+section('Data: Standards');
+assert(STRENGTH_STANDARDS.male && STRENGTH_STANDARDS.female, 'STRENGTH_STANDARDS has male/female');
+LIFTS.forEach(lift => {
+  assert(STRENGTH_STANDARDS.male[lift], `STRENGTH_STANDARDS.male.${lift} exists`);
+  assert(STRENGTH_STANDARDS.male[lift].beginner > 0, `STRENGTH_STANDARDS.male.${lift}.beginner > 0`);
+});
+
+section('Data: Badges');
+assert(Array.isArray(BADGE_DEFINITIONS), 'BADGE_DEFINITIONS is array');
+assert(BADGE_DEFINITIONS.length >= 15, `BADGE_DEFINITIONS has ${BADGE_DEFINITIONS.length} badges (>= 15)`);
+BADGE_DEFINITIONS.forEach(b => {
+  assert(b.id && b.name && typeof b.check === 'function', `Badge ${b.id || '?'} has id/name/check`);
+  assert(b.check.length === 1, `Badge ${b.id} check accepts 1 arg (context)`);
+});
+
+section('Data: Milestones');
+assert(Array.isArray(TOTAL_MILESTONES) && TOTAL_MILESTONES.length > 0, 'TOTAL_MILESTONES non-empty');
+
+section('Data: Muscle Groups');
+assert(MUSCLE_GROUPS.length >= 4, `MUSCLE_GROUPS has ${MUSCLE_GROUPS.length} groups`);
+assert(typeof MUSCLE_RECOVERY_HOURS === 'object', 'MUSCLE_RECOVERY_HOURS defined');
+assert(typeof MAIN_LIFT_WEIGHTS === 'object', 'MAIN_LIFT_WEIGHTS defined');
+
+section('Data: Meso Goals');
+assert(typeof MESO_GOALS === 'object', 'MESO_GOALS defined');
+assert(MESO_GOALS.hypertrophy && MESO_GOALS.strength, 'MESO_GOALS has hypertrophy and strength');
+
+// =========================================================================
+// 3. FORMULA MODULES
+// =========================================================================
+section('Formulas: calcE1RM');
+assert(calcE1RM(300, 1) === 300, '1 rep returns weight itself');
+assertClose(calcE1RM(225, 5), 225 * (1 + 5/30), 0.01, '225x5');
+assertClose(calcE1RM(315, 3), 315 * (1 + 3/30), 0.01, '315x3');
+assertClose(calcE1RM(135, 10), 135 * (1 + 10/30), 0.01, '135x10');
+assert(calcE1RM(0, 5) === 0, '0 weight returns 0');
+
+section('Formulas: lbsToKg');
+assertClose(lbsToKg(225), 225 / 2.205, 0.01, '225 lbs to kg');
+assertClose(lbsToKg(0), 0, 0.01, '0 lbs to kg');
+assertClose(lbsToKg(1000), 1000 / 2.205, 0.01, '1000 lbs to kg');
+
+section('Formulas: calcWilks');
+assert(calcWilks(null, 80, 'male') === null, 'null total returns null');
+assert(calcWilks(400, null, 'male') === null, 'null bw returns null');
+assert(calcWilks(400, 80, null) === null, 'null gender returns null');
+const w = calcWilks(400, 80, 'male');
+assert(w !== null && w > 0, 'valid male Wilks is positive');
+assertClose(w, 300, 80, 'male 400kg@80kg Wilks in reasonable range');
+const wf = calcWilks(300, 60, 'female');
+assert(wf !== null && wf > 0, 'valid female Wilks is positive');
+
+section('Formulas: calcDOTS');
+assert(calcDOTS(null, 80, 'male') === null, 'null total returns null');
+const d = calcDOTS(400, 80, 'male');
+assert(d !== null && d > 0, 'valid male DOTS is positive');
+assertClose(d, 350, 100, 'male 400kg@80kg DOTS in reasonable range');
+
+section('Formulas: roundToPlate');
+assert(roundToPlate(227) === 225 || roundToPlate(227) === 230, '227 rounds to plate increment');
+assert(roundToPlate(135) === 135, '135 stays 135');
+assert(roundToPlate(0) === 0, '0 stays 0');
+
+section('Formulas: calcPlatesPerSide');
+assert(calcPlatesPerSide(45) === null || (Array.isArray(calcPlatesPerSide(45)) && calcPlatesPerSide(45).length === 0), 'bar only returns null or empty');
+const p135 = calcPlatesPerSide(135);
+assert(p135 && p135.length === 1 && p135[0] === 45, '135 = 1x45 per side');
+const p225 = calcPlatesPerSide(225);
+assert(p225 && p225.length === 2 && p225[0] === 45 && p225[1] === 45, '225 = 2x45 per side');
+
+// =========================================================================
+// 4. STORE MODULE
+// =========================================================================
+section('State: Store');
+assert(store !== null && typeof store === 'object', 'store is an object');
+assert(Array.isArray(store.entries), 'store.entries is array');
+assert(typeof store.profile === 'object', 'store.profile is object');
+assert(typeof store.goals === 'object', 'store.goals is object');
+assert(Array.isArray(store.prs), 'store.prs is array');
+assert(typeof store.programConfig === 'object', 'store.programConfig is object');
+assert(typeof store.workoutConfig === 'object', 'store.workoutConfig is object');
+assert(typeof store.currentLift === 'string', 'store.currentLift is string');
+assert(LIFTS.includes(store.currentLift), 'store.currentLift is a valid lift');
+assert(typeof store.unit === 'string', 'store.unit is string');
+assert(store.unit === 'lbs' || store.unit === 'kg', 'store.unit is lbs or kg');
+assert(typeof store.save === 'function', 'store.save is a function');
+assert(typeof store.saveNow === 'function', 'store.saveNow is a function');
+assert(typeof store.saveAll === 'function', 'store.saveAll is a function');
+assert(typeof store.init === 'function', 'store.init is a function');
+
+// =========================================================================
+// 5. UTILS
+// =========================================================================
+section('Utils: helpers');
+assert(typeof $ === 'function', '$ is a function');
+assert($('app') !== null, "$('app') finds #app element");
+assert($('nonexistent-id-xyz') === null, "$('nonexistent') returns null");
+
+section('Utils: error');
+assert(safeCall(() => 42) === 42, 'safeCall returns value on success');
+assert(safeCall(() => { throw new Error('test'); }) === undefined, 'safeCall returns undefined on error');
+assert(safeJsonParse('{"a":1}').a === 1, 'safeJsonParse parses valid JSON');
+assert(safeJsonParse('invalid', 'fallback') === 'fallback', 'safeJsonParse returns fallback on invalid');
+assert(safeJsonParse(null, []).length === 0, 'safeJsonParse handles null');
+
+// =========================================================================
+// 6. DOM STRUCTURE VERIFICATION
+// =========================================================================
+section('DOM: Critical elements exist');
+const criticalIds = [
+  'app', 'theme-btn', 'sync-btn', 'sync-menu', 'gear-btn',
+  'dash-squat', 'dash-bench', 'dash-deadlift', 'dash-total',
+  'tab-log', 'tab-history', 'tab-charts', 'tab-stats',
+  'input-weight', 'input-reps', 'log-btn', 'e1rm-preview',
+  'history-list', 'chart-canvas', 'stats-content',
+  'toast', 'edit-modal', 'settings-modal',
+  'welcome-overlay', 'choice-sheet', 'builder-overlay', 'workout-overlay',
+  'fatigue-sheet', 'workout-summary-sheet',
+  'program-section', 'program-prev', 'program-next', 'program-setup',
+  'create-workout-btn', 'repeat-btn', 'notes-toggle',
+  'workout-complete-btn', 'workout-close', 'workout-discard-btn',
+  'builder-close', 'builder-start', 'builder-save-template',
+  'timer-display', 'timer-presets', 'timer-skip',
+];
+criticalIds.forEach(id => {
+  assert(document.getElementById(id) !== null, `DOM element #${id} exists`);
+});
+
+// =========================================================================
+// 7. CSS VERIFICATION
+// =========================================================================
+section('CSS: Variables loaded');
+const root = getComputedStyle(document.documentElement);
+const cssVars = ['--bg', '--text', '--surface', '--border', '--squat', '--bench', '--deadlift'];
+cssVars.forEach(v => {
+  const val = root.getPropertyValue(v).trim();
+  assert(val.length > 0, `CSS var ${v} is set (${val})`);
+});
+
+// =========================================================================
+// 8. CROSS-MODULE INTEGRATION
+// =========================================================================
+section('Integration: Badge context pattern');
+const mockCtx = {
+  entries: [{ lift: 'squat', weight: 300, reps: 1, e1rm: 300, date: '2024-01-01', timestamp: Date.now() }],
+  bestE1RM: () => 300,
+  calcStreak: () => ({ current: 5 }),
+  getTotal: () => 900,
+  groupSessions: (e) => { const m = {}; e.forEach(x => { (m[x.date] = m[x.date] || []).push(x); }); return Object.values(m); },
+  profile: { gender: 'male', bodyweight: 180 },
+};
+const firstBadge = BADGE_DEFINITIONS.find(b => b.id === 'first-rep');
+assert(firstBadge, 'first-rep badge exists');
+if (firstBadge) {
+  assert(firstBadge.check(mockCtx) === true, 'first-rep badge passes with 1 entry');
+  assert(firstBadge.check({ ...mockCtx, entries: [] }) === false, 'first-rep badge fails with 0 entries');
+}
+
+section('Integration: Program template structure');
+const fiveThreeOne = PROGRAM_TEMPLATES['5/3/1'];
+if (fiveThreeOne) {
+  assert(fiveThreeOne.weeks >= 3, '5/3/1 has >= 3 weeks');
+  assert(fiveThreeOne.schedule.squat, '5/3/1 has squat schedule');
+  assert(Array.isArray(fiveThreeOne.schedule.squat[1]), '5/3/1 week 1 squat is array');
+}
+
+section('Integration: Accessory targets match muscle groups');
+Object.entries(ACCESSORY_DB).forEach(([id, ex]) => {
+  ex.targets.forEach(t => {
+    assert(MUSCLE_GROUPS.includes(t), `Accessory ${id} target "${t}" is a valid muscle group`);
+  });
+});
+
+// =========================================================================
+// SUMMARY
+// =========================================================================
+const total = passed + failed;
+summaryEl.className = failed === 0 ? 'pass' : 'fail';
+summaryEl.innerHTML = `<strong>${passed}/${total} tests passed</strong>${failed > 0 ? ` (${failed} failed)` : ' - ALL PASS'}`;
+
+if (failed > 0) {
+  log('\n<span class="fail">FAILURES:</span>');
+  errors.forEach(e => log(`  <span class="fail">- ${e}</span>`));
+}
+
+// Set document title for easy checking
+document.title = failed === 0 ? `PASS (${total} tests)` : `FAIL (${failed}/${total})`;
+</script>
+</body>
+</html>

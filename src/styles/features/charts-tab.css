@@ -1,0 +1,54 @@
+/* ===== Charts Tab ===== */
+
+.chart-type-selector {
+  display: flex; gap: 4px; margin-bottom: 10px;
+  background: var(--surface); border-radius: 10px; padding: 4px;
+}
+
+.chart-filters {
+  display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap;
+}
+
+.chart-date-range {
+  display: flex; gap: 4px; margin-bottom: var(--space-2); flex-wrap: wrap;
+}
+
+.chart-container {
+  position: relative; background: var(--surface);
+  border-radius: var(--radius-lg); padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+.chart-container canvas { width: 100%; display: block; }
+.chart-tooltip {
+  position: absolute; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 10px; font-size: 0.75rem;
+  pointer-events: none; opacity: 0; transition: opacity 0.1s;
+  z-index: 10; white-space: nowrap;
+}
+
+/* Training calendar */
+.calendar-nav {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+}
+.calendar-nav-btn {
+  background: transparent; border: 1px solid var(--border); color: var(--text);
+  border-radius: var(--radius-sm); padding: 4px 10px; cursor: pointer; font-size: var(--text-sm);
+}
+.calendar-month-label { font-weight: 700; font-size: var(--text-base); color: var(--text); }
+.calendar-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+  font-size: var(--text-xs); text-align: center;
+}
+.calendar-day-header { color: var(--text-dim); font-weight: 600; padding: 4px 0; }
+.calendar-cell {
+  aspect-ratio: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; border-radius: var(--radius-sm); cursor: default;
+  position: relative; padding: 2px; font-size: var(--text-2xs); color: var(--text-dim);
+}
+.calendar-cell.has-data { background: var(--surface2); cursor: pointer; }
+.calendar-cell.has-data:hover { outline: 1px solid var(--text-dim); }
+.calendar-cell.today { outline: 2px solid var(--gold); }
+.calendar-dots { display: flex; gap: 2px; margin-top: 1px; }
+.calendar-dot { width: 4px; height: 4px; border-radius: 50%; }
+.calendar-pr-star { color: var(--gold); font-size: 0.5rem; position: absolute; top: 1px; right: 2px; }

@@ -1,0 +1,66 @@
+/* ===== Dashboard ===== */
+
+.dashboard {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 8px; margin-bottom: 8px;
+}
+
+/* Goal bar (inside cards) */
+.goal-bar {
+  margin-top: 6px; height: 3px;
+  background: var(--surface2); border-radius: 2px; overflow: hidden;
+}
+.goal-fill {
+  height: 100%; border-radius: 2px;
+  transition: width 0.3s;
+}
+.goal-fill[data-lift="squat"] { background: var(--squat); }
+.goal-fill[data-lift="bench"] { background: var(--bench); }
+.goal-fill[data-lift="deadlift"] { background: var(--deadlift); }
+.goal-fill[data-lift="total"] { background: var(--total); }
+
+/* Strength ratios row */
+.strength-ratios {
+  display: flex; gap: 8px; margin-bottom: 8px;
+}
+
+/* Score line */
+.score-line {
+  text-align: center; font-size: 0.75rem; color: var(--text-dim);
+  margin-bottom: 16px; padding: 4px 0;
+}
+.score-line strong { color: var(--text-strong); }
+
+/* Plateau indicator */
+.plateau-icon {
+  display: inline-block; cursor: help; position: relative;
+  font-size: 0.75rem; margin-left: 4px; vertical-align: middle;
+}
+.plateau-tooltip {
+  display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+  background: var(--surface2); color: var(--text); font-size: var(--text-xs);
+  padding: 4px 8px; border-radius: 6px; white-space: nowrap; z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3); font-weight: 400;
+}
+.plateau-icon:hover .plateau-tooltip { display: block; }
+
+/* Period comparison */
+.compare-grid {
+  display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px 12px;
+  font-size: var(--text-sm); align-items: center;
+}
+.compare-label { color: var(--text-dim); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.04em; grid-column: 1 / -1; margin-top: 8px; font-weight: 600; }
+.compare-val { font-weight: 700; }
+.compare-indicator { font-size: var(--text-xs); font-weight: 700; text-align: center; }
+.compare-indicator.up { color: var(--green); }
+.compare-indicator.down { color: var(--red); }
+.compare-indicator.same { color: var(--text-dim); }
+
+/* Responsive */
+@media (max-width: 360px) {
+  .dashboard { gap: 4px; }
+}
+
+@media (max-width: 599px) {
+  .strength-ratios { gap: var(--space-1); }
+}

@@ -1,0 +1,8 @@
+/* ===== Settings ===== */
+
+/* Dashboard widget toggle */
+.widget-toggle {
+  display: flex; align-items: center; gap: 8px; padding: 6px 0;
+  font-size: var(--text-sm); color: var(--text);
+}
+.widget-toggle input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--green); }

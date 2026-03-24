@@ -1,0 +1,58 @@
+/* ===== Inputs ===== */
+
+.input-row { display: flex; gap: var(--space-3); margin-bottom: var(--space-3); }
+.input-group { flex: 1; }
+.input-group label {
+  display: block; font-size: 0.7rem; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-dim); margin-bottom: 4px;
+}
+.input-group input, .input-group select {
+  width: 100%; padding: 10px 12px; border: 2px solid var(--border);
+  border-radius: var(--radius-lg); background: var(--surface); color: var(--text-strong);
+  font-size: 1.1rem; font-weight: 600; text-align: center;
+  outline: none; transition: border-color var(--transition-base);
+}
+.input-group input:focus { border-color: var(--border-hover); }
+.input-group input::placeholder { color: var(--text-muted); }
+
+/* Input shake on invalid log */
+.input-shake { animation: inputShake 0.3s ease; border-color: var(--danger) !important; }
+
+/* Compare select */
+.compare-select {
+  padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text); font-size: var(--text-xs); outline: none;
+}
+
+/* Bodyweight row */
+.bw-row { display: flex; gap: 8px; align-items: flex-end; }
+.bw-row .input-group { flex: 1; }
+
+/* Goal input */
+.goal-input {
+  width: 80px; padding: 6px 8px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--surface2); color: var(--text-strong);
+  font-size: 0.85rem; text-align: center; outline: none;
+}
+.goal-input:focus { border-color: var(--border-hover); }
+.goal-input::placeholder { color: var(--text-muted); }
+
+/* TM (training max) inputs */
+.tm-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+}
+.tm-lift-label { font-weight: 700; font-size: 0.8rem; min-width: 70px; }
+.tm-input {
+  width: 90px; padding: 8px; border: 2px solid var(--border);
+  border-radius: 8px; background: var(--surface); color: var(--text);
+  font-size: 0.9rem; text-align: center; outline: none;
+}
+.tm-input:focus { border-color: var(--border-hover); }
+
+/* Accent color picker */
+.accent-picker { display: flex; gap: 8px; margin: 8px 0; }
+.accent-swatch {
+  width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+  border: 3px solid transparent; transition: border-color var(--transition-base), transform var(--transition-base);
+}
+.accent-swatch.active { border-color: var(--text); transform: scale(1.15); }

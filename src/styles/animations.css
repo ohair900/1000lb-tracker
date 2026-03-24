@@ -1,0 +1,50 @@
+/* ===== Keyframe Animations ===== */
+
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+@keyframes slideUpSmall { from { transform: translateY(100px); } to { transform: translateY(0); } }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft { from { transform: translateY(4px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes slideInRight { from { transform: translateY(4px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+@keyframes inputShake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+
+@keyframes countdown-pulse { from { opacity: 1; } to { opacity: 0.5; } }
+
+/* Program celebration animations */
+@keyframes programGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(76,175,80,0.3), 0 1px 3px rgba(0,0,0,0.08); }
+  50% { box-shadow: 0 0 16px rgba(76,175,80,0.5), 0 0 24px rgba(255,215,0,0.2), 0 1px 3px rgba(0,0,0,0.08); }
+}
+@keyframes checkBounce {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.4); }
+  50% { transform: scale(0.9); }
+  70% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+@keyframes miniConfettiFall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translateY(300px) rotate(720deg); opacity: 0; }
+}
+
+/* 1000LB Club celebration animations */
+@keyframes celebrationFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes celebrationScaleIn { from { transform: scale(0.6) translateY(30px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+@keyframes celebrationBounce { 0% { transform: scale(0); } 50% { transform: scale(1.3); } 70% { transform: scale(0.9); } 100% { transform: scale(1); } }
+@keyframes celebrationFadeUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes confettiFall {
+  0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+@keyframes celebrationFadeOut { from { opacity: 1; } to { opacity: 0; } }

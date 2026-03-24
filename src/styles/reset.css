@@ -1,0 +1,13 @@
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { touch-action: manipulation; }
+
+/* Focus States */
+:focus-visible {
+  outline: 2px solid var(--bench);
+  outline-offset: 2px;
+}
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(30,136,229,0.15);
+}

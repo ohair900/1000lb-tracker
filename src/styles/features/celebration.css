@@ -1,0 +1,83 @@
+/* ===== 1000LB Club Celebration ===== */
+
+.celebration-overlay {
+  position: fixed; inset: 0; z-index: 400;
+  background: radial-gradient(ellipse at center, rgba(255,215,0,0.08) 0%, rgba(0,0,0,0.85) 70%);
+  display: flex; align-items: center; justify-content: center;
+  animation: celebrationFadeIn 0.6s ease-out;
+}
+.celebration-overlay.fade-out { animation: celebrationFadeOut 0.5s ease-out forwards; }
+
+.celebration-content {
+  position: relative; text-align: center; padding: 40px 36px 32px;
+  background: var(--surface); border: 2px solid var(--gold);
+  border-radius: 20px; max-width: 420px; width: 90%;
+  box-shadow: 0 0 60px rgba(255,215,0,0.25), 0 0 120px rgba(255,215,0,0.1);
+  animation: celebrationScaleIn 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.3s both;
+}
+
+.celebration-close {
+  position: absolute; top: 12px; right: 16px;
+  background: none; border: none; color: var(--text-dim);
+  font-size: 1.5rem; cursor: pointer; line-height: 1;
+  transition: color var(--transition-base);
+}
+.celebration-close:hover { color: var(--text); }
+
+.celebration-crown {
+  font-size: 3.5rem; margin-bottom: 4px;
+  animation: celebrationBounce 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.6s both;
+}
+
+.celebration-subtitle {
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.3em;
+  color: var(--gold); margin-bottom: 4px;
+  animation: celebrationFadeUp 0.5s ease-out 0.8s both;
+}
+
+.celebration-title {
+  font-size: 2.5rem; font-weight: 900; line-height: 1.1;
+  color: var(--text); margin-bottom: 12px;
+  text-shadow: 0 0 30px rgba(255,215,0,0.3);
+  animation: celebrationFadeUp 0.5s ease-out 1.0s both;
+}
+
+.celebration-total {
+  font-size: 3rem; font-weight: 900; color: var(--gold);
+  margin-bottom: 16px;
+  animation: celebrationFadeUp 0.5s ease-out 1.2s both;
+}
+
+.celebration-breakdown {
+  display: flex; justify-content: center; gap: 24px; margin-bottom: 16px;
+  animation: celebrationFadeUp 0.5s ease-out 1.4s both;
+}
+.celebration-breakdown .cb-lift { text-align: center; }
+.celebration-breakdown .cb-label {
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; display: block; margin-bottom: 2px;
+}
+.celebration-breakdown .cb-value {
+  font-size: 1.3rem; font-weight: 800; color: var(--text);
+}
+
+.celebration-date {
+  font-size: 0.8rem; color: var(--text-dim); margin-bottom: 20px;
+  animation: celebrationFadeUp 0.5s ease-out 1.6s both;
+}
+
+.celebration-actions {
+  animation: celebrationFadeUp 0.5s ease-out 1.8s both;
+}
+
+.celebration-share-btn {
+  padding: 12px 32px; border: 2px solid var(--gold); border-radius: var(--radius-lg);
+  background: var(--gold-bg); color: var(--gold);
+  font-size: 0.95rem; font-weight: 700; cursor: pointer;
+  transition: background var(--transition-base), transform var(--transition-base);
+}
+.celebration-share-btn:hover { background: rgba(255,215,0,0.2); transform: scale(1.04); }
+
+.confetti {
+  position: absolute; top: -10px; border-radius: 2px;
+  pointer-events: none; animation: confettiFall linear forwards;
+}

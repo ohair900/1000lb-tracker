@@ -1,0 +1,132 @@
+// src/data/accessories.js — Accessory exercise database, descriptions, and weak-point options
+
+export const ACCESSORY_DB = {
+  // === SQUAT ACCESSORIES ===
+  'sq-pause': { name: 'Pause Squat', mainLift: 'squat', weakPoints: ['hole','core'], pctOfTM: 0.65, sets: 5, repRange: [3,5], equipment: 'barbell', category: 'squat-variation' },
+  'sq-front': { name: 'Front Squat', mainLift: 'squat', weakPoints: ['hole','quads','core'], pctOfTM: 0.60, sets: 4, repRange: [5,8], equipment: 'barbell', category: 'squat-variation' },
+  'sq-legpress': { name: 'Leg Press', mainLift: 'squat', weakPoints: ['quads','hole'], pctOfTM: 1.00, sets: 3, repRange: [8,12], equipment: 'machine', category: 'quad-compound' },
+  'sq-goodmorning': { name: 'Good Morning', mainLift: 'squat', weakPoints: ['lockout','core'], pctOfTM: 0.35, sets: 3, repRange: [8,12], equipment: 'barbell', category: 'posterior' },
+  'sq-hipthrust': { name: 'Hip Thrust', mainLift: 'squat', weakPoints: ['lockout'], pctOfTM: 0.60, sets: 3, repRange: [8,12], equipment: 'barbell', category: 'posterior' },
+  'sq-glutebridge': { name: 'Glute Bridge', mainLift: 'squat', weakPoints: ['lockout'], pctOfTM: 0.50, sets: 3, repRange: [10,15], equipment: 'barbell', category: 'posterior' },
+  'sq-rdl': { name: 'Romanian Deadlift', mainLift: 'squat', weakPoints: ['lockout','core'], pctOfTM: 0.50, sets: 3, repRange: [8,12], equipment: 'barbell', category: 'posterior' },
+  'sq-legext': { name: 'Leg Extension', mainLift: 'squat', weakPoints: ['quads'], pctOfTM: 0.25, sets: 3, repRange: [10,15], equipment: 'machine', category: 'quad-isolation' },
+  'sq-bss': { name: 'Bulgarian Split Squat', mainLift: 'squat', weakPoints: ['quads','hole'], pctOfTM: 0.30, sets: 3, repRange: [8,12], equipment: 'dumbbell', category: 'quad-compound' },
+  'sq-lunge': { name: 'Lunges', mainLift: 'squat', weakPoints: ['quads','lockout'], pctOfTM: 0.30, sets: 3, repRange: [8,12], equipment: 'dumbbell', category: 'quad-compound' },
+  'sq-abwheel': { name: 'Ab Wheel', mainLift: 'squat', weakPoints: ['core'], pctOfTM: 0, sets: 3, repRange: [8,15], equipment: 'bodyweight', category: 'core' },
+  'sq-pallof': { name: 'Pallof Press', mainLift: 'squat', weakPoints: ['core'], pctOfTM: 0.10, sets: 3, repRange: [10,15], equipment: 'cable', category: 'core' },
+  'sq-plank': { name: 'Plank', mainLift: 'squat', weakPoints: ['core'], pctOfTM: 0, sets: 3, repRange: [30,60], equipment: 'bodyweight', category: 'core', timeBased: true },
+  'sq-wallsit': { name: 'Wall Sit', mainLift: 'squat', weakPoints: ['quads'], pctOfTM: 0, sets: 3, repRange: [30,60], equipment: 'bodyweight', category: 'quad-isolation', timeBased: true },
+  // === BENCH ACCESSORIES ===
+  'bn-pause': { name: 'Pause Bench', mainLift: 'bench', weakPoints: ['chest'], pctOfTM: 0.70, sets: 5, repRange: [3,5], equipment: 'barbell', category: 'press-variation' },
+  'bn-spoto': { name: 'Spoto Press', mainLift: 'bench', weakPoints: ['chest'], pctOfTM: 0.65, sets: 4, repRange: [5,8], equipment: 'barbell', category: 'press-variation' },
+  'bn-dbpress': { name: 'Dumbbell Press', mainLift: 'bench', weakPoints: ['chest','shoulders'], pctOfTM: 0.30, sets: 3, repRange: [8,12], equipment: 'dumbbell', category: 'chest-accessory' },
+  'bn-flies': { name: 'Chest Flies', mainLift: 'bench', weakPoints: ['chest'], pctOfTM: 0.15, sets: 3, repRange: [10,15], equipment: 'dumbbell', category: 'chest-accessory' },
+  'bn-cgbp': { name: 'Close-Grip Bench', mainLift: 'bench', weakPoints: ['lockout'], pctOfTM: 0.70, sets: 4, repRange: [5,8], equipment: 'barbell', category: 'press-variation' },
+  'bn-tricepext': { name: 'Tricep Extension', mainLift: 'bench', weakPoints: ['lockout'], pctOfTM: 0.15, sets: 3, repRange: [10,15], equipment: 'cable', category: 'tricep' },
+  'bn-skulls': { name: 'Skull Crushers', mainLift: 'bench', weakPoints: ['lockout'], pctOfTM: 0.20, sets: 3, repRange: [8,12], equipment: 'barbell', category: 'tricep' },
+  'bn-jmpress': { name: 'JM Press', mainLift: 'bench', weakPoints: ['lockout'], pctOfTM: 0.45, sets: 4, repRange: [6,10], equipment: 'barbell', category: 'tricep' },
+  'bn-ohp': { name: 'Overhead Press', mainLift: 'bench', weakPoints: ['shoulders','lockout'], pctOfTM: 0.55, sets: 4, repRange: [5,8], equipment: 'barbell', category: 'shoulder' },
+  'bn-incline': { name: 'Incline Bench', mainLift: 'bench', weakPoints: ['shoulders','chest'], pctOfTM: 0.65, sets: 4, repRange: [6,10], equipment: 'barbell', category: 'press-variation' },
+  'bn-latraise': { name: 'Lateral Raises', mainLift: 'bench', weakPoints: ['shoulders'], pctOfTM: 0.08, sets: 3, repRange: [12,20], equipment: 'dumbbell', category: 'shoulder' },
+  'bn-facepull': { name: 'Face Pulls', mainLift: 'bench', weakPoints: ['upperback','shoulders'], pctOfTM: 0.12, sets: 3, repRange: [12,20], equipment: 'cable', category: 'back' },
+  'bn-row': { name: 'Barbell Row', mainLift: 'bench', weakPoints: ['upperback'], pctOfTM: 0.55, sets: 4, repRange: [6,10], equipment: 'barbell', category: 'back' },
+  'bn-dbrow': { name: 'Dumbbell Row', mainLift: 'bench', weakPoints: ['upperback'], pctOfTM: 0.25, sets: 3, repRange: [8,12], equipment: 'dumbbell', category: 'back' },
+  'bn-reardelt': { name: 'Rear Delt Flies', mainLift: 'bench', weakPoints: ['upperback','shoulders'], pctOfTM: 0.08, sets: 3, repRange: [12,20], equipment: 'dumbbell', category: 'back' },
+  'bn-pullup': { name: 'Pull-ups', mainLift: 'bench', weakPoints: ['upperback'], pctOfTM: 0.10, sets: 3, repRange: [6,12], equipment: 'bodyweight', category: 'back' },
+  'bn-widepullup': { name: 'Wide-Grip Pull-ups', mainLift: 'bench', weakPoints: ['upperback'], pctOfTM: 0.10, sets: 3, repRange: [6,12], equipment: 'bodyweight', category: 'back' },
+  'bn-chinup': { name: 'Chin-ups', mainLift: 'bench', weakPoints: ['upperback'], pctOfTM: 0.10, sets: 3, repRange: [6,12], equipment: 'bodyweight', category: 'back' },
+  // === DEADLIFT ACCESSORIES ===
+  'dl-deficit': { name: 'Deficit Deadlift', mainLift: 'deadlift', weakPoints: ['floor'], pctOfTM: 0.65, sets: 5, repRange: [3,5], equipment: 'barbell', category: 'dl-variation' },
+  'dl-frontsquat': { name: 'Front Squat', mainLift: 'deadlift', weakPoints: ['floor'], pctOfTM: 0.50, sets: 4, repRange: [5,8], equipment: 'barbell', category: 'quad' },
+  'dl-legpress': { name: 'Leg Press', mainLift: 'deadlift', weakPoints: ['floor'], pctOfTM: 0.80, sets: 3, repRange: [8,12], equipment: 'machine', category: 'quad' },
+  'dl-blockpull': { name: 'Block Pull', mainLift: 'deadlift', weakPoints: ['lockout'], pctOfTM: 0.80, sets: 5, repRange: [3,5], equipment: 'barbell', category: 'dl-variation' },
+  'dl-hipthrust': { name: 'Hip Thrust', mainLift: 'deadlift', weakPoints: ['lockout'], pctOfTM: 0.50, sets: 3, repRange: [8,12], equipment: 'barbell', category: 'posterior' },
+  'dl-goodmorning': { name: 'Good Morning', mainLift: 'deadlift', weakPoints: ['lockout','upperback'], pctOfTM: 0.30, sets: 3, repRange: [8,12], equipment: 'barbell', category: 'posterior' },
+  'dl-glutebridge': { name: 'Glute Bridge', mainLift: 'deadlift', weakPoints: ['lockout'], pctOfTM: 0.40, sets: 3, repRange: [10,15], equipment: 'barbell', category: 'posterior' },
+  'dl-farmerwalk': { name: "Farmer's Walk", mainLift: 'deadlift', weakPoints: ['grip','lockout'], pctOfTM: 0.50, sets: 3, repRange: [30,60], equipment: 'dumbbell', category: 'grip', timeBased: true },
+  'dl-deadhang': { name: 'Dead Hang', mainLift: 'deadlift', weakPoints: ['grip'], pctOfTM: 0, sets: 3, repRange: [20,60], equipment: 'bodyweight', category: 'grip', timeBased: true },
+  'dl-shrugs': { name: 'Barbell Shrugs', mainLift: 'deadlift', weakPoints: ['lockout','grip','upperback'], pctOfTM: 0.50, sets: 3, repRange: [8,12], equipment: 'barbell', category: 'back' },
+  'dl-row': { name: 'Barbell Row', mainLift: 'deadlift', weakPoints: ['floor','upperback'], pctOfTM: 0.45, sets: 4, repRange: [6,10], equipment: 'barbell', category: 'back' },
+  'dl-latpulldown': { name: 'Lat Pulldown', mainLift: 'deadlift', weakPoints: ['floor','upperback'], pctOfTM: 0.30, sets: 3, repRange: [8,12], equipment: 'cable', category: 'back' },
+  'dl-facepull': { name: 'Face Pulls', mainLift: 'deadlift', weakPoints: ['upperback'], pctOfTM: 0.10, sets: 3, repRange: [12,20], equipment: 'cable', category: 'back' },
+  'dl-dbshrugs': { name: 'Dumbbell Shrugs', mainLift: 'deadlift', weakPoints: ['grip','upperback'], pctOfTM: 0.25, sets: 3, repRange: [10,15], equipment: 'dumbbell', category: 'back' },
+  'dl-pullup': { name: 'Pull-ups', mainLift: 'deadlift', weakPoints: ['floor','upperback'], pctOfTM: 0.10, sets: 3, repRange: [6,12], equipment: 'bodyweight', category: 'back' },
+  'dl-widepullup': { name: 'Wide-Grip Pull-ups', mainLift: 'deadlift', weakPoints: ['floor','upperback'], pctOfTM: 0.10, sets: 3, repRange: [6,12], equipment: 'bodyweight', category: 'back' },
+  'dl-chinup': { name: 'Chin-ups', mainLift: 'deadlift', weakPoints: ['floor','upperback'], pctOfTM: 0.10, sets: 3, repRange: [6,12], equipment: 'bodyweight', category: 'back' }
+};
+
+export const EXERCISE_INFO = {
+  // Squat accessories
+  'sq-pause':       { desc: 'Squat with a 2-3s pause in the bottom position. Builds strength out of the hole and reinforces bracing.', yt: '' },
+  'sq-front':       { desc: 'Barbell racked on front delts with an upright torso. Targets quads and core stability.', yt: '' },
+  'sq-legpress':    { desc: 'Machine press using legs. Heavy quad builder without spinal loading.', yt: '' },
+  'sq-goodmorning': { desc: 'Barbell on back, hinge at the hips until torso is near parallel. Strengthens posterior chain and core.', yt: '' },
+  'sq-hipthrust':   { desc: 'Back against a bench, drive barbell up with hips. Isolates glutes for lockout power.', yt: '' },
+  'sq-glutebridge': { desc: 'Lie flat, drive hips up with barbell across hips. Glute activation with less range than hip thrust.', yt: '' },
+  'sq-rdl':         { desc: 'Stand with barbell, hinge at hips keeping legs nearly straight. Targets hamstrings and lower back.', yt: '' },
+  'sq-legext':      { desc: 'Seated machine extension. Isolates the quadriceps.', yt: '' },
+  'sq-bss':         { desc: 'Rear foot elevated on bench, lunge down on front leg. Unilateral quad and balance work.', yt: '' },
+  'sq-lunge':       { desc: 'Step forward or backward and lower until both knees are at 90 degrees. Builds single-leg quad strength.', yt: '' },
+  'sq-abwheel':     { desc: 'Kneel and roll a wheel forward, extending the body. Deep core anti-extension exercise.', yt: '' },
+  'sq-pallof':      { desc: 'Press cable outward and hold against rotational pull. Anti-rotation core stability drill.', yt: '' },
+  'sq-plank':       { desc: 'Hold a rigid push-up position on forearms. Isometric core endurance.', yt: '' },
+  'sq-wallsit':     { desc: 'Back flat against a wall, thighs parallel to floor. Isometric quad endurance hold.', yt: '' },
+  // Bench accessories
+  'bn-pause':       { desc: 'Bench press with a 2-3s pause on the chest. Builds power off the chest and eliminates bounce.', yt: '' },
+  'bn-spoto':       { desc: 'Lower the bar to 1-2 inches above the chest and press. Strengthens the mid-range sticking point.', yt: '' },
+  'bn-dbpress':     { desc: 'Flat bench press with dumbbells. Greater range of motion and pec stretch.', yt: '' },
+  'bn-flies':       { desc: 'Dumbbells in each hand, arc outward and squeeze together. Chest isolation with a deep stretch.', yt: '' },
+  'bn-cgbp':        { desc: 'Bench press with hands shoulder-width apart. Emphasizes tricep lockout strength.', yt: '' },
+  'bn-tricepext':   { desc: 'Cable or rope pushdowns extending the elbows. Tricep isolation.', yt: '' },
+  'bn-skulls':      { desc: 'Lying barbell extension lowered toward forehead. Targets the long head of the triceps.', yt: '' },
+  'bn-jmpress':     { desc: 'Hybrid of close-grip bench and skull crusher. Overloads triceps in the bench press path.', yt: '' },
+  'bn-ohp':         { desc: 'Press barbell overhead from shoulders. Builds shoulders and overhead pressing strength.', yt: '' },
+  'bn-incline':     { desc: 'Bench press on a 30-45 degree incline. Targets upper chest and front delts.', yt: '' },
+  'bn-latraise':    { desc: 'Raise dumbbells out to the sides to shoulder height. Isolates lateral deltoids.', yt: '' },
+  'bn-facepull':    { desc: 'Pull cable rope toward the face with elbows high. Builds rear delts and external rotation.', yt: '' },
+  'bn-row':         { desc: 'Hinge forward, row barbell to lower chest. Builds upper back thickness for bench stability.', yt: '' },
+  'bn-dbrow':       { desc: 'One-arm dumbbell row from a bench. Unilateral upper back and lat strength.', yt: '' },
+  'bn-reardelt':    { desc: 'Bent-over dumbbell flies targeting rear delts. Balances pressing with pulling.', yt: '' },
+  'bn-pullup':      { desc: 'Hang from a bar, pull chin over. Lat and upper back strength.', yt: '' },
+  'bn-widepullup':  { desc: 'Pull-up with a wider-than-shoulder grip. Emphasizes lat width.', yt: '' },
+  'bn-chinup':      { desc: 'Underhand-grip pull-up. Engages biceps more than standard pull-ups.', yt: '' },
+  // Deadlift accessories
+  'dl-deficit':     { desc: 'Deadlift while standing on a 1-2 inch platform. Increases range of motion off the floor.', yt: '' },
+  'dl-frontsquat':  { desc: 'Barbell on front delts, upright squat. Builds quad drive for breaking the floor.', yt: '' },
+  'dl-legpress':    { desc: 'Machine leg press. Quad strength for the initial pull without spinal load.', yt: '' },
+  'dl-blockpull':   { desc: 'Deadlift from elevated blocks (mid-shin or above). Overloads the lockout portion.', yt: '' },
+  'dl-hipthrust':   { desc: 'Back on bench, drive barbell up with hips. Glute power for hip extension at lockout.', yt: '' },
+  'dl-goodmorning': { desc: 'Barbell on back, hinge at hips. Builds posterior chain for maintaining back position.', yt: '' },
+  'dl-glutebridge': { desc: 'Lying hip extension with barbell. Glute activation for lockout.', yt: '' },
+  'dl-farmerwalk':  { desc: 'Walk holding heavy dumbbells at sides. Builds grip endurance and full-body stability.', yt: '' },
+  'dl-deadhang':    { desc: 'Hang from a pull-up bar as long as possible. Pure grip endurance training.', yt: '' },
+  'dl-shrugs':      { desc: 'Barbell in hands, shrug shoulders toward ears. Builds upper traps and grip.', yt: '' },
+  'dl-row':         { desc: 'Hinged barbell row. Upper back strength to prevent rounding during pulls.', yt: '' },
+  'dl-latpulldown': { desc: 'Cable pulldown to chest. Lat engagement for keeping the bar close during deadlifts.', yt: '' },
+  'dl-facepull':    { desc: 'Cable rope pull to face. Rear delts and upper back posture work.', yt: '' },
+  'dl-dbshrugs':    { desc: 'Dumbbell shrugs. Trap and grip work with a freer range of motion.', yt: '' },
+  'dl-pullup':      { desc: 'Overhand pull-up. Lat and upper back for maintaining position off the floor.', yt: '' },
+  'dl-widepullup':  { desc: 'Wide-grip pull-up. Emphasizes lat width and upper back.', yt: '' },
+  'dl-chinup':      { desc: 'Underhand pull-up. Lats and biceps for pulling strength.', yt: '' }
+};
+
+export const WEAK_POINT_OPTIONS = {
+  squat: [
+    { id: 'hole', label: 'Out of the hole (bottom weakness)' },
+    { id: 'lockout', label: 'Lockout / hip drive' },
+    { id: 'quads', label: 'Quad weakness' },
+    { id: 'core', label: 'Core stability' }
+  ],
+  bench: [
+    { id: 'chest', label: 'Off the chest' },
+    { id: 'lockout', label: 'Lockout' },
+    { id: 'shoulders', label: 'Shoulder weakness' },
+    { id: 'upperback', label: 'Upper back' }
+  ],
+  deadlift: [
+    { id: 'floor', label: 'Off the floor' },
+    { id: 'lockout', label: 'Lockout' },
+    { id: 'grip', label: 'Grip strength' },
+    { id: 'upperback', label: 'Upper back rounding' }
+  ]
+};

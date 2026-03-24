@@ -1,0 +1,41 @@
+/* ===== Sync ===== */
+
+.sync-btn {
+  width: 36px; height: 36px;
+  border: none; background: transparent;
+  color: var(--text-dim); font-size: 1.1rem;
+  cursor: pointer; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  transition: color var(--transition-base); position: relative;
+}
+.sync-btn:hover { color: var(--text); }
+.sync-btn.synced { color: var(--green); }
+.sync-btn.syncing { color: var(--yellow); animation: spin 1s linear infinite; }
+.sync-btn.error { color: var(--red); }
+.sync-btn .sync-dot {
+  position: absolute; top: 4px; right: 4px;
+  width: 6px; height: 6px; border-radius: 50%; display: none;
+}
+.sync-btn.synced .sync-dot { display: block; background: var(--green); }
+.sync-btn.error .sync-dot { display: block; background: var(--red); }
+
+/* Sync menu dropdown */
+.sync-menu {
+  position: absolute; top: 44px; right: 0;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px; min-width: 200px;
+  z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  display: none;
+}
+.sync-menu.open { display: block; }
+.sync-menu-item {
+  width: 100%; padding: 8px 12px; border: none; background: transparent;
+  color: var(--text); font-size: 0.8rem; text-align: left;
+  border-radius: 6px; cursor: pointer; transition: background var(--transition-base);
+  display: block;
+}
+.sync-menu-item:hover { background: var(--surface2); }
+.sync-menu-status {
+  padding: 6px 12px; font-size: 0.7rem; color: var(--text-dim);
+  border-bottom: 1px solid var(--border); margin-bottom: 4px;
+}
