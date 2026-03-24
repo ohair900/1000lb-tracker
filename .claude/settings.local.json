@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "Bash(\"c/Users/tomoh/AppData/Local/Programs/Python/Launcher/py.exe\" --version 2>&1 || py --version 2>&1 || echo \"no py\")",
+      "Bash(git push:*)",
+      "Bash(grep:*)",
+      "Bash(git ls-tree:*)",
+      "WebFetch(domain:api.github.com)",
+      "WebSearch",
+      "WebFetch(domain:barbend.com)",
+      "Bash(node --check src/systems/workout-builder.js)",
+      "Bash(node --check src/systems/smart-workout.js)",
+      "Bash(node --check src/systems/mesocycle.js)",
+      "Bash(node --check src/systems/volume.js)",
+      "Bash(node --check src/systems/badges.js)",
+      "Bash(node --check src/formulas/fatigue.js)",
+      "Bash(node --check src/formulas/streak.js)",
+      "Bash(wc:*)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//c/Users/tomoh/OneDrive/Desktop/Claude/sbd-tracker-repo/**)",
+      "Bash(done)",
+      "Bash(node --check \"$f\")",
+      "Bash(cat src/styles/*.css src/styles/components/*.css src/styles/features/*.css)",
+      "Bash(echo \"</body>\")",
+      "Bash(echo \"</html>\")",
+      "Bash(mv index.html.tmp index.html)",
+      "Bash(mv check-imports.js check-imports.cjs)",
+      "Bash(node check-imports.cjs)"
+    ]
+  }
+}

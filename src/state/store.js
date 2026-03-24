@@ -74,7 +74,6 @@ class Store {
       activeProgram: null,
       trainingMaxes: {},
       currentWeek: 1,
-      currentCycle: 1,
       completedSets: {},
       amrapResults: {},
       tmHistory: [],
@@ -98,8 +97,6 @@ class Store {
     // -----------------------------------------------------------------------
     this.currentLift = 'squat';
     this.currentTab = 'log';
-    this.viewingCycle = null;  // null = viewing current cycle
-    this.viewingWeek = null;   // null = viewing current week
     this.currentRPE = null;
     this.chartFilter = 'all';
     this.chartType = 'e1rm';
@@ -181,7 +178,6 @@ class Store {
           activeProgram: null,
           trainingMaxes: {},
           currentWeek: 1,
-          currentCycle: 1,
           completedSets: {},
           amrapResults: {},
           tmHistory: [],
@@ -440,39 +436,6 @@ class Store {
     if (pc.autoProgressEnabled === undefined) pc.autoProgressEnabled = true;
     if (!pc.completedWeeks) pc.completedWeeks = {};
     if (!pc.weekStreak) pc.weekStreak = 0;
-    // Migrate to cycle-aware keys
-    if (!pc.currentCycle) pc.currentCycle = 1;
-    const oldSetKeys = Object.keys(pc.completedSets).filter(k => !k.includes('-c'));
-    if (oldSetKeys.length > 0) {
-      const newSets = {};
-      for (const [k, v] of Object.entries(pc.completedSets)) {
-        if (k.includes('-c')) { newSets[k] = v; continue; }
-        const parts = k.split('-');
-        if (parts.length === 3) newSets[`${parts[0]}-c1-w${parts[1]}-${parts[2]}`] = v;
-        else newSets[k] = v;
-      }
-      pc.completedSets = newSets;
-    }
-    const oldAmrapKeys = Object.keys(pc.amrapResults).filter(k => !k.includes('-c'));
-    if (oldAmrapKeys.length > 0) {
-      const newAmrap = {};
-      for (const [k, v] of Object.entries(pc.amrapResults)) {
-        if (k.includes('-c')) { newAmrap[k] = v; continue; }
-        const parts = k.split('-');
-        if (parts.length === 3) newAmrap[`${parts[0]}-c1-w${parts[1]}-${parts[2]}`] = v;
-        else newAmrap[k] = v;
-      }
-      pc.amrapResults = newAmrap;
-    }
-    const oldWeekKeys = Object.keys(pc.completedWeeks).filter(k => !k.includes('c'));
-    if (oldWeekKeys.length > 0) {
-      const newWeeks = {};
-      for (const [k, v] of Object.entries(pc.completedWeeks)) {
-        if (k.includes('c')) { newWeeks[k] = v; continue; }
-        newWeeks[`c1-w${k}`] = v;
-      }
-      pc.completedWeeks = newWeeks;
-    }
   }
 
   /** @private Ensure workoutConfig has all expected sub-fields. */
