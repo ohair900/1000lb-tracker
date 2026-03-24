@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#121212">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="description" content="Powerlifting tracker for the 1000lb club — e1RM, PR detection, Wilks/DOTS scoring, and cloud sync">
+<meta property="og:title" content="1000lb Club Tracker">
+<meta property="og:description" content="Track your Squat, Bench, and Deadlift toward the 1000lb total. Features e1RM calculation, PR detection, Wilks/DOTS scoring, training programs, and cloud sync.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://1000lb.club">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="1000lb Club Tracker">
+<meta name="twitter:description" content="Powerlifting tracker for the 1000lb club — e1RM, PR detection, Wilks/DOTS scoring, and cloud sync">
+<title>1000lb Club Tracker</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23121212'/%3E%3Crect x='4' y='14.5' width='24' height='3' rx='1.5' fill='%23888'/%3E%3Crect x='3' y='9' width='4' height='14' rx='1.5' fill='%23e74c3c'/%3E%3Crect x='8' y='10.5' width='3' height='11' rx='1' fill='%233b82f6'/%3E%3Crect x='21' y='10.5' width='3' height='11' rx='1' fill='%233b82f6'/%3E%3Crect x='25' y='9' width='4' height='14' rx='1.5' fill='%2322c55e'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/src/styles/index.css">
+<style>body{background:#121212;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}#app{max-width:480px;margin:0 auto;padding:12px 16px}</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <button class="theme-btn" id="theme-btn" title="Toggle theme">&#9790;</button>
+    <div class="header-brand">
+      <svg class="header-logo" viewBox="0 0 326 48" xmlns="http://www.w3.org/2000/svg">
+        <!-- Barbell icon -->
+        <g transform="translate(0, 24)">
+          <!-- Bar -->
+          <rect x="2" y="-2" width="36" height="4" rx="2" fill="var(--text-strong)" opacity="0.5"/>
+          <!-- Left outer plate -->
+          <rect x="2" y="-12" width="5" height="24" rx="1.5" fill="var(--squat)"/>
+          <!-- Left inner plate -->
+          <rect x="8" y="-9" width="4" height="18" rx="1" fill="var(--bench)"/>
+          <!-- Right inner plate -->
+          <rect x="28" y="-9" width="4" height="18" rx="1" fill="var(--bench)"/>
+          <!-- Right outer plate -->
+          <rect x="33" y="-12" width="5" height="24" rx="1.5" fill="var(--deadlift)"/>
+        </g>
+        <!-- "1000" large bold -->
+        <text x="46" y="32" font-size="38" font-weight="900"
+              font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+              fill="var(--text-strong)" letter-spacing="-1">1000</text>
+        <!-- "LB CLUB" small caps -->
+        <text x="184" y="32" font-size="16" font-weight="700"
+              font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+              fill="var(--text-dim)" letter-spacing="3">LB CLUB</text>
+        <!-- S/B/D accent bar -->
+        <rect x="46" y="40" width="88" height="4" rx="2" fill="var(--squat)"/>
+        <rect x="138" y="40" width="88" height="4" rx="2" fill="var(--bench)"/>
+        <rect x="230" y="40" width="88" height="4" rx="2" fill="var(--deadlift)"/>
+      </svg>
+    </div>
+    <div style="position:relative">
+      <button class="sync-btn" id="sync-btn" title="Cloud sync">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
+        </svg>
+        <span class="sync-dot"></span>
+      </button>
+      <div class="sync-menu" id="sync-menu"></div>
+    </div>
+    <button class="gear-btn" id="gear-btn" title="Settings">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="10" cy="10" r="3"/><path d="M10 1.5v2M10 16.5v2M3.4 3.4l1.4 1.4M15.2 15.2l1.4 1.4M1.5 10h2M16.5 10h2M3.4 16.6l1.4-1.4M15.2 4.8l1.4-1.4"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="unit-toggle">
+    <button class="unit-btn active" data-unit="lbs">lbs</button>
+    <button class="unit-btn" data-unit="kg">kg</button>
+  </div>
+
+  <div class="dashboard">
+    <div class="card" data-lift="squat">
+      <div class="card-label">Squat</div>
+      <div class="card-value empty" id="dash-squat">&mdash;</div>
+      <div class="goal-bar" id="goal-bar-squat" style="display:none"><div class="goal-fill" data-lift="squat"></div></div>
+    </div>
+    <div class="card" data-lift="bench">
+      <div class="card-label">Bench</div>
+      <div class="card-value empty" id="dash-bench">&mdash;</div>
+      <div class="goal-bar" id="goal-bar-bench" style="display:none"><div class="goal-fill" data-lift="bench"></div></div>
+    </div>
+    <div class="card" data-lift="deadlift">
+      <div class="card-label">Deadlift</div>
+      <div class="card-value empty" id="dash-deadlift">&mdash;</div>
+      <div class="goal-bar" id="goal-bar-deadlift" style="display:none"><div class="goal-fill" data-lift="deadlift"></div></div>
+    </div>
+    <div class="card" data-lift="total">
+      <div class="card-label">Total</div>
+      <div class="card-value empty" id="dash-total">&mdash;</div>
+      <div class="goal-bar" id="goal-bar-total" style="display:none"><div class="goal-fill" data-lift="total"></div></div>
+    </div>
+  </div>
+  <div class="strength-ratios" id="strength-ratios" style="display:none">
+    <div class="ratio-card"><div class="ratio-label">Bench : Squat</div><div class="ratio-value" id="ratio-bs">&mdash;</div></div>
+    <div class="ratio-card"><div class="ratio-label">Deadlift : Squat</div><div class="ratio-value" id="ratio-ds">&mdash;</div></div>
+  </div>
+  <div class="score-line" id="score-line" style="display:none"></div>
+  <div class="fatigue-container" id="fatigue-bar" style="display:none">
+    <div class="fatigue-header">Fatigue</div>
+    <div class="fatigue-row" id="fatigue-row"></div>
+  </div>
+  <div class="fatigue-sheet-backdrop" id="fatigue-sheet-backdrop" style="display:none"></div>
+  <div class="fatigue-sheet" id="fatigue-sheet" style="display:none">
+    <div class="sheet-handle fatigue-sheet-handle"></div>
+    <div class="fatigue-sheet-header">
+      <h3 id="fatigue-sheet-title">Fatigue</h3>
+      <button class="modal-close" id="fatigue-sheet-close">&times;</button>
+    </div>
+    <div class="fatigue-sheet-body" id="fatigue-sheet-body"></div>
+  </div>
+  <div class="workout-summary-backdrop" id="workout-summary-backdrop" style="display:none"></div>
+  <div class="workout-summary-sheet" id="workout-summary-sheet" style="display:none">
+    <div class="sheet-handle fatigue-sheet-handle"></div>
+    <div class="fatigue-sheet-header">
+      <h3 id="workout-summary-title">Workout Summary</h3>
+      <button class="modal-close" id="workout-summary-close">&times;</button>
+    </div>
+    <div class="fatigue-sheet-body" id="workout-summary-body"></div>
+  </div>
+  <div class="streak-bar" id="streak-bar" style="display:none">
+    <span class="streak-icon" id="streak-icon"></span>
+    <div class="streak-info" id="streak-info"></div>
+  </div>
+  <div class="recap-card" id="recap-card" style="display:none" onclick=""></div>
+  <div class="pr-streak-bar" id="pr-streak-bar" style="display:none">
+    <span class="pr-streak-icon"></span>
+    <div class="pr-streak-info"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="log">Log</button>
+    <button class="tab-btn" data-tab="history">History</button>
+    <button class="tab-btn" data-tab="charts">Charts</button>
+    <button class="tab-btn" data-tab="stats">Stats</button>
+  </div>
+
+  <!-- Log Tab -->
+  <div class="tab-panel active" id="tab-log">
+    <div class="cycle-bar" id="cycle-bar"></div>
+    <div class="lift-selector">
+      <button class="lift-btn active" data-lift="squat">Squat</button>
+      <button class="lift-btn" data-lift="bench">Bench</button>
+      <button class="lift-btn" data-lift="deadlift">Deadlift</button>
+    </div>
+    <div class="input-row">
+      <div class="input-group">
+        <label>Weight (<span class="unit-label">lbs</span>)</label>
+        <input type="number" id="input-weight" placeholder="0" inputmode="decimal" min="0" step="any">
+      </div>
+      <div class="input-group">
+        <label>Reps</label>
+        <input type="number" id="input-reps" placeholder="0" inputmode="numeric" min="1" step="1">
+      </div>
+    </div>
+    <div class="rpe-section">
+      <label class="rpe-label">RPE <span class="optional">(optional)</span></label>
+      <div class="rpe-row" id="rpe-row">
+        <button class="rpe-pill active" data-rpe="">--</button>
+        <button class="rpe-pill" data-rpe="6">6</button>
+        <button class="rpe-pill" data-rpe="6.5">6.5</button>
+        <button class="rpe-pill" data-rpe="7">7</button>
+        <button class="rpe-pill" data-rpe="7.5">7.5</button>
+        <button class="rpe-pill" data-rpe="8">8</button>
+        <button class="rpe-pill" data-rpe="8.5">8.5</button>
+        <button class="rpe-pill" data-rpe="9">9</button>
+        <button class="rpe-pill" data-rpe="9.5">9.5</button>
+        <button class="rpe-pill" data-rpe="10">10</button>
+      </div>
+    </div>
+    <div class="notes-section">
+      <a class="notes-toggle" id="notes-toggle">+ Add note</a>
+      <input type="text" class="notes-input" id="input-notes" placeholder="How did it feel?" style="display:none">
+    </div>
+    <div class="tag-pills" id="log-tags">
+      <span style="font-size:0.6rem;color:var(--text-dim);margin-right:2px">Tags:</span>
+    </div>
+    <div class="e1rm-preview" id="e1rm-preview">Enter weight and reps</div>
+    <button class="log-btn" id="log-btn" disabled>Log Set</button>
+    <button class="repeat-btn" id="repeat-btn"></button>
+    <div class="program-section" id="program-section" style="display:none">
+      <div class="program-header">
+        <span class="program-title" id="program-title"></span>
+        <span class="program-week" id="program-week"></span>
+      </div>
+      <div id="program-sets"></div>
+      <div class="program-actions">
+        <button class="program-nav-btn" id="program-prev">&larr; Prev</button>
+        <button class="program-nav-btn" id="program-next">Next &rarr;</button>
+        <button class="program-nav-btn" id="program-setup" style="margin-left:auto">Setup</button>
+      </div>
+    </div>
+    <button class="create-workout-btn" id="create-workout-btn">Start Workout</button>
+  </div>
+
+  <!-- History Tab -->
+  <div class="tab-panel" id="tab-history">
+    <div class="filter-bar">
+      <div class="filter-pills" id="history-filter-pills">
+        <button class="filter-pill active" data-filter="all">All</button>
+        <button class="filter-pill" data-filter="squat">SQ</button>
+        <button class="filter-pill" data-filter="bench">BP</button>
+        <button class="filter-pill" data-filter="deadlift">DL</button>
+      </div>
+      <button class="date-toggle-btn" id="date-toggle-btn">&#x1F4C5;</button>
+    </div>
+    <div class="date-filters" id="date-filters" style="display:none">
+      <div class="input-group"><label>From</label><input type="date" id="filter-from"></div>
+      <div class="input-group"><label>To</label><input type="date" id="filter-to"></div>
+    </div>
+    <input type="text" class="history-search" id="history-search" placeholder="Search: weight, notes, lift, rpe8, 200-300...">
+    <div id="history-list"></div>
+  </div>
+
+  <!-- Charts Tab -->
+  <div class="tab-panel" id="tab-charts">
+    <div class="chart-type-selector">
+      <button class="chart-type-btn active" data-type="e1rm">e1RM</button>
+      <button class="chart-type-btn" data-type="volume">Volume</button>
+      <button class="chart-type-btn" data-type="bodyweight">BW</button>
+      <button class="chart-type-btn" data-type="wilks">Wilks</button>
+      <button class="chart-type-btn" data-type="heatmap">Heatmap</button>
+      <button class="chart-type-btn" data-type="calendar">Cal</button>
+    </div>
+    <div class="chart-date-range" id="chart-date-range">
+      <button class="range-pill" data-range="30">30d</button>
+      <button class="range-pill" data-range="90">90d</button>
+      <button class="range-pill" data-range="180">6mo</button>
+      <button class="range-pill" data-range="365">1y</button>
+      <button class="range-pill active" data-range="all">All</button>
+    </div>
+    <div class="chart-filters" id="chart-filters">
+      <button class="chart-filter-btn active" data-filter="all">All</button>
+      <button class="chart-filter-btn" data-filter="squat">SQ</button>
+      <button class="chart-filter-btn" data-filter="bench">BP</button>
+      <button class="chart-filter-btn" data-filter="deadlift">DL</button>
+      <button class="chart-filter-btn" data-filter="total">Total</button>
+    </div>
+    <div class="chart-container">
+      <canvas id="chart-canvas"></canvas>
+      <div class="chart-tooltip" id="chart-tooltip"></div>
+    </div>
+  </div>
+
+  <!-- Stats Tab -->
+  <div class="tab-panel" id="tab-stats">
+    <div id="stats-content"></div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Edit Modal -->
+  <div class="modal-backdrop" id="edit-modal" style="display:none">
+    <div class="modal">
+      <div class="modal-header"><h3>Edit Entry</h3><button class="modal-close" id="edit-close">&times;</button></div>
+      <div class="modal-body" id="edit-body"></div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-backdrop" id="settings-modal" style="display:none">
+    <div class="modal">
+      <div class="modal-header"><h3>Settings</h3><button class="modal-close" id="settings-close">&times;</button></div>
+      <div class="modal-body" id="settings-body"></div>
+    </div>
+  </div>
+
+  <!-- Welcome Overlay -->
+  <div class="welcome-overlay" id="welcome-overlay" style="display:none">
+    <div class="welcome-content">
+      <!-- Step 1: Welcome -->
+      <div class="welcome-step" id="welcome-step-1">
+        <div class="welcome-barbell">
+          <div class="plate squat"></div>
+          <div class="collar"></div>
+          <div class="bar"></div>
+          <div class="collar"></div>
+          <div class="plate bench"></div>
+          <div class="plate deadlift"></div>
+          <div class="collar"></div>
+          <div class="bar"></div>
+          <div class="collar"></div>
+          <div class="plate deadlift"></div>
+          <div class="plate bench"></div>
+          <div class="collar"></div>
+          <div class="bar"></div>
+          <div class="collar"></div>
+          <div class="plate squat"></div>
+        </div>
+        <div class="welcome-title">1000 LB CLUB</div>
+        <div class="welcome-tagline">Track your Squat, Bench &amp; Deadlift toward the 1000lb total.</div>
+        <div class="welcome-features">
+          <div class="welcome-feature"><span class="icon">&#127947;&#65039;</span> Log sets with auto-calculated e1RM</div>
+          <div class="welcome-feature"><span class="icon">&#128200;</span> Charts, PRs &amp; milestone celebrations</div>
+          <div class="welcome-feature"><span class="icon">&#127941;</span> Earn badges as you progress</div>
+        </div>
+        <button class="welcome-start-btn" id="welcome-next-1">Get Started</button>
+      </div>
+      <!-- Step 2: Profile setup -->
+      <div class="welcome-step" id="welcome-step-2" style="display:none">
+        <div class="welcome-title" style="font-size:1.2rem">Quick Setup</div>
+        <div class="welcome-tagline">Optional — you can change these in Settings anytime.</div>
+        <div class="welcome-form">
+          <div class="welcome-form-group">
+            <label>Gender</label>
+            <div class="welcome-gender-pills">
+              <button class="welcome-pill" data-gender="male">Male</button>
+              <button class="welcome-pill" data-gender="female">Female</button>
+              <button class="welcome-pill" data-gender="other">Other</button>
+            </div>
+          </div>
+          <div class="welcome-form-group">
+            <label>Bodyweight</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="number" id="welcome-bw" placeholder="e.g. 180" inputmode="decimal" style="flex:1;padding:10px;border:2px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-size:0.9rem">
+              <span class="unit-label" style="color:var(--text-dim);font-size:0.8rem">lbs</span>
+            </div>
+          </div>
+          <div class="welcome-form-group">
+            <label>Total Goal</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="number" id="welcome-goal" placeholder="e.g. 1000" inputmode="numeric" value="1000" style="flex:1;padding:10px;border:2px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-size:0.9rem">
+              <span class="unit-label" style="color:var(--text-dim);font-size:0.8rem">lbs</span>
+            </div>
+          </div>
+        </div>
+        <button class="welcome-start-btn" id="welcome-next-2">Continue</button>
+        <button class="welcome-skip-btn" id="welcome-skip-2">Skip for now</button>
+      </div>
+      <!-- Step 3: First set prompt -->
+      <div class="welcome-step" id="welcome-step-3" style="display:none">
+        <div class="welcome-title" style="font-size:1.2rem">Log Your First Set</div>
+        <div class="welcome-tagline">Select a lift above, enter the weight &amp; reps you lifted, and tap <strong>Log Set</strong>.</div>
+        <div class="welcome-features">
+          <div class="welcome-feature"><span class="icon" style="font-size:1rem">1.</span> Pick <strong>Squat</strong>, <strong>Bench</strong>, or <strong>Deadlift</strong></div>
+          <div class="welcome-feature"><span class="icon" style="font-size:1rem">2.</span> Enter <strong>weight</strong> and <strong>reps</strong></div>
+          <div class="welcome-feature"><span class="icon" style="font-size:1rem">3.</span> Tap <strong>Log Set</strong> to record it</div>
+        </div>
+        <button class="welcome-start-btn" id="welcome-finish">Let's Go</button>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="import-file" accept=".json" style="display:none">
+
+  <!-- Workout Choice Sheet -->
+  <div class="choice-sheet-backdrop" id="choice-sheet-backdrop" style="display:none"></div>
+  <div class="choice-sheet" id="choice-sheet" style="display:none">
+    <div class="sheet-handle choice-sheet-handle"></div>
+    <div class="choice-sheet-header">
+      <h3 id="choice-sheet-title">Start Workout</h3>
+      <button class="modal-close" id="choice-sheet-close">&times;</button>
+    </div>
+    <div class="choice-sheet-body" id="choice-sheet-body"></div>
+  </div>
+
+  <!-- Builder Overlay -->
+  <div class="builder-overlay" id="builder-overlay" style="display:none">
+    <div class="builder-header">
+      <div>
+        <div class="builder-header-title" id="builder-title">Build Workout</div>
+      </div>
+      <button class="workout-close-btn" id="builder-close">&times;</button>
+    </div>
+    <div class="builder-body" id="builder-body"></div>
+    <div class="builder-footer">
+      <button class="btn-secondary" id="builder-save-template">Save Template</button>
+      <button class="btn-primary" id="builder-start">Start Workout</button>
+    </div>
+  </div>
+
+  <!-- Workout Overlay -->
+  <div class="workout-overlay" id="workout-overlay" style="display:none">
+    <div class="workout-header">
+      <div>
+        <div class="workout-header-title" id="workout-title"></div>
+        <div class="workout-header-subtitle" id="workout-subtitle"></div>
+      </div>
+      <div class="timer-container" id="timer-container">
+        <span class="timer-display" id="timer-display">3:00</span>
+        <div class="timer-presets" id="timer-presets">
+          <button class="timer-preset" data-secs="90">1:30</button>
+          <button class="timer-preset" data-secs="120">2</button>
+          <button class="timer-preset active" data-secs="180">3</button>
+          <button class="timer-preset" data-secs="300">5</button>
+          <input class="timer-custom-input" id="timer-custom" type="number" placeholder="sec" min="10" max="600" inputmode="numeric" title="Custom seconds">
+        </div>
+        <button class="timer-btn" id="timer-skip">Skip</button>
+      </div>
+      <button class="workout-close-btn" id="workout-close">&times;</button>
+    </div>
+    <div class="workout-body" id="workout-body"></div>
+    <div class="workout-footer">
+      <button class="workout-complete-btn" id="workout-complete-btn" disabled>Complete Workout</button>
+      <button class="workout-discard-btn" id="workout-discard-btn">Discard Workout</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
