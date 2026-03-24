@@ -35,19 +35,21 @@ export function weekKey(cycle, week) {
  * @param {number} [weekOverride] - Week number to use (defaults to currentWeek)
  * @returns {{ label: string, week: number, sets: Object[] }|null}
  */
-export function getProgramWorkout(lift, weekOverride) {
+export function getProgramWorkout(lift, weekOverride, cycleOverride) {
   if (!store.programConfig.activeProgram) return null;
   const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
   if (!tmpl) return null;
   const tm = store.programConfig.trainingMaxes[lift];
   if (!tm) return null;
   const useWeek = weekOverride || store.programConfig.currentWeek;
+  const useCycle = cycleOverride || store.programConfig.currentCycle || 1;
   const week = ((useWeek - 1) % tmpl.weeks) + 1;
   const weekData = tmpl.schedule[week];
   if (!weekData) return null;
   return {
     label: weekData.label,
     week: useWeek,
+    cycle: useCycle,
     sets: weekData.sets.map((s, i) => ({
       num: i + 1,
       weight: roundToPlate(tm * s.pct / 100),
@@ -55,7 +57,7 @@ export function getProgramWorkout(lift, weekOverride) {
       pct: s.pct,
       tier: s.tier || null,
       day: s.day || null,
-      completed: !!store.programConfig.completedSets[setKey(lift, store.programConfig.currentCycle || 1, useWeek, i)]
+      completed: !!store.programConfig.completedSets[setKey(lift, useCycle, useWeek, i)]
     }))
   };
 }

@@ -74,7 +74,14 @@ export function renderProgramSection() {
   $('program-prev').style.display = '';
   $('program-next').style.display = '';
   el.style.display = 'block';
-  const workout = getProgramWorkout(store.currentLift);
+
+  // Viewing position: use viewingCycle/viewingWeek if set, else current
+  const viewCycle = store.viewingCycle || store.programConfig.currentCycle || 1;
+  const viewWeek = store.viewingWeek || store.programConfig.currentWeek;
+  const isViewingCurrent = viewCycle === (store.programConfig.currentCycle || 1)
+    && viewWeek === store.programConfig.currentWeek;
+
+  const workout = getProgramWorkout(store.currentLift, viewWeek, viewCycle);
   if (!workout) {
     const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
     $('program-title').textContent = tmpl ? tmpl.name : store.programConfig.activeProgram;
@@ -93,9 +100,9 @@ export function renderProgramSection() {
   // One-line description (first sentence)
   const desc = tmpl.description || '';
   const firstSentence = desc.split('.')[0];
-  const cycleNum = store.programConfig.currentCycle || 1;
-  const cycleLabel = cycleNum > 1 ? ` (Cycle ${cycleNum})` : '';
-  $('program-week').innerHTML = workout.label + cycleLabel + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
+  const cycleLabel = viewCycle > 1 ? ` (Cycle ${viewCycle})` : '';
+  const jumpBtn = !isViewingCurrent ? ` <button class="jump-to-current" style="font-size:0.6rem;padding:2px 8px;margin-left:6px;cursor:pointer;background:var(--accent);color:#000;border:none;border-radius:4px">Current &rarr;</button>` : '';
+  $('program-week').innerHTML = workout.label + cycleLabel + jumpBtn + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
   const setsEl = $('program-sets');
   setsEl.innerHTML = workout.sets.map(s => {
     const tierLabel = s.tier ? `<span style="font-size:var(--text-xs);color:var(--text-dim);margin-right:4px">${s.tier}</span>` : '';
@@ -112,26 +119,30 @@ export function renderProgramSection() {
     </div>`;
   }).join('');
 
-  // Week/lift completion visual state
-  const weekComplete = isWeekComplete();
-  const liftComplete = isLiftComplete(store.currentLift);
-  if (weekComplete) {
+  // Week/lift completion visual state — check completion for the VIEWED week
+  const allSetsComplete = workout.sets.every(s => s.completed);
+  const allLiftsComplete = LIFTS.filter(l => store.programConfig.trainingMaxes[l]).every(l => {
+    const w = getProgramWorkout(l, viewWeek, viewCycle);
+    return w && w.sets.every(s => s.completed);
+  });
+  if (allLiftsComplete) {
     el.classList.add('week-complete');
     el.classList.remove('lift-complete');
-    $('program-week').innerHTML = workout.label + ' \u2014 Complete! \u2713' + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
-  } else if (liftComplete) {
+    $('program-week').innerHTML = workout.label + cycleLabel + ' \u2014 Complete! \u2713' + jumpBtn + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
+  } else if (allSetsComplete) {
     el.classList.remove('week-complete');
     el.classList.add('lift-complete');
-    $('program-week').innerHTML = workout.label + ' \u2014 Complete! \u2713' + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
+    $('program-week').innerHTML = workout.label + cycleLabel + ' \u2014 Complete! \u2713' + jumpBtn + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
   } else {
     el.classList.remove('week-complete');
     el.classList.remove('lift-complete');
   }
 
-  // Lift-done badges on selector buttons
+  // Lift-done badges on selector buttons (for viewed week)
   document.querySelectorAll('.lift-btn').forEach(btn => {
     const l = btn.dataset.lift;
-    btn.classList.toggle('lift-done', isLiftComplete(l));
+    const w = getProgramWorkout(l, viewWeek, viewCycle);
+    btn.classList.toggle('lift-done', w ? w.sets.every(s => s.completed) : false);
   });
 
   // Week progress summary
@@ -152,9 +163,21 @@ export function renderProgramSection() {
     el.querySelector('.program-header').appendChild(badge);
   }
 
-  // Click to auto-fill
+  // Jump to current button
+  const jumpEl = el.querySelector('.jump-to-current');
+  if (jumpEl) {
+    jumpEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      store.viewingCycle = null;
+      store.viewingWeek = null;
+      renderProgramSection();
+    });
+  }
+
+  // Click to auto-fill (disabled for past weeks)
   setsEl.querySelectorAll('.program-set-row').forEach(row => {
     row.addEventListener('click', () => {
+      if (!isViewingCurrent) return; // Read-only when viewing past cycles
       const idx = parseInt(row.dataset.setIdx);
       const set = workout.sets[idx];
       const wasLiftComplete = isLiftComplete(store.currentLift);
@@ -195,6 +218,20 @@ export function renderProgramSection() {
       // Check week/lift completion transitions
       if (!wasComplete && isWeekComplete()) {
         if (_triggerWeekCompleteCelebration) _triggerWeekCompleteCelebration();
+        // Auto-advance current position to next week
+        const tmpl3 = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
+        const maxW = tmpl3 ? tmpl3.weeks : 99;
+        if (store.programConfig.currentWeek < maxW) {
+          store.programConfig.currentWeek++;
+        } else {
+          store.programConfig.currentCycle = (store.programConfig.currentCycle || 1) + 1;
+          store.programConfig.currentWeek = 1;
+        }
+        // Reset viewing to current
+        store.viewingCycle = null;
+        store.viewingWeek = null;
+        store.saveProgramConfig();
+        setTimeout(() => renderProgramSection(), 300);
       } else if (!wasLiftComplete && isLiftComplete(store.currentLift)) {
         if (_triggerLiftCompleteCelebration) _triggerLiftCompleteCelebration();
       } else if (wasComplete && !isWeekComplete()) {
@@ -317,31 +354,46 @@ export function showProgramSetupModal() {
  */
 export function initProgramSection() {
   $('program-prev').addEventListener('click', () => {
-    if (store.programConfig.currentWeek > 1) {
-      store.programConfig.currentWeek--;
-    } else if ((store.programConfig.currentCycle || 1) > 1) {
-      // Go back to last week of previous cycle
-      store.programConfig.currentCycle--;
-      const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
-      store.programConfig.currentWeek = tmpl ? tmpl.weeks : 1;
+    const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
+    const maxWeek = tmpl ? tmpl.weeks : 99;
+    let vCycle = store.viewingCycle || store.programConfig.currentCycle || 1;
+    let vWeek = store.viewingWeek || store.programConfig.currentWeek;
+    if (vWeek > 1) {
+      vWeek--;
+    } else if (vCycle > 1) {
+      vCycle--;
+      vWeek = maxWeek;
     } else {
       return; // Already at cycle 1, week 1
     }
-    store.saveProgramConfig();
+    store.viewingCycle = vCycle;
+    store.viewingWeek = vWeek;
     renderProgramSection();
   });
 
   $('program-next').addEventListener('click', () => {
     const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
     const maxWeek = tmpl ? tmpl.weeks : 99;
-    if (store.programConfig.currentWeek < maxWeek) {
-      store.programConfig.currentWeek++;
+    let vCycle = store.viewingCycle || store.programConfig.currentCycle || 1;
+    let vWeek = store.viewingWeek || store.programConfig.currentWeek;
+    const curCycle = store.programConfig.currentCycle || 1;
+    const curWeek = store.programConfig.currentWeek;
+
+    if (vWeek < maxWeek) {
+      vWeek++;
+    } else if (vCycle < curCycle || (vCycle === curCycle && vWeek < curWeek)) {
+      vCycle++;
+      vWeek = 1;
     } else {
-      // Advance to next cycle
-      store.programConfig.currentCycle = (store.programConfig.currentCycle || 1) + 1;
-      store.programConfig.currentWeek = 1;
+      return; // Already at current position
     }
-    store.saveProgramConfig();
+    // Don't go past the current training position
+    if (vCycle > curCycle || (vCycle === curCycle && vWeek > curWeek)) {
+      vCycle = curCycle;
+      vWeek = curWeek;
+    }
+    store.viewingCycle = vCycle;
+    store.viewingWeek = vWeek;
     renderProgramSection();
   });
 

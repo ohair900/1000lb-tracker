@@ -98,6 +98,8 @@ class Store {
     // -----------------------------------------------------------------------
     this.currentLift = 'squat';
     this.currentTab = 'log';
+    this.viewingCycle = null;  // null = viewing current cycle
+    this.viewingWeek = null;   // null = viewing current week
     this.currentRPE = null;
     this.chartFilter = 'all';
     this.chartType = 'e1rm';
