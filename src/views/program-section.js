@@ -91,7 +91,9 @@ export function renderProgramSection() {
   // One-line description (first sentence)
   const desc = tmpl.description || '';
   const firstSentence = desc.split('.')[0];
-  $('program-week').innerHTML = workout.label + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
+  const cycleNum = Math.ceil(store.programConfig.currentWeek / tmpl.weeks);
+  const cycleLabel = cycleNum > 1 ? ` (Cycle ${cycleNum})` : '';
+  $('program-week').innerHTML = workout.label + cycleLabel + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
   const setsEl = $('program-sets');
   setsEl.innerHTML = workout.sets.map(s => {
     const tierLabel = s.tier ? `<span style="font-size:var(--text-xs);color:var(--text-dim);margin-right:4px">${s.tier}</span>` : '';
@@ -114,11 +116,11 @@ export function renderProgramSection() {
   if (weekComplete) {
     el.classList.add('week-complete');
     el.classList.remove('lift-complete');
-    $('program-week').innerHTML = workout.label + ' \u2014 Complete! \u2713' + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
+    $('program-week').innerHTML = workout.label + cycleLabel + ' \u2014 Complete! \u2713' + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
   } else if (liftComplete) {
     el.classList.remove('week-complete');
     el.classList.add('lift-complete');
-    $('program-week').innerHTML = workout.label + ' \u2014 Complete! \u2713' + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
+    $('program-week').innerHTML = workout.label + cycleLabel + ' \u2014 Complete! \u2713' + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
   } else {
     el.classList.remove('week-complete');
     el.classList.remove('lift-complete');
@@ -282,8 +284,7 @@ export function showProgramSetupModal() {
       const v = parseFloat($('tm-' + lift).value);
       if (v > 0 && v < 2000) store.programConfig.trainingMaxes[lift] = inputToLbs(v);
     });
-    const tmplForWeek = sel ? PROGRAM_TEMPLATES[sel] : null;
-    store.programConfig.currentWeek = Math.max(1, Math.min(parseInt($('program-week-input').value) || 1, tmplForWeek ? tmplForWeek.weeks : 99));
+    store.programConfig.currentWeek = Math.max(1, parseInt($('program-week-input').value) || 1);
     store.programConfig.autoProgressEnabled = $('auto-progress-toggle').checked;
     store.programConfig.completedSets = {};
     store.programConfig.completedWeeks = {};
@@ -313,13 +314,10 @@ export function initProgramSection() {
   });
 
   $('program-next').addEventListener('click', () => {
-    const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
-    const maxWeek = tmpl ? tmpl.weeks : 99;
-    if (store.programConfig.currentWeek < maxWeek) {
-      store.programConfig.currentWeek++;
-      store.saveProgramConfig();
-      renderProgramSection();
-    }
+    if (!store.programConfig.activeProgram) return;
+    store.programConfig.currentWeek++;
+    store.saveProgramConfig();
+    renderProgramSection();
   });
 
   $('program-setup')?.addEventListener('click', showProgramSetupModal);

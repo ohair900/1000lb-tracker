@@ -16,6 +16,7 @@ export const ACCESSORY_DB = {
   'sq-pallof': { name: 'Pallof Press', mainLift: 'squat', weakPoints: ['core'], pctOfTM: 0.10, sets: 3, repRange: [10,15], equipment: 'cable', category: 'core' },
   'sq-plank': { name: 'Plank', mainLift: 'squat', weakPoints: ['core'], pctOfTM: 0, sets: 3, repRange: [30,60], equipment: 'bodyweight', category: 'core', timeBased: true },
   'sq-wallsit': { name: 'Wall Sit', mainLift: 'squat', weakPoints: ['quads'], pctOfTM: 0, sets: 3, repRange: [30,60], equipment: 'bodyweight', category: 'quad-isolation', timeBased: true },
+  'sq-row': { name: 'Barbell Row', mainLift: 'squat', weakPoints: ['core'], pctOfTM: 0.50, sets: 4, repRange: [6,10], equipment: 'barbell', category: 'back' },
   // === BENCH ACCESSORIES ===
   'bn-pause': { name: 'Pause Bench', mainLift: 'bench', weakPoints: ['chest'], pctOfTM: 0.70, sets: 5, repRange: [3,5], equipment: 'barbell', category: 'press-variation' },
   'bn-spoto': { name: 'Spoto Press', mainLift: 'bench', weakPoints: ['chest'], pctOfTM: 0.65, sets: 4, repRange: [5,8], equipment: 'barbell', category: 'press-variation' },
@@ -71,6 +72,7 @@ export const EXERCISE_INFO = {
   'sq-pallof':      { desc: 'Press cable outward and hold against rotational pull. Anti-rotation core stability drill.', yt: '' },
   'sq-plank':       { desc: 'Hold a rigid push-up position on forearms. Isometric core endurance.', yt: '' },
   'sq-wallsit':     { desc: 'Back flat against a wall, thighs parallel to floor. Isometric quad endurance hold.', yt: '' },
+  'sq-row':         { desc: 'Hinged barbell row. Builds upper back strength to maintain an upright torso under load.', yt: '' },
   // Bench accessories
   'bn-pause':       { desc: 'Bench press with a 2-3s pause on the chest. Builds power off the chest and eliminates bounce.', yt: '' },
   'bn-spoto':       { desc: 'Lower the bar to 1-2 inches above the chest and press. Strengthens the mid-range sticking point.', yt: '' },
