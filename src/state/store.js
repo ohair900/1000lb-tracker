@@ -436,6 +436,30 @@ class Store {
     if (pc.autoProgressEnabled === undefined) pc.autoProgressEnabled = true;
     if (!pc.completedWeeks) pc.completedWeeks = {};
     if (!pc.weekStreak) pc.weekStreak = 0;
+
+    // Migrate cycle-aware keys from reverted commits (92c9bd4, 5ee0388)
+    // Format: "lift-c{cycle}-w{week}-{idx}" -> "lift-{week}-{idx}"
+    const cycleKeyRe = /^(\w+)-c(\d+)-w(\d+)-(\d+)$/;
+    [pc.completedSets, pc.amrapResults].forEach(obj => {
+      Object.keys(obj).forEach(key => {
+        const m = key.match(cycleKeyRe);
+        if (m) {
+          const newKey = `${m[1]}-${m[3]}-${m[4]}`;
+          if (!obj[newKey]) obj[newKey] = obj[key];
+          delete obj[key];
+        }
+      });
+    });
+    if (pc.completedWeeks) {
+      const weekKeyRe = /^c(\d+)-w(\d+)$/;
+      Object.keys(pc.completedWeeks).forEach(key => {
+        const m = key.match(weekKeyRe);
+        if (m) {
+          if (!pc.completedWeeks[m[2]]) pc.completedWeeks[m[2]] = pc.completedWeeks[key];
+          delete pc.completedWeeks[key];
+        }
+      });
+    }
   }
 
   /** @private Ensure workoutConfig has all expected sub-fields. */

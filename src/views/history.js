@@ -13,6 +13,12 @@ import { openModal, closeModal } from '../ui/modal.js';
 import { showToastWithUndo } from '../ui/toast.js';
 
 // ---------------------------------------------------------------------------
+// Expansion state — survives re-renders, keyed by session timestamp
+// ---------------------------------------------------------------------------
+
+const expandedSessions = new Set();
+
+// ---------------------------------------------------------------------------
 // Late-bound callbacks
 // ---------------------------------------------------------------------------
 
@@ -88,10 +94,11 @@ export function renderHistory() {
     const time = new Date(session.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     const liftTags = session.lifts.map(l => `<span class="session-tag ${l}">${LIFT_SHORT[l]}</span>`).join('');
     const volStr = fmtNum(displayWeight(session.volume)) + ' ' + store.unit;
-    const expanded = si === 0 ? ' expanded' : '';
+    const isExpanded = expandedSessions.has(session.timestamp);
+    const expanded = isExpanded ? ' expanded' : '';
 
-    html += `<div class="session-card${expanded}" data-session="${si}">
-      <div class="session-header" tabindex="0" role="button" aria-expanded="${si === 0 ? 'true' : 'false'}">
+    html += `<div class="session-card${expanded}" data-ts="${session.timestamp}" data-session="${si}">
+      <div class="session-header" tabindex="0" role="button" aria-expanded="${isExpanded ? 'true' : 'false'}">
         <div style="flex:1">
           <div class="session-date">${label} ${time}</div>
           <div style="display:flex;gap:6px;align-items:center;margin-top:3px">
@@ -261,7 +268,13 @@ export function initHistoryTab() {
     if (hdr) {
       const card = hdr.parentElement;
       card.classList.toggle('expanded');
-      hdr.setAttribute('aria-expanded', card.classList.contains('expanded'));
+      const isNowExpanded = card.classList.contains('expanded');
+      hdr.setAttribute('aria-expanded', isNowExpanded);
+      const ts = parseInt(card.dataset.ts);
+      if (ts) {
+        if (isNowExpanded) expandedSessions.add(ts);
+        else expandedSessions.delete(ts);
+      }
     }
   });
   $('history-list').addEventListener('keydown', (e) => {
@@ -270,7 +283,13 @@ export function initHistoryTab() {
       e.preventDefault();
       const card = hdr.parentElement;
       card.classList.toggle('expanded');
-      hdr.setAttribute('aria-expanded', card.classList.contains('expanded'));
+      const isNowExpanded = card.classList.contains('expanded');
+      hdr.setAttribute('aria-expanded', isNowExpanded);
+      const ts = parseInt(card.dataset.ts);
+      if (ts) {
+        if (isNowExpanded) expandedSessions.add(ts);
+        else expandedSessions.delete(ts);
+      }
     }
   });
 
