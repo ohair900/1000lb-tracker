@@ -133,14 +133,17 @@ export function initLogTab() {
       const workout = _getProgramWorkout(store.currentLift);
       if (workout) {
         const loggedWeight = inputToLbs(w);
+        const lw = store.programConfig.liftWeeks?.[store.currentLift] || 1;
         workout.sets.forEach((s, idx) => {
           if (typeof s.reps === 'string' && s.reps.includes('+') && Math.abs(s.weight - loggedWeight) <= 3) {
-            const key = `${store.currentLift}-${store.programConfig.currentWeek}-${idx}`;
+            const key = `${store.currentLift}-${lw}-${idx}`;
             if (!store.programConfig.amrapResults[key]) {
               store.programConfig.amrapResults[key] = r;
               store.programConfig.completedSets[key] = true;
               store.saveProgramConfig();
               if (_renderProgramSection) _renderProgramSection();
+              // Session-type (SL5x5/SS) applies progression immediately
+              // Amrap-type uses cycle-boundary progression instead
               if (_checkAutoProgression) {
                 const result = _checkAutoProgression(store.currentLift);
                 if (result) {

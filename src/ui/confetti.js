@@ -167,10 +167,11 @@ export function triggerWeekCompleteCelebration() {
   }, 3000);
 
   // Toast
-  if (_showToast) _showToast('Week ' + store.programConfig.currentWeek + ' complete!');
+  const lw = store.programConfig.liftWeeks?.[store.currentLift] || 1;
+  if (_showToast) _showToast('Week ' + lw + ' complete!');
 
   // Streak
-  if (_updateWeekStreak) _updateWeekStreak();
+  if (_updateWeekStreak) _updateWeekStreak(store.currentLift);
 }
 
 /**

@@ -229,6 +229,7 @@ export function mergeCloudData(cloudData) {
     // Programs: cloud wins (last-write-wins)
     if (cloudData.programs) {
       store.programConfig = { ...store.programConfig, ...cloudData.programs };
+      store._patchProgramConfig();
       store.save('programs');
     }
 

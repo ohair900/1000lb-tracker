@@ -73,13 +73,14 @@ class Store {
     this.programConfig = {
       activeProgram: null,
       trainingMaxes: {},
-      currentWeek: 1,
+      liftWeeks: { squat: 1, bench: 1, deadlift: 1 },
       completedSets: {},
       amrapResults: {},
       tmHistory: [],
       autoProgressEnabled: true,
       completedWeeks: {},
       weekStreak: 0,
+      progressedCycles: {},
     };
     this.workoutConfig = {
       weakPoints: { squat: null, bench: null, deadlift: null },
@@ -177,13 +178,14 @@ class Store {
         default: {
           activeProgram: null,
           trainingMaxes: {},
-          currentWeek: 1,
+          liftWeeks: { squat: 1, bench: 1, deadlift: 1 },
           completedSets: {},
           amrapResults: {},
           tmHistory: [],
           autoProgressEnabled: true,
           completedWeeks: {},
           weekStreak: 0,
+          progressedCycles: {},
         },
         postLoad: () => this._patchProgramConfig(),
       },
@@ -436,6 +438,18 @@ class Store {
     if (pc.autoProgressEnabled === undefined) pc.autoProgressEnabled = true;
     if (!pc.completedWeeks) pc.completedWeeks = {};
     if (!pc.weekStreak) pc.weekStreak = 0;
+    if (!pc.progressedCycles) pc.progressedCycles = {};
+
+    // Migrate from single currentWeek to per-lift liftWeeks
+    if (pc.currentWeek !== undefined && !pc.liftWeeks) {
+      const w = pc.currentWeek || 1;
+      pc.liftWeeks = { squat: w, bench: w, deadlift: w };
+      delete pc.currentWeek;
+    }
+    if (!pc.liftWeeks) pc.liftWeeks = { squat: 1, bench: 1, deadlift: 1 };
+    if (!pc.liftWeeks.squat) pc.liftWeeks.squat = 1;
+    if (!pc.liftWeeks.bench) pc.liftWeeks.bench = 1;
+    if (!pc.liftWeeks.deadlift) pc.liftWeeks.deadlift = 1;
 
     // Migrate cycle-aware keys from reverted commits (92c9bd4, 5ee0388)
     // Format: "lift-c{cycle}-w{week}-{idx}" -> "lift-{week}-{idx}"
@@ -450,15 +464,19 @@ class Store {
         }
       });
     });
+    // Migrate completedWeeks: old formats (numeric "3" or cycle-aware "c1-w2")
+    // can't be mapped to new per-lift format ("squat-3"). Clear stale keys.
     if (pc.completedWeeks) {
-      const weekKeyRe = /^c(\d+)-w(\d+)$/;
-      Object.keys(pc.completedWeeks).forEach(key => {
-        const m = key.match(weekKeyRe);
-        if (m) {
-          if (!pc.completedWeeks[m[2]]) pc.completedWeeks[m[2]] = pc.completedWeeks[key];
-          delete pc.completedWeeks[key];
-        }
-      });
+      const liftWeekRe = /^(squat|bench|deadlift)-\d+$/;
+      const hasStaleKeys = Object.keys(pc.completedWeeks).some(k => !liftWeekRe.test(k));
+      if (hasStaleKeys) {
+        const fresh = {};
+        Object.keys(pc.completedWeeks).forEach(k => {
+          if (liftWeekRe.test(k)) fresh[k] = pc.completedWeeks[k];
+        });
+        pc.completedWeeks = fresh;
+        pc.weekStreak = 0;
+      }
     }
   }
 

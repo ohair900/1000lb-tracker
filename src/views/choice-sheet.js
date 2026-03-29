@@ -81,7 +81,7 @@ function showPlanSwitcher() {
   if (hasMeso) {
     html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:var(--space-3)">Current: ${store.activeMesocycle.name} (Week ${store.activeMesocycle.currentWeek}/${store.activeMesocycle.durationWeeks})</div>`;
   } else if (hasProg) {
-    html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:var(--space-3)">Current: ${PROGRAM_TEMPLATES[store.programConfig.activeProgram].name} (Week ${store.programConfig.currentWeek})</div>`;
+    html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:var(--space-3)">Current: ${PROGRAM_TEMPLATES[store.programConfig.activeProgram].name} (Week ${store.programConfig.liftWeeks?.[store.currentLift] || 1})</div>`;
   }
 
   html += `<div class="choice-card" data-action="setup-program">
@@ -184,7 +184,7 @@ export function renderChoiceSheetBody() {
       html += `<div class="choice-card" data-action="quick">
         <div class="choice-card-icon green">&#9889;</div>
         <div class="choice-card-text">
-          <div class="choice-card-title">${tmpl.name} \u2014 Week ${store.programConfig.currentWeek}${liftDone ? ' (Done)' : ''}</div>
+          <div class="choice-card-title">${tmpl.name} \u2014 Week ${store.programConfig.liftWeeks?.[lift] || 1}${liftDone ? ' (Done)' : ''}</div>
           <div class="choice-card-desc">Tap to start today's programmed ${LIFT_NAMES[lift]} sets</div>
         </div>
         <div class="choice-card-arrow">&#8250;</div>

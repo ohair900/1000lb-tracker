@@ -18,6 +18,7 @@ import {
   getProgramWorkout,
   findFirstIncompleteWeek,
   checkAutoProgression,
+  applyProgression,
 } from '../systems/programs.js';
 import {
   selectAccessories,
@@ -242,7 +243,7 @@ export function openWorkoutView(mainLift) {
   // Resume or create session
   if (store.workoutSession && store.workoutSession.mainLift === mainLift && !store.workoutSession.completed) {
     // Sync main set completion state
-    const sessionWeek = store.workoutSession.programWeek || store.programConfig.currentWeek;
+    const sessionWeek = store.workoutSession.programWeek || (store.programConfig.liftWeeks?.[mainLift] || 1);
     if (store.workoutSession.mainSets.length > 0) {
       store.workoutSession.mainSets.forEach((s, i) => {
         s.completed = !!store.programConfig.completedSets[`${mainLift}-${sessionWeek}-${i}`];
@@ -402,7 +403,7 @@ export function initWorkoutOverlay() {
     if (mainRow) {
       const idx = parseInt(mainRow.dataset.idx);
       const set = store.workoutSession.mainSets[idx];
-      const week = store.workoutSession.programWeek || store.programConfig.currentWeek;
+      const week = store.workoutSession.programWeek || (store.programConfig.liftWeeks?.[store.workoutSession.mainLift] || 1);
       if (set.completed) {
         set.completed = false;
         delete store.programConfig.completedSets[`${store.workoutSession.mainLift}-${week}-${idx}`];
@@ -425,7 +426,10 @@ export function initWorkoutOverlay() {
         }
         const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
         if (tmpl && tmpl.progression && tmpl.progression.type === 'session') {
-          checkAutoProgression(store.workoutSession.mainLift);
+          const progResult = checkAutoProgression(store.workoutSession.mainLift);
+          if (progResult) {
+            applyProgression(progResult);
+          }
         }
         store.saveProgramConfig();
         startTimer(store.timerDuration);

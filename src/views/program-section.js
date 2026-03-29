@@ -15,10 +15,12 @@ import { formatPlates } from '../formulas/plates.js';
 import { bestE1RM } from '../formulas/e1rm.js';
 import {
   getProgramWorkout,
+  getLiftWeek,
   isWeekComplete,
   isLiftComplete,
   checkAutoProgression,
   applyProgression,
+  checkCycleBoundaryProgression,
 } from '../systems/programs.js';
 import { openModal, closeModal } from '../ui/modal.js';
 import { showToast } from '../ui/toast.js';
@@ -56,6 +58,7 @@ export function setProgramSectionDeps(deps) {
  */
 export function renderProgramSection() {
   const el = $('program-section');
+  $('program-sets').style.opacity = '1';
   if (!store.programConfig.activeProgram) {
     el.style.display = 'block';
     el.classList.remove('week-complete');
@@ -91,7 +94,7 @@ export function renderProgramSection() {
   // One-line description (first sentence)
   const desc = tmpl.description || '';
   const firstSentence = desc.split('.')[0];
-  const absWeek = store.programConfig.currentWeek;
+  const absWeek = getLiftWeek(store.currentLift);
   const cycleNum = Math.ceil(absWeek / tmpl.weeks);
   const cycleLabel = (tmpl.weeks > 1 && cycleNum > 1) ? ` \u2014 Cycle ${cycleNum}` : '';
   $('program-week').innerHTML = workout.label + cycleLabel + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
@@ -112,7 +115,7 @@ export function renderProgramSection() {
   }).join('');
 
   // Week/lift completion visual state
-  const weekComplete = isWeekComplete();
+  const weekComplete = isWeekComplete(store.currentLift);
   const liftComplete = isLiftComplete(store.currentLift);
   if (weekComplete) {
     el.classList.add('week-complete');
@@ -152,16 +155,18 @@ export function renderProgramSection() {
   }
 
   // Click to auto-fill
+  const currentLift = store.currentLift;
+  const lw = getLiftWeek(currentLift);
   setsEl.querySelectorAll('.program-set-row').forEach(row => {
     row.addEventListener('click', () => {
       const idx = parseInt(row.dataset.setIdx);
       const set = workout.sets[idx];
-      const wasLiftComplete = isLiftComplete(store.currentLift);
-      const wasComplete = isWeekComplete();
+      const wasLiftComplete = isLiftComplete(currentLift);
+      const wasComplete = isWeekComplete(currentLift);
       if (set.completed) {
         // Toggle off completed
-        delete store.programConfig.completedSets[`${store.currentLift}-${store.programConfig.currentWeek}-${idx}`];
-        delete store.programConfig.amrapResults[`${store.currentLift}-${store.programConfig.currentWeek}-${idx}`];
+        delete store.programConfig.completedSets[`${currentLift}-${lw}-${idx}`];
+        delete store.programConfig.amrapResults[`${currentLift}-${lw}-${idx}`];
       } else {
         // Auto-fill inputs
         const weightInput = $('input-weight');
@@ -172,16 +177,16 @@ export function renderProgramSection() {
         if (repsInput) repsInput.value = repVal;
         if (_updatePreview) _updatePreview();
         // Mark completed
-        store.programConfig.completedSets[`${store.currentLift}-${store.programConfig.currentWeek}-${idx}`] = true;
+        store.programConfig.completedSets[`${currentLift}-${lw}-${idx}`] = true;
         // Check session-type auto-progression (SL5x5 / SS)
         const tmpl2 = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
         if (tmpl2 && tmpl2.progression && tmpl2.progression.type === 'session') {
-          const result = checkAutoProgression(store.currentLift);
+          const result = checkAutoProgression(currentLift);
           if (result) {
             store.saveProgramConfig();
             renderProgramSection();
-            if (!wasComplete && isWeekComplete() && _triggerWeekCompleteCelebration) _triggerWeekCompleteCelebration();
-            else if (!wasLiftComplete && isLiftComplete(store.currentLift) && _triggerLiftCompleteCelebration) _triggerLiftCompleteCelebration();
+            if (!wasComplete && isWeekComplete(currentLift) && _triggerWeekCompleteCelebration) _triggerWeekCompleteCelebration();
+            else if (!wasLiftComplete && isLiftComplete(currentLift) && _triggerLiftCompleteCelebration) _triggerLiftCompleteCelebration();
             setTimeout(() => applyProgression(result), 300);
             return;
           }
@@ -190,15 +195,15 @@ export function renderProgramSection() {
       store.saveProgramConfig();
       renderProgramSection();
       // Check week/lift completion transitions
-      if (!wasComplete && isWeekComplete()) {
+      if (!wasComplete && isWeekComplete(currentLift)) {
         if (_triggerWeekCompleteCelebration) _triggerWeekCompleteCelebration();
-      } else if (!wasLiftComplete && isLiftComplete(store.currentLift)) {
+      } else if (!wasLiftComplete && isLiftComplete(currentLift)) {
         if (_triggerLiftCompleteCelebration) _triggerLiftCompleteCelebration();
-      } else if (wasComplete && !isWeekComplete()) {
-        delete store.programConfig.completedWeeks[store.programConfig.currentWeek];
+      } else if (wasComplete && !isWeekComplete(currentLift)) {
+        delete store.programConfig.completedWeeks[`${currentLift}-${lw}`];
         let streak = 0;
-        for (let w = store.programConfig.currentWeek; w >= 1; w--) {
-          if (store.programConfig.completedWeeks[w]) streak++;
+        for (let w = lw; w >= 1; w--) {
+          if (store.programConfig.completedWeeks[`${currentLift}-${w}`]) streak++;
           else break;
         }
         store.programConfig.weekStreak = streak;
@@ -233,22 +238,22 @@ export function showProgramSetupModal() {
   const initDesc = current ? PROGRAM_TEMPLATES[current].description : '';
   html += `<div id="program-desc" style="font-size:0.75rem;color:var(--text-dim);line-height:1.4;margin-bottom:12px;min-height:20px">${initDesc}</div>`;
 
-  html += `<div class="section-label-lg" style="margin-bottom:8px">Training Maxes</div>`;
+  html += `<div class="section-label-lg" style="margin-bottom:8px">Training Maxes <span style="font-size:0.65rem;color:var(--text-dim);font-weight:normal">(auto-updated)</span></div>`;
   LIFTS.forEach(lift => {
+    if (lift === 'total') return;
     const best = bestE1RM(lift);
     const suggestedTM = best ? Math.round(best * 0.9) : '';
     const currentTM = store.programConfig.trainingMaxes[lift] || '';
+    const lw = getLiftWeek(lift);
     html += `<div class="tm-row">
       <span class="tm-lift-label" style="color:${COLORS[lift]}">${LIFT_NAMES[lift]}</span>
       <input type="number" class="tm-input" id="tm-${lift}" value="${currentTM ? displayWeight(currentTM) : ''}" placeholder="${suggestedTM ? displayWeight(suggestedTM) : '0'}" inputmode="decimal" step="any">
       <span class="tm-unit-label">${store.unit}</span>
+      <input type="number" id="week-${lift}" value="${lw}" min="1" style="width:52px;padding:6px;border:2px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:0.75rem;text-align:center;outline:none" title="Week">
+      <span style="font-size:0.6rem;color:var(--text-dim)">Wk</span>
       ${best ? `<button class="program-nav-btn tm-suggest-btn" data-suggest="${lift}">90% e1RM</button>` : ''}
     </div>`;
   });
-
-  html += `<div class="input-group" style="margin-top:12px;margin-bottom:8px"><label>Current Week <span style="font-size:0.65rem;color:var(--text-dim);font-weight:normal">(continues across cycles)</span></label>
-    <input type="number" id="program-week-input" value="${store.programConfig.currentWeek || 1}" min="1" style="width:80px;padding:10px;border:2px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-size:0.9rem;text-align:center;outline:none">
-  </div>`;
 
   // Auto-progression toggle
   html += `<label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--text);margin-bottom:12px;cursor:pointer">
@@ -280,16 +285,24 @@ export function showProgramSetupModal() {
   // Save
   $('program-save').addEventListener('click', () => {
     const sel = $('program-select').value;
+    const programChanged = sel !== (store.programConfig.activeProgram || '');
     store.programConfig.activeProgram = sel || null;
     LIFTS.forEach(lift => {
+      if (lift === 'total') return;
       const v = parseFloat($('tm-' + lift).value);
       if (v > 0 && v < 2000) store.programConfig.trainingMaxes[lift] = inputToLbs(v);
+      const wk = parseInt($('week-' + lift)?.value);
+      if (wk >= 1) store.programConfig.liftWeeks[lift] = wk;
     });
-    store.programConfig.currentWeek = Math.max(1, parseInt($('program-week-input').value) || 1);
     store.programConfig.autoProgressEnabled = $('auto-progress-toggle').checked;
-    store.programConfig.completedSets = {};
-    store.programConfig.completedWeeks = {};
-    store.programConfig.weekStreak = 0;
+    // Only reset completion data when the program itself changes
+    if (programChanged) {
+      store.programConfig.completedSets = {};
+      store.programConfig.completedWeeks = {};
+      store.programConfig.weekStreak = 0;
+      store.programConfig.progressedCycles = {};
+      store.programConfig.liftWeeks = { squat: 1, bench: 1, deadlift: 1 };
+    }
     store.saveProgramConfig();
     closeModal('edit-modal');
     renderProgramSection();
@@ -307,19 +320,43 @@ export function showProgramSetupModal() {
  */
 export function initProgramSection() {
   $('program-prev').addEventListener('click', () => {
-    if (store.programConfig.currentWeek > 1) {
-      store.programConfig.currentWeek--;
+    const lift = store.currentLift;
+    if (getLiftWeek(lift) > 1) {
+      $('program-sets').style.opacity = '0.3';
+      store.programConfig.liftWeeks[lift]--;
       store.saveProgramConfig();
       renderProgramSection();
     }
   });
 
   $('program-next').addEventListener('click', () => {
-    if (store.programConfig.activeProgram) {
-      store.programConfig.currentWeek++;
-      store.saveProgramConfig();
-      renderProgramSection();
+    const lift = store.currentLift;
+    if (!store.programConfig.activeProgram) return;
+    const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
+    const oldWeek = getLiftWeek(lift);
+    const oldCycle = tmpl ? Math.ceil(oldWeek / tmpl.weeks) : 0;
+
+    $('program-sets').style.opacity = '0.3';
+    store.programConfig.liftWeeks[lift] = oldWeek + 1;
+    const newCycle = tmpl ? Math.ceil((oldWeek + 1) / tmpl.weeks) : 0;
+
+    // Cycle-boundary auto-progression for amrap-type programs
+    if (tmpl && newCycle > oldCycle && tmpl.progression?.type === 'amrap'
+        && store.programConfig.autoProgressEnabled) {
+      const cycleKey = `${lift}-${oldCycle}`;
+      if (!store.programConfig.progressedCycles[cycleKey]) {
+        const result = checkCycleBoundaryProgression(lift, oldWeek, tmpl);
+        if (result) {
+          applyProgression(result);
+          const name = LIFT_NAMES[lift];
+          showToast(`${name} TM: ${formatWeight(result.oldTM)} \u2192 ${formatWeight(result.newTM)} ${store.unit}`);
+        }
+        store.programConfig.progressedCycles[cycleKey] = true;
+      }
     }
+
+    store.saveProgramConfig();
+    renderProgramSection();
   });
 
   $('program-setup')?.addEventListener('click', showProgramSetupModal);

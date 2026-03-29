@@ -35,13 +35,15 @@
 }
 .program-actions { display: flex; gap: 4px; margin-top: 8px; }
 .program-nav-btn {
-  padding: 4px 10px; border: 1px solid var(--border);
+  padding: 6px 14px; border: 1px solid var(--border);
   background: transparent; color: var(--text-dim);
   font-size: 0.7rem; font-weight: 600; border-radius: 6px;
   cursor: pointer; transition: all var(--transition-base);
   min-height: 44px; display: inline-flex; align-items: center;
+  -webkit-tap-highlight-color: transparent;
 }
 .program-nav-btn:hover { border-color: var(--border-hover); color: var(--text); }
+.program-nav-btn:active { background: var(--border); color: var(--text); transform: scale(0.95); }
 
 /* Cycle bar */
 .cycle-bar {
