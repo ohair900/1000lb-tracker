@@ -63,7 +63,7 @@ export function updateLiftDaysBadges() {
     if (!lift || lift === 'total') return;
     const days = daysSinceLastLift(lift);
     const badge = ensureChild(btn, 'lift-days-badge', 'span');
-    badge.textContent = days === Infinity ? '-' : String(days);
+    badge.textContent = days === Infinity ? '-' : days + 'd';
     badge.classList.remove('days-green', 'days-yellow', 'days-red');
     if (days <= 2) badge.classList.add('days-green');
     else if (days <= 4) badge.classList.add('days-yellow');
