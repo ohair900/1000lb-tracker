@@ -15,9 +15,17 @@ import {
   setDoc,
   onSnapshot,
   serverTimestamp,
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  limit,
+  deleteDoc,
 } from './init.js';
 
 import { currentUser } from './auth.js';
+import { bestE1RM } from '../formulas/e1rm.js';
+import { getClassification, getOverallClassification } from '../formulas/standards.js';
 
 import {
   UNIT_KEY,
@@ -103,6 +111,7 @@ export function getLocalData() {
     customTemplates: store.customTemplates,
     activeMesocycle: store.activeMesocycle,
     mesocycleHistory: store.mesocycleHistory,
+    leaderboardOptedIn: store.leaderboardOptedIn,
     schemaVersion: SCHEMA_VERSION,
   };
 }
@@ -120,6 +129,10 @@ export async function pushToCloud() {
     const data = getLocalData();
     data.lastModified = serverTimestamp();
     await setDoc(doc(db, 'users', currentUser.uid), data);
+    // Update leaderboard (fire-and-forget)
+    if (store.leaderboardOptedIn !== false) {
+      updateLeaderboard().catch(err => console.warn('Leaderboard update failed:', err));
+    }
     syncState.status = 'synced';
     notifyStatusChange();
   } catch (err) {
@@ -322,6 +335,12 @@ export function mergeCloudData(cloudData) {
       store.save('mesocycleHistory');
     }
 
+    // Merge leaderboard opt-in (cloud wins)
+    if (cloudData.leaderboardOptedIn !== undefined) {
+      store.leaderboardOptedIn = cloudData.leaderboardOptedIn;
+      store.save('leaderboard');
+    }
+
     // Clear stale undo state
     store.undoStack = null;
 
@@ -353,6 +372,8 @@ export function startRealtimeSync() {
     const cloudData = snapshot.data();
     // Skip if this was triggered by our own write
     if (syncState.isMergingFromCloud) return;
+    // Skip if we have pending local changes not yet pushed
+    if (syncState.syncDebounceTimer) return;
     mergeCloudData(cloudData);
     syncState.status = 'synced';
     notifyStatusChange();
@@ -361,6 +382,83 @@ export function startRealtimeSync() {
     syncState.status = 'error';
     notifyStatusChange();
   });
+}
+
+// ===== Leaderboard =====
+
+/**
+ * Write the current user's leaderboard summary to `/leaderboard/{uid}`.
+ * Called from `pushToCloud()` when the user is opted in.
+ */
+async function updateLeaderboard() {
+  if (!currentUser || !db) return;
+
+  const s = bestE1RM('squat') || 0;
+  const b = bestE1RM('bench') || 0;
+  const d = bestE1RM('deadlift') || 0;
+  const total = (s && b && d) ? s + b + d : 0;
+
+  // Don't publish if user has no lifts
+  if (total === 0) return;
+
+  // Build recent lifts: last 3 per lift
+  const recentByLift = {};
+  ['squat', 'bench', 'deadlift'].forEach(lift => {
+    recentByLift[lift] = [...store.entries]
+      .filter(e => e.lift === lift)
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 3)
+      .map(e => ({ weight: e.weight, reps: e.reps, e1rm: e.e1rm, date: e.date }));
+  });
+
+  // Pre-compute strength classifications
+  const classifications = {
+    squat: getClassification('squat', s),
+    bench: getClassification('bench', b),
+    deadlift: getClassification('deadlift', d),
+    overall: getOverallClassification(),
+  };
+
+  const leaderboardDoc = {
+    displayName: currentUser.displayName?.split(' ')[0] || 'Lifter',
+    squat: s,
+    bench: b,
+    deadlift: d,
+    total,
+    classifications,
+    recentByLift,
+    lastUpdated: serverTimestamp(),
+  };
+
+  await setDoc(doc(db, 'leaderboard', currentUser.uid), leaderboardDoc);
+}
+
+/**
+ * Remove the current user's leaderboard document (opt-out).
+ */
+export async function removeFromLeaderboard() {
+  if (!currentUser || !db) return;
+  try {
+    await deleteDoc(doc(db, 'leaderboard', currentUser.uid));
+  } catch (err) {
+    console.warn('Failed to remove leaderboard entry:', err);
+  }
+}
+
+/**
+ * Fetch the leaderboard collection, ordered by total descending.
+ * @returns {Promise<Array>} Array of leaderboard entries with uid
+ */
+export async function fetchLeaderboard() {
+  if (!db) return [];
+  try {
+    const q = query(collection(db, 'leaderboard'), orderBy('total', 'desc'), limit(100));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ uid: d.id, ...d.data() }));
+  } catch (err) {
+    console.error('Fetch leaderboard failed:', err);
+    return [];
+  }
 }
 
 // ===== handleFirstSignIn =====
