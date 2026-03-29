@@ -92,6 +92,11 @@ service cloud.firestore {
       allow read, write: if request.auth != null
         && request.auth.uid == userId;
     }
+    match /leaderboard/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.uid == userId;
+    }
   }
 }</div>
       <ol start="6" style="padding-left:20px;margin-bottom:16px">

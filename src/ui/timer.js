@@ -117,16 +117,19 @@ export function stopTimer() {
  */
 export function startTimer(secs) {
   stopTimer();
+  ensureAudioContext();
   store.timerDuration = secs || store.timerDuration;
   localStorage.setItem(TIMER_KEY, store.timerDuration.toString());
   if (_scheduleCloudSync) _scheduleCloudSync();
   store.timerRemaining = store.timerDuration;
+  store.timerStartTime = Date.now();
   store.timerRunning = true;
   $('timer-container').classList.add('active');
   updateTimerDisplay();
 
   store.timerInterval = setInterval(() => {
-    store.timerRemaining--;
+    const elapsed = Math.floor((Date.now() - store.timerStartTime) / 1000);
+    store.timerRemaining = Math.max(0, store.timerDuration - elapsed);
     updateTimerDisplay();
     if (store.timerRemaining <= 0) {
       stopTimer();
@@ -227,3 +230,38 @@ export function cancelExerciseTimer() {
   stopExerciseTimer();
   if (_renderWorkoutView) _renderWorkoutView();
 }
+
+// ---------------------------------------------------------------------------
+// Background recovery — fire missed notifications when page becomes visible
+// ---------------------------------------------------------------------------
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+
+  // Rest timer: check if it should have completed while backgrounded
+  if (store.timerRunning && store.timerStartTime) {
+    const elapsed = Math.floor((Date.now() - store.timerStartTime) / 1000);
+    store.timerRemaining = Math.max(0, store.timerDuration - elapsed);
+    if (store.timerRemaining <= 0) {
+      stopTimer();
+      playBeep();
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      const display = $('timer-display');
+      if (display) {
+        display.textContent = 'DONE';
+        display.className = 'timer-display done';
+      }
+    } else {
+      updateTimerDisplay();
+    }
+  }
+
+  // Exercise timer: check if it should have completed while backgrounded
+  if (store.exerciseTimer && store.exerciseTimer.startTime) {
+    const elapsed = Math.floor((Date.now() - store.exerciseTimer.startTime) / 1000);
+    store.exerciseTimer.remaining = Math.max(0, store.exerciseTimer.duration - elapsed);
+    if (store.exerciseTimer.remaining <= 0) {
+      completeExerciseTimer();
+    }
+  }
+});

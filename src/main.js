@@ -105,6 +105,7 @@ import { showWorkoutSummary } from './views/workout-summary.js';
 import { initWelcomeOverlay, setWelcomeDeps, showWelcomeScreen } from './views/welcome.js';
 import { renderCycleBar } from './views/cycle-bar.js';
 import { initSyncUI, updateSyncButton } from './views/sync-ui.js';
+import { initLeaderboardTab, renderLeaderboard } from './views/leaderboard.js';
 
 // ===== 8. Polyfills =====
 
@@ -190,7 +191,7 @@ function showWeakPointSetupModal(thenOpenLift) {
 
 // ===== 10. Tab switching =====
 
-const TAB_ORDER = ['log', 'history', 'charts', 'stats'];
+const TAB_ORDER = ['log', 'history', 'charts', 'stats', 'ranks'];
 
 function switchToTab(tabName, direction) {
   document.querySelectorAll('.tab-btn').forEach(b =>
@@ -208,6 +209,7 @@ function switchToTab(tabName, direction) {
   if (store.currentTab === 'charts') renderChart();
   if (store.currentTab === 'stats') renderStats();
   if (store.currentTab === 'log') renderProgramSection();
+  if (store.currentTab === 'ranks') renderLeaderboard();
 }
 
 // ===== 11. Exercise preview card (long-press) =====
@@ -321,6 +323,7 @@ setOnSyncComplete(() => {
   if (store.currentTab === 'history') renderHistory();
   if (store.currentTab === 'charts') renderChart();
   if (store.currentTab === 'stats') renderStats();
+  if (store.currentTab === 'ranks') renderLeaderboard();
   // Re-apply theme/accent in case cloud changed them
   applyTheme();
   applyAccentColor();
@@ -513,7 +516,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (e.target.closest('.chart-container') || e.target.closest('.modal-backdrop') ||
         e.target.closest('.workout-overlay') || e.target.closest('input') ||
         e.target.closest('textarea') || e.target.closest('.fatigue-sheet') ||
-        e.target.closest('.choice-sheet') || e.target.closest('.workout-summary-sheet')) return;
+        e.target.closest('.choice-sheet') || e.target.closest('.workout-summary-sheet') ||
+        e.target.closest('.leaderboard-sheet')) return;
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     startTime = Date.now();
@@ -561,6 +565,7 @@ initBuilderOverlay();
 initMesocycleUI();
 initWelcomeOverlay();
 initSyncUI();
+initLeaderboardTab();
 initThemeListeners();
 initSettingsListeners();
 

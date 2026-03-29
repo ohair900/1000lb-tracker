@@ -31,6 +31,7 @@
 @import './features/welcome.css';
 @import './features/sync.css';
 @import './features/celebration.css';
+@import './features/leaderboard.css';
 
 /* Utilities & Animations */
 @import './utilities.css';

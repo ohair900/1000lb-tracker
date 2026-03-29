@@ -118,6 +118,7 @@ class Store {
     this.timerRemaining = 0;
     this.timerInterval = null;
     this.timerRunning = false;
+    this.timerStartTime = null;
     this.exerciseTimer = null; // { accIdx, setIdx, remaining, duration, startTime, interval }
     this.sharedAudioCtx = null;
     this.activeCycleId = null;

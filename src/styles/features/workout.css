@@ -31,7 +31,7 @@
 .workout-exercise.main-lift.squat { border-left-color: var(--squat); }
 .workout-exercise.main-lift.bench { border-left-color: var(--bench); }
 .workout-exercise.main-lift.deadlift { border-left-color: var(--deadlift); }
-.workout-exercise-name { font-size: var(--text-base); font-weight: 700; color: var(--text-strong); margin-bottom: 2px; }
+.workout-exercise-name { font-size: var(--text-base); font-weight: 700; color: var(--text-strong); margin-bottom: 2px; -webkit-user-select: none; user-select: none; }
 .workout-exercise-meta { font-size: var(--text-xs); color: var(--text-dim); margin-bottom: var(--space-2); }
 .prev-perf {
   font-size: var(--text-xs); color: var(--text-dim); padding: 2px 0 4px;

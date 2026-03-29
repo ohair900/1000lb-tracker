@@ -401,12 +401,12 @@ async function updateLeaderboard() {
   // Don't publish if user has no lifts
   if (total === 0) return;
 
-  // Build recent lifts: last 3 per lift
-  const recentByLift = {};
+  // Build best 3 sets per lift (highest e1RM)
+  const bestByLift = {};
   ['squat', 'bench', 'deadlift'].forEach(lift => {
-    recentByLift[lift] = [...store.entries]
+    bestByLift[lift] = [...store.entries]
       .filter(e => e.lift === lift)
-      .sort((a, b) => b.timestamp - a.timestamp)
+      .sort((a, b) => b.e1rm - a.e1rm)
       .slice(0, 3)
       .map(e => ({ weight: e.weight, reps: e.reps, e1rm: e.e1rm, date: e.date }));
   });
@@ -426,7 +426,7 @@ async function updateLeaderboard() {
     deadlift: d,
     total,
     classifications,
-    recentByLift,
+    bestByLift,
     lastUpdated: serverTimestamp(),
   };
 

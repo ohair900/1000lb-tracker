@@ -84,6 +84,10 @@ export function renderSettingsBody() {
     <label class="widget-toggle"><input type="checkbox" data-widget="recap" ${store.dashboardWidgets.recap ? 'checked' : ''}> Weekly Recap</label>
     <label class="widget-toggle" style="margin-bottom:12px"><input type="checkbox" data-widget="prStreak" ${store.dashboardWidgets.prStreak ? 'checked' : ''}> PR Tracker</label>`;
   html += settingsDivider;
+  // Leaderboard
+  html += sectionLabel('Leaderboard');
+  html += `<label class="widget-toggle"><input type="checkbox" id="lb-optin" ${store.leaderboardOptedIn !== false ? 'checked' : ''}> Appear on leaderboard</label>`;
+  html += settingsDivider;
   // Data
   html += sectionLabel('Data');
   html += `<div class="data-row" style="margin-bottom:12px">
@@ -269,6 +273,19 @@ export function attachSettingsListeners() {
     });
   });
 
+  // Leaderboard opt-in toggle
+  const lbCheckbox = body.querySelector('#lb-optin');
+  if (lbCheckbox) {
+    lbCheckbox.addEventListener('change', () => {
+      store.leaderboardOptedIn = lbCheckbox.checked;
+      store.save('leaderboard');
+      scheduleCloudSync();
+      if (!lbCheckbox.checked) {
+        import('../firebase/sync.js').then(m => m.removeFromLeaderboard());
+      }
+    });
+  }
+
   // Data management
   $('s-export').addEventListener('click', exportData);
   $('s-export-csv').addEventListener('click', exportCSV);
@@ -291,6 +308,7 @@ export function attachSettingsListeners() {
     store.workoutConfig = { weakPoints: { squat: null, bench: null, deadlift: null }, setupComplete: false };
     store.accessoryLog = []; store.workoutSession = null;
     store.customTemplates = []; store.activeMesocycle = null; store.mesocycleHistory = [];
+    store.leaderboardOptedIn = true;
     store.dashboardWidgets = { ratios: true, fatigue: true, streak: true, recap: true, prStreak: true };
     store.accentColor = 'gold'; applyAccentColor();
     closeModal('settings-modal');

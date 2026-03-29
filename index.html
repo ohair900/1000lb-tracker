@@ -19,8 +19,8 @@
 <title>1000lb Club Tracker</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23121212'/%3E%3Crect x='4' y='14.5' width='24' height='3' rx='1.5' fill='%23888'/%3E%3Crect x='3' y='9' width='4' height='14' rx='1.5' fill='%23e74c3c'/%3E%3Crect x='8' y='10.5' width='3' height='11' rx='1' fill='%233b82f6'/%3E%3Crect x='21' y='10.5' width='3' height='11' rx='1' fill='%233b82f6'/%3E%3Crect x='25' y='9' width='4' height='14' rx='1.5' fill='%2322c55e'/%3E%3C/svg%3E">
 <style>body{background:#121212;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}#app{max-width:480px;margin:0 auto;padding:12px 16px}</style>
-  <script type="module" crossorigin src="/assets/index.src-DCp_oDfa.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-DGGaBpSo.css">
+  <script type="module" crossorigin src="/assets/index.src-DgjHl68g.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-C7CvaKMn.css">
 </head>
 <body>
 <div id="app">
@@ -140,6 +140,7 @@
     <button class="tab-btn" data-tab="history">History</button>
     <button class="tab-btn" data-tab="charts">Charts</button>
     <button class="tab-btn" data-tab="stats">Stats</button>
+    <button class="tab-btn" data-tab="ranks">Ranks</button>
   </div>
 
   <!-- Log Tab -->
@@ -252,6 +253,19 @@
   <!-- Stats Tab -->
   <div class="tab-panel" id="tab-stats">
     <div id="stats-content"></div>
+  </div>
+
+  <!-- Ranks Tab (Leaderboard) -->
+  <div class="tab-panel" id="tab-ranks">
+    <div class="leaderboard-filter-pills" id="leaderboard-filter-pills">
+      <button class="filter-pill active" data-lb-filter="total">Total</button>
+      <button class="filter-pill" data-lb-filter="squat">SQ</button>
+      <button class="filter-pill" data-lb-filter="bench">BP</button>
+      <button class="filter-pill" data-lb-filter="deadlift">DL</button>
+    </div>
+    <div id="leaderboard-list">
+      <div class="empty-state" style="color:var(--text-dim);text-align:center;padding:32px 0">Sign in to view the leaderboard.</div>
+    </div>
   </div>
 
   <!-- Toast -->
@@ -375,6 +389,17 @@
       <button class="btn-secondary" id="builder-save-template">Save Template</button>
       <button class="btn-primary" id="builder-start">Start Workout</button>
     </div>
+  </div>
+
+  <!-- Leaderboard Detail Sheet -->
+  <div class="leaderboard-sheet-backdrop" id="leaderboard-sheet-backdrop" style="display:none"></div>
+  <div class="leaderboard-sheet" id="leaderboard-sheet" style="display:none">
+    <div class="sheet-handle leaderboard-sheet-handle"></div>
+    <div class="fatigue-sheet-header">
+      <h3 id="leaderboard-sheet-title">Lifter</h3>
+      <button class="modal-close" id="leaderboard-sheet-close">&times;</button>
+    </div>
+    <div class="fatigue-sheet-body" id="leaderboard-sheet-body"></div>
   </div>
 
   <!-- Workout Overlay -->
