@@ -43,6 +43,7 @@ import {
   MESOCYCLE_KEY,
   MESOCYCLE_HISTORY_KEY,
   STATS_COLLAPSED_KEY,
+  LEADERBOARD_KEY,
 } from '../constants/storage-keys.js';
 
 import { CURRENT_VERSION } from '../constants/time.js';
@@ -91,6 +92,7 @@ class Store {
     this.customTemplates = [];
     this.activeMesocycle = null;
     this.mesocycleHistory = [];
+    this.leaderboardOptedIn = true;
 
     // -----------------------------------------------------------------------
     // Ephemeral UI state — NOT persisted via the STORES registry.
@@ -129,6 +131,8 @@ class Store {
     this.builderExercises = [];
     this.calendarMonth = new Date();
     this.chartPoints = [];
+    this.leaderboardData = [];
+    this.leaderboardFilter = 'total';
 
     // Unit / theme / accent — persisted individually (not via STORES)
     this.unit = 'lbs';
