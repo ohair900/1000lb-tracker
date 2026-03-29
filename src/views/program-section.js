@@ -7,7 +7,7 @@
  */
 
 import store from '../state/store.js';
-import { $ } from '../utils/helpers.js';
+import { $, ensureChild } from '../utils/helpers.js';
 import { LIFTS, LIFT_NAMES, COLORS } from '../constants/lift-config.js';
 import { PROGRAM_TEMPLATES } from '../data/programs.js';
 import { formatWeight, displayWeight, inputToLbs } from '../formulas/units.js';
@@ -21,6 +21,7 @@ import {
   checkAutoProgression,
   applyProgression,
   checkCycleBoundaryProgression,
+  daysSinceLastLift,
 } from '../systems/programs.js';
 import { openModal, closeModal } from '../ui/modal.js';
 import { showToast } from '../ui/toast.js';
@@ -53,6 +54,24 @@ export function setProgramSectionDeps(deps) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Update days-since-last-lift badges on all lift selector buttons.
+ * 0-2 days = green, 3-4 = yellow, 5+ = red, no entries = red with "-".
+ */
+export function updateLiftDaysBadges() {
+  document.querySelectorAll('.lift-btn').forEach(btn => {
+    const lift = btn.dataset.lift;
+    if (!lift || lift === 'total') return;
+    const days = daysSinceLastLift(lift);
+    const badge = ensureChild(btn, 'lift-days-badge', 'span');
+    badge.textContent = days === Infinity ? '-' : String(days);
+    badge.classList.remove('days-green', 'days-yellow', 'days-red');
+    if (days <= 2) badge.classList.add('days-green');
+    else if (days <= 4) badge.classList.add('days-yellow');
+    else badge.classList.add('days-red');
+  });
+}
+
+/**
  * Render the program section in the log tab.
  * Shows current program, week, sets, and completion state.
  */
@@ -63,7 +82,7 @@ export function renderProgramSection() {
     el.style.display = 'block';
     el.classList.remove('week-complete');
     el.classList.remove('lift-complete');
-    document.querySelectorAll('.lift-btn').forEach(btn => btn.classList.remove('lift-done'));
+    updateLiftDaysBadges();
     $('program-title').textContent = '';
     $('program-week').textContent = '';
     $('program-sets').innerHTML = `<div class="empty-msg">No program active</div>`;
@@ -83,10 +102,7 @@ export function renderProgramSection() {
     $('program-sets').innerHTML = `<div class="empty-msg">Set a training max for ${LIFT_NAMES[store.currentLift]} in Setup</div>`;
     el.classList.remove('week-complete');
     el.classList.remove('lift-complete');
-    document.querySelectorAll('.lift-btn').forEach(btn => {
-      const l = btn.dataset.lift;
-      btn.classList.toggle('lift-done', isLiftComplete(l));
-    });
+    updateLiftDaysBadges();
     return;
   }
   const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
@@ -130,11 +146,8 @@ export function renderProgramSection() {
     el.classList.remove('lift-complete');
   }
 
-  // Lift-done badges on selector buttons
-  document.querySelectorAll('.lift-btn').forEach(btn => {
-    const l = btn.dataset.lift;
-    btn.classList.toggle('lift-done', isLiftComplete(l));
-  });
+  // Days-since-last-lift badges on selector buttons
+  updateLiftDaysBadges();
 
   // Week progress summary
   const liftsWithTM = LIFTS.filter(l => store.programConfig.trainingMaxes[l]);

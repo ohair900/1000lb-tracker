@@ -24,6 +24,24 @@ export function getLiftWeek(lift) {
   return store.programConfig.liftWeeks?.[lift] || 1;
 }
 
+/**
+ * Days since the last logged entry for a lift (0 = today).
+ * @param {string} lift
+ * @returns {number} Days, or Infinity if no entries
+ */
+export function daysSinceLastLift(lift) {
+  let latest = 0;
+  for (const e of store.entries) {
+    if (e.lift === lift && e.timestamp > latest) latest = e.timestamp;
+  }
+  if (!latest) return Infinity;
+  const now = new Date();
+  const then = new Date(latest);
+  const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const thenDay = new Date(then.getFullYear(), then.getMonth(), then.getDate());
+  return Math.round((nowDay - thenDay) / 86400000);
+}
+
 // ---------------------------------------------------------------------------
 // Workout query
 // ---------------------------------------------------------------------------

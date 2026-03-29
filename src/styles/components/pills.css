@@ -12,15 +12,18 @@
 .lift-btn[data-lift="deadlift"].active { border-color: var(--deadlift); color: var(--deadlift); background: rgba(67,160,71,0.12); }
 .lift-btn:hover:not(.active) { border-color: var(--text-dim); }
 
-/* Lift-done checkmark badge on lift selector */
-.lift-btn.lift-done { position: relative; }
-.lift-btn.lift-done::after {
-  content: '\2713'; position: absolute; top: -4px; right: -4px;
-  font-size: 0.55rem; background: var(--green); color: #fff;
-  width: 14px; height: 14px; border-radius: 50%;
+/* Days-since-last-lift badge on lift selector */
+.lift-btn { position: relative; }
+.lift-days-badge {
+  position: absolute; top: -5px; right: -5px;
+  font-size: 0.5rem; font-weight: 700; color: #fff;
+  width: 16px; height: 16px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  line-height: 1;
+  line-height: 1; pointer-events: none;
 }
+.lift-days-badge.days-green { background: var(--green); }
+.lift-days-badge.days-yellow { background: #f9a825; }
+.lift-days-badge.days-red { background: var(--red, #e53935); }
 
 /* RPE pills */
 .rpe-pill {
