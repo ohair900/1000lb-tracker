@@ -57,25 +57,38 @@ export function updateFatigueBar() {
  * @param {string} mg - Muscle group name (e.g. 'Quads', 'Back')
  */
 export function showFatigueDetail(mg) {
-  const detail = calcFatigueDetail(mg);
-  if (!detail) {
-    $('fatigue-sheet-title').textContent = mg + ' Fatigue';
-    $('fatigue-sheet-body').innerHTML = '<div style="padding:24px 0;text-align:center;color:var(--text-dim)">Not enough data (need 3+ entries in 28 days)</div>';
-    openFatigueSheet();
-    return;
-  }
-
   $('fatigue-sheet-title').textContent = mg + ' Fatigue';
-  const statusColor = `var(--${detail.status})`;
   const byMuscle = calcFatigueByMuscle();
-
-  // Determine which view to show based on muscle group
   const backMuscles = ['Back', 'Glutes', 'Hams'];
   const currentView = backMuscles.includes(mg) ? 'back' : 'front';
   let html = '';
 
-  // 0. Body map
+  // Body map always shows at top
   html += renderBodyMap(byMuscle, mg, currentView);
+
+  const detail = calcFatigueDetail(mg);
+  if (!detail) {
+    html += '<div style="padding:24px 0;text-align:center;color:var(--text-dim)">Not enough data for ' + mg + ' (need 3+ entries in 28 days)</div>';
+    $('fatigue-sheet-body').innerHTML = html;
+    // Attach body map events even with no detail data
+    const bodyMapContainer = $('fatigue-sheet-body').querySelector('.body-map-container');
+    if (bodyMapContainer) {
+      initBodyMapEvents(
+        bodyMapContainer,
+        (muscle) => showFatigueDetail(muscle),
+        (view) => {
+          const newMapHtml = renderBodyMap(byMuscle, mg, view);
+          bodyMapContainer.outerHTML = newMapHtml;
+          const newContainer = $('fatigue-sheet-body').querySelector('.body-map-container');
+          if (newContainer) initBodyMapEvents(newContainer, (m) => showFatigueDetail(m), () => showFatigueDetail(mg));
+        }
+      );
+    }
+    openFatigueSheet();
+    return;
+  }
+
+  const statusColor = `var(--${detail.status})`;
 
   // 1. Status banner
   html += `<div class="fatigue-detail-banner ${detail.status}">` +
