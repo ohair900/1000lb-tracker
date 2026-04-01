@@ -186,7 +186,7 @@ export function renderWorkoutView() {
         lastWeight = formatWeight(lastAcc.weight) + ' ' + store.unit;
       }
       const lastReps = lastAcc.setsCompleted.join('/');
-      html += `<div class="prev-perf">Last: ${lastWeight} &times; ${lastReps} reps <span class="prev-perf-date">${lastAcc.date}</span></div>`;
+      html += `<div class="prev-perf">Last: ${lastWeight} &times; ${lastReps}${isTimeBased ? 's' : ' reps'} <span class="prev-perf-date">${lastAcc.date}</span></div>`;
     }
 
     // Set rows with per-set weights
@@ -199,7 +199,11 @@ export function renderWorkoutView() {
       html += `<div class="workout-set-row${done ? ' completed' : ''}${isCountingDown ? ' counting-down' : ''}" data-type="acc" data-acc="${ai}" data-set="${si}"${isTimeBased ? ' data-time-based="true"' : ''}>
         <div class="workout-set-check">${done ? '&#10003;' : ''}</div>
         <div class="workout-set-info">
-          Set ${si + 1}: ${isTimeBased ? (done ? repsVal + 's' : repTarget) : `${setWeight} &times; ${done ? repsVal : repTarget}${done ? ' reps' : ''}`}
+          Set ${si + 1}: ${isTimeBased
+            ? (isBodyweight
+              ? (done ? repsVal + 's' : repTarget)
+              : `${setWeight} &times; ${done ? repsVal + 's' : repTarget}`)
+            : `${setWeight} &times; ${done ? repsVal : repTarget}${done ? ' reps' : ''}`}
         </div>
         ${!done && isTimeBased ? (isCountingDown
           ? `<div class="exercise-countdown">

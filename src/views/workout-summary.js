@@ -9,6 +9,7 @@ import store from '../state/store.js';
 import { $ } from '../utils/helpers.js';
 import { LIFT_NAMES } from '../constants/lift-config.js';
 import { formatWeight } from '../formulas/units.js';
+import { ACCESSORY_DB } from '../data/accessories.js';
 
 // ---------------------------------------------------------------------------
 // Show workout summary
@@ -81,7 +82,9 @@ export function showWorkoutSummary(session, mesoAdaptation) {
           : formatWeight(acc.setWeights[0]) + ' ' + store.unit;
         weightStr += ' \u00b7 ';
       }
-      const repDetail = done > 0 ? acc.setsCompleted.join('/') + ' reps' : 'skipped';
+      const ex = ACCESSORY_DB[acc.exerciseId];
+      const isTimeBased = !!(ex && ex.timeBased);
+      const repDetail = done > 0 ? acc.setsCompleted.join('/') + (isTimeBased ? 's' : ' reps') : 'skipped';
       const color = done >= target ? 'var(--green)' : done > 0 ? 'var(--yellow)' : 'var(--text-dim)';
       html += `<div class="summary-acc-row">
         <span class="summary-acc-name">${acc.name}</span>
