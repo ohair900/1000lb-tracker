@@ -16,6 +16,7 @@ export const ACCESSORY_DB = {
   'sq-pallof': { name: 'Pallof Press', mainLift: 'squat', weakPoints: ['core'], pctOfTM: 0.10, sets: 3, repRange: [10,15], equipment: 'cable', category: 'core' },
   'sq-plank': { name: 'Plank', mainLift: 'squat', weakPoints: ['core'], pctOfTM: 0, sets: 3, repRange: [30,60], equipment: 'bodyweight', category: 'core', timeBased: true },
   'sq-wallsit': { name: 'Wall Sit', mainLift: 'squat', weakPoints: ['quads'], pctOfTM: 0, sets: 3, repRange: [30,60], equipment: 'bodyweight', category: 'quad-isolation', timeBased: true },
+  'sq-calfraise': { name: 'Calf Raises', mainLift: 'squat', weakPoints: ['quads'], pctOfTM: 0.30, sets: 3, repRange: [12,20], equipment: 'machine', category: 'quad-isolation' },
   // === BENCH ACCESSORIES ===
   'bn-pause': { name: 'Pause Bench', mainLift: 'bench', weakPoints: ['chest'], pctOfTM: 0.70, sets: 5, repRange: [3,5], equipment: 'barbell', category: 'press-variation' },
   'bn-spoto': { name: 'Spoto Press', mainLift: 'bench', weakPoints: ['chest'], pctOfTM: 0.65, sets: 4, repRange: [5,8], equipment: 'barbell', category: 'press-variation' },
@@ -51,6 +52,7 @@ export const ACCESSORY_DB = {
   'dl-facepull': { name: 'Face Pulls', mainLift: 'deadlift', weakPoints: ['upperback'], pctOfTM: 0.10, sets: 3, repRange: [12,20], equipment: 'cable', category: 'back' },
   'dl-dbshrugs': { name: 'Dumbbell Shrugs', mainLift: 'deadlift', weakPoints: ['grip','upperback'], pctOfTM: 0.25, sets: 3, repRange: [10,15], equipment: 'dumbbell', category: 'back' },
   'dl-pullup': { name: 'Pull-ups', mainLift: 'deadlift', weakPoints: ['floor','upperback'], pctOfTM: 0.10, sets: 3, repRange: [6,12], equipment: 'bodyweight', category: 'back' },
+  'dl-calfraise': { name: 'Calf Raises', mainLift: 'deadlift', weakPoints: ['floor'], pctOfTM: 0.30, sets: 3, repRange: [12,20], equipment: 'machine', category: 'posterior' },
   'dl-widepullup': { name: 'Wide-Grip Pull-ups', mainLift: 'deadlift', weakPoints: ['floor','upperback'], pctOfTM: 0.10, sets: 3, repRange: [6,12], equipment: 'bodyweight', category: 'back' },
   'dl-chinup': { name: 'Chin-ups', mainLift: 'deadlift', weakPoints: ['floor','upperback'], pctOfTM: 0.10, sets: 3, repRange: [6,12], equipment: 'bodyweight', category: 'back' }
 };

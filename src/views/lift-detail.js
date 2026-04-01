@@ -13,7 +13,7 @@ import { formatWeight, displayWeight } from '../formulas/units.js';
 import { calcProgression, detectPlateau } from '../formulas/progression.js';
 import { getClassification } from '../formulas/standards.js';
 import { getRepPRs } from '../systems/pr-tracking.js';
-import { openSheet, closeSheet } from '../ui/sheet.js';
+import { openSheet, closeSheet, enableSheetSwipeDismiss } from '../ui/sheet.js';
 
 function closeLiftDetail() {
   closeSheet('lift-detail-sheet', 'lift-detail-backdrop');
@@ -169,51 +169,7 @@ export function initLiftDetailSheet() {
   $('lift-detail-close').addEventListener('click', closeLiftDetail);
   $('lift-detail-backdrop').addEventListener('click', closeLiftDetail);
 
-  // Swipe dismiss
-  const sheet = $('lift-detail-sheet');
-  const backdrop = $('lift-detail-backdrop');
-  let startY = 0, currentY = 0, swiping = false;
-
-  sheet.addEventListener('touchstart', (e) => {
-    if (e.target.closest('.ld-sessions')) return;
-    startY = e.touches[0].clientY;
-    currentY = startY;
-    swiping = true;
-    sheet.style.transition = 'none';
-  }, { passive: true });
-
-  sheet.addEventListener('touchmove', (e) => {
-    if (!swiping) return;
-    currentY = e.touches[0].clientY;
-    const dy = Math.max(0, currentY - startY);
-    sheet.style.transform = `translateY(${dy}px)`;
-    backdrop.style.opacity = String(1 - dy / sheet.offsetHeight);
-  }, { passive: true });
-
-  sheet.addEventListener('touchend', () => {
-    if (!swiping) return;
-    const dy = currentY - startY;
-    const velocity = dy / (sheet.offsetHeight || 1);
-    if (dy > sheet.offsetHeight * 0.3 || velocity > 0.5) {
-      sheet.style.transition = 'transform 0.2s ease';
-      sheet.style.transform = 'translateY(100%)';
-      backdrop.style.transition = 'opacity 0.2s ease';
-      backdrop.style.opacity = '0';
-      setTimeout(closeLiftDetail, 200);
-    } else {
-      sheet.style.transition = 'transform 0.25s ease';
-      sheet.style.transform = 'translateY(0)';
-      backdrop.style.transition = 'opacity 0.25s ease';
-      backdrop.style.opacity = '1';
-      setTimeout(() => {
-        sheet.style.transform = '';
-        sheet.style.transition = '';
-        backdrop.style.opacity = '';
-        backdrop.style.transition = '';
-      }, 250);
-    }
-    swiping = false;
-  }, { passive: true });
+  enableSheetSwipeDismiss('lift-detail-sheet', 'lift-detail-backdrop', closeLiftDetail);
 
   // Dashboard card click handlers
   document.querySelectorAll('.card[data-lift]').forEach(card => {
