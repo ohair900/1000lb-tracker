@@ -18,7 +18,8 @@ import { displayWeight, formatWeight, lbsToKg } from '../formulas/units.js';
 import { calcWilks, calcDOTS } from '../formulas/scoring.js';
 import { calcProgression, detectPlateau } from '../formulas/progression.js';
 import { getClassification, getOverallClassification } from '../formulas/standards.js';
-import { calcFatigueByMuscle, calcFatigueDetail, getRecoveryAdvice } from '../systems/fatigue.js';
+import { calcFatigueByMuscle } from '../systems/fatigue.js';
+import { showFatigueDetail } from '../views/fatigue-sheet.js';
 import { calcStreak } from '../systems/streak.js';
 import { calcWeeklyRecap } from '../systems/weekly-recap.js';
 import { checkBadges } from '../systems/badges.js';
@@ -164,12 +165,6 @@ export function updateFatigueBar() {
 // Fatigue sheet helpers
 // ---------------------------------------------------------------------------
 
-function openFatigueSheet() {
-  $('fatigue-sheet-backdrop').style.display = 'block';
-  $('fatigue-sheet').style.display = 'block';
-  document.body.style.overflow = 'hidden';
-}
-
 function closeFatigueSheet() {
   const sheet = $('fatigue-sheet'), backdrop = $('fatigue-sheet-backdrop');
   sheet.style.transform = ''; sheet.style.transition = '';
@@ -179,83 +174,7 @@ function closeFatigueSheet() {
   document.body.style.overflow = '';
 }
 
-function showFatigueDetail(mg) {
-  const detail = calcFatigueDetail(mg);
-  if (!detail) {
-    $('fatigue-sheet-title').textContent = mg + ' Fatigue';
-    $('fatigue-sheet-body').innerHTML = '<div style="padding:24px 0;text-align:center;color:var(--text-dim)">Not enough data (need 3+ entries in 28 days)</div>';
-    openFatigueSheet();
-    return;
-  }
-
-  $('fatigue-sheet-title').textContent = mg + ' Fatigue';
-  const statusColor = `var(--${detail.status})`;
-  let html = '';
-
-  // 1. Status banner
-  html += `<div class="fatigue-detail-banner ${detail.status}">` +
-    `<span class="fatigue-dot ${detail.status}"></span>` +
-    `<span>${detail.label} Fatigue</span>` +
-    `<span style="margin-left:auto;font-size:var(--text-sm);opacity:0.8">ACWR ${detail.acwr !== null ? detail.acwr.toFixed(2) : '\u2014'}</span>` +
-    `</div>`;
-
-  // 2. Stat grid
-  html += `<div class="recap-stat-grid">` +
-    `<div class="recap-stat"><div class="recap-stat-label">7-Day Load</div><div class="recap-stat-value">${detail.load7.toFixed(1)}</div></div>` +
-    `<div class="recap-stat"><div class="recap-stat-label">Weekly Avg Load</div><div class="recap-stat-value">${detail.weeklyAvg28.toFixed(1)}</div></div>` +
-    `<div class="recap-stat"><div class="recap-stat-label">ACWR Ratio</div><div class="recap-stat-value" style="color:${statusColor}">${detail.acwr !== null ? detail.acwr.toFixed(2) : '\u2014'}</div></div>` +
-    `<div class="recap-stat"><div class="recap-stat-label">Data Points (28d)</div><div class="recap-stat-value">${detail.count28}</div></div>` +
-    `</div>`;
-
-  // 3. Recovery timeline
-  const rec = detail.recoveryEstimate;
-  if (rec.percentRecovered !== null) {
-    const pct = Math.round(rec.percentRecovered * 100);
-    const hrsAgo = detail.hoursSince !== null ? Math.round(detail.hoursSince) : null;
-    const lastStr = hrsAgo !== null ? (hrsAgo < 24 ? `${hrsAgo}h ago` : `${Math.round(hrsAgo / 24)}d ago`) : 'N/A';
-    html += `<div class="section-label-lg">Recovery (${pct}%)</div>`;
-    html += `<div class="fatigue-recovery-track"><div class="fatigue-recovery-fill ${detail.status}" style="width:${pct}%"></div></div>`;
-    html += `<div class="fatigue-recovery-meta"><span>Last trained: ${lastStr}</span><span>Est. ready: ${rec.readyLabel}</span></div>`;
-  }
-
-  // 4. Recovery advice
-  const advice = getRecoveryAdvice(detail);
-  html += `<div class="fatigue-advice ${detail.status}">${advice}</div>`;
-
-  // 5. Weekly tonnage trend
-  const maxTrend = Math.max(...detail.weeklyTrend, 1);
-  html += `<div class="section-label-lg">Weekly Load Trend</div>`;
-  html += `<div class="fatigue-trend-chart">`;
-  detail.weeklyTrend.forEach((val, i) => {
-    const h = Math.max(2, (val / maxTrend) * 100);
-    const color = i === 3 ? statusColor : 'var(--surface2)';
-    html += `<div class="fatigue-trend-bar"><div class="fatigue-trend-bar-fill" style="height:${h}%;background:${color}"></div></div>`;
-  });
-  html += `</div>`;
-  html += `<div class="fatigue-trend-labels"><span>W1</span><span>W2</span><span>W3</span><span>W4</span></div>`;
-
-  // 6. Contributing exercises
-  if (detail.contributors.length > 0) {
-    const maxContrib = Math.max(...detail.contributors.map(c => c.load7), 1);
-    html += `<div class="section-label-lg">Contributing Exercises</div>`;
-    detail.contributors.forEach(c => {
-      const pct = (c.load7 / maxContrib) * 100;
-      const barColor = c.lift && COLORS[c.lift] ? COLORS[c.lift] : 'var(--text-dim)';
-      const badgeBg = c.type === 'Main' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)';
-      const badgeColor = c.type === 'Main' ? 'var(--text)' : 'var(--text-dim)';
-      html += `<div class="fatigue-contributor">` +
-        `<span class="fatigue-contributor-name">${c.name}</span>` +
-        `<span class="fatigue-contributor-badge" style="background:${badgeBg};color:${badgeColor}">${c.type}</span>` +
-        `<span style="font-size:var(--text-xs);color:var(--text-dim)">${Math.round(c.muscleWeight * 100)}%</span>` +
-        `<div class="fatigue-contributor-bar"><div class="fatigue-contributor-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>` +
-        `<span class="fatigue-contributor-vol">${c.load7.toFixed(1)}</span>` +
-        `</div>`;
-    });
-  }
-
-  $('fatigue-sheet-body').innerHTML = html;
-  openFatigueSheet();
-}
+// showFatigueDetail is imported from fatigue-sheet.js
 
 // ---------------------------------------------------------------------------
 // Streak bar

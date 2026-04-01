@@ -348,6 +348,7 @@ class Store {
   saveNow(name) {
     this._dirtyStores.delete(name);
     const s = this.STORES[name];
+    if (!s) return;
     const val = s.get();
     try {
       if (val == null && s.nullable) localStorage.removeItem(s.key);
@@ -407,6 +408,7 @@ class Store {
 
     names.forEach((name) => {
       const s = this.STORES[name];
+      if (!s) return; // Guard against unknown store names
       const val = s.get();
       try {
         if (val == null && s.nullable) localStorage.removeItem(s.key);

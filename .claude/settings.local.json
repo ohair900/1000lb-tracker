@@ -27,7 +27,8 @@
       "Bash(echo \"</html>\")",
       "Bash(mv index.html.tmp index.html)",
       "Bash(mv check-imports.js check-imports.cjs)",
-      "Bash(node check-imports.cjs)"
+      "Bash(node check-imports.cjs)",
+      "Bash(npm run:*)"
     ]
   }
 }
