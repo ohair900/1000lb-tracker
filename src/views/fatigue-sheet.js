@@ -14,6 +14,8 @@ import {
   getRecoveryAdvice,
 } from '../systems/fatigue.js';
 import { openFatigueSheet } from '../ui/sheet.js';
+import { getCalibrationInfo } from '../systems/recovery-calibration.js';
+import { renderBodyMap, initBodyMapEvents } from '../views/body-map.js';
 
 // ---------------------------------------------------------------------------
 // Fatigue bar (dashboard widget)
@@ -65,7 +67,15 @@ export function showFatigueDetail(mg) {
 
   $('fatigue-sheet-title').textContent = mg + ' Fatigue';
   const statusColor = `var(--${detail.status})`;
+  const byMuscle = calcFatigueByMuscle();
+
+  // Determine which view to show based on muscle group
+  const backMuscles = ['Back', 'Glutes', 'Hams'];
+  const currentView = backMuscles.includes(mg) ? 'back' : 'front';
   let html = '';
+
+  // 0. Body map
+  html += renderBodyMap(byMuscle, mg, currentView);
 
   // 1. Status banner
   html += `<div class="fatigue-detail-banner ${detail.status}">` +
@@ -76,8 +86,8 @@ export function showFatigueDetail(mg) {
 
   // 2. Stat grid
   html += `<div class="recap-stat-grid">` +
-    `<div class="recap-stat"><div class="recap-stat-label">7-Day Tonnage</div><div class="recap-stat-value">${fmtNum(displayWeight(detail.ton7))}</div></div>` +
-    `<div class="recap-stat"><div class="recap-stat-label">Weekly Avg (28d)</div><div class="recap-stat-value">${fmtNum(displayWeight(detail.weeklyAvg28))}</div></div>` +
+    `<div class="recap-stat"><div class="recap-stat-label">7-Day Load</div><div class="recap-stat-value">${detail.load7.toFixed(1)}</div></div>` +
+    `<div class="recap-stat"><div class="recap-stat-label">Weekly Avg Load</div><div class="recap-stat-value">${detail.weeklyAvg28.toFixed(1)}</div></div>` +
     `<div class="recap-stat"><div class="recap-stat-label">ACWR Ratio</div><div class="recap-stat-value" style="color:${statusColor}">${detail.acwr !== null ? detail.acwr.toFixed(2) : '\u2014'}</div></div>` +
     `<div class="recap-stat"><div class="recap-stat-label">Data Points (28d)</div><div class="recap-stat-value">${detail.count28}</div></div>` +
     `</div>`;
@@ -93,13 +103,27 @@ export function showFatigueDetail(mg) {
     html += `<div class="fatigue-recovery-meta"><span>Last trained: ${lastStr}</span><span>Est. ready: ${rec.readyLabel}</span></div>`;
   }
 
-  // 4. Recovery advice
+  // 4. Recovery advice + calibration info
   const advice = getRecoveryAdvice(detail);
   html += `<div class="fatigue-advice ${detail.status}">${advice}</div>`;
 
+  // Calibration confidence
+  const calInfo = getCalibrationInfo(mg);
+  if (calInfo.isCalibrated) {
+    const confPct = Math.round(calInfo.confidence * 100);
+    const confLabel = calInfo.confidence >= 0.7
+      ? 'Personalized to your training'
+      : `Learning your patterns (${Math.max(0, 24 - calInfo.sampleCount)} more sessions needed)`;
+    html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:12px;display:flex;align-items:center;gap:6px">` +
+      `<span>Your recovery: ~${calInfo.hours}h</span>` +
+      `<span style="opacity:0.5">&middot;</span>` +
+      `<span>${confLabel}</span>` +
+      `</div>`;
+  }
+
   // 5. Weekly tonnage trend
   const maxTrend = Math.max(...detail.weeklyTrend, 1);
-  html += `<div class="section-label-lg">Weekly Tonnage Trend</div>`;
+  html += `<div class="section-label-lg">Weekly Load Trend</div>`;
   html += `<div class="fatigue-trend-chart">`;
   detail.weeklyTrend.forEach((val, i) => {
     const h = Math.max(2, (val / maxTrend) * 100);
@@ -111,10 +135,10 @@ export function showFatigueDetail(mg) {
 
   // 6. Contributing exercises
   if (detail.contributors.length > 0) {
-    const maxContrib = Math.max(...detail.contributors.map(c => c.ton7), 1);
+    const maxContrib = Math.max(...detail.contributors.map(c => c.load7), 1);
     html += `<div class="section-label-lg">Contributing Exercises</div>`;
     detail.contributors.forEach(c => {
-      const pctBar = (c.ton7 / maxContrib) * 100;
+      const pctBar = (c.load7 / maxContrib) * 100;
       const barColor = c.lift && COLORS[c.lift] ? COLORS[c.lift] : 'var(--text-dim)';
       const badgeBg = c.type === 'Main' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)';
       const badgeColor = c.type === 'Main' ? 'var(--text)' : 'var(--text-dim)';
@@ -123,12 +147,44 @@ export function showFatigueDetail(mg) {
         `<span class="fatigue-contributor-badge" style="background:${badgeBg};color:${badgeColor}">${c.type}</span>` +
         `<span style="font-size:var(--text-xs);color:var(--text-dim)">${Math.round(c.muscleWeight * 100)}%</span>` +
         `<div class="fatigue-contributor-bar"><div class="fatigue-contributor-bar-fill" style="width:${pctBar}%;background:${barColor}"></div></div>` +
-        `<span class="fatigue-contributor-vol">${fmtNum(displayWeight(c.ton7))}</span>` +
+        `<span class="fatigue-contributor-vol">${c.load7.toFixed(1)}</span>` +
         `</div>`;
     });
   }
 
   $('fatigue-sheet-body').innerHTML = html;
+
+  // Initialize body map interactions
+  const bodyMapContainer = $('fatigue-sheet-body').querySelector('.body-map-container');
+  if (bodyMapContainer) {
+    initBodyMapEvents(
+      bodyMapContainer,
+      (muscle) => showFatigueDetail(muscle), // Navigate to tapped muscle
+      (view) => {
+        // Re-render body map with new view
+        const mapEl = bodyMapContainer;
+        const newMapHtml = renderBodyMap(byMuscle, mg, view);
+        mapEl.outerHTML = newMapHtml;
+        // Re-attach events on new DOM
+        const newContainer = $('fatigue-sheet-body').querySelector('.body-map-container');
+        if (newContainer) {
+          initBodyMapEvents(
+            newContainer,
+            (muscle) => showFatigueDetail(muscle),
+            (v) => {
+              // Recursive toggle — simplified: just re-render the whole detail
+              showFatigueDetail(mg);
+            }
+          );
+          // Update toggle state
+          newContainer.querySelectorAll('.body-map-toggle-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.view === view);
+          });
+        }
+      }
+    );
+  }
+
   openFatigueSheet();
 }
 

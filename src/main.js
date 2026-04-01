@@ -37,6 +37,7 @@ import {
 } from './systems/programs.js';
 import { checkAutoRecap } from './systems/weekly-recap.js';
 import { checkComeback } from './systems/comeback.js';
+import { runCalibration } from './systems/recovery-calibration.js';
 import {
   recordMesocyclePerformance,
   adaptRemainingWeeks,
@@ -615,6 +616,7 @@ try { initPWA(); } catch { /* ignore */ }
 // ----- Step 15: Safe late init -----
 try { checkAutoRecap(); } catch (e) { console.warn('checkAutoRecap failed:', e); }
 try { checkComeback(); } catch (e) { console.warn('checkComeback failed:', e); }
+try { runCalibration(); } catch (e) { console.warn('runCalibration failed:', e); }
 try { showWelcomeScreen(); } catch (e) { console.warn('showWelcomeScreen failed:', e); }
 
 // ----- Step 16: Visibility change — flush pending sync -----

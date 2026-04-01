@@ -13,7 +13,7 @@ import { ACCESSORY_CAT_WEIGHTS, MUSCLE_GROUPS } from '../data/muscle-groups.js';
 import { MS_PER_DAY } from '../constants/time.js';
 import { roundToPlate } from '../formulas/plates.js';
 import { bestE1RM } from '../formulas/e1rm.js';
-import { calcFatigueByMuscle } from '../formulas/fatigue.js';
+import { calcFatigueByMuscle } from '../systems/fatigue.js';
 
 // ---------------------------------------------------------------------------
 // Accessory selection (simple wrapper)

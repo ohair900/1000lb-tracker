@@ -44,6 +44,7 @@ import {
   MESOCYCLE_HISTORY_KEY,
   STATS_COLLAPSED_KEY,
   LEADERBOARD_KEY,
+  RECOVERY_CALIBRATION_KEY,
 } from '../constants/storage-keys.js';
 
 import { CURRENT_VERSION } from '../constants/time.js';
@@ -93,6 +94,7 @@ class Store {
     this.activeMesocycle = null;
     this.mesocycleHistory = [];
     this.leaderboardOptedIn = true;
+    this.recoveryCalibration = null;
 
     // -----------------------------------------------------------------------
     // Ephemeral UI state — NOT persisted via the STORES registry.
@@ -235,6 +237,13 @@ class Store {
         get: () => this.mesocycleHistory,
         set: (v) => { this.mesocycleHistory = v; },
         default: [],
+      },
+      recoveryCalibration: {
+        key: RECOVERY_CALIBRATION_KEY,
+        get: () => this.recoveryCalibration,
+        set: (v) => { this.recoveryCalibration = v; },
+        default: null,
+        nullable: true,
       },
     };
 

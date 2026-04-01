@@ -201,8 +201,8 @@ function showFatigueDetail(mg) {
 
   // 2. Stat grid
   html += `<div class="recap-stat-grid">` +
-    `<div class="recap-stat"><div class="recap-stat-label">7-Day Tonnage</div><div class="recap-stat-value">${fmtNum(displayWeight(detail.ton7))}</div></div>` +
-    `<div class="recap-stat"><div class="recap-stat-label">Weekly Avg (28d)</div><div class="recap-stat-value">${fmtNum(displayWeight(detail.weeklyAvg28))}</div></div>` +
+    `<div class="recap-stat"><div class="recap-stat-label">7-Day Load</div><div class="recap-stat-value">${detail.load7.toFixed(1)}</div></div>` +
+    `<div class="recap-stat"><div class="recap-stat-label">Weekly Avg Load</div><div class="recap-stat-value">${detail.weeklyAvg28.toFixed(1)}</div></div>` +
     `<div class="recap-stat"><div class="recap-stat-label">ACWR Ratio</div><div class="recap-stat-value" style="color:${statusColor}">${detail.acwr !== null ? detail.acwr.toFixed(2) : '\u2014'}</div></div>` +
     `<div class="recap-stat"><div class="recap-stat-label">Data Points (28d)</div><div class="recap-stat-value">${detail.count28}</div></div>` +
     `</div>`;
@@ -224,7 +224,7 @@ function showFatigueDetail(mg) {
 
   // 5. Weekly tonnage trend
   const maxTrend = Math.max(...detail.weeklyTrend, 1);
-  html += `<div class="section-label-lg">Weekly Tonnage Trend</div>`;
+  html += `<div class="section-label-lg">Weekly Load Trend</div>`;
   html += `<div class="fatigue-trend-chart">`;
   detail.weeklyTrend.forEach((val, i) => {
     const h = Math.max(2, (val / maxTrend) * 100);
@@ -236,10 +236,10 @@ function showFatigueDetail(mg) {
 
   // 6. Contributing exercises
   if (detail.contributors.length > 0) {
-    const maxContrib = Math.max(...detail.contributors.map(c => c.ton7), 1);
+    const maxContrib = Math.max(...detail.contributors.map(c => c.load7), 1);
     html += `<div class="section-label-lg">Contributing Exercises</div>`;
     detail.contributors.forEach(c => {
-      const pct = (c.ton7 / maxContrib) * 100;
+      const pct = (c.load7 / maxContrib) * 100;
       const barColor = c.lift && COLORS[c.lift] ? COLORS[c.lift] : 'var(--text-dim)';
       const badgeBg = c.type === 'Main' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)';
       const badgeColor = c.type === 'Main' ? 'var(--text)' : 'var(--text-dim)';
@@ -248,7 +248,7 @@ function showFatigueDetail(mg) {
         `<span class="fatigue-contributor-badge" style="background:${badgeBg};color:${badgeColor}">${c.type}</span>` +
         `<span style="font-size:var(--text-xs);color:var(--text-dim)">${Math.round(c.muscleWeight * 100)}%</span>` +
         `<div class="fatigue-contributor-bar"><div class="fatigue-contributor-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>` +
-        `<span class="fatigue-contributor-vol">${fmtNum(displayWeight(c.ton7))}</span>` +
+        `<span class="fatigue-contributor-vol">${c.load7.toFixed(1)}</span>` +
         `</div>`;
     });
   }

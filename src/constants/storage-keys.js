@@ -25,6 +25,7 @@ export const MESOCYCLE_HISTORY_KEY = 'sbd-tracker-mesocycle-history';
 export const FIREBASE_CONFIG_KEY = 'sbd-tracker-firebase-config';
 export const STATS_COLLAPSED_KEY = 'sbd-tracker-stats-collapsed';
 export const LEADERBOARD_KEY = 'sbd-tracker-leaderboard';
+export const RECOVERY_CALIBRATION_KEY = 'sbd-tracker-recovery-calibration';
 
 export const ALL_DATA_KEYS = [
   STORAGE_KEY, PROFILE_KEY, GOALS_KEY, PRS_KEY, VERSION_KEY, CYCLES_KEY,

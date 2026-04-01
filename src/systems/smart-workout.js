@@ -7,7 +7,7 @@
 import store from '../state/store.js';
 import { LIFTS } from '../constants/lift-config.js';
 import { MS_PER_DAY } from '../constants/time.js';
-import { calcFatigueLift } from '../formulas/fatigue.js';
+import { calcFatigueLift } from '../systems/fatigue.js';
 import { detectPlateau, calcProgression } from '../formulas/progression.js';
 
 // ---------------------------------------------------------------------------
