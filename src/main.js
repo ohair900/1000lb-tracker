@@ -85,6 +85,7 @@ import {
   renderWorkoutView,
   updateWorkoutButton,
 } from './views/workout-overlay.js';
+import { initLiftDetailSheet } from './views/lift-detail.js';
 import {
   initBuilderOverlay,
   setBuilderDeps,
@@ -558,6 +559,7 @@ initChartsTab();
 initStatsTab();
 initModalListeners();
 initSheetListeners();
+initLiftDetailSheet();
 initSwipeToDelete();
 initProgramSection();
 initWorkoutOverlay();

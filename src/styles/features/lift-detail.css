@@ -1,0 +1,111 @@
+/* ===== Lift Detail Sheet ===== */
+
+.lift-detail-backdrop {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5); z-index: 999;
+}
+.lift-detail-sheet {
+  max-height: 85vh;
+}
+.lift-detail-sheet .fatigue-sheet-body {
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  max-height: calc(85vh - 56px);
+}
+
+/* Header */
+.ld-header {
+  display: flex; align-items: center; gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.ld-lift-name {
+  font-size: var(--text-lg); font-weight: 700; color: var(--text-strong);
+}
+.ld-plateau {
+  font-size: var(--text-xs); font-weight: 600; padding: 2px 8px;
+  border-radius: var(--radius-pill); background: rgba(255,152,0,0.15);
+  color: var(--yellow);
+}
+
+/* Metrics grid */
+.ld-metrics {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.ld-metric {
+  text-align: center; padding: var(--space-2);
+  background: var(--surface2); border-radius: var(--radius-md);
+}
+.ld-metric-value {
+  font-size: var(--text-base); font-weight: 700; color: var(--text-strong);
+}
+.ld-metric-value.up { color: var(--green); }
+.ld-metric-value.down { color: var(--red); }
+.ld-metric-value.flat { color: var(--text-dim); }
+.ld-metric-label {
+  font-size: var(--text-2xs); color: var(--text-dim); margin-top: 2px;
+}
+
+/* Goal bar */
+.ld-goal-bar {
+  height: 6px; background: var(--surface2); border-radius: var(--radius-pill);
+  margin-bottom: var(--space-3); overflow: hidden;
+}
+.ld-goal-fill {
+  height: 100%; background: var(--green); border-radius: var(--radius-pill);
+  transition: width 0.3s ease;
+}
+
+/* Milestone & progression */
+.ld-milestone, .ld-progression {
+  font-size: var(--text-sm); color: var(--text-dim); margin-bottom: var(--space-2);
+  padding: 6px 10px; background: var(--surface2); border-radius: var(--radius-sm);
+}
+.ld-milestone strong, .ld-progression strong { color: var(--text-strong); }
+
+/* Section titles */
+.ld-section-title {
+  font-size: var(--text-xs); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-dim);
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+/* Rep PRs */
+.ld-rep-prs {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2);
+}
+.ld-rep-pr {
+  text-align: center; padding: var(--space-2);
+  background: var(--surface2); border-radius: var(--radius-md);
+}
+.ld-rep-pr-reps {
+  font-size: var(--text-xs); font-weight: 700; color: var(--text-dim);
+  text-transform: uppercase;
+}
+.ld-rep-pr-weight {
+  font-size: var(--text-sm); font-weight: 700; color: var(--text-strong);
+  margin: 2px 0;
+}
+.ld-rep-pr-date {
+  font-size: var(--text-2xs); color: var(--text-muted);
+}
+
+/* Recent sessions */
+.ld-sessions {
+  display: flex; flex-direction: column; gap: var(--space-2);
+}
+.ld-session {
+  padding: 8px 10px; background: var(--surface2); border-radius: var(--radius-sm);
+}
+.ld-session-date {
+  font-size: var(--text-xs); font-weight: 600; color: var(--text-dim);
+}
+.ld-session-detail {
+  font-size: var(--text-sm); font-weight: 600; color: var(--text-strong);
+  margin: 2px 0;
+}
+.ld-session-e1rm {
+  font-weight: 400; color: var(--text-dim); font-size: var(--text-xs);
+}
+.ld-session-meta {
+  font-size: var(--text-xs); color: var(--text-muted);
+}

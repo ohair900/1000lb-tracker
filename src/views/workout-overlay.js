@@ -25,6 +25,7 @@ import {
   computeSetWeights,
   getAccessoryWeight,
   checkAccessoryProgression,
+  scoreAccessories,
 } from '../systems/workout-builder.js';
 import { showToast } from '../ui/toast.js';
 import {
@@ -173,7 +174,11 @@ export function renderWorkoutView() {
     const isTimeBased = !!(ex && ex.timeBased);
     const targetReps = acc.repRange[1];
     html += `<div class="workout-exercise">`;
-    html += `<div class="workout-exercise-name" data-exid="${acc.exerciseId}">${acc.name}${acc.progressed ? '<span class="acc-progression-badge">WEIGHT UP</span>' : ''}</div>`;
+    html += `<div class="workout-exercise-name" data-exid="${acc.exerciseId}" data-acc-toggle="${ai}">${acc.name}${acc.progressed ? '<span class="acc-progression-badge">WEIGHT UP</span>' : ''}</div>`;
+    html += `<div class="acc-action-bar" id="acc-action-bar-${ai}" style="display:none">
+      <button class="acc-swap-btn" data-acc-swap="${ai}">&#8644; Swap</button>
+      <button class="acc-remove-btn" data-acc-remove="${ai}">&times; Remove</button>
+    </div>`;
     html += `<div class="workout-exercise-meta">${acc.equipment}${!isBodyweight ? ` &bull; hit ${targetReps}${isTimeBased ? 's' : ' reps'} on all sets to increase weight` : ''}</div>`;
     const lastAcc = getLastAccPerformance(acc.exerciseId);
     if (lastAcc) {
@@ -372,6 +377,92 @@ export function initWorkoutOverlay() {
 
     // Prevent set-input clicks from toggling the row
     if (e.target.closest('.workout-set-input')) return;
+
+    // Toggle accessory action bar (swap/remove)
+    const accNameEl = e.target.closest('[data-acc-toggle]');
+    if (accNameEl) {
+      const ai = accNameEl.dataset.accToggle;
+      const bar = $('acc-action-bar-' + ai);
+      if (bar) {
+        // Close any other open action bars and alternatives
+        body.querySelectorAll('.acc-action-bar').forEach(b => {
+          if (b.id !== 'acc-action-bar-' + ai) b.style.display = 'none';
+        });
+        body.querySelectorAll('.acc-swap-alternatives').forEach(el => el.remove());
+        bar.style.display = bar.style.display === 'none' ? '' : 'none';
+      }
+      return;
+    }
+
+    // Remove accessory
+    const removeBtn = e.target.closest('.acc-remove-btn');
+    if (removeBtn) {
+      e.stopPropagation();
+      const ai = parseInt(removeBtn.dataset.accRemove);
+      const acc = store.workoutSession.accessories[ai];
+      if (!confirm(`Remove ${acc.name}?`)) return;
+      // Stop exercise timer if running for this accessory
+      if (store.exerciseTimer && store.exerciseTimer.accIdx === ai) {
+        stopExerciseTimer();
+      }
+      store.workoutSession.accessories.splice(ai, 1);
+      // Fix timer index if it pointed beyond the removed index
+      if (store.exerciseTimer && store.exerciseTimer.accIdx > ai) {
+        store.exerciseTimer.accIdx--;
+      }
+      store.saveWorkoutSession();
+      renderWorkoutView();
+      return;
+    }
+
+    // Swap accessory — show alternatives
+    const swapBtn = e.target.closest('.acc-swap-btn');
+    if (swapBtn) {
+      e.stopPropagation();
+      const ai = parseInt(swapBtn.dataset.accSwap);
+      const acc = store.workoutSession.accessories[ai];
+      const ex = ACCESSORY_DB[acc.exerciseId];
+      const container = swapBtn.closest('.workout-exercise');
+      // Toggle off if already showing
+      const existing = container.querySelector('.acc-swap-alternatives');
+      if (existing) { existing.remove(); return; }
+      // Get alternatives excluding current equipment
+      const allScored = scoreAccessories(store.workoutSession.mainLift, ex ? ex.equipment : null);
+      const usedIds = new Set(store.workoutSession.accessories.map(a => a.exerciseId));
+      const alternatives = allScored.filter(a => !usedIds.has(a.id)).slice(0, 5);
+      if (alternatives.length === 0) {
+        showToast('No alternatives available');
+        return;
+      }
+      const altDiv = document.createElement('div');
+      altDiv.className = 'acc-swap-alternatives';
+      alternatives.forEach(alt => {
+        const item = document.createElement('div');
+        item.className = 'acc-swap-alt-item';
+        item.innerHTML = `<span>${alt.name}</span><span class="acc-swap-alt-meta">${alt.equipment} &bull; ${alt.score}pts</span>`;
+        item.addEventListener('click', () => {
+          const newWeight = getAccessoryWeight(alt.id, store.workoutSession.mainLift);
+          const newSetWeights = computeSetWeights(newWeight, alt.sets);
+          const progressed = checkAccessoryProgression(alt.id, store.workoutSession.mainLift);
+          store.workoutSession.accessories[ai] = {
+            exerciseId: alt.id,
+            name: alt.name,
+            setWeights: newSetWeights,
+            targetSets: alt.sets,
+            repRange: [...alt.repRange],
+            equipment: alt.equipment,
+            setsCompleted: [],
+            progressed: !!progressed,
+          };
+          store.saveWorkoutSession();
+          renderWorkoutView();
+          showToast(`Swapped to ${alt.name}`);
+        });
+        altDiv.appendChild(item);
+      });
+      container.appendChild(altDiv);
+      return;
+    }
 
     // Per-set weight +/- buttons
     const weightBtn = e.target.closest('.acc-set-weight-btn');

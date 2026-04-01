@@ -143,13 +143,14 @@ export function checkAccessoryProgression(exerciseId, mainLift) {
  * @param {string} mainLift - 'squat' | 'bench' | 'deadlift'
  * @returns {Object[]} Scored accessories sorted by score descending
  */
-export function scoreAccessories(mainLift) {
+export function scoreAccessories(mainLift, excludeEquipment = null) {
   const weakPoint = store.workoutConfig.weakPoints[mainLift];
   const now = Date.now();
   const muscleFatigue = calcFatigueByMuscle();
 
   return Object.entries(ACCESSORY_DB)
     .filter(([, ex]) => ex.mainLift === mainLift)
+    .filter(([, ex]) => !excludeEquipment || ex.equipment !== excludeEquipment)
     .map(([id, ex]) => {
       let score = 0;
       const r = [];
