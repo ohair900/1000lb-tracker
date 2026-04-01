@@ -42,6 +42,22 @@ export function setTimerDeps(deps) {
 }
 
 // ---------------------------------------------------------------------------
+// Screen Wake Lock — keeps the screen on during timed exercises
+// ---------------------------------------------------------------------------
+
+let _wakeLock = null;
+
+async function requestWakeLock() {
+  try {
+    if (navigator.wakeLock) _wakeLock = await navigator.wakeLock.request('screen');
+  } catch { /* best-effort */ }
+}
+
+function releaseWakeLock() {
+  if (_wakeLock) { _wakeLock.release().catch(() => {}); _wakeLock = null; }
+}
+
+// ---------------------------------------------------------------------------
 // Audio helpers
 // ---------------------------------------------------------------------------
 
@@ -59,7 +75,9 @@ export function ensureAudioContext() {
 }
 
 /**
- * Play a two-tone beep (800 Hz then 1000 Hz) to signal timer completion.
+ * Play a pleasant three-note ascending chime (C5-E5-G5) to signal
+ * timer completion.  Each note layers a fundamental + octave harmonic
+ * with a smooth attack/decay envelope so it sounds warm, not harsh.
  */
 export function playBeep() {
   try {
@@ -67,21 +85,41 @@ export function playBeep() {
     const ac = store.sharedAudioCtx;
     if (!ac) return;
 
-    function tone(freq, delay) {
-      const t = ac.currentTime + delay;
-      const g = ac.createGain();
-      g.gain.value = 0.3;
-      g.connect(ac.destination);
-      const o = ac.createOscillator();
-      o.type = 'sine';
-      o.frequency.value = freq;
-      o.connect(g);
-      o.start(t);
-      o.stop(t + 0.3);
-    }
+    const notes = [
+      { freq: 523.25, start: 0,    dur: 0.3  },  // C5
+      { freq: 659.25, start: 0.2,  dur: 0.3  },  // E5
+      { freq: 783.99, start: 0.4,  dur: 0.45 },  // G5 (held slightly longer)
+    ];
 
-    tone(800, 0);
-    tone(1000, 0.35);
+    notes.forEach(({ freq, start, dur }) => {
+      const t = ac.currentTime + start;
+
+      // Fundamental
+      const osc = ac.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.45, t + 0.04);
+      g.gain.linearRampToValueAtTime(0, t + dur);
+      osc.connect(g);
+      g.connect(ac.destination);
+      osc.start(t);
+      osc.stop(t + dur);
+
+      // Octave harmonic for shimmer
+      const osc2 = ac.createOscillator();
+      osc2.type = 'sine';
+      osc2.frequency.value = freq * 2;
+      const g2 = ac.createGain();
+      g2.gain.setValueAtTime(0, t);
+      g2.gain.linearRampToValueAtTime(0.15, t + 0.04);
+      g2.gain.linearRampToValueAtTime(0, t + dur);
+      osc2.connect(g2);
+      g2.connect(ac.destination);
+      osc2.start(t);
+      osc2.stop(t + dur);
+    });
   } catch { /* ignore */ }
 }
 
@@ -179,6 +217,7 @@ function completeExerciseTimer() {
 export function startExerciseTimer(accIdx, setIdx) {
   stopExerciseTimer();
   ensureAudioContext();
+  requestWakeLock();
   const acc = store.workoutSession.accessories[accIdx];
   const duration = acc.repRange[1];
   store.exerciseTimer = {
@@ -221,6 +260,7 @@ export function stopExerciseTimer() {
     clearInterval(store.exerciseTimer.interval);
   }
   store.exerciseTimer = null;
+  releaseWakeLock();
 }
 
 /**
