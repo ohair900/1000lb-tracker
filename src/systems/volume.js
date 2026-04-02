@@ -5,7 +5,7 @@
 
 import store from '../state/store.js';
 import { LIFTS } from '../constants/lift-config.js';
-import { MS_PER_DAY } from '../constants/time.js';
+import { MS_PER_DAY, SAME_SESSION_MS } from '../constants/time.js';
 import { getWeekKey, getMonthKey } from '../utils/date.js';
 
 // ---------------------------------------------------------------------------
@@ -108,7 +108,7 @@ export function groupSessions(filteredEntries) {
   let current = null;
 
   sorted.forEach(e => {
-    if (!current || (current.entries[current.entries.length - 1].timestamp - e.timestamp) > 7200000) {
+    if (!current || (current.entries[current.entries.length - 1].timestamp - e.timestamp) > SAME_SESSION_MS) {
       current = { entries: [e], lifts: new Set([e.lift]) };
       sessions.push(current);
     } else {

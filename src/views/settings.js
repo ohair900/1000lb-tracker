@@ -7,7 +7,7 @@ import store from '../state/store.js';
 import { $ } from '../utils/helpers.js';
 import { LIFTS, COLORS, LIFT_NAMES } from '../constants/lift-config.js';
 import {
-  UNIT_KEY, DASH_WIDGETS_KEY, ACCENT_KEY, VERSION_KEY,
+  UNIT_KEY, BADGES_KEY, DASH_WIDGETS_KEY, ACCENT_KEY, VERSION_KEY,
   TOTAL_CELEBRATED_KEY, ALL_DATA_KEYS
 } from '../constants/storage-keys.js';
 import { CURRENT_VERSION } from '../constants/time.js';
@@ -174,7 +174,7 @@ function handleImport(ev) {
     if (data.cycles) store.cycles = data.cycles;
     if (data.programs) { store.programConfig = data.programs; store.saveProgramConfig(); }
     if (data.unit) { store.unit = data.unit; localStorage.setItem(UNIT_KEY, store.unit); }
-    if (data.badges) { store.unlockedBadges = data.badges; localStorage.setItem('sbd-tracker-badges', JSON.stringify(store.unlockedBadges)); }
+    if (data.badges) { store.unlockedBadges = data.badges; localStorage.setItem(BADGES_KEY, JSON.stringify(store.unlockedBadges)); }
     if (data.dashboardWidgets) { store.dashboardWidgets = { ...store.dashboardWidgets, ...data.dashboardWidgets }; localStorage.setItem(DASH_WIDGETS_KEY, JSON.stringify(store.dashboardWidgets)); }
     if (data.accentColor) { store.accentColor = data.accentColor; localStorage.setItem(ACCENT_KEY, store.accentColor); applyAccentColor(); }
     if (data.celebratedTotals) { localStorage.setItem(TOTAL_CELEBRATED_KEY, JSON.stringify(data.celebratedTotals)); }

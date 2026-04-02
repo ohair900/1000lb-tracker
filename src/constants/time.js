@@ -8,3 +8,5 @@ export const WINDOW_4_WEEKS = 28;
 export const WINDOW_8_WEEKS = 56;
 export const WINDOW_3_MONTHS = 90;
 export const WINDOW_6_MONTHS = 180;
+
+export const SAME_SESSION_MS = 7200000;

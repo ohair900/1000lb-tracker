@@ -10,7 +10,7 @@
  */
 
 import store from '../state/store.js';
-import { MS_PER_DAY } from '../constants/time.js';
+import { MS_PER_DAY, SAME_SESSION_MS } from '../constants/time.js';
 import {
   MUSCLE_GROUPS,
   MUSCLE_RECOVERY_HOURS,
@@ -53,7 +53,7 @@ function calibrateRecovery(mg) {
     .forEach(e => {
       // Group entries within 2 hours as same session
       const last = sessions[sessions.length - 1];
-      if (last && (e.timestamp - last.timestamp) < 2 * 60 * 60 * 1000) {
+      if (last && (e.timestamp - last.timestamp) < SAME_SESSION_MS) {
         // Update session with best e1rm
         if (e.e1rm > last.e1rm) {
           last.e1rm = e.e1rm;

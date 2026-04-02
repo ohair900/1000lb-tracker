@@ -10,36 +10,7 @@
 import store from '../state/store.js';
 import { MS_PER_DAY } from '../constants/time.js';
 import { LIFT_NAMES } from '../constants/lift-config.js';
-
-/**
- * Group an array of entries into sessions (separated by >2 hour gaps).
- * Entries should already be sorted newest-first.
- *
- * @param {Object[]} filteredEntries - Entries sorted by timestamp descending
- * @returns {Object[]} Array of session objects with { entries, lifts, date, timestamp, volume, sets }
- */
-function groupSessions(filteredEntries) {
-  const sorted = [...filteredEntries].sort((a, b) => b.timestamp - a.timestamp);
-  const sessions = [];
-  let current = null;
-  sorted.forEach(e => {
-    if (!current || (current.entries[current.entries.length - 1].timestamp - e.timestamp) > 7200000) {
-      current = { entries: [e], lifts: new Set([e.lift]) };
-      sessions.push(current);
-    } else {
-      current.entries.push(e);
-      current.lifts.add(e.lift);
-    }
-  });
-  return sessions.map(s => ({
-    entries: s.entries,
-    lifts: [...s.lifts],
-    date: s.entries[0].date,
-    timestamp: s.entries[0].timestamp,
-    volume: s.entries.reduce((sum, e) => sum + e.weight * e.reps, 0),
-    sets: s.entries.length,
-  }));
-}
+import { groupSessions } from './volume.js';
 
 /**
  * Check if the user is coming back after a 14+ day break.

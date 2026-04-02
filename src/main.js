@@ -597,9 +597,13 @@ $('timer-presets').querySelectorAll('.timer-preset').forEach(b => {
   b.classList.toggle('active', parseInt(b.dataset.secs) === store.timerDuration);
 });
 
-// Resize handler for chart re-render
+// Resize handler for chart re-render (debounced)
+let _resizeTimer;
 window.addEventListener('resize', () => {
-  if (store.currentTab === 'charts') renderChart();
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(() => {
+    if (store.currentTab === 'charts') renderChart();
+  }, 250);
 });
 
 // ----- Step 13: Auth listener (Firebase) -----

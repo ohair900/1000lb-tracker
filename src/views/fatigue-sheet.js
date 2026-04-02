@@ -56,7 +56,7 @@ export function updateFatigueBar() {
  * @param {string} mg - Muscle group name (e.g. 'Quads', 'Back')
  */
 export function showFatigueDetail(mg) {
-  $('fatigue-sheet-title').textContent = mg + ' Fatigue';
+  $('fatigue-sheet-title').textContent = mg;
   let html = '';
 
   const detail = calcFatigueDetail(mg);
@@ -67,42 +67,48 @@ export function showFatigueDetail(mg) {
     return;
   }
 
-  const statusColor = `var(--${detail.status})`;
-
-  // 1. Status banner
-  html += `<div class="fatigue-detail-banner ${detail.status}">` +
-    `<span class="fatigue-dot ${detail.status}"></span>` +
-    `<span>${detail.label} Fatigue</span>` +
-    `<span style="margin-left:auto;font-size:var(--text-sm);opacity:0.8">ACWR ${detail.acwr !== null ? detail.acwr.toFixed(2) : '\u2014'}</span>` +
-    `</div>`;
-
-  // 2. Stat grid
-  html += `<div class="recap-stat-grid">` +
-    `<div class="recap-stat"><div class="recap-stat-label">7-Day Load</div><div class="recap-stat-value">${detail.load7.toFixed(1)}</div></div>` +
-    `<div class="recap-stat"><div class="recap-stat-label">Weekly Avg Load</div><div class="recap-stat-value">${detail.weeklyAvg28.toFixed(1)}</div></div>` +
-    `<div class="recap-stat"><div class="recap-stat-label">ACWR Ratio</div><div class="recap-stat-value" style="color:${statusColor}">${detail.acwr !== null ? detail.acwr.toFixed(2) : '\u2014'}</div></div>` +
-    `<div class="recap-stat"><div class="recap-stat-label">Data Points (28d)</div><div class="recap-stat-value">${detail.count28}</div></div>` +
-    `</div>`;
-
-  // 3. Recovery timeline
+  // Compute display status to match dashboard cards
   const rec = detail.recoveryEstimate;
-  if (rec.percentRecovered !== null) {
-    const pct = Math.round(rec.percentRecovered * 100);
+  const recoveryPct = rec.percentRecovered;
+  let displayStatus;
+  if (detail.status === 'red') displayStatus = 'red';
+  else if (detail.status === 'yellow' && recoveryPct !== null && recoveryPct < 0.5) displayStatus = 'red';
+  else if (detail.status === 'yellow') displayStatus = 'yellow';
+  else if (recoveryPct !== null && recoveryPct < 0.5) displayStatus = 'orange';
+  else if (recoveryPct !== null && recoveryPct < 1.0) displayStatus = 'yellow';
+  else displayStatus = 'green';
+  const displayColor = `var(--${displayStatus})`;
+
+  // 1. Recovery hero — leads with recovery % to match dashboard cards
+  if (recoveryPct !== null) {
+    const pct = Math.round(recoveryPct * 100);
     const hrsAgo = detail.hoursSince !== null ? Math.round(detail.hoursSince) : null;
     const lastStr = hrsAgo !== null ? (hrsAgo < 24 ? `${hrsAgo}h ago` : `${Math.round(hrsAgo / 24)}d ago`) : 'N/A';
-    html += `<div class="section-label-lg">Recovery (${pct}%)</div>`;
-    html += `<div class="fatigue-recovery-track"><div class="fatigue-recovery-fill ${detail.status}" style="width:${pct}%"></div></div>`;
-    html += `<div class="fatigue-recovery-meta"><span>Last trained: ${lastStr}</span><span>Est. ready: ${rec.readyLabel}</span></div>`;
+    html += `<div class="fatigue-detail-banner ${displayStatus}">` +
+      `<span style="font-size:var(--text-2xl);font-weight:800">${pct}%</span>` +
+      `<span style="font-size:var(--text-sm);opacity:0.8">recovered</span>` +
+      `<span style="margin-left:auto;font-size:var(--text-xs);opacity:0.7">Last: ${lastStr}</span>` +
+      `</div>`;
+    html += `<div class="fatigue-recovery-track"><div class="fatigue-recovery-fill ${displayStatus}" style="width:${pct}%"></div></div>`;
+    html += `<div class="fatigue-recovery-meta"><span>Est. ready: ${rec.readyLabel}</span><span>Base recovery: ~${Math.round(rec.baseHours)}h</span></div>`;
   }
 
-  // 4. Recovery advice + calibration info
+  // 2. Recovery advice
   const advice = getRecoveryAdvice(detail);
-  html += `<div class="fatigue-advice ${detail.status}">${advice}</div>`;
+  html += `<div class="fatigue-advice ${displayStatus}">${advice}</div>`;
+
+  // 3. Stat grid
+  const statusColor = `var(--${detail.status})`;
+  html += `<div class="recap-stat-grid">` +
+    `<div class="recap-stat"><div class="recap-stat-label">7-Day Load</div><div class="recap-stat-value">${detail.load7.toFixed(1)}</div></div>` +
+    `<div class="recap-stat"><div class="recap-stat-label">Weekly Avg</div><div class="recap-stat-value">${detail.weeklyAvg28.toFixed(1)}</div></div>` +
+    `<div class="recap-stat"><div class="recap-stat-label">ACWR</div><div class="recap-stat-value" style="color:${statusColor}">${detail.acwr !== null ? detail.acwr.toFixed(2) : '\u2014'}</div></div>` +
+    `<div class="recap-stat"><div class="recap-stat-label">Sessions (28d)</div><div class="recap-stat-value">${detail.count28}</div></div>` +
+    `</div>`;
 
   // Calibration confidence
   const calInfo = getCalibrationInfo(mg);
   if (calInfo.isCalibrated) {
-    const confPct = Math.round(calInfo.confidence * 100);
     const confLabel = calInfo.confidence >= 0.7
       ? 'Personalized to your training'
       : `Learning your patterns (${Math.max(0, 24 - calInfo.sampleCount)} more sessions needed)`;
@@ -113,13 +119,13 @@ export function showFatigueDetail(mg) {
       `</div>`;
   }
 
-  // 5. Weekly tonnage trend
+  // 4. Weekly tonnage trend
   const maxTrend = Math.max(...detail.weeklyTrend, 1);
   html += `<div class="section-label-lg">Weekly Load Trend</div>`;
   html += `<div class="fatigue-trend-chart">`;
   detail.weeklyTrend.forEach((val, i) => {
     const h = Math.max(2, (val / maxTrend) * 100);
-    const color = i === 3 ? statusColor : 'var(--surface2)';
+    const color = i === 3 ? displayColor : 'var(--surface2)';
     html += `<div class="fatigue-trend-bar"><div class="fatigue-trend-bar-fill" style="height:${h}%;background:${color}"></div></div>`;
   });
   html += `</div>`;

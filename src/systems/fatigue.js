@@ -115,8 +115,8 @@ function getThresholds() {
   const p90 = acwrValues[Math.floor(acwrValues.length * 0.90)];
 
   _calibratedThresholds = {
-    high: Math.max(1.2, p90),
-    mod: Math.max(1.0, p75),
+    high: Math.max(1.4, p90),
+    mod: Math.max(1.1, p75),
   };
   _calibrationTimestamp = now;
   return _calibratedThresholds;
@@ -270,12 +270,15 @@ function computeEWMA(dailyLoads) {
  */
 function classifyACWR(acuteEWMA, chronicEWMA, densityMult) {
   const thresholds = getThresholds();
-  const acwr = chronicEWMA > 0.001 ? (acuteEWMA * densityMult) / chronicEWMA : null;
-  let status = 'green', label = 'Low';
-  if (acwr !== null) {
-    if (acwr > thresholds.high) { status = 'red'; label = 'High'; }
-    else if (acwr > thresholds.mod) { status = 'yellow'; label = 'Med'; }
+  // Load floor: don't flag muscles with trivial absolute loads
+  if (chronicEWMA < 0.15) {
+    const acwr = chronicEWMA > 0.001 ? (acuteEWMA * densityMult) / chronicEWMA : null;
+    return { acwr, status: 'green', label: 'Low' };
   }
+  const acwr = (acuteEWMA * densityMult) / chronicEWMA;
+  let status = 'green', label = 'Low';
+  if (acwr > thresholds.high) { status = 'red'; label = 'High'; }
+  else if (acwr > thresholds.mod) { status = 'yellow'; label = 'Med'; }
   return { acwr, status, label };
 }
 
@@ -404,7 +407,17 @@ export function calcFatigueByMuscle() {
     const { acute, chronic, seeded } = computeEWMA(dailyLoads);
     if (!seeded) { results[mg] = null; return; }
 
-    const density = calcMuscleDensity(main7, acc7, mg);
+    // Determine if muscle is directly loaded (max weight >= 0.25 from any recent lift)
+    let maxWeight = 0;
+    main7.forEach(e => {
+      const w = MAIN_LIFT_WEIGHTS[e.lift];
+      if (w && w[mg] > maxWeight) maxWeight = w[mg];
+    });
+    const isDirect = maxWeight >= 0.25;
+
+    // Scale density multiplier for indirectly-loaded muscles
+    const rawDensity = calcMuscleDensity(main7, acc7, mg);
+    const density = isDirect ? rawDensity : 1.0 + (rawDensity - 1.0) * 0.3;
     const { acwr, status, label } = classifyACWR(acute, chronic, density);
 
     // Lightweight recovery estimate for display
@@ -415,21 +428,23 @@ export function calcFatigueByMuscle() {
       : null;
 
     // Combined display status (ACWR + recovery)
-    let displayStatus, displayLabel;
+    let displayStatus;
     if (status === 'red') {
-      displayStatus = 'red'; displayLabel = 'Overreaching';
+      displayStatus = 'red';
     } else if (status === 'yellow' && recoveryPct !== null && recoveryPct < 0.5) {
-      displayStatus = 'red'; displayLabel = 'Fatigued';
+      displayStatus = 'red';
     } else if (status === 'yellow') {
       displayStatus = 'yellow';
-      displayLabel = recoveryPct !== null && recoveryPct < 1.0 ? 'Building' : 'Elevated';
     } else if (recoveryPct !== null && recoveryPct < 0.5) {
-      displayStatus = 'orange'; displayLabel = 'Recovering';
+      displayStatus = 'orange';
     } else if (recoveryPct !== null && recoveryPct < 1.0) {
-      displayStatus = 'yellow'; displayLabel = 'Almost Ready';
+      displayStatus = 'yellow';
     } else {
-      displayStatus = 'green'; displayLabel = 'Fresh';
+      displayStatus = 'green';
     }
+
+    // Display label is the recovery percentage
+    const displayLabel = recoveryPct !== null ? Math.round(recoveryPct * 100) + '%' : '\u2014';
 
     results[mg] = { acwr, status, label, displayStatus, displayLabel, recoveryPct, hoursSince };
     anyValid = true;
