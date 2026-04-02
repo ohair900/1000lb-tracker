@@ -36,16 +36,10 @@ const FRONT_MUSCLES = {
     'M 68,58 L 68,72 L 74,76 C 72,82 66,86 58,86 L 52,86 C 50,82 50,74 50,64 L 50,58 Z',
   ],
   Biceps: [
-    // Left inner arm
-    'M 26,76 C 24,82 22,90 22,96 L 28,96 C 30,90 32,82 32,76 Z',
-    // Right inner arm
-    'M 74,76 C 76,82 78,90 78,96 L 72,96 C 70,90 68,82 68,76 Z',
-  ],
-  Triceps: [
-    // Left outer arm
-    'M 16,66 C 14,74 12,84 12,92 L 12,96 L 22,96 C 22,90 24,82 26,76 L 20,76 C 18,72 16,68 16,66 Z',
-    // Right outer arm
-    'M 84,66 C 86,74 88,84 88,92 L 88,96 L 78,96 C 78,90 76,82 74,76 L 80,76 C 82,72 84,68 84,66 Z',
+    // Left arm (front view shows biceps)
+    'M 16,66 C 14,74 12,84 12,92 L 12,96 L 28,96 C 30,90 32,82 32,76 L 26,76 L 20,76 C 18,72 16,68 16,66 Z',
+    // Right arm
+    'M 84,66 C 86,74 88,84 88,92 L 88,96 L 72,96 C 70,90 68,82 68,76 L 74,76 L 80,76 C 82,72 84,68 84,66 Z',
   ],
   Core: [
     // Abs — tapered
@@ -60,6 +54,12 @@ const FRONT_MUSCLES = {
 };
 
 const BACK_MUSCLES = {
+  Triceps: [
+    // Left arm (back view shows triceps)
+    'M 16,66 C 14,74 12,84 12,92 L 12,96 L 28,96 C 30,90 32,82 32,76 L 26,76 L 20,76 C 18,72 16,68 16,66 Z',
+    // Right arm
+    'M 84,66 C 86,74 88,84 88,92 L 88,96 L 72,96 C 70,90 68,82 68,76 L 74,76 L 80,76 C 82,72 84,68 84,66 Z',
+  ],
   'Upper Back': [
     // Left upper back — traps, rhomboids
     'M 32,58 C 28,62 26,68 26,74 L 30,80 L 38,78 L 48,78 L 48,58 Z',

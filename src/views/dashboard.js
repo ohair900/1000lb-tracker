@@ -164,8 +164,8 @@ export function updateFatigueBar() {
     return;
   }
 
-  const frontGroups = ['Shoulders', 'Chest', 'Biceps', 'Triceps', 'Core', 'Quads'];
-  const backGroups = ['Upper Back', 'Lower Back', 'Glutes', 'Hams'];
+  const frontGroups = ['Shoulders', 'Chest', 'Biceps', 'Core', 'Quads'];
+  const backGroups = ['Upper Back', 'Lower Back', 'Triceps', 'Glutes', 'Hams'];
 
   function buildCards(groups) {
     return groups.map(mg => {
