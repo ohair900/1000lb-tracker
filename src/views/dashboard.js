@@ -21,6 +21,7 @@ import { getClassification, getOverallClassification } from '../formulas/standar
 import { calcFatigueByMuscle } from '../systems/fatigue.js';
 import { showFatigueDetail } from '../views/fatigue-sheet.js';
 import { renderBodyMap, initBodyMapEvents } from '../views/body-map.js';
+import { updatePlateauCards } from '../views/plateau-analysis.js';
 import { calcStreak } from '../systems/streak.js';
 import { calcWeeklyRecap } from '../systems/weekly-recap.js';
 import { checkBadges } from '../systems/badges.js';
@@ -521,6 +522,7 @@ export function updateDashboard() {
   if (store.dashboardWidgets.streak) updateStreakBar(); else $('streak-bar').style.display = 'none';
   if (store.dashboardWidgets.recap) renderRecapCard(); else $('recap-card').style.display = 'none';
   updatePRStreakBar();
+  updatePlateauCards();
   checkAndCelebrateMilestone();
   checkBadges();
 }

@@ -1,0 +1,176 @@
+/* ===== Plateau Breaker ===== */
+
+/* ---- Dashboard Alert Cards ---- */
+.pb-cards { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+
+.pb-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-radius: var(--radius-md);
+  background: var(--surface); border-left: 3px solid var(--orange);
+  cursor: pointer; transition: transform var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.pb-card:active { transform: scale(0.97); }
+.pb-card-icon { font-size: 1.1rem; flex-shrink: 0; }
+.pb-card-body { flex: 1; min-width: 0; }
+.pb-card-lift {
+  font-size: var(--text-sm); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.pb-card-lift.squat { color: var(--squat); }
+.pb-card-lift.bench { color: var(--bench); }
+.pb-card-lift.deadlift { color: var(--deadlift); }
+.pb-card-summary {
+  font-size: var(--text-xs); color: var(--text-dim); margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pb-card-arrow { color: var(--text-dim); opacity: 0.4; font-size: var(--text-sm); flex-shrink: 0; }
+
+/* ---- Diagnosis Section (in lift-detail & sheet) ---- */
+.pb-diagnosis {
+  padding: var(--space-4); border-radius: var(--radius-lg);
+  background: rgba(251,140,0,0.08); border: 1px solid rgba(251,140,0,0.20);
+  margin-bottom: var(--space-4);
+}
+.pb-diagnosis-header {
+  display: flex; align-items: center; gap: 8px; margin-bottom: var(--space-3);
+}
+.pb-diagnosis-icon { font-size: 1.2rem; }
+.pb-diagnosis-label {
+  font-size: var(--text-base); font-weight: 700; color: var(--orange);
+}
+
+/* Confidence bar */
+.pb-confidence { margin-bottom: var(--space-3); }
+.pb-confidence-label {
+  font-size: var(--text-xs); color: var(--text-dim); margin-bottom: 4px;
+}
+.pb-confidence-track {
+  height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden;
+}
+.pb-confidence-fill {
+  height: 100%; border-radius: 2px; background: var(--orange);
+  transition: width 0.4s ease;
+}
+
+/* Evidence list */
+.pb-evidence { margin-bottom: var(--space-3); }
+.pb-evidence-item {
+  font-size: var(--text-sm); color: var(--text); padding: 3px 0 3px 16px;
+  position: relative; line-height: 1.4;
+}
+.pb-evidence-item::before {
+  content: '\2022'; position: absolute; left: 0; color: var(--orange);
+}
+
+/* Action items */
+.pb-actions-title {
+  font-size: var(--text-sm); font-weight: 700; color: var(--text-strong);
+  margin-bottom: var(--space-2);
+}
+.pb-action-item {
+  font-size: var(--text-sm); color: var(--text); padding: 4px 0 4px 20px;
+  position: relative; line-height: 1.4;
+}
+.pb-action-item::before {
+  content: attr(data-num); position: absolute; left: 0;
+  font-weight: 700; color: var(--orange); font-size: var(--text-xs);
+}
+
+/* ---- Generate / Activate Buttons ---- */
+.pb-generate-btn, .pb-activate-btn {
+  display: block; width: 100%; padding: 12px;
+  border: none; border-radius: var(--radius-md);
+  font-size: var(--text-sm); font-weight: 700;
+  cursor: pointer; margin-top: var(--space-3);
+  transition: opacity var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.pb-generate-btn:active, .pb-activate-btn:active { opacity: 0.8; }
+.pb-generate-btn {
+  background: var(--orange); color: #000;
+}
+.pb-activate-btn {
+  background: var(--green); color: #000;
+}
+
+/* ---- Mini-Cycle Preview ---- */
+.pb-mini-cycle { margin-top: var(--space-3); }
+.pb-mini-cycle-title {
+  font-size: var(--text-sm); font-weight: 700; color: var(--text-strong);
+  margin-bottom: var(--space-2);
+}
+.pb-mini-cycle-summary {
+  font-size: var(--text-sm); color: var(--text-dim);
+  margin-bottom: var(--space-3); line-height: 1.4;
+}
+
+.pb-week {
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface2); border-radius: var(--radius-md);
+  margin-bottom: var(--space-2);
+}
+.pb-week-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+.pb-week-num {
+  font-size: var(--text-xs); font-weight: 700; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.pb-week-phase {
+  font-size: var(--text-xs); font-weight: 600; color: var(--orange);
+  padding: 1px 8px; background: rgba(251,140,0,0.12);
+  border-radius: var(--radius-pill);
+}
+.pb-week-sets {
+  font-size: var(--text-sm); font-weight: 600; color: var(--text-strong);
+  margin-bottom: 2px;
+}
+.pb-week-rpe {
+  font-size: var(--text-xs); color: var(--text-dim);
+}
+.pb-week-accessories {
+  font-size: var(--text-xs); color: var(--text-dim); margin-top: 4px;
+  font-style: italic;
+}
+.pb-week-notes {
+  font-size: var(--text-xs); color: var(--text-dim); margin-top: 4px;
+  opacity: 0.7;
+}
+
+/* ---- Intensity Distribution (sheet only) ---- */
+.pb-intensity-chart {
+  display: flex; align-items: flex-end; gap: 4px; height: 60px;
+  margin-bottom: 4px;
+}
+.pb-intensity-bar {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: flex-end; height: 100%;
+}
+.pb-intensity-bar-fill {
+  width: 100%; border-radius: 3px 3px 0 0; min-height: 2px;
+  background: var(--orange);
+}
+.pb-intensity-labels {
+  display: flex; gap: 4px; margin-bottom: var(--space-3);
+}
+.pb-intensity-labels span {
+  flex: 1; text-align: center; font-size: 0.55rem; color: var(--text-dim);
+}
+
+/* ---- Secondary Causes (in sheet) ---- */
+.pb-secondary { margin-top: var(--space-4); }
+.pb-secondary-title {
+  font-size: var(--text-xs); font-weight: 700; text-transform: uppercase;
+  color: var(--text-dim); letter-spacing: 0.04em; margin-bottom: var(--space-2);
+}
+.pb-secondary-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0; font-size: var(--text-sm);
+}
+.pb-secondary-score {
+  font-size: var(--text-xs); font-weight: 700; color: var(--text-dim);
+  min-width: 28px;
+}
+.pb-secondary-label { color: var(--text); }

@@ -420,11 +420,51 @@ export function calcFatigueByMuscle() {
     const density = isDirect ? rawDensity : 1.0 + (rawDensity - 1.0) * 0.3;
     const { acwr, status, label } = classifyACWR(acute, chronic, density);
 
-    // Lightweight recovery estimate for display
+    // Recovery estimate — matches calcFatigueDetail() adjustments
     const hoursSince = lastTs > 0 ? (now - lastTs) / (1000 * 60 * 60) : null;
     const baseHours = getCalibratedRecovery(mg);
+
+    // Intensity multiplier
+    const intensityEntries = main7.filter(e => {
+      const w = MAIN_LIFT_WEIGHTS[e.lift];
+      return w && w[mg] && e.e1rm > 0;
+    });
+    let intensityMult = 1.0;
+    if (intensityEntries.length > 0) {
+      const avgIntensity = intensityEntries.reduce((s, e) => s + e.weight / e.e1rm, 0) / intensityEntries.length;
+      if (avgIntensity > 0.85) intensityMult = 1.3;
+      else if (avgIntensity >= 0.70) intensityMult = 1.1;
+      else intensityMult = 0.85;
+    }
+
+    // ACWR multiplier
+    const acwrMult = status === 'red'
+      ? FATIGUE_RECOVERY_MULT.high
+      : status === 'yellow'
+        ? FATIGUE_RECOVERY_MULT.mod
+        : FATIGUE_RECOVERY_MULT.low;
+
+    // Density penalty
+    let densityPenalty = 0;
+    const mgSessions = getMuscleSessionDays(main28, acc28, mg);
+    if (mgSessions.length >= 3) {
+      const sortedSessions = mgSessions.sort((a, b) => b - a);
+      const gap01 = (sortedSessions[0] - sortedSessions[1]) / (1000 * 60 * 60);
+      const gap12 = (sortedSessions[1] - sortedSessions[2]) / (1000 * 60 * 60);
+      if (gap01 < 24 && gap12 < 24) densityPenalty = 18;
+      else if (gap01 < 24) densityPenalty = 12;
+    } else if (mgSessions.length >= 2) {
+      const sortedSessions = mgSessions.sort((a, b) => b - a);
+      if ((sortedSessions[0] - sortedSessions[1]) / (1000 * 60 * 60) < 24) densityPenalty = 12;
+    }
+
+    // Spike detection
+    const load7 = buildDailyLoads(main7, acc7, mg, 7).reduce((s, v) => s + v, 0);
+    const spikeMult = (chronic > 0 && load7 > 1.5 * chronic) ? 12 : 0;
+
+    const adjustedHours = baseHours * intensityMult * acwrMult + spikeMult + densityPenalty;
     const recoveryPct = hoursSince !== null
-      ? Math.min(1, Math.max(0, hoursSince / baseHours))
+      ? Math.min(1, Math.max(0, hoursSince / adjustedHours))
       : null;
 
     // Combined display status (ACWR + recovery)

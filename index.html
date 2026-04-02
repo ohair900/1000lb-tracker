@@ -19,8 +19,8 @@
 <title>1000lb Club Tracker</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23121212'/%3E%3Crect x='4' y='14.5' width='24' height='3' rx='1.5' fill='%23888'/%3E%3Crect x='3' y='9' width='4' height='14' rx='1.5' fill='%23e74c3c'/%3E%3Crect x='8' y='10.5' width='3' height='11' rx='1' fill='%233b82f6'/%3E%3Crect x='21' y='10.5' width='3' height='11' rx='1' fill='%233b82f6'/%3E%3Crect x='25' y='9' width='4' height='14' rx='1.5' fill='%2322c55e'/%3E%3C/svg%3E">
 <style>body{background:#121212;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}#app{max-width:480px;margin:0 auto;padding:12px 16px}</style>
-  <script type="module" crossorigin src="/assets/index.src-B72MO9t6.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-cdqyvfFV.css">
+  <script type="module" crossorigin src="/assets/index.src-Ban2rHNF.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-BWIuiPfe.css">
 </head>
 <body>
 <div id="app">
@@ -133,6 +133,15 @@
     </div>
     <div class="fatigue-sheet-body" id="workout-summary-body"></div>
   </div>
+  <div class="fatigue-sheet-backdrop" id="plateau-sheet-backdrop" style="display:none"></div>
+  <div class="fatigue-sheet" id="plateau-sheet" style="display:none">
+    <div class="sheet-handle fatigue-sheet-handle"></div>
+    <div class="fatigue-sheet-header">
+      <h3 id="plateau-sheet-title">Plateau Analysis</h3>
+      <button class="modal-close" id="plateau-sheet-close">&times;</button>
+    </div>
+    <div class="fatigue-sheet-body" id="plateau-sheet-body"></div>
+  </div>
   <div class="streak-bar" id="streak-bar" style="display:none">
     <span class="streak-icon" id="streak-icon"></span>
     <div class="streak-info" id="streak-info"></div>
@@ -142,6 +151,7 @@
     <span class="pr-streak-icon"></span>
     <div class="pr-streak-info"></div>
   </div>
+  <div id="plateau-cards" style="display:none"></div>
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="log">Log</button>

@@ -89,6 +89,7 @@ import {
   updateWorkoutButton,
 } from './views/workout-overlay.js';
 import { initLiftDetailSheet } from './views/lift-detail.js';
+import { initPlateauSheet, setPlateauDeps } from './views/plateau-analysis.js';
 import {
   initBuilderOverlay,
   setBuilderDeps,
@@ -480,7 +481,12 @@ setChoiceSheetDeps({
   updateWorkoutButton,
 });
 
-// 4r. Mesocycle UI deps
+// 4r. Plateau analysis deps
+setPlateauDeps({
+  updateDashboard,
+});
+
+// 4s. Mesocycle UI deps
 setMesocycleUIDeps({
   renderWorkoutView,
   updateWorkoutButton,
@@ -558,6 +564,7 @@ initStatsTab();
 initModalListeners();
 initSheetListeners();
 initLiftDetailSheet();
+initPlateauSheet();
 initSwipeToDelete();
 initProgramSection();
 initWorkoutOverlay();

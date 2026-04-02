@@ -64,3 +64,27 @@ export function detectPlateau(lift) {
   const olderBest = Math.max(...older.map(e => e.e1rm));
   return (recentBest - olderBest) <= 2;
 }
+
+/**
+ * Extended plateau context — exposes the intermediate values from
+ * detectPlateau so diagnostic systems can show richer details.
+ *
+ * @param {string} lift - 'squat' | 'bench' | 'deadlift'
+ * @returns {{ plateaued: boolean, recentBest: number, olderBest: number, delta: number, recentCount: number, olderCount: number }}
+ */
+export function getPlateauContext(lift) {
+  const now = Date.now();
+  const recent4w = store.entries.filter(
+    e => e.lift === lift && (now - e.timestamp) <= 28 * MS_PER_DAY
+  );
+  const older = store.entries.filter(
+    e => e.lift === lift && (now - e.timestamp) > 28 * MS_PER_DAY && (now - e.timestamp) <= 56 * MS_PER_DAY
+  );
+  if (recent4w.length < 3 || older.length < 3) {
+    return { plateaued: false, recentBest: 0, olderBest: 0, delta: 0, recentCount: recent4w.length, olderCount: older.length };
+  }
+  const recentBest = Math.max(...recent4w.map(e => e.e1rm));
+  const olderBest = Math.max(...older.map(e => e.e1rm));
+  const delta = recentBest - olderBest;
+  return { plateaued: delta <= 2, recentBest, olderBest, delta, recentCount: recent4w.length, olderCount: older.length };
+}

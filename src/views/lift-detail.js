@@ -14,6 +14,8 @@ import { calcProgression, detectPlateau } from '../formulas/progression.js';
 import { getClassification } from '../formulas/standards.js';
 import { getRepPRs } from '../systems/pr-tracking.js';
 import { openSheet, closeSheet, enableSheetSwipeDismiss } from '../ui/sheet.js';
+import { renderPlateauSection, wireLiftDetailButtons } from '../views/plateau-analysis.js';
+import { diagnosePlateau } from '../systems/plateau-breaker.js';
 
 function closeLiftDetail() {
   closeSheet('lift-detail-sheet', 'lift-detail-backdrop');
@@ -49,6 +51,11 @@ export function showLiftDetail(lift) {
     html += `<div class="ld-banner-trend ${prog.direction}">${arrow} ${Math.abs(prog.monthRate).toFixed(1)} ${store.unit}/mo</div>`;
   }
   html += `</div>`;
+
+  // --- 1b. Plateau analysis (if plateaued) ---
+  if (plateaued) {
+    html += renderPlateauSection(lift);
+  }
 
   // --- 2. Gold best-lift box ---
   if (liftEntries.length > 0) {
@@ -163,6 +170,12 @@ export function showLiftDetail(lift) {
   $('lift-detail-title').textContent = LIFT_NAMES[lift];
   $('lift-detail-body').innerHTML = html;
   openSheet('lift-detail-sheet', 'lift-detail-backdrop');
+
+  // Wire plateau buttons if diagnosis is present
+  if (plateaued) {
+    const diagnosis = diagnosePlateau(lift);
+    if (diagnosis) wireLiftDetailButtons('lift-detail-body', lift, diagnosis);
+  }
 }
 
 export function initLiftDetailSheet() {
