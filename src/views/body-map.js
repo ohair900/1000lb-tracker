@@ -12,9 +12,9 @@ const BOUNDARY_STROKE = 'rgba(255,255,255,0.12)';
 const TEXTURE_STROKE = 'rgba(255,255,255,0.06)';
 
 const STATUS_COLORS = {
-  green:  { r: 76,  g: 175, b: 80,  a: 0.55, glowA: 0.35, blur: 3, outerBlur: 6 },
-  yellow: { r: 255, g: 193, b: 7,   a: 0.55, glowA: 0.30, blur: 3, outerBlur: 7 },
-  red:    { r: 244, g: 67,  b: 54,  a: 0.60, glowA: 0.40, blur: 4, outerBlur: 8 },
+  green:  { r: 76,  g: 175, b: 80,  fill: 0.45, stroke: 0.8 },
+  yellow: { r: 255, g: 193, b: 7,   fill: 0.45, stroke: 0.8 },
+  red:    { r: 244, g: 67,  b: 54,  fill: 0.50, stroke: 0.85 },
 };
 
 // ---------------------------------------------------------------------------
@@ -139,52 +139,37 @@ function statusGradientId(mg, view) {
 
 function buildDefs(muscles, view, fatigueByMuscle) {
   let defs = '';
-
-  // Glow filters per status
-  ['green', 'yellow', 'red'].forEach(status => {
-    const c = STATUS_COLORS[status];
-    const id = `glow-${view}-${status}`;
-    defs += `<filter id="${id}" x="-80%" y="-80%" width="260%" height="260%">` +
-      `<feGaussianBlur in="SourceGraphic" stdDeviation="${c.blur}" result="innerBlur"/>` +
-      `<feGaussianBlur in="SourceGraphic" stdDeviation="${c.outerBlur}" result="outerBlur"/>` +
-      `<feFlood flood-color="rgba(${c.r},${c.g},${c.b},${c.glowA})" result="glowColor"/>` +
-      `<feComposite in="glowColor" in2="outerBlur" operator="in" result="halo"/>` +
-      `<feMerge><feMergeNode in="halo"/><feMergeNode in="innerBlur"/></feMerge>` +
-      `</filter>`;
-  });
-
-  // Radial gradients per muscle group
+  // Radial gradients per muscle group — no blur filters
   Object.keys(muscles).forEach(mg => {
     const status = fatigueByMuscle && fatigueByMuscle[mg] ? fatigueByMuscle[mg].status : null;
     const gId = statusGradientId(mg, view);
     if (status && STATUS_COLORS[status]) {
       const c = STATUS_COLORS[status];
       defs += `<radialGradient id="${gId}" cx="50%" cy="40%" r="70%">` +
-        `<stop offset="0%" stop-color="rgba(${c.r},${c.g},${c.b},${c.a + 0.15})"/>` +
-        `<stop offset="70%" stop-color="rgba(${c.r},${c.g},${c.b},${c.a})"/>` +
-        `<stop offset="100%" stop-color="rgba(${c.r},${c.g},${c.b},${c.a * 0.5})"/>` +
+        `<stop offset="0%" stop-color="rgba(${c.r},${c.g},${c.b},${c.fill + 0.12})"/>` +
+        `<stop offset="80%" stop-color="rgba(${c.r},${c.g},${c.b},${c.fill})"/>` +
+        `<stop offset="100%" stop-color="rgba(${c.r},${c.g},${c.b},${c.fill * 0.6})"/>` +
         `</radialGradient>`;
     } else {
       defs += `<radialGradient id="${gId}" cx="50%" cy="40%" r="70%">` +
-        `<stop offset="0%" stop-color="rgba(255,255,255,0.09)"/>` +
-        `<stop offset="100%" stop-color="rgba(255,255,255,0.05)"/>` +
+        `<stop offset="0%" stop-color="rgba(255,255,255,0.07)"/>` +
+        `<stop offset="100%" stop-color="rgba(255,255,255,0.04)"/>` +
         `</radialGradient>`;
     }
   });
-
   return defs;
 }
 
 function renderMuscle(mg, paths, view, fatigueByMuscle) {
   const status = fatigueByMuscle && fatigueByMuscle[mg] ? fatigueByMuscle[mg].status : null;
   const gId = statusGradientId(mg, view);
-  const filterAttr = status && STATUS_COLORS[status]
-    ? ` filter="url(#glow-${view}-${status})"`
-    : '';
+  const c = status && STATUS_COLORS[status] ? STATUS_COLORS[status] : null;
+  const strokeColor = c ? `rgba(${c.r},${c.g},${c.b},${c.stroke})` : BOUNDARY_STROKE;
+  const strokeWidth = c ? '1.2' : '0.5';
 
-  let svg = `<g class="body-map-muscle" data-muscle="${mg}"${filterAttr}>`;
+  let svg = `<g class="body-map-muscle" data-muscle="${mg}">`;
   paths.forEach(d => {
-    svg += `<path d="${d}" fill="url(#${gId})" stroke="${BOUNDARY_STROKE}" stroke-width="0.6"/>`;
+    svg += `<path d="${d}" fill="url(#${gId})" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>`;
   });
   svg += `</g>`;
   return svg;

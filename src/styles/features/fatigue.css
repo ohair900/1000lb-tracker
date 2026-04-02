@@ -8,6 +8,21 @@
 .fatigue-row {
   display: flex; flex-direction: column; gap: 4px;
 }
+.fatigue-cards-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+  color: var(--text-dim); opacity: 0.5; cursor: pointer; padding: 6px 0 2px;
+  user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.fatigue-cards-toggle:active { opacity: 0.7; }
+.fatigue-cards-toggle-icon { font-size: 0.5rem; }
+.fatigue-cards-content {
+  overflow: hidden; max-height: 0; opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.25s ease;
+}
+.fatigue-cards-content.expanded {
+  max-height: 300px; opacity: 1;
+}
 .fatigue-group-label {
   font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.8px;
   color: var(--text-dim); opacity: 0.5; font-weight: 700; margin-top: 4px;

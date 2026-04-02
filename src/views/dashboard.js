@@ -158,7 +158,7 @@ export function updateFatigueBar() {
     initBodyMapEvents(bodyMapEl, (mg) => showFatigueDetail(mg));
   }
 
-  // Fatigue cards grouped by front/back
+  // Collapsible fatigue cards grouped by front/back
   if (!byMuscle) {
     $('fatigue-row').innerHTML = '';
     return;
@@ -182,15 +182,31 @@ export function updateFatigueBar() {
   }
 
   let html = '';
+  // Toggle button
+  html += `<div class="fatigue-cards-toggle" id="fatigue-cards-toggle">` +
+    `<span class="fatigue-cards-toggle-icon">&#9662;</span> Fatigue Details</div>`;
+  // Collapsible content
+  html += `<div class="fatigue-cards-content" id="fatigue-cards-content">`;
   html += `<div class="fatigue-group-label">Front</div>`;
   html += `<div class="fatigue-group-row">${buildCards(frontGroups)}</div>`;
   html += `<div class="fatigue-group-label">Back</div>`;
   html += `<div class="fatigue-group-row">${buildCards(backGroups)}</div>`;
+  html += `</div>`;
 
   $('fatigue-row').innerHTML = html;
   $('fatigue-row').querySelectorAll('.fatigue-card[data-muscle]').forEach(card => {
     card.addEventListener('click', () => showFatigueDetail(card.dataset.muscle));
   });
+
+  // Toggle expand/collapse
+  const toggle = $('fatigue-cards-toggle');
+  const content = $('fatigue-cards-content');
+  if (toggle && content) {
+    toggle.addEventListener('click', () => {
+      const expanded = content.classList.toggle('expanded');
+      toggle.querySelector('.fatigue-cards-toggle-icon').innerHTML = expanded ? '&#9652;' : '&#9662;';
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
