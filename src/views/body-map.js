@@ -1,172 +1,171 @@
 /**
  * SVG Body Map — side-by-side front/back muscle fatigue visualization.
  *
- * Anatomical figure built from connected muscle regions that share edges
- * to form a seamless body silhouette. No gaps between regions.
+ * Muscle polygon data sourced from react-body-highlighter (MIT license)
+ * by GV79. Mapped to our 10 fatigue muscle groups.
  * ViewBox: 0 0 100 200
  */
 
 const INACTIVE_FILL = 'rgba(255,255,255,0.04)';
-const BOUNDARY_STROKE = 'rgba(255,255,255,0.10)';
+const BOUNDARY_STROKE = 'rgba(255,255,255,0.08)';
 const TEXTURE_STROKE = 'rgba(255,255,255,0.05)';
 
 const STATUS_COLORS = {
-  green:  { r: 76,  g: 175, b: 80,  fill: 0.40, stroke: 0.7 },
-  yellow: { r: 255, g: 193, b: 7,   fill: 0.40, stroke: 0.7 },
-  red:    { r: 244, g: 67,  b: 54,  fill: 0.45, stroke: 0.75 },
+  green:  { r: 76,  g: 175, b: 80,  fill: 0.40, stroke: 0.65 },
+  yellow: { r: 255, g: 193, b: 7,   fill: 0.40, stroke: 0.65 },
+  red:    { r: 244, g: 67,  b: 54,  fill: 0.45, stroke: 0.7 },
 };
 
 // ---------------------------------------------------------------------------
-// Connected muscle regions — share edges, no gaps
-// Built on a coherent body outline: shoulders ~24-76, waist ~36-64, hips ~33-67
+// Polygon points from react-body-highlighter (MIT, GV79)
+// Converted to SVG polygon points strings, mapped to our muscle groups
+// ViewBox: 0 0 100 200
 // ---------------------------------------------------------------------------
 
 const FRONT_MUSCLES = {
-  Shoulders: [
-    // Left delt — wraps from neck/trap area over shoulder joint to upper arm
-    'M 36,50 C 34,50 31,50 28,51 C 25,52 22,54 20,57 C 18,60 18,63 19,66 C 20,68 22,69 24,70 L 28,70 L 32,66 L 36,60 Z',
-    // Right delt
-    'M 64,50 C 66,50 69,50 72,51 C 75,52 78,54 80,57 C 82,60 82,63 81,66 C 80,68 78,69 76,70 L 72,70 L 68,66 L 64,60 Z',
-  ],
   Chest: [
-    // Left pec — connects delt to sternum to abs
-    'M 36,50 L 36,60 L 32,66 L 28,70 C 30,74 33,77 36,79 C 39,80 42,81 45,81 L 49,81 L 49,74 L 49,66 L 49,58 L 49,50 Z',
-    // Right pec
-    'M 64,50 L 64,60 L 68,66 L 72,70 C 70,74 67,77 64,79 C 61,80 58,81 55,81 L 51,81 L 51,74 L 51,66 L 51,58 L 51,50 Z',
+    '51.84,41.63 51.02,55.10 57.96,57.96 67.76,55.51 70.61,47.35 62.04,41.63',
+    '29.80,46.53 31.43,55.51 40.82,57.96 48.16,55.10 47.76,42.04 37.55,42.04',
+  ],
+  Shoulders: [
+    '78.37,53.06 79.59,47.76 79.18,41.22 75.92,37.96 71.02,36.33 72.24,42.86 71.43,47.35',
+    '28.16,47.35 21.22,53.06 20.00,47.76 20.41,40.82 24.49,37.14 28.57,37.14 26.94,43.27',
   ],
   Biceps: [
-    // Left bicep — from delt insertion to elbow
-    'M 19,66 C 18,70 16,74 15,78 C 14,82 13,86 13,90 L 14,93 L 22,93 C 23,89 24,85 25,81 C 26,77 27,73 28,70 L 24,70 C 22,69 20,68 19,66 Z',
-    // Right bicep
-    'M 81,66 C 82,70 84,74 85,78 C 86,82 87,86 87,90 L 86,93 L 78,93 C 77,89 76,85 75,81 C 74,77 73,73 72,70 L 76,70 C 78,69 80,68 81,66 Z',
+    '16.73,68.16 17.96,71.43 22.86,66.12 28.98,53.88 27.76,49.39 20.41,55.92',
+    '71.43,49.39 70.20,54.69 76.33,66.12 81.63,71.84 82.86,68.98 78.78,55.51',
   ],
   Core: [
-    // Abs — from pec line to hip crease, tapered waist
-    'M 49,81 L 45,81 C 42,81 39,80 37,79 C 36,80 35,82 35,84 C 34,88 34,92 34,96 C 34,100 34,104 35,108 L 35,112 L 50,112 L 65,112 L 65,108 C 66,104 66,100 66,96 C 66,92 66,88 65,84 C 65,82 64,80 63,79 C 61,80 58,81 55,81 L 51,81 Z',
+    // Abs
+    '56.33,59.18 57.96,64.08 58.37,77.96 58.37,92.65 56.33,98.37 55.10,104.08 51.43,107.76 51.02,84.49 50.61,67.35 51.02,57.14',
+    '43.67,58.78 48.57,57.14 48.98,67.35 48.57,84.49 48.16,107.35 44.49,103.67 40.82,91.43 40.82,78.37 41.22,64.49',
+    // Obliques
+    '68.57,63.27 67.35,57.14 58.78,59.59 60.00,64.08 60.41,83.27 65.71,78.78 66.53,69.80',
+    '33.88,78.37 33.06,71.84 31.02,63.27 32.24,57.14 40.82,59.18 39.18,63.27 39.18,83.67',
   ],
   Quads: [
-    // Left quad — from hip crease to knee, natural thigh shape
-    'M 35,114 C 34,116 33,119 32,122 C 31,127 30,132 29,137 C 28,142 28,147 28,152 C 28,156 29,160 30,163 L 32,166 L 36,168 L 42,168 L 46,166 C 47,163 47,160 47,156 C 47,151 47,146 47,141 C 47,136 46,131 46,126 C 45,121 45,118 44,114 Z',
-    // Right quad
-    'M 56,114 C 55,118 55,121 54,126 C 53,131 53,136 53,141 C 53,146 53,151 53,156 C 53,160 53,163 54,166 L 58,168 L 64,168 L 68,166 L 70,163 C 71,160 72,156 72,152 C 72,147 72,142 71,137 C 70,132 69,127 68,122 C 67,119 66,116 65,114 Z',
+    '34.69,98.78 37.14,108.16 37.14,127.76 34.29,137.14 31.02,132.65 29.39,120.00 28.16,111.43 29.39,100.82 32.24,94.69',
+    '63.27,105.71 64.49,100.00 66.94,94.69 70.20,101.22 71.02,111.84 68.16,133.06 65.31,137.55 62.45,128.57 62.04,111.43',
+    '38.78,129.39 38.37,112.24 41.22,118.37 44.49,129.39 42.86,135.10 40.00,146.12 36.33,146.53 35.51,140.00',
+    '59.59,145.71 55.51,128.98 60.82,113.88 61.22,130.20 64.08,139.59 62.86,146.53',
+    '32.65,138.37 26.53,145.71 25.71,136.73 25.71,127.35 26.94,114.29 29.39,133.47',
+    '71.84,113.06 73.88,124.08 73.88,140.41 72.65,145.71 66.53,138.37 70.20,133.47',
   ],
 };
 
 const BACK_MUSCLES = {
-  Triceps: [
-    // Left tricep — back of arm from delt to elbow
-    'M 19,66 C 18,70 16,74 15,78 C 14,82 13,86 13,90 L 14,93 L 22,93 C 23,89 24,85 25,81 C 26,77 27,73 28,70 L 24,70 C 22,69 20,68 19,66 Z',
-    // Right tricep
-    'M 81,66 C 82,70 84,74 85,78 C 86,82 87,86 87,90 L 86,93 L 78,93 C 77,89 76,85 75,81 C 74,77 73,73 72,70 L 76,70 C 78,69 80,68 81,66 Z',
-  ],
   'Upper Back': [
-    // Left upper back — from trap/neck to mid-back, includes lat
-    'M 36,50 L 36,60 L 32,66 L 28,70 C 27,73 26,77 25,81 C 24,84 24,87 24,90 L 26,93 C 28,95 31,96 34,97 L 38,97 C 41,97 44,96 46,95 L 49,93 L 49,50 Z',
-    // Right upper back
-    'M 64,50 L 64,60 L 68,66 L 72,70 C 73,73 74,77 75,81 C 76,84 76,87 76,90 L 74,93 C 72,95 69,96 66,97 L 62,97 C 59,97 56,96 54,95 L 51,93 L 51,50 Z',
-    // Spine column
-    'M 49,50 L 49,93 C 48,94 47,95 46,95 L 44,96 C 43,97 42,97 42,98 C 44,99 47,100 50,100 C 53,100 56,99 58,98 C 58,97 57,97 56,96 L 54,95 C 53,95 52,94 51,93 L 51,50 Z',
+    // Trapezius
+    '44.68,21.70 47.66,21.70 47.23,38.30 47.66,64.68 38.30,53.19 35.32,40.85 31.06,36.60 39.15,33.19 43.83,27.23',
+    '52.34,21.70 55.74,21.70 56.60,27.23 60.85,32.77 68.94,36.60 64.68,40.43 61.70,53.19 52.34,64.68 53.19,38.30',
+    // Upper back
+    '31.06,38.72 28.09,48.94 28.51,55.32 34.04,75.32 47.23,71.06 47.23,66.38 36.60,54.04 33.62,41.28',
+    '68.94,38.72 71.91,49.36 71.49,56.17 65.96,75.32 52.77,71.06 52.77,66.38 63.40,54.47 66.38,41.70',
+  ],
+  Triceps: [
+    '26.81,49.79 17.87,55.74 14.47,72.34 16.60,81.70 21.70,63.83 26.81,55.74',
+    '73.62,50.21 82.13,55.74 85.96,73.19 83.40,82.13 77.87,62.98 73.19,55.74',
+    '26.81,58.30 26.81,68.51 22.98,75.32 19.15,77.45 22.55,65.53',
+    '72.77,58.30 77.02,64.68 80.43,77.45 76.60,75.32 72.77,68.94',
   ],
   'Lower Back': [
-    // Erectors — from mid-back to hip crease
-    'M 42,98 C 40,100 38,102 37,105 C 36,108 35,111 35,114 L 44,114 L 50,114 L 56,114 L 65,114 C 65,111 64,108 63,105 C 62,102 60,100 58,98 C 56,99 53,100 50,100 C 47,100 44,99 42,98 Z',
+    '47.66,72.77 34.47,77.02 35.32,83.40 49.36,102.13 46.81,82.98',
+    '52.34,72.77 65.53,77.02 64.68,83.40 50.64,102.13 53.19,83.83',
   ],
   Glutes: [
-    // Left glute — from hip crease curving down, connected to ham
-    'M 35,114 L 44,114 C 45,118 46,122 46,126 C 46,130 45,134 44,137 L 42,140 C 40,142 37,143 34,143 C 31,143 29,142 27,140 C 26,138 26,135 26,132 C 27,128 28,124 30,120 C 31,118 33,116 35,114 Z',
-    // Right glute
-    'M 65,114 L 56,114 C 55,118 54,122 54,126 C 54,130 55,134 56,137 L 58,140 C 60,142 63,143 66,143 C 69,143 71,142 73,140 C 74,138 74,135 74,132 C 73,128 72,124 70,120 C 69,118 67,116 65,114 Z',
+    '44.68,99.57 30.21,108.51 29.79,118.72 31.49,125.96 47.23,121.28 49.36,114.89',
+    '55.32,99.15 51.06,114.47 52.34,120.85 68.09,125.96 69.79,119.15 69.36,108.51',
   ],
   Hams: [
-    // Left ham — from glute tie-in to knee
-    'M 27,140 C 29,142 31,143 34,143 C 37,143 40,142 42,140 L 44,137 C 45,140 46,144 46,148 C 46,152 46,156 46,160 C 46,163 46,166 46,168 L 42,168 L 36,168 L 32,166 C 30,164 28,161 27,158 C 26,154 26,150 26,146 C 26,144 26,142 27,140 Z',
-    // Right ham
-    'M 73,140 C 71,142 69,143 66,143 C 63,143 60,142 58,140 L 56,137 C 55,140 54,144 54,148 C 54,152 54,156 54,160 C 54,163 54,166 54,168 L 58,168 L 64,168 L 68,166 C 70,164 72,161 73,158 C 74,154 74,150 74,146 C 74,144 74,142 73,140 Z',
+    '28.94,122.13 31.06,129.36 36.60,125.96 35.32,135.32 34.47,150.21 29.36,158.30 28.94,146.81 27.66,141.28 27.23,131.49',
+    '71.49,121.70 69.36,128.94 63.83,125.96 65.53,136.60 66.38,150.21 71.06,158.30 71.49,147.66 72.77,142.13 73.62,131.91',
+    '38.72,125.53 44.26,145.96 40.43,166.81 36.17,152.77 37.02,135.32',
+    '61.70,125.53 63.40,136.17 64.26,153.19 60.00,166.81 56.17,146.38',
   ],
 };
 
-// Non-interactive body parts
-const HEAD = 'M 50,4 C 44,4 40,8 38,13 C 37,18 37,23 39,28 C 40,31 42,34 44,36 L 46,38 C 48,39 50,39 50,39 C 50,39 52,39 54,38 L 56,36 C 58,34 60,31 61,28 C 63,23 63,18 62,13 C 60,8 56,4 50,4 Z';
-const NECK = 'M 46,38 C 45,40 43,43 42,46 L 41,48 C 41,49 42,50 44,50 L 50,50 L 56,50 C 58,50 59,49 59,48 L 58,46 C 57,43 55,40 54,38';
-
-// Hip connectors — seamless transition
-const HIP_FRONT = [
-  'M 35,112 L 35,114 L 44,114 L 44,112 Z',
-  'M 56,112 L 56,114 L 65,114 L 65,112 Z',
-];
-const HIP_BACK = [];  // Back muscles connect directly
-
-// Forearms
-const FOREARMS_FRONT = [
-  'M 13,93 C 12,97 11,101 10,105 C 9,108 9,111 10,114 L 12,116 L 15,116 C 17,114 19,111 20,108 C 21,105 22,101 22,97 L 22,93 Z',
-  'M 87,93 C 88,97 89,101 90,105 C 91,108 91,111 90,114 L 88,116 L 85,116 C 83,114 81,111 80,108 C 79,105 78,101 78,97 L 78,93 Z',
-];
-const FOREARMS_BACK = FOREARMS_FRONT;
-
-// Hands
-const HANDS = [
-  'M 10,116 C 9,118 8,120 9,122 C 9,123 10,124 12,124 L 14,123 C 15,122 16,120 15,118 L 15,116 Z',
-  'M 90,116 C 91,118 92,120 91,122 C 91,123 90,124 88,124 L 86,123 C 85,122 84,120 85,118 L 85,116 Z',
-];
-
-// Lower legs — calf shape
-const LOWER_LEGS = [
-  'M 30,170 C 29,174 28,178 27,182 C 27,186 27,189 28,192 L 30,194 L 34,194 L 40,194 L 44,194 L 46,192 C 47,189 47,186 46,182 C 45,178 44,174 43,170 Z',
-  'M 57,170 C 56,174 55,178 54,182 C 53,186 53,189 54,192 L 56,194 L 60,194 L 66,194 L 70,194 L 72,192 C 73,189 73,186 73,182 C 72,178 71,174 70,170 Z',
-];
-
-// Feet
-const FEET = [
-  'M 28,194 C 27,195 26,196 27,197 L 30,198 L 38,198 L 44,198 C 46,197 46,196 46,195 L 46,194 Z',
-  'M 54,194 C 53,195 53,196 54,197 L 57,198 L 64,198 L 72,198 C 74,197 74,196 73,195 L 72,194 Z',
-];
-
-// Ab texture — horizontal segments + linea alba
-const AB_TEXTURE = {
-  horizontals: [
-    { x1: 38, y1: 86, x2: 62, y2: 86 },
-    { x1: 37, y1: 92, x2: 63, y2: 92 },
-    { x1: 36, y1: 98, x2: 64, y2: 98 },
-    { x1: 36, y1: 104, x2: 64, y2: 104 },
+// Non-interactive parts
+const FRONT_INACTIVE = {
+  head: ['42.45,2.86 40.00,11.84 42.04,19.59 46.12,23.27 49.80,25.31 54.69,22.45 57.55,19.18 59.18,10.20 57.14,2.45 49.80,0'],
+  neck: [
+    '55.51,23.67 50.61,33.47 50.61,39.18 61.63,40.00 70.61,44.90 69.39,36.73 63.27,35.10 58.37,30.61',
+    '28.98,44.90 30.20,37.14 36.33,35.10 41.22,30.20 44.49,24.49 48.98,33.88 48.57,39.18 37.96,39.59',
   ],
-  midline: { x1: 50, y1: 82, x2: 50, y2: 111 },
+  knees: [
+    '33.88,140.00 34.69,143.27 35.51,147.35 36.33,151.02 35.10,156.73 29.80,156.73 27.35,152.65 27.35,147.35 30.20,144.08',
+    '65.71,140.00 72.24,147.76 72.24,152.24 69.80,157.14 64.90,156.73 62.86,151.02',
+  ],
+  calves: [
+    '71.43,160.41 73.47,153.47 76.73,161.22 79.59,167.76 78.37,187.76 79.59,195.51 74.69,195.51',
+    '24.90,194.69 27.76,164.90 28.16,160.41 26.12,154.29 24.90,157.55 22.45,161.63 20.82,167.76 22.04,188.16 20.82,195.51',
+    '72.65,195.10 69.80,159.18 65.31,158.37 64.08,162.45 64.08,165.31 65.71,177.14',
+    '35.51,158.37 35.92,162.45 35.92,166.94 35.10,172.24 35.10,176.73 32.24,182.04 30.61,187.35 26.94,194.69 27.35,187.76 28.16,180.41 28.57,175.51 28.98,169.80 29.80,164.08 30.20,158.78',
+  ],
+  forearm: [
+    '6.12,88.57 10.20,75.10 14.69,70.20 16.33,74.29 19.18,73.47 4.49,97.55 0,100',
+    '84.49,69.80 83.27,73.47 80.00,73.06 95.10,98.37 100,100.41 93.47,89.39 89.80,76.33',
+    '77.55,72.24 77.55,77.55 80.41,84.08 85.31,89.80 92.24,101.22 94.69,99.59',
+    '6.94,101.22 13.47,90.61 18.78,84.08 21.63,77.14 21.22,71.84 4.90,98.78',
+  ],
+  adductors: [
+    '52.65,110.20 54.29,124.90 60.00,110.20 62.04,100.00 64.90,94.29 60.00,92.65 56.73,104.49',
+    '47.76,110.61 44.90,125.31 42.04,115.92 40.41,113.06 39.59,107.35 37.96,102.45 34.69,93.88 39.59,92.24 41.63,99.18 43.67,105.31',
+  ],
 };
 
-// Knee gap between quads and lower legs
-const KNEE_FRONT = [
-  'M 30,168 L 32,170 L 42,170 L 46,168 Z',
-  'M 54,168 L 58,170 L 68,170 L 70,168 Z',
-];
-const KNEE_BACK = KNEE_FRONT;
-
-// Shoulder-to-delt connectors
-const SHOULDER_CONN = [
-  'M 24,70 L 22,73 L 22,76 L 25,81 L 28,70 Z',
-  'M 76,70 L 78,73 L 78,76 L 75,81 L 72,70 Z',
-];
+const BACK_INACTIVE = {
+  head: ['50.64,0 45.96,0.85 40.85,5.53 40.43,12.77 45.11,20.00 55.74,20.00 59.15,13.62 59.57,4.68 55.74,1.28'],
+  deltoids: [
+    '29.36,37.02 22.98,39.15 17.45,44.26 18.30,53.62 24.26,49.36 27.23,46.38',
+    '71.06,37.02 78.30,39.57 82.55,44.68 81.70,53.62 74.89,48.94 72.34,45.11',
+  ],
+  knees: [
+    '34.47,153.19 31.06,159.15 33.62,166.38 37.45,162.55',
+    '66.38,153.62 62.98,162.98 66.81,166.38 69.36,159.15',
+  ],
+  calves: [
+    '29.36,160.43 28.51,167.23 24.68,179.57 23.83,192.77 25.53,197.02 28.51,193.19 29.79,180.00 31.91,171.06 31.91,166.81',
+    '37.45,165.11 35.32,167.66 33.19,171.91 31.06,180.43 30.21,191.91 34.04,200.00 38.72,190.64 39.15,168.94',
+    '62.98,165.11 61.28,168.51 61.70,190.64 66.38,199.57 70.64,191.91 68.94,179.57 66.81,170.21',
+    '70.64,160.43 72.34,168.51 75.74,179.15 76.60,192.77 74.47,196.60 72.34,193.62 70.64,179.57 68.09,168.09',
+  ],
+  forearm: [
+    '86.38,75.74 91.06,83.40 93.19,94.04 100,106.38 96.17,104.26 88.09,89.36 84.26,83.83',
+    '13.62,75.74 8.94,83.83 6.81,93.62 0,106.38 3.83,104.26 12.34,88.51 15.74,82.98',
+    '81.28,79.57 77.45,77.87 79.15,84.68 91.06,103.83 93.19,108.94 94.47,104.68',
+    '18.72,79.57 22.13,77.87 20.85,84.26 9.36,102.98 6.81,108.51 5.11,104.68',
+  ],
+  adductors: [
+    '48.09,122.98 44.68,122.98 41.28,125.53 45.11,144.26 48.51,135.74 48.94,129.36',
+    '51.91,122.55 55.74,123.40 59.15,125.96 54.89,144.26 51.91,136.17 51.06,129.36',
+  ],
+};
 
 // ---------------------------------------------------------------------------
-// SVG rendering
+// Rendering helpers
 // ---------------------------------------------------------------------------
+
+function polyToSvg(points) {
+  return `<polygon points="${points}" />`;
+}
 
 function statusGradientId(mg, view) {
   return `grad-${view}-${mg.replace(/\s/g, '')}`;
 }
 
-function buildDefs(muscles, view, fatigueByMuscle) {
+function buildDefs(muscles, view, fatigue) {
   let defs = '';
   Object.keys(muscles).forEach(mg => {
-    const status = fatigueByMuscle && fatigueByMuscle[mg] ? fatigueByMuscle[mg].status : null;
+    const status = fatigue && fatigue[mg] ? fatigue[mg].status : null;
     const gId = statusGradientId(mg, view);
     if (status && STATUS_COLORS[status]) {
       const c = STATUS_COLORS[status];
-      defs += `<radialGradient id="${gId}" cx="50%" cy="40%" r="70%">` +
-        `<stop offset="0%" stop-color="rgba(${c.r},${c.g},${c.b},${c.fill + 0.10})"/>` +
-        `<stop offset="80%" stop-color="rgba(${c.r},${c.g},${c.b},${c.fill})"/>` +
-        `<stop offset="100%" stop-color="rgba(${c.r},${c.g},${c.b},${c.fill * 0.6})"/>` +
+      defs += `<radialGradient id="${gId}" cx="50%" cy="40%" r="65%">` +
+        `<stop offset="0%" stop-color="rgba(${c.r},${c.g},${c.b},${c.fill + 0.08})"/>` +
+        `<stop offset="100%" stop-color="rgba(${c.r},${c.g},${c.b},${c.fill * 0.7})"/>` +
         `</radialGradient>`;
     } else {
-      defs += `<radialGradient id="${gId}" cx="50%" cy="40%" r="70%">` +
+      defs += `<radialGradient id="${gId}" cx="50%" cy="40%" r="65%">` +
         `<stop offset="0%" stop-color="rgba(255,255,255,0.06)"/>` +
         `<stop offset="100%" stop-color="rgba(255,255,255,0.03)"/>` +
         `</radialGradient>`;
@@ -175,64 +174,46 @@ function buildDefs(muscles, view, fatigueByMuscle) {
   return defs;
 }
 
-function renderMuscle(mg, paths, view, fatigueByMuscle) {
-  const status = fatigueByMuscle && fatigueByMuscle[mg] ? fatigueByMuscle[mg].status : null;
+function renderMuscleGroup(mg, polygons, view, fatigue) {
+  const status = fatigue && fatigue[mg] ? fatigue[mg].status : null;
   const gId = statusGradientId(mg, view);
   const c = status && STATUS_COLORS[status] ? STATUS_COLORS[status] : null;
-  const strokeColor = c ? `rgba(${c.r},${c.g},${c.b},${c.stroke})` : BOUNDARY_STROKE;
-  const strokeWidth = c ? '0.8' : '0.3';
+  const stroke = c ? `rgba(${c.r},${c.g},${c.b},${c.stroke})` : BOUNDARY_STROKE;
+  const sw = c ? '0.6' : '0.3';
 
   let svg = `<g class="body-map-muscle" data-muscle="${mg}">`;
-  paths.forEach(d => {
-    svg += `<path d="${d}" fill="url(#${gId})" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linejoin="round"/>`;
+  polygons.forEach(pts => {
+    svg += `<polygon points="${pts}" fill="url(#${gId})" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>`;
   });
   svg += `</g>`;
   return svg;
 }
 
-function renderInactive(paths) {
-  return paths.map(d =>
-    `<path d="${d}" fill="${INACTIVE_FILL}" stroke="${BOUNDARY_STROKE}" stroke-width="0.25" stroke-linejoin="round"/>`
-  ).join('');
+function renderInactivePolygons(groups) {
+  let svg = '';
+  Object.values(groups).forEach(polygons => {
+    polygons.forEach(pts => {
+      svg += `<polygon points="${pts}" fill="${INACTIVE_FILL}" stroke="${BOUNDARY_STROKE}" stroke-width="0.2" stroke-linejoin="round"/>`;
+    });
+  });
+  return svg;
 }
 
-function buildFigure(muscles, label, fatigueByMuscle) {
+function buildFigure(muscles, inactive, label, fatigue) {
   const view = label.toLowerCase();
-  const defs = buildDefs(muscles, view, fatigueByMuscle);
+  const defs = buildDefs(muscles, view, fatigue);
   let body = '';
 
-  // Head + neck
-  body += `<path d="${HEAD}" fill="${INACTIVE_FILL}" stroke="${BOUNDARY_STROKE}" stroke-width="0.3" stroke-linejoin="round"/>`;
-  body += `<path d="${NECK}" fill="${INACTIVE_FILL}" stroke="${BOUNDARY_STROKE}" stroke-width="0.25" stroke-linejoin="round"/>`;
+  // Inactive parts first (behind muscles)
+  body += renderInactivePolygons(inactive);
 
-  // Muscles
-  Object.entries(muscles).forEach(([mg, paths]) => {
-    body += renderMuscle(mg, paths, view, fatigueByMuscle);
+  // Muscle groups
+  Object.entries(muscles).forEach(([mg, polygons]) => {
+    body += renderMuscleGroup(mg, polygons, view, fatigue);
   });
 
-  // Ab texture (front only)
-  if (label === 'FRONT') {
-    AB_TEXTURE.horizontals.forEach(l => {
-      body += `<line x1="${l.x1}" y1="${l.y1}" x2="${l.x2}" y2="${l.y2}" stroke="${TEXTURE_STROKE}" stroke-width="0.4"/>`;
-    });
-    body += `<line x1="${AB_TEXTURE.midline.x1}" y1="${AB_TEXTURE.midline.y1}" x2="${AB_TEXTURE.midline.x2}" y2="${AB_TEXTURE.midline.y2}" stroke="${TEXTURE_STROKE}" stroke-width="0.3"/>`;
-  }
-
-  // Connectors and non-interactive parts
-  const hips = label === 'FRONT' ? HIP_FRONT : HIP_BACK;
-  body += renderInactive(hips);
-  body += renderInactive(label === 'FRONT' ? SHOULDER_CONN : SHOULDER_CONN);
-
-  const knees = label === 'FRONT' ? KNEE_FRONT : KNEE_BACK;
-  body += renderInactive(knees);
-
-  body += renderInactive(label === 'FRONT' ? FOREARMS_FRONT : FOREARMS_BACK);
-  body += renderInactive(HANDS);
-  body += renderInactive(LOWER_LEGS);
-  body += renderInactive(FEET);
-
   return `<div class="body-map-figure">` +
-    `<svg viewBox="4 0 92 202" xmlns="http://www.w3.org/2000/svg" class="body-map-svg">` +
+    `<svg viewBox="-2 -2 104 204" xmlns="http://www.w3.org/2000/svg" class="body-map-svg">` +
     `<defs>${defs}</defs>` +
     body +
     `</svg>` +
@@ -246,8 +227,8 @@ function buildFigure(muscles, label, fatigueByMuscle) {
 
 export function renderBodyMap(fatigueByMuscle) {
   return `<div class="body-map-container">` +
-    buildFigure(FRONT_MUSCLES, 'FRONT', fatigueByMuscle) +
-    buildFigure(BACK_MUSCLES, 'BACK', fatigueByMuscle) +
+    buildFigure(FRONT_MUSCLES, FRONT_INACTIVE, 'FRONT', fatigueByMuscle) +
+    buildFigure(BACK_MUSCLES, BACK_INACTIVE, 'BACK', fatigueByMuscle) +
     `</div>`;
 }
 

@@ -11,6 +11,7 @@
     "deploy": "vite build && cp dist/index.src.html index.html && rm -rf assets && cp -r dist/assets assets"
   },
   "devDependencies": {
+    "react-body-highlighter": "^2.0.5",
     "vite": "^6.0.0"
   }
 }
