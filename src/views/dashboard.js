@@ -158,23 +158,35 @@ export function updateFatigueBar() {
     initBodyMapEvents(bodyMapEl, (mg) => showFatigueDetail(mg));
   }
 
-  // Fatigue cards (only if data exists)
+  // Fatigue cards grouped by front/back
   if (!byMuscle) {
     $('fatigue-row').innerHTML = '';
     return;
   }
+
+  const frontGroups = ['Shoulders', 'Chest', 'Biceps', 'Triceps', 'Core', 'Quads'];
+  const backGroups = ['Upper Back', 'Lower Back', 'Glutes', 'Hams'];
+
+  function buildCards(groups) {
+    return groups.map(mg => {
+      const f = byMuscle[mg];
+      const st = f ? f.status : 'none';
+      const val = f ? f.label : '&mdash;';
+      return `<div class="fatigue-card" data-muscle="${mg}">` +
+        `<div class="fatigue-card-label">${mg}</div>` +
+        `<div class="fatigue-card-status">` +
+          `<span class="fatigue-dot ${st}"></span>` +
+          `<span class="fatigue-level ${st}">${val}</span>` +
+        `</div></div>`;
+    }).join('');
+  }
+
   let html = '';
-  MUSCLE_GROUPS.forEach(mg => {
-    const f = byMuscle[mg];
-    const st = f ? f.status : 'none';
-    const val = f ? f.label : '&mdash;';
-    html += `<div class="fatigue-card" data-muscle="${mg}">` +
-      `<div class="fatigue-card-label">${mg}</div>` +
-      `<div class="fatigue-card-status">` +
-        `<span class="fatigue-dot ${st}"></span>` +
-        `<span class="fatigue-level ${st}">${val}</span>` +
-      `</div></div>`;
-  });
+  html += `<div class="fatigue-group-label">Front</div>`;
+  html += `<div class="fatigue-group-row">${buildCards(frontGroups)}</div>`;
+  html += `<div class="fatigue-group-label">Back</div>`;
+  html += `<div class="fatigue-group-row">${buildCards(backGroups)}</div>`;
+
   $('fatigue-row').innerHTML = html;
   $('fatigue-row').querySelectorAll('.fatigue-card[data-muscle]').forEach(card => {
     card.addEventListener('click', () => showFatigueDetail(card.dataset.muscle));
