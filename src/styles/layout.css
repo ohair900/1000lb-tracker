@@ -45,17 +45,6 @@ body {
 }
 .gear-btn:hover { color: var(--text-strong); }
 
-/* Theme toggle */
-.theme-btn {
-  width: 36px; height: 36px;
-  border: none; background: transparent;
-  color: var(--text-dim); font-size: 1.1rem;
-  cursor: pointer; border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  transition: color var(--transition-base);
-}
-.theme-btn:hover { color: var(--text); }
-
 /* Tabs */
 .tabs {
   display: flex; gap: var(--space-1); margin-bottom: var(--space-4);

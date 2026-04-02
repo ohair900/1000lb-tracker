@@ -30,9 +30,7 @@ import {
   VERSION_KEY,
   CYCLES_KEY,
   TIMER_KEY,
-  THEME_KEY,
   PROGRAMS_KEY,
-  AUTO_THEME_KEY,
   BADGES_KEY,
   DASH_WIDGETS_KEY,
   ACCENT_KEY,
@@ -137,10 +135,8 @@ class Store {
     this.leaderboardData = [];
     this.leaderboardFilter = 'total';
 
-    // Unit / theme / accent — persisted individually (not via STORES)
+    // Unit / accent — persisted individually (not via STORES)
     this.unit = 'lbs';
-    this.theme = 'dark';
-    this.autoTheme = false;
     this.accentColor = 'gold';
 
     // -----------------------------------------------------------------------
@@ -295,8 +291,6 @@ class Store {
     // 2. Seed ephemeral values that have their own localStorage keys
     this.unit = localStorage.getItem(UNIT_KEY) || 'lbs';
     this.timerDuration = parseInt(localStorage.getItem(TIMER_KEY)) || 180;
-    this.theme = localStorage.getItem(THEME_KEY) || 'dark';
-    this.autoTheme = localStorage.getItem(AUTO_THEME_KEY) === 'true';
     this.accentColor = localStorage.getItem(ACCENT_KEY) || 'gold';
 
     try {

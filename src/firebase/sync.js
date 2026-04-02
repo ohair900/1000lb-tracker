@@ -30,7 +30,6 @@ import { getClassification, getOverallClassification } from '../formulas/standar
 import {
   UNIT_KEY,
   TIMER_KEY,
-  THEME_KEY,
   BADGES_KEY,
   DASH_WIDGETS_KEY,
   ACCENT_KEY,
@@ -101,7 +100,6 @@ export function getLocalData() {
     programs: store.programConfig,
     unit: localStorage.getItem(UNIT_KEY) || 'lbs',
     timer: store.timerDuration,
-    theme: store.theme,
     badges: store.unlockedBadges,
     dashboardWidgets: store.dashboardWidgets,
     accentColor: store.accentColor,
@@ -255,11 +253,6 @@ export function mergeCloudData(cloudData) {
       store.timerDuration = cloudData.timer;
       localStorage.setItem(TIMER_KEY, store.timerDuration.toString());
     }
-    if (cloudData.theme) {
-      store.theme = cloudData.theme;
-      localStorage.setItem(THEME_KEY, store.theme);
-    }
-
     // Merge badges (union, keep earliest unlock date)
     if (cloudData.badges) {
       Object.entries(cloudData.badges).forEach(([id, data]) => {

@@ -64,7 +64,7 @@ import { setConfettiDeps, triggerWeekCompleteCelebration, triggerLiftCompleteCel
 import { sharePRCard, shareMilestoneCard } from './ui/share.js';
 import { initSwipeToDelete, setSwipeDeps } from './ui/swipe.js';
 import { initSheetListeners, closeChoiceSheet } from './ui/sheet.js';
-import { applyTheme, applyAccentColor, setThemeDeps, initThemeListeners } from './ui/theme.js';
+import { applyAccentColor, setThemeDeps } from './ui/theme.js';
 
 // ===== 7. Views =====
 import { updateDashboard, renderRecapCard } from './views/dashboard.js';
@@ -326,8 +326,7 @@ setOnSyncComplete(() => {
   if (store.currentTab === 'charts') renderChart();
   if (store.currentTab === 'stats') renderStats();
   if (store.currentTab === 'ranks') renderLeaderboard();
-  // Re-apply theme/accent in case cloud changed them
-  applyTheme();
+  // Re-apply accent in case cloud changed it
   applyAccentColor();
   // Re-sync unit UI
   document.querySelectorAll('.unit-btn').forEach(b =>
@@ -393,12 +392,9 @@ setSwipeDeps({
   showToastWithUndo,
 });
 
-// 4i. Theme deps
+// 4i. Accent color deps
 setThemeDeps({
   scheduleCloudSync,
-  onThemeChanged: () => {
-    if (store.currentTab === 'charts') renderChart();
-  },
 });
 
 // 4j. Log view deps
@@ -496,8 +492,7 @@ setWelcomeDeps({
 rebuildPRs();
 initDOMRefs();
 
-// ----- Step 7: Apply theme and accent color -----
-applyTheme();
+// ----- Step 7: Apply accent color -----
 applyAccentColor();
 
 // ----- Step 8: Sync unit UI state -----
@@ -569,7 +564,6 @@ initMesocycleUI();
 initWelcomeOverlay();
 initSyncUI();
 initLeaderboardTab();
-initThemeListeners();
 initSettingsListeners();
 
 // Timer presets

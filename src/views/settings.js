@@ -17,7 +17,7 @@ import { getWeightClass } from '../formulas/standards.js';
 import { rebuildPRs } from '../systems/pr-tracking.js';
 import { showToast } from '../ui/toast.js';
 import { openModal, closeModal } from '../ui/modal.js';
-import { applyTheme, applyAccentColor } from '../ui/theme.js';
+import { applyAccentColor } from '../ui/theme.js';
 import { buildProfileHTML, buildGoalsHTML } from './stats.js';
 
 // ---------------------------------------------------------------------------
@@ -113,7 +113,6 @@ function exportData() {
     cycles: store.cycles,
     programs: store.programConfig,
     unit: localStorage.getItem(UNIT_KEY) || 'lbs',
-    theme: store.theme,
     badges: store.unlockedBadges,
     dashboardWidgets: store.dashboardWidgets,
     accentColor: store.accentColor,
@@ -175,7 +174,6 @@ function handleImport(ev) {
     if (data.cycles) store.cycles = data.cycles;
     if (data.programs) { store.programConfig = data.programs; store.saveProgramConfig(); }
     if (data.unit) { store.unit = data.unit; localStorage.setItem(UNIT_KEY, store.unit); }
-    if (data.theme) { store.theme = data.theme; applyTheme(); }
     if (data.badges) { store.unlockedBadges = data.badges; localStorage.setItem('sbd-tracker-badges', JSON.stringify(store.unlockedBadges)); }
     if (data.dashboardWidgets) { store.dashboardWidgets = { ...store.dashboardWidgets, ...data.dashboardWidgets }; localStorage.setItem(DASH_WIDGETS_KEY, JSON.stringify(store.dashboardWidgets)); }
     if (data.accentColor) { store.accentColor = data.accentColor; localStorage.setItem(ACCENT_KEY, store.accentColor); applyAccentColor(); }
