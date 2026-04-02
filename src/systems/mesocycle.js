@@ -94,15 +94,10 @@ export function generateMesoWeek(weekNum, totalWeeks, goal, model, goalDef, base
     numSets = goal === 'hypertrophy' ? 4 : (goal === 'peaking' ? 3 : 5);
     phase = progress < 0.33 ? 'Accumulation' : progress < 0.66 ? 'Intensification' : 'Realization';
   } else if (model === 'dup') {
-    const stimuli = ['hypertrophy', 'strength', 'power'];
-    const stimIdx = (weekNum - 1) % 3;
-    const stim = stimuli[stimIdx];
-    if (stim === 'hypertrophy') { pct = 67; reps = 10; targetRPE = 7; numSets = 4; phase = 'Hypertrophy'; }
-    else if (stim === 'strength') { pct = 82; reps = 4; targetRPE = 8; numSets = 5; phase = 'Strength'; }
-    else { pct = 75; reps = 3; targetRPE = 7.5; numSets = 4; phase = 'Power'; }
-    // Progressive overload across cycles
-    const cycleNum = Math.floor((weekNum - 1) / 3);
-    pct += cycleNum * 2;
+    // True Daily Undulating: each week has all 3 stimuli, one per lift.
+    // Rotation handled per-lift in the workouts loop below.
+    phase = 'DUP';
+    pct = 75; reps = 5; targetRPE = 7.5; numSets = 4;
   } else { // block
     const progress = (weekNum - 1) / Math.max(1, totalWeeks - 2);
     if (progress < 0.4) {
@@ -120,16 +115,36 @@ export function generateMesoWeek(weekNum, totalWeeks, goal, model, goalDef, base
   targetRPE = Math.round(targetRPE * 10) / 10;
   const accCount = isDeload ? 2 : (phase === 'Accumulation' ? 5 : phase === 'Realization' ? 3 : 4);
 
+  // DUP stimulus definitions
+  const DUP_STIMULI = [
+    { name: 'Hypertrophy', pct: 67, reps: 10, rpe: 7, sets: 4 },
+    { name: 'Strength',    pct: 82, reps: 4,  rpe: 8, sets: 5 },
+    { name: 'Power',       pct: 75, reps: 3,  rpe: 7.5, sets: 4 },
+  ];
+
   const workouts = {};
-  LIFTS.forEach(lift => {
+  LIFTS.forEach((lift, liftIdx) => {
     const tm = baseTMs[lift];
+
+    // DUP: assign per-lift stimulus, rotating each week
+    let liftPct = pct, liftReps = reps, liftSets = numSets, liftRPE = targetRPE;
+    if (model === 'dup' && !isDeload) {
+      const stimIdx = (weekNum - 1 + liftIdx) % 3;
+      const stim = DUP_STIMULI[stimIdx];
+      const cycleNum = Math.floor((weekNum - 1) / 3);
+      liftPct = Math.min(stim.pct + cycleNum * 2, goalDef.pctRange[1]);
+      liftReps = stim.reps;
+      liftSets = stim.sets;
+      liftRPE = stim.rpe;
+    }
+
     const mainSets = [];
-    for (let s = 0; s < numSets; s++) {
-      const setPct = isDeload ? 55 : pct + (s - Math.floor(numSets / 2)) * 2.5;
+    for (let s = 0; s < liftSets; s++) {
+      const setPct = isDeload ? 55 : liftPct + (s - Math.floor(liftSets / 2)) * 2.5;
       mainSets.push({
         pct: Math.round(Math.max(50, Math.min(100, setPct)) * 10) / 10,
         weight: roundToPlate(tm * Math.max(50, Math.min(100, setPct)) / 100),
-        reps,
+        reps: liftReps,
         completed: false
       });
     }
@@ -143,7 +158,8 @@ export function generateMesoWeek(weekNum, totalWeeks, goal, model, goalDef, base
         repRange: a.repRange,
         equipment: a.equipment
       })),
-      volumeTarget: numSets * reps
+      volumeTarget: liftSets * liftReps,
+      stimulus: model === 'dup' && !isDeload ? DUP_STIMULI[(weekNum - 1 + liftIdx) % 3].name : null,
     };
   });
 
@@ -198,13 +214,20 @@ export function recordMesocyclePerformance(session) {
     const minReps = parseInt(lastSet.reps);
     const amrapKey = `${lift}-${session.programWeek || 1}-${session.mainSets.indexOf(lastSet)}`;
     const amrapReps = store.programConfig.amrapResults[amrapKey] || minReps;
-    const extraReps = amrapReps - minReps;
-    actualRPE = Math.max(5, week.targetRPE - extraReps * 0.5);
+    const extraReps = Math.max(0, amrapReps - minReps);
+    // Diminishing returns: first 2 extra reps = 0.5 each, then log scaling
+    const rpeReduction = extraReps <= 2
+      ? extraReps * 0.5
+      : 1.0 + Math.log2(Math.max(1, extraReps - 1)) * 0.5;
+    actualRPE = Math.max(5, Math.min(10, week.targetRPE - rpeReduction));
   } else {
-    // Estimate: if all sets done, RPE ~= target; if missed sets, higher RPE
+    // Estimate: only penalize if completion rate < 75%
     const prescribed = week.workouts[lift]?.mainSets?.length || 0;
     if (prescribed > 0 && completedMain.length < prescribed) {
-      actualRPE = Math.min(10, week.targetRPE + (prescribed - completedMain.length));
+      const completionRate = completedMain.length / prescribed;
+      if (completionRate < 0.75) {
+        actualRPE = Math.min(10, week.targetRPE + (1 - completionRate) * 4);
+      }
     }
   }
 

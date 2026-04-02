@@ -3,18 +3,27 @@
 export const PROGRAM_TEMPLATES = {
   '5/3/1': {
     name: '5/3/1 Boring But Big',
-    description: 'Classic 4-week periodized program by Jim Wendler. Great for intermediate lifters wanting steady, long-term progress. Each cycle waves intensity across 5s, 3s, and 1s weeks with a deload, using AMRAP top sets to auto-regulate.',
+    description: 'Classic 4-week periodized program by Jim Wendler. 3 main working sets + 5×10 supplemental (BBB) volume. AMRAP top sets drive progression (+10 bench / +20 squat & deadlift per cycle).',
     weeks: 4,
-    progression: { type: 'amrap', upperIncrement: 5, lowerIncrement: 10, cycleWeeks: 4, amrapWeek: 3, minReps: 1 },
+    progression: { type: 'amrap', upperIncrement: 10, lowerIncrement: 20, cycleWeeks: 4, amrapWeek: 3, minReps: 1 },
     schedule: {
       1: { label: 'Week 1 (5s)', sets: [
-        { pct: 65, reps: 5 }, { pct: 75, reps: 5 }, { pct: 85, reps: '5+' }
+        { pct: 65, reps: 5 }, { pct: 75, reps: 5 }, { pct: 85, reps: '5+' },
+        { pct: 50, reps: 10, tier: 'BBB' }, { pct: 50, reps: 10, tier: 'BBB' },
+        { pct: 50, reps: 10, tier: 'BBB' }, { pct: 50, reps: 10, tier: 'BBB' },
+        { pct: 50, reps: 10, tier: 'BBB' }
       ]},
       2: { label: 'Week 2 (3s)', sets: [
-        { pct: 70, reps: 3 }, { pct: 80, reps: 3 }, { pct: 90, reps: '3+' }
+        { pct: 70, reps: 3 }, { pct: 80, reps: 3 }, { pct: 90, reps: '3+' },
+        { pct: 50, reps: 10, tier: 'BBB' }, { pct: 50, reps: 10, tier: 'BBB' },
+        { pct: 50, reps: 10, tier: 'BBB' }, { pct: 50, reps: 10, tier: 'BBB' },
+        { pct: 50, reps: 10, tier: 'BBB' }
       ]},
       3: { label: 'Week 3 (1s)', sets: [
-        { pct: 75, reps: 5 }, { pct: 85, reps: 3 }, { pct: 95, reps: '1+' }
+        { pct: 75, reps: 5 }, { pct: 85, reps: 3 }, { pct: 95, reps: '1+' },
+        { pct: 50, reps: 10, tier: 'BBB' }, { pct: 50, reps: 10, tier: 'BBB' },
+        { pct: 50, reps: 10, tier: 'BBB' }, { pct: 50, reps: 10, tier: 'BBB' },
+        { pct: 50, reps: 10, tier: 'BBB' }
       ]},
       4: { label: 'Week 4 (Deload)', sets: [
         { pct: 40, reps: 5 }, { pct: 50, reps: 5 }, { pct: 60, reps: 5 }
@@ -52,7 +61,7 @@ export const PROGRAM_TEMPLATES = {
       ]},
       3: { label: 'Week 3', sets: [
         { pct: 90, reps: 2, tier: 'T1' }, { pct: 90, reps: 2, tier: 'T1' }, { pct: 90, reps: 2, tier: 'T1' },
-        { pct: 90, reps: '1+', tier: 'T1' },
+        { pct: 90, reps: 2, tier: 'T1' }, { pct: 90, reps: 1, tier: 'T1' },
         { pct: 70, reps: 6, tier: 'T2' }, { pct: 70, reps: 6, tier: 'T2' }, { pct: 70, reps: 6, tier: 'T2' }
       ]},
       4: { label: 'Week 4 (Test)', sets: [
@@ -92,7 +101,7 @@ export const PROGRAM_TEMPLATES = {
     name: 'Starting Strength',
     description: 'The original novice barbell program by Mark Rippetoe. 3 sets of 5 at one working weight with linear progression each session. Perfect for brand-new lifters building a strength foundation.',
     weeks: 1,
-    progression: { type: 'session', upperIncrement: 5, lowerIncrement: 10, cycleWeeks: 1 },
+    progression: { type: 'session', upperIncrement: 5, lowerIncrement: 5, cycleWeeks: 1 },
     schedule: {
       1: { label: 'Starting Strength', sets: [
         { pct: 100, reps: 5 }, { pct: 100, reps: 5 }, { pct: 100, reps: 5 }

@@ -22,6 +22,7 @@ import {
 } from '../systems/programs.js';
 import {
   selectAccessories,
+  selectSmartAccessories,
   computeSetWeights,
   getAccessoryWeight,
   checkAccessoryProgression,
@@ -81,7 +82,13 @@ function getLastAccPerformance(exerciseId) {
 
 function createWorkoutSession(mainLift) {
   const now = new Date();
-  const accessories = selectAccessories(mainLift);
+  const workout = getProgramWorkout(mainLift, findFirstIncompleteWeek(mainLift));
+
+  // Check if program has BBB supplemental sets — reduce accessories accordingly
+  const hasBBB = workout ? workout.sets.some(s => s.tier === 'BBB') : false;
+  const accCount = hasBBB ? 3 : 5;
+  const accessories = hasBBB ? selectSmartAccessories(mainLift, accCount) : selectAccessories(mainLift);
+
   const session = {
     id: now.getTime().toString(36) + Math.random().toString(36).slice(2, 6),
     mainLift,
@@ -89,6 +96,7 @@ function createWorkoutSession(mainLift) {
     date: now.toISOString().split('T')[0],
     startTime: now.getTime(),
     mainSets: [],
+    bbbSets: [],
     accessories: accessories.map(ex => ({
       exerciseId: ex.id,
       name: ex.name,
@@ -101,12 +109,17 @@ function createWorkoutSession(mainLift) {
     })),
     completed: false
   };
-  // Clone program sets if active
-  const workout = getProgramWorkout(mainLift, session.programWeek);
+  // Clone program sets if active, separating BBB supplemental
   if (workout) {
-    session.mainSets = workout.sets.map(s => ({
+    const mainOnly = workout.sets.filter(s => s.tier !== 'BBB');
+    const bbbOnly = workout.sets.filter(s => s.tier === 'BBB');
+    session.mainSets = mainOnly.map(s => ({
       num: s.num, weight: s.weight, reps: s.reps, pct: s.pct,
       tier: s.tier, day: s.day, completed: s.completed
+    }));
+    session.bbbSets = bbbOnly.map((s, i) => ({
+      num: i + 1, weight: s.weight, reps: s.reps, pct: s.pct,
+      tier: 'BBB', completed: false
     }));
   }
   store.workoutSession = session;
@@ -118,6 +131,7 @@ function updateCompleteButton() {
   const btn = $('workout-complete-btn');
   if (!store.workoutSession) { btn.disabled = true; return; }
   const hasProgress = store.workoutSession.mainSets.some(s => s.completed) ||
+    (store.workoutSession.bbbSets && store.workoutSession.bbbSets.some(s => s.completed)) ||
     store.workoutSession.accessories.some(a => a.setsCompleted.length > 0);
   btn.disabled = !hasProgress;
 }
@@ -166,6 +180,25 @@ export function renderWorkoutView() {
     html += `<div class="workout-no-program">No active program. Log your main lift from the Log tab, then come back for accessories.</div>`;
   }
   html += `</div>`;
+
+  // BBB supplemental section (between main lifts and accessories)
+  if (store.workoutSession.bbbSets && store.workoutSession.bbbSets.length > 0) {
+    html += `<div class="workout-exercise bbb-section">`;
+    html += `<div class="workout-exercise-name" style="color:var(--text-dim)">Supplemental (BBB)</div>`;
+    html += `<div class="workout-exercise-meta">5&times;10 at ${store.workoutSession.bbbSets[0].pct}%</div>`;
+    store.workoutSession.bbbSets.forEach((s, i) => {
+      const plateStr = formatPlates(s.weight);
+      html += `<div class="workout-set-row${s.completed ? ' completed' : ''}" data-type="bbb" data-idx="${i}">
+        <div class="workout-set-check">${s.completed ? '&#10003;' : ''}</div>
+        <div class="workout-set-info">
+          Set ${s.num}: ${formatWeight(s.weight)} ${store.unit} &times; ${s.reps}
+          <span style="color:var(--text-dim);font-size:var(--text-xs)"> (${s.pct}%)</span>
+          ${plateStr ? `<div class="plate-display">${plateStr} /side</div>` : ''}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
 
   // Accessory sections
   store.workoutSession.accessories.forEach((acc, ai) => {
@@ -533,6 +566,27 @@ export function initWorkoutOverlay() {
       store.saveWorkoutSession();
       renderWorkoutView();
       if (_renderProgramSection) _renderProgramSection();
+      return;
+    }
+
+    // BBB supplemental set row clicks
+    const bbbRow = e.target.closest('.workout-set-row[data-type="bbb"]');
+    if (bbbRow) {
+      const idx = parseInt(bbbRow.dataset.idx);
+      const set = store.workoutSession.bbbSets[idx];
+      if (set.completed) {
+        set.completed = false;
+      } else {
+        set.completed = true;
+        // Log as an entry for volume tracking
+        const reps = typeof set.reps === 'string' ? parseInt(set.reps) : set.reps;
+        if (_addEntry) _addEntry(store.workoutSession.mainLift, set.weight, reps, null, '', ['BBB']);
+        if (_updateDashboard) _updateDashboard();
+        startTimer(store.timerDuration);
+        if (navigator.vibrate) navigator.vibrate(50);
+      }
+      store.saveWorkoutSession();
+      renderWorkoutView();
       return;
     }
 

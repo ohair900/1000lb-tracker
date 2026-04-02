@@ -115,7 +115,10 @@ export function renderProgramSection() {
   const cycleLabel = (tmpl.weeks > 1 && cycleNum > 1) ? ` \u2014 Cycle ${cycleNum}` : '';
   $('program-week').innerHTML = workout.label + cycleLabel + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
   const setsEl = $('program-sets');
-  setsEl.innerHTML = workout.sets.map(s => {
+  // Filter BBB supplemental sets — they only show in the workout overlay
+  const displaySets = workout.sets.filter(s => s.tier !== 'BBB');
+  const hasBBB = workout.sets.some(s => s.tier === 'BBB');
+  setsEl.innerHTML = displaySets.map(s => {
     const tierLabel = s.tier ? `<span style="font-size:var(--text-xs);color:var(--text-dim);margin-right:4px">${s.tier}</span>` : '';
     const dayLabel = s.day ? `<span style="font-size:var(--text-xs);color:var(--text-dim);margin-right:4px">${s.day}</span>` : '';
     const isAmrap = typeof s.reps === 'string' && s.reps.includes('+');
@@ -128,7 +131,7 @@ export function renderProgramSection() {
       <span class="program-set-pct">${s.pct}%</span>
       ${plateStr ? `<div class="plate-display">${plateStr} /side</div>` : ''}
     </div>`;
-  }).join('');
+  }).join('') + (hasBBB ? '<div style="font-size:var(--text-xs);color:var(--text-dim);margin-top:6px;opacity:0.7">+ 5\u00d710 BBB supplemental (shown in workout)</div>' : '');
 
   // Week/lift completion visual state
   const weekComplete = isWeekComplete(store.currentLift);

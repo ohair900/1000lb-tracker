@@ -81,6 +81,7 @@ class Store {
       completedWeeks: {},
       weekStreak: 0,
       progressedCycles: {},
+      failureCounts: { squat: 0, bench: 0, deadlift: 0 },
     };
     this.workoutConfig = {
       weakPoints: { squat: null, bench: null, deadlift: null },
@@ -449,6 +450,7 @@ class Store {
     if (!pc.completedWeeks) pc.completedWeeks = {};
     if (!pc.weekStreak) pc.weekStreak = 0;
     if (!pc.progressedCycles) pc.progressedCycles = {};
+    if (!pc.failureCounts) pc.failureCounts = { squat: 0, bench: 0, deadlift: 0 };
 
     // Migrate from single currentWeek to per-lift liftWeeks
     if (pc.currentWeek !== undefined && !pc.liftWeeks) {

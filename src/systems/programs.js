@@ -182,8 +182,23 @@ export function checkAutoProgression(lift) {
     const allDone = weekData.sets.every((_, i) =>
       store.programConfig.completedSets[`${lift}-${lw}-${i}`]
     );
-    if (!allDone) return null;
-    return { lift, oldTM: tm, newTM: tm + increment, reason: 'All sets completed' };
+    if (allDone) {
+      // Success: reset failure count, progress
+      if (store.programConfig.failureCounts) store.programConfig.failureCounts[lift] = 0;
+      return { lift, oldTM: tm, newTM: tm + increment, reason: 'All sets completed' };
+    }
+    // Failure path: track consecutive failures, deload after 3
+    if (!store.programConfig.failureCounts) {
+      store.programConfig.failureCounts = { squat: 0, bench: 0, deadlift: 0 };
+    }
+    store.programConfig.failureCounts[lift] = (store.programConfig.failureCounts[lift] || 0) + 1;
+    if (store.programConfig.failureCounts[lift] >= 3) {
+      const deloadTM = roundToPlate(tm * 0.9);
+      store.programConfig.failureCounts[lift] = 0;
+      return { lift, oldTM: tm, newTM: deloadTM, reason: 'Deload: 3 consecutive failures' };
+    }
+    store.saveProgramConfig();
+    return null;
   }
 
   // amrap-type programs (5/3/1, nSuns, GZCL) use cycle-boundary progression instead
@@ -253,13 +268,13 @@ export function checkCycleBoundaryProgression(lift, cycleEndWeek, tmpl) {
     });
   }
 
-  // 10% if AMRAP reps > 3, otherwise 5%
-  const pct = bestAmrapReps > 3 ? 0.10 : 0.05;
-  const isMetric = store.unit === 'kg';
-  const step = isMetric ? 2.5 : 5;
-  const newTM = Math.round((tm * (1 + pct)) / step) * step;
-  const pctLabel = pct === 0.10 ? '10%' : '5%';
-  return { lift, oldTM: tm, newTM, reason: `Cycle complete (+${pctLabel})${bestAmrapReps > 3 ? ` AMRAP: ${bestAmrapReps} reps` : ''}` };
+  // Gate: must hit minimum reps to earn the increase
+  if (bestAmrapReps < (prog.minReps || 1)) return null;
+
+  // Flat increment from template (not percentage-based)
+  const increment = (lift === 'bench') ? prog.upperIncrement : prog.lowerIncrement;
+  const newTM = tm + increment;
+  return { lift, oldTM: tm, newTM, reason: `Cycle complete (+${formatWeight(increment)} ${store.unit}) AMRAP: ${bestAmrapReps} reps` };
 }
 
 /**
