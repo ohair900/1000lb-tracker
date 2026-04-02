@@ -1,7 +1,14 @@
-const CACHE_NAME = '1000lb-tracker-v6';
+const CACHE_NAME = '1000lb-tracker-v7';
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(['/'])));
+  e.waitUntil(
+    caches.open(CACHE_NAME).then(c => c.addAll([
+      '/',
+      '/index.html',
+      '/manifest.json',
+      '/apple-touch-icon.png',
+    ]))
+  );
   self.skipWaiting();
 });
 

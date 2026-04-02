@@ -299,7 +299,7 @@ function initPWA() {
 
 installRoundRectPolyfill();
 store.init();
-initFirebase(loadFirebaseConfig() || DEFAULT_FIREBASE_CONFIG);
+// Firebase SDK loaded lazily — deferred to after first paint (see Step 13)
 
 // ----- Step 4: Wire dependency injection -----
 
@@ -497,7 +497,9 @@ setWelcomeDeps({
   updateDashboard,
 });
 
-rebuildPRs();
+// Defer PR rebuild to after first paint (heavy O(n log n) sort)
+const _ric = window.requestIdleCallback || ((cb) => setTimeout(cb, 1));
+_ric(() => { try { rebuildPRs(); } catch {} });
 initDOMRefs();
 
 // ----- Step 7: Apply accent color -----
@@ -613,17 +615,24 @@ window.addEventListener('resize', () => {
   }, 250);
 });
 
-// ----- Step 13: Auth listener (Firebase) -----
-setupAuthListener();
-updateSyncButton();
+// ----- Step 13: Auth listener (Firebase) — deferred, lazy SDK load -----
+(async () => {
+  try {
+    await initFirebase(loadFirebaseConfig() || DEFAULT_FIREBASE_CONFIG);
+    setupAuthListener();
+    updateSyncButton();
+  } catch (e) { console.warn('Firebase boot deferred or failed:', e); }
+})();
 
 // ----- Step 14: PWA init -----
 try { initPWA(); } catch { /* ignore */ }
 
-// ----- Step 15: Safe late init -----
-try { checkAutoRecap(); } catch (e) { console.warn('checkAutoRecap failed:', e); }
-try { checkComeback(); } catch (e) { console.warn('checkComeback failed:', e); }
-try { runCalibration(); } catch (e) { console.warn('runCalibration failed:', e); }
+// ----- Step 15: Safe late init (deferred to after first paint) -----
+_ric(() => {
+  try { checkAutoRecap(); } catch (e) { console.warn('checkAutoRecap failed:', e); }
+  try { checkComeback(); } catch (e) { console.warn('checkComeback failed:', e); }
+  try { runCalibration(); } catch (e) { console.warn('runCalibration failed:', e); }
+});
 try { showWelcomeScreen(); } catch (e) { console.warn('showWelcomeScreen failed:', e); }
 
 // ----- Step 16: Visibility change — flush sync & manage listener -----

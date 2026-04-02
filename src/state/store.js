@@ -279,9 +279,23 @@ class Store {
    * imported yet.  The caller (boot / main) is responsible for calling
    * `rebuildPRs()` after `store.init()`.
    */
+  /** Stores needed for first paint (dashboard, program section, log tab). */
+  static ESSENTIAL_STORES = [
+    'entries', 'profile', 'goals', 'prs', 'programs', 'workoutConfig', 'workoutSession', 'mesocycle',
+  ];
+  /** Stores that can be loaded after first paint. */
+  static DEFERRED_STORES = [
+    'cycles', 'accessoryLog', 'customTemplates', 'mesocycleHistory', 'recoveryCalibration',
+  ];
+
   init() {
-    // 1. Load all registered persistent stores
-    Object.keys(this.STORES).forEach((name) => this._loadStore(name));
+    // 1. Load essential stores first (needed for first paint)
+    Store.ESSENTIAL_STORES.forEach((name) => { if (this.STORES[name]) this._loadStore(name); });
+    // Schedule deferred stores after first paint
+    const _ric = window.requestIdleCallback || ((cb) => setTimeout(cb, 1));
+    _ric(() => {
+      Store.DEFERRED_STORES.forEach((name) => { if (this.STORES[name]) this._loadStore(name); });
+    });
 
     // Ensure bodyweightHistory always exists
     if (!this.profile.bodyweightHistory) this.profile.bodyweightHistory = [];
