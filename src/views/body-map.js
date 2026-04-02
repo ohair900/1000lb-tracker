@@ -2,151 +2,251 @@
  * SVG Body Map — side-by-side front/back muscle fatigue visualization.
  *
  * Solid anatomical figure with neon glow overlays.
- * Dark filled body with muscle separation lines.
- * Status colors glow like a heat map on active muscles.
+ * 10 muscle groups with gradient fills, layered glow, muscle texture,
+ * and complete silhouette (hands, feet, hip connectors).
  */
 
-const BASE_FILL = 'rgba(255,255,255,0.08)';
+const BASE_FILL = 'rgba(255,255,255,0.07)';
+const INACTIVE_FILL = 'rgba(255,255,255,0.04)';
 const BOUNDARY_STROKE = 'rgba(255,255,255,0.12)';
+const TEXTURE_STROKE = 'rgba(255,255,255,0.06)';
 
-const STATUS_STYLES = {
-  green:  { fill: 'rgba(76,175,80,0.5)',  glow: 'rgba(76,175,80,0.6)',  blur: 4 },
-  yellow: { fill: 'rgba(255,193,7,0.5)',  glow: 'rgba(255,193,7,0.6)',  blur: 5 },
-  red:    { fill: 'rgba(244,67,54,0.55)', glow: 'rgba(244,67,54,0.7)', blur: 6 },
-  none:   { fill: BASE_FILL,             glow: 'none',                 blur: 0 },
+const STATUS_COLORS = {
+  green:  { r: 76,  g: 175, b: 80,  a: 0.55, glowA: 0.35, blur: 3, outerBlur: 6 },
+  yellow: { r: 255, g: 193, b: 7,   a: 0.55, glowA: 0.30, blur: 3, outerBlur: 7 },
+  red:    { r: 244, g: 67,  b: 54,  a: 0.60, glowA: 0.40, blur: 4, outerBlur: 8 },
 };
 
 // ---------------------------------------------------------------------------
-// SVG muscle paths — designed to tile the body (no gaps)
+// Improved anatomical SVG paths — smoother curves, better proportions
+// ViewBox: 0 0 100 210
 // ---------------------------------------------------------------------------
 
 const FRONT_MUSCLES = {
   Shoulders: [
-    // Left delt
-    'M 30,52 Q 22,54 20,62 Q 22,70 28,72 L 36,68 Q 38,60 36,54 Z',
+    // Left delt — rounded cap
+    'M 28,55 C 20,55 16,60 16,66 C 16,72 20,76 26,76 L 32,72 C 34,66 34,60 32,55 Z',
     // Right delt
-    'M 70,52 Q 78,54 80,62 Q 78,70 72,72 L 64,68 Q 62,60 64,54 Z',
+    'M 72,55 C 80,55 84,60 84,66 C 84,72 80,76 74,76 L 68,72 C 66,66 66,60 68,55 Z',
   ],
   Chest: [
-    // Left pec
-    'M 36,56 L 36,68 L 28,72 Q 30,80 36,82 L 48,82 Q 50,76 50,68 L 50,56 Z',
+    // Left pec — curved, natural shape
+    'M 32,58 L 32,72 L 26,76 C 28,82 34,86 42,86 L 48,86 C 50,82 50,74 50,64 L 50,58 Z',
     // Right pec
-    'M 64,56 L 64,68 L 72,72 Q 70,80 64,82 L 52,82 Q 50,76 50,68 L 50,56 Z',
+    'M 68,58 L 68,72 L 74,76 C 72,82 66,86 58,86 L 52,86 C 50,82 50,74 50,64 L 50,58 Z',
+  ],
+  Biceps: [
+    // Left inner arm
+    'M 26,76 C 24,82 22,90 22,96 L 28,96 C 30,90 32,82 32,76 Z',
+    // Right inner arm
+    'M 74,76 C 76,82 78,90 78,96 L 72,96 C 70,90 68,82 68,76 Z',
   ],
   Triceps: [
-    // Left arm
-    'M 20,62 Q 16,72 14,84 Q 14,92 16,98 L 24,98 Q 26,92 28,84 Q 28,74 28,72 L 20,62 Z',
-    // Right arm
-    'M 80,62 Q 84,72 86,84 Q 86,92 84,98 L 76,98 Q 74,92 72,84 Q 72,74 72,72 L 80,62 Z',
+    // Left outer arm
+    'M 16,66 C 14,74 12,84 12,92 L 12,96 L 22,96 C 22,90 24,82 26,76 L 20,76 C 18,72 16,68 16,66 Z',
+    // Right outer arm
+    'M 84,66 C 86,74 88,84 88,92 L 88,96 L 78,96 C 78,90 76,82 74,76 L 80,76 C 82,72 84,68 84,66 Z',
   ],
   Core: [
-    // Abs
-    'M 38,82 Q 36,90 36,100 Q 36,108 38,114 L 62,114 Q 64,108 64,100 Q 64,90 62,82 Z',
+    // Abs — tapered
+    'M 36,86 C 34,94 34,104 34,110 L 34,118 L 66,118 L 66,110 C 66,104 66,94 64,86 Z',
   ],
   Quads: [
-    // Left quad
-    'M 36,116 Q 32,130 30,146 Q 30,158 32,166 L 46,166 Q 48,158 48,146 Q 48,130 46,116 Z',
+    // Left quad — tapered, natural
+    'M 32,120 C 28,132 26,148 26,160 C 26,166 28,172 30,176 L 46,176 C 48,172 48,166 48,160 C 48,148 48,132 46,120 Z',
     // Right quad
-    'M 54,116 Q 52,130 52,146 Q 52,158 54,166 L 68,166 Q 70,158 70,146 Q 70,130 64,116 Z',
+    'M 54,120 C 52,132 52,148 52,160 C 52,166 52,172 54,176 L 70,176 C 72,172 74,166 74,160 C 74,148 72,132 68,120 Z',
   ],
 };
 
 const BACK_MUSCLES = {
-  Back: [
-    // Left lat + upper back
-    'M 36,54 Q 30,62 28,72 Q 28,84 30,96 L 36,100 Q 40,90 42,78 L 48,78 L 48,54 Z',
-    // Right lat + upper back
-    'M 64,54 Q 70,62 72,72 Q 72,84 70,96 L 64,100 Q 60,90 58,78 L 52,78 L 52,54 Z',
-    // Spine / mid-back
-    'M 48,54 L 48,78 L 42,78 Q 40,90 36,100 L 38,108 Q 44,110 50,110 Q 56,110 62,108 L 64,100 Q 60,90 58,78 L 52,78 L 52,54 Z',
+  'Upper Back': [
+    // Left upper back — traps, rhomboids
+    'M 32,58 C 28,62 26,68 26,74 L 30,80 L 38,78 L 48,78 L 48,58 Z',
+    // Right upper back
+    'M 68,58 C 72,62 74,68 74,74 L 70,80 L 62,78 L 52,78 L 52,58 Z',
+    // Mid upper (between scapulae)
+    'M 48,58 L 48,78 L 38,78 L 38,80 C 42,82 46,82 50,82 C 54,82 58,82 62,80 L 62,78 L 52,78 L 52,58 Z',
+  ],
+  'Lower Back': [
+    // Erectors / lumbar
+    'M 38,82 C 36,90 34,100 34,108 L 34,118 L 66,118 L 66,108 C 66,100 64,90 62,82 C 58,84 54,84 50,84 C 46,84 42,84 38,82 Z',
   ],
   Glutes: [
-    // Left glute
-    'M 36,110 Q 30,116 28,124 Q 30,132 36,134 L 48,132 Q 50,124 48,116 Q 46,110 42,108 Z',
+    // Left glute — rounder
+    'M 32,120 C 26,124 24,130 24,136 C 26,142 32,144 40,142 L 48,140 C 50,134 48,126 46,120 Z',
     // Right glute
-    'M 64,110 Q 70,116 72,124 Q 70,132 64,134 L 52,132 Q 50,124 52,116 Q 54,110 58,108 Z',
+    'M 68,120 C 74,124 76,130 76,136 C 74,142 68,144 60,142 L 52,140 C 50,134 52,126 54,120 Z',
   ],
   Hams: [
-    // Left hamstring
-    'M 30,136 Q 28,148 28,160 Q 28,168 30,174 L 46,174 Q 48,168 48,160 Q 48,148 46,136 Z',
-    // Right hamstring
-    'M 54,136 Q 52,148 52,160 Q 52,168 54,174 L 70,174 Q 72,168 72,160 Q 72,148 68,136 Z',
+    // Left ham
+    'M 26,144 C 24,154 24,164 24,172 C 24,176 26,180 30,182 L 46,182 C 48,178 48,174 48,168 C 48,158 48,148 46,142 L 40,142 C 34,144 28,144 26,144 Z',
+    // Right ham
+    'M 74,144 C 76,154 76,164 76,172 C 76,176 74,180 70,182 L 54,182 C 52,178 52,174 52,168 C 52,158 52,148 54,142 L 60,142 C 66,144 72,144 74,144 Z',
   ],
 };
 
-// Head path (non-interactive, just for the silhouette)
-const HEAD_PATH = 'M 50,8 Q 42,8 38,14 Q 34,20 34,28 Q 34,36 38,40 Q 42,44 50,44 Q 58,44 62,40 Q 66,36 66,28 Q 66,20 62,14 Q 58,8 50,8 Z';
-// Neck
-const NECK_PATH = 'M 44,44 L 44,54 L 56,54 L 56,44 Z';
-// Lower legs (non-interactive)
-const LOWER_LEGS_FRONT = [
-  'M 32,168 Q 30,178 30,188 Q 30,194 32,198 L 46,198 Q 48,194 48,188 Q 48,178 46,168 Z',
-  'M 54,168 Q 52,178 52,188 Q 52,194 54,198 L 68,198 Q 70,194 70,188 Q 70,178 68,168 Z',
+// Non-interactive body parts
+const HEAD = 'M 50,6 C 42,6 36,12 36,22 C 36,32 42,40 50,40 C 58,40 64,32 64,22 C 64,12 58,6 50,6 Z';
+const NECK = 'M 42,40 C 42,46 44,52 46,54 L 54,54 C 56,52 58,46 58,40';
+
+// Hip connectors (front + back)
+const HIP_FRONT = [
+  'M 34,118 L 32,120 L 46,120 L 48,118 Z',
+  'M 52,118 L 54,120 L 68,120 L 66,118 Z',
 ];
-const LOWER_LEGS_BACK = LOWER_LEGS_FRONT;
-// Forearms (non-interactive)
-const FOREARMS = [
-  'M 14,100 Q 12,108 12,116 L 18,118 Q 22,110 24,100 Z',
-  'M 86,100 Q 88,108 88,116 L 82,118 Q 78,110 76,100 Z',
+const HIP_BACK = HIP_FRONT;
+
+// Forearms
+const FOREARMS_FRONT = [
+  'M 10,98 C 8,106 8,114 10,120 L 16,120 C 18,114 20,106 22,98 Z',
+  'M 90,98 C 92,106 92,114 90,120 L 84,120 C 82,114 80,106 78,98 Z',
+];
+const FOREARMS_BACK = FOREARMS_FRONT;
+
+// Hands
+const HANDS = [
+  'M 10,120 C 8,124 8,128 10,130 L 16,130 C 18,128 18,124 16,120 Z',
+  'M 90,120 C 92,124 92,128 90,130 L 84,130 C 82,128 82,124 84,120 Z',
+];
+
+// Lower legs
+const LOWER_LEGS = [
+  'M 28,178 C 26,186 24,194 26,200 L 44,200 C 46,194 46,186 44,178 Z',
+  'M 56,178 C 54,186 54,194 56,200 L 74,200 C 76,194 76,186 72,178 Z',
+];
+
+// Feet
+const FEET = [
+  'M 24,200 C 22,202 22,204 24,206 L 46,206 C 48,204 48,202 46,200 Z',
+  'M 54,200 C 52,202 52,204 54,206 L 76,206 C 78,204 78,202 76,200 Z',
+];
+
+// Ab texture lines (within Core)
+const AB_LINES = [
+  'M 40,92 L 60,92',
+  'M 39,100 L 61,100',
+  'M 38,108 L 62,108',
 ];
 
 // ---------------------------------------------------------------------------
-// Rendering
+// SVG rendering helpers
 // ---------------------------------------------------------------------------
 
-function buildGlowFilter(id, blur) {
-  if (blur <= 0) return '';
-  return `<filter id="${id}" x="-60%" y="-60%" width="220%" height="220%">` +
-    `<feGaussianBlur in="SourceGraphic" stdDeviation="${blur}" result="blur"/>` +
-    `<feComposite in="SourceGraphic" in2="blur" operator="over"/>` +
-    `</filter>`;
+function statusGradientId(mg, view) {
+  return `grad-${view}-${mg.replace(/\s/g, '')}`;
 }
 
-function renderMuscleGroup(mg, paths, status) {
-  const style = STATUS_STYLES[status] || STATUS_STYLES.none;
-  const filterId = `glow-${mg.toLowerCase().replace(/\s/g, '')}`;
-  const hasGlow = style.blur > 0;
+function buildDefs(muscles, view, fatigueByMuscle) {
+  let defs = '';
 
-  let svg = '';
-  if (hasGlow) svg += buildGlowFilter(filterId, style.blur);
+  // Glow filters per status
+  ['green', 'yellow', 'red'].forEach(status => {
+    const c = STATUS_COLORS[status];
+    const id = `glow-${view}-${status}`;
+    defs += `<filter id="${id}" x="-80%" y="-80%" width="260%" height="260%">` +
+      `<feGaussianBlur in="SourceGraphic" stdDeviation="${c.blur}" result="innerBlur"/>` +
+      `<feGaussianBlur in="SourceGraphic" stdDeviation="${c.outerBlur}" result="outerBlur"/>` +
+      `<feFlood flood-color="rgba(${c.r},${c.g},${c.b},${c.glowA})" result="glowColor"/>` +
+      `<feComposite in="glowColor" in2="outerBlur" operator="in" result="halo"/>` +
+      `<feMerge><feMergeNode in="halo"/><feMergeNode in="innerBlur"/></feMerge>` +
+      `</filter>`;
+  });
 
-  const filterAttr = hasGlow ? ` filter="url(#${filterId})"` : '';
-  svg += `<g class="body-map-muscle" data-muscle="${mg}"${filterAttr}>`;
+  // Radial gradients per muscle group
+  Object.keys(muscles).forEach(mg => {
+    const status = fatigueByMuscle && fatigueByMuscle[mg] ? fatigueByMuscle[mg].status : null;
+    const gId = statusGradientId(mg, view);
+    if (status && STATUS_COLORS[status]) {
+      const c = STATUS_COLORS[status];
+      defs += `<radialGradient id="${gId}" cx="50%" cy="40%" r="70%">` +
+        `<stop offset="0%" stop-color="rgba(${c.r},${c.g},${c.b},${c.a + 0.15})"/>` +
+        `<stop offset="70%" stop-color="rgba(${c.r},${c.g},${c.b},${c.a})"/>` +
+        `<stop offset="100%" stop-color="rgba(${c.r},${c.g},${c.b},${c.a * 0.5})"/>` +
+        `</radialGradient>`;
+    } else {
+      defs += `<radialGradient id="${gId}" cx="50%" cy="40%" r="70%">` +
+        `<stop offset="0%" stop-color="rgba(255,255,255,0.09)"/>` +
+        `<stop offset="100%" stop-color="rgba(255,255,255,0.05)"/>` +
+        `</radialGradient>`;
+    }
+  });
+
+  return defs;
+}
+
+function renderMuscle(mg, paths, view, fatigueByMuscle) {
+  const status = fatigueByMuscle && fatigueByMuscle[mg] ? fatigueByMuscle[mg].status : null;
+  const gId = statusGradientId(mg, view);
+  const filterAttr = status && STATUS_COLORS[status]
+    ? ` filter="url(#glow-${view}-${status})"`
+    : '';
+
+  let svg = `<g class="body-map-muscle" data-muscle="${mg}"${filterAttr}>`;
   paths.forEach(d => {
-    svg += `<path d="${d}" fill="${style.fill}" stroke="${BOUNDARY_STROKE}" stroke-width="0.5"/>`;
+    svg += `<path d="${d}" fill="url(#${gId})" stroke="${BOUNDARY_STROKE}" stroke-width="0.6"/>`;
   });
   svg += `</g>`;
   return svg;
 }
 
-function renderNonInteractive(paths) {
+function renderInactive(paths) {
   return paths.map(d =>
-    `<path d="${d}" fill="${BASE_FILL}" stroke="${BOUNDARY_STROKE}" stroke-width="0.4"/>`
+    `<path d="${d}" fill="${INACTIVE_FILL}" stroke="${BOUNDARY_STROKE}" stroke-width="0.3"/>`
   ).join('');
 }
 
-function buildFigureSVG(muscles, label, fatigueByMuscle) {
-  const getStatus = mg => fatigueByMuscle && fatigueByMuscle[mg] ? fatigueByMuscle[mg].status : 'none';
+function renderTexture(lines) {
+  return lines.map(d =>
+    `<line x1="${d.split(/[ML,\s]+/).filter(Boolean)[1]}" y1="${d.split(/[ML,\s]+/).filter(Boolean)[2]}" ` +
+    `x2="${d.split(/[ML,\s]+/).filter(Boolean)[4]}" y2="${d.split(/[ML,\s]+/).filter(Boolean)[5]}" ` +
+    `stroke="${TEXTURE_STROKE}" stroke-width="0.4"/>`
+  ).join('');
+}
 
-  let defs = '';
+function buildFigure(muscles, label, fatigueByMuscle) {
+  const view = label.toLowerCase();
+  const defs = buildDefs(muscles, view, fatigueByMuscle);
   let body = '';
 
-  // Head + neck (non-interactive)
-  body += `<path d="${HEAD_PATH}" fill="${BASE_FILL}" stroke="${BOUNDARY_STROKE}" stroke-width="0.4"/>`;
-  body += `<path d="${NECK_PATH}" fill="${BASE_FILL}" stroke="${BOUNDARY_STROKE}" stroke-width="0.3"/>`;
+  // Head + neck
+  body += `<path d="${HEAD}" fill="${INACTIVE_FILL}" stroke="${BOUNDARY_STROKE}" stroke-width="0.3"/>`;
+  body += `<path d="${NECK}" fill="${INACTIVE_FILL}" stroke="${BOUNDARY_STROKE}" stroke-width="0.2" fill="none"/>`;
 
-  // Muscle groups
+  // Muscles
   Object.entries(muscles).forEach(([mg, paths]) => {
-    body += renderMuscleGroup(mg, paths, getStatus(mg));
+    body += renderMuscle(mg, paths, view, fatigueByMuscle);
   });
 
-  // Lower legs + forearms (non-interactive)
-  const legs = label === 'FRONT' ? LOWER_LEGS_FRONT : LOWER_LEGS_BACK;
-  body += renderNonInteractive(legs);
-  body += renderNonInteractive(FOREARMS);
+  // Ab texture lines (front only, within Core)
+  if (label === 'FRONT') {
+    body += AB_LINES.map(d => {
+      const parts = d.replace(/[ML]/g, '').trim().split(/\s+/);
+      const [x1, y1] = parts[0].split(',');
+      const [x2, y2] = parts[1].split(',');
+      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${TEXTURE_STROKE}" stroke-width="0.5"/>`;
+    }).join('');
+  }
+
+  // Hip connectors
+  const hips = label === 'FRONT' ? HIP_FRONT : HIP_BACK;
+  body += renderInactive(hips);
+
+  // Forearms
+  const forearms = label === 'FRONT' ? FOREARMS_FRONT : FOREARMS_BACK;
+  body += renderInactive(forearms);
+
+  // Hands
+  body += renderInactive(HANDS);
+
+  // Lower legs
+  body += renderInactive(LOWER_LEGS);
+
+  // Feet
+  body += renderInactive(FEET);
 
   return `<div class="body-map-figure">` +
-    `<svg viewBox="8 2 84 202" xmlns="http://www.w3.org/2000/svg" class="body-map-svg">` +
+    `<svg viewBox="2 0 96 212" xmlns="http://www.w3.org/2000/svg" class="body-map-svg">` +
     `<defs>${defs}</defs>` +
     body +
     `</svg>` +
@@ -154,15 +254,19 @@ function buildFigureSVG(muscles, label, fatigueByMuscle) {
     `</div>`;
 }
 
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
 /**
- * Render the body map with front and back side by side.
+ * Render front + back body maps side by side.
  * @param {Object|null} fatigueByMuscle - Map of muscle group → { status }
  * @returns {string} HTML string
  */
 export function renderBodyMap(fatigueByMuscle) {
   return `<div class="body-map-container">` +
-    buildFigureSVG(FRONT_MUSCLES, 'FRONT', fatigueByMuscle) +
-    buildFigureSVG(BACK_MUSCLES, 'BACK', fatigueByMuscle) +
+    buildFigure(FRONT_MUSCLES, 'FRONT', fatigueByMuscle) +
+    buildFigure(BACK_MUSCLES, 'BACK', fatigueByMuscle) +
     `</div>`;
 }
 
