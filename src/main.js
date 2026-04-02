@@ -52,6 +52,8 @@ import {
   flushPendingSync,
   setOnSyncComplete,
   setOnSyncStatusChange,
+  stopRealtimeSync,
+  startRealtimeSync,
 } from './firebase/sync.js';
 
 // ===== 6. UI primitives =====
@@ -613,10 +615,13 @@ try { checkComeback(); } catch (e) { console.warn('checkComeback failed:', e); }
 try { runCalibration(); } catch (e) { console.warn('runCalibration failed:', e); }
 try { showWelcomeScreen(); } catch (e) { console.warn('showWelcomeScreen failed:', e); }
 
-// ----- Step 16: Visibility change — flush pending sync -----
+// ----- Step 16: Visibility change — flush sync & manage listener -----
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     flushPendingSync();
+    stopRealtimeSync(); // #4: detach listener when backgrounded
+  } else {
+    startRealtimeSync(); // #4: reattach when foregrounded
   }
 });
 

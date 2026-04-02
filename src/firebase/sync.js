@@ -42,9 +42,15 @@ export const syncState = {
   syncDebounceTimer: null,
   unsubSnapshot: null,
   status: 'disconnected', // disconnected | syncing | synced | error
+  lastPushHash: null,               // #5: skip push if unchanged
+  lastLeaderboardScores: null,      // #2: skip leaderboard if scores unchanged
+  lastLeaderboardFetch: 0,          // #3: cache leaderboard reads
+  cachedLeaderboard: [],            // #3: cached data
+  isMergeOriginated: false,         // #6: prevent merge → resync loop
 };
 
-const SYNC_DEBOUNCE_MS = 1500;
+const SYNC_DEBOUNCE_MS = 10000;     // #1: 10s debounce (was 1.5s)
+const LEADERBOARD_CACHE_MS = 300000; // #3: 5-minute cache TTL
 const SCHEMA_VERSION = 1;
 
 // ===== Callbacks (set by UI layer to avoid circular deps) =====
@@ -114,6 +120,13 @@ export function getLocalData() {
   };
 }
 
+// ===== Data hash for change detection (#5) =====
+
+function computeDataHash(data) {
+  // Lightweight hash: entry count + accessory count + key scalars
+  return `${data.entries.length}|${data.accessoryLog.length}|${data.unit}|${data.timer}|${data.accentColor}|${JSON.stringify(data.goals)}|${JSON.stringify(data.programs)}|${data.leaderboardOptedIn}`;
+}
+
 // ===== pushToCloud =====
 
 /**
@@ -122,15 +135,30 @@ export function getLocalData() {
 export async function pushToCloud() {
   if (!currentUser || !db || syncState.isMergingFromCloud) return;
   try {
+    const data = getLocalData();
+
+    // #5: Skip push if data hasn't changed
+    const hash = computeDataHash(data);
+    if (hash === syncState.lastPushHash) return;
+
     syncState.status = 'syncing';
     notifyStatusChange();
-    const data = getLocalData();
     data.lastModified = serverTimestamp();
     await setDoc(doc(db, 'users', currentUser.uid), data);
-    // Update leaderboard (fire-and-forget)
+    syncState.lastPushHash = hash;
+
+    // #2: Only update leaderboard if scores changed
     if (store.leaderboardOptedIn !== false) {
-      updateLeaderboard().catch(err => console.warn('Leaderboard update failed:', err));
+      const s = bestE1RM('squat') || 0;
+      const b = bestE1RM('bench') || 0;
+      const d = bestE1RM('deadlift') || 0;
+      const scoreKey = `${s}|${b}|${d}`;
+      if (scoreKey !== syncState.lastLeaderboardScores) {
+        syncState.lastLeaderboardScores = scoreKey;
+        updateLeaderboard(s, b, d).catch(err => console.warn('Leaderboard update failed:', err));
+      }
     }
+
     syncState.status = 'synced';
     notifyStatusChange();
   } catch (err) {
@@ -148,8 +176,13 @@ export async function pushToCloud() {
  */
 export function scheduleCloudSync() {
   if (!currentUser || !db || syncState.isMergingFromCloud) return;
+  // #6: Skip if this was triggered by a merge save
+  if (syncState.isMergeOriginated) return;
   clearTimeout(syncState.syncDebounceTimer);
-  syncState.syncDebounceTimer = setTimeout(() => pushToCloud(), SYNC_DEBOUNCE_MS);
+  syncState.syncDebounceTimer = setTimeout(() => {
+    syncState.syncDebounceTimer = null;
+    pushToCloud();
+  }, SYNC_DEBOUNCE_MS);
 }
 
 /**
@@ -175,7 +208,7 @@ export function flushPendingSync() {
  *   - goals: cloud wins (last-write-wins)
  *   - cycles: merge by ID
  *   - programs: cloud wins (last-write-wins)
- *   - unit / timer / theme: cloud wins
+ *   - unit / timer: cloud wins
  *   - badges: union, keep earliest unlock date
  *   - dashboardWidgets / accentColor: cloud wins
  *   - celebratedTotals: union, keep earliest
@@ -192,6 +225,8 @@ export function flushPendingSync() {
 export function mergeCloudData(cloudData) {
   if (!cloudData) return;
   syncState.isMergingFromCloud = true;
+  // #6: Flag to prevent merge saves from triggering another cloud push
+  syncState.isMergeOriginated = true;
   try {
     // Merge entries: union by ID, newer timestamp wins for edits
     if (cloudData.entries && Array.isArray(cloudData.entries)) {
@@ -244,7 +279,7 @@ export function mergeCloudData(cloudData) {
       store.save('programs');
     }
 
-    // Unit, timer, theme: cloud wins
+    // Unit, timer: cloud wins
     if (cloudData.unit) {
       store.unit = cloudData.unit;
       localStorage.setItem(UNIT_KEY, store.unit);
@@ -344,6 +379,8 @@ export function mergeCloudData(cloudData) {
     onSyncComplete?.();
   } finally {
     syncState.isMergingFromCloud = false;
+    // #6: Clear merge flag after microtask (so the batched save's afterFlush sees it)
+    queueMicrotask(() => { syncState.isMergeOriginated = false; });
   }
 }
 
@@ -377,18 +414,25 @@ export function startRealtimeSync() {
   });
 }
 
+/**
+ * #4: Detach the real-time listener (call when app goes to background).
+ */
+export function stopRealtimeSync() {
+  if (syncState.unsubSnapshot) {
+    syncState.unsubSnapshot();
+    syncState.unsubSnapshot = null;
+  }
+}
+
 // ===== Leaderboard =====
 
 /**
  * Write the current user's leaderboard summary to `/leaderboard/{uid}`.
- * Called from `pushToCloud()` when the user is opted in.
+ * Called from `pushToCloud()` only when scores have changed.
  */
-async function updateLeaderboard() {
+async function updateLeaderboard(s, b, d) {
   if (!currentUser || !db) return;
 
-  const s = bestE1RM('squat') || 0;
-  const b = bestE1RM('bench') || 0;
-  const d = bestE1RM('deadlift') || 0;
   const total = (s && b && d) ? s + b + d : 0;
 
   // Don't publish if user has no lifts
@@ -440,17 +484,26 @@ export async function removeFromLeaderboard() {
 
 /**
  * Fetch the leaderboard collection, ordered by total descending.
+ * #3: Returns cached data if fetched within the last 5 minutes.
  * @returns {Promise<Array>} Array of leaderboard entries with uid
  */
 export async function fetchLeaderboard() {
   if (!db) return [];
+
+  // #3: Return cached data if still fresh
+  if (Date.now() - syncState.lastLeaderboardFetch < LEADERBOARD_CACHE_MS && syncState.cachedLeaderboard.length > 0) {
+    return syncState.cachedLeaderboard;
+  }
+
   try {
     const q = query(collection(db, 'leaderboard'), orderBy('total', 'desc'), limit(100));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(d => ({ uid: d.id, ...d.data() }));
+    syncState.cachedLeaderboard = snapshot.docs.map(d => ({ uid: d.id, ...d.data() }));
+    syncState.lastLeaderboardFetch = Date.now();
+    return syncState.cachedLeaderboard;
   } catch (err) {
     console.error('Fetch leaderboard failed:', err);
-    return [];
+    return syncState.cachedLeaderboard.length > 0 ? syncState.cachedLeaderboard : [];
   }
 }
 
