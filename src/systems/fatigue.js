@@ -385,9 +385,15 @@ export function calcFatigueByMuscle() {
   MUSCLE_GROUPS.forEach(mg => {
     // Count data points for this muscle group
     let count28 = 0;
+    let lastTs = 0;
     main28.forEach(e => {
       const w = MAIN_LIFT_WEIGHTS[e.lift];
-      if (w && w[mg]) count28++;
+      if (w && w[mg]) { count28++; if (e.timestamp > lastTs) lastTs = e.timestamp; }
+    });
+    acc28.forEach(a => {
+      const ex = ACCESSORY_DB[a.exerciseId];
+      const cw = ex ? ACCESSORY_CAT_WEIGHTS[ex.category] : null;
+      if (cw && cw[mg]) { if (a.timestamp > lastTs) lastTs = a.timestamp; }
     });
     count28 += countAccessoryEntries(acc28, mg);
 
@@ -400,7 +406,32 @@ export function calcFatigueByMuscle() {
 
     const density = calcMuscleDensity(main7, acc7, mg);
     const { acwr, status, label } = classifyACWR(acute, chronic, density);
-    results[mg] = { acwr, status, label };
+
+    // Lightweight recovery estimate for display
+    const hoursSince = lastTs > 0 ? (now - lastTs) / (1000 * 60 * 60) : null;
+    const baseHours = getCalibratedRecovery(mg);
+    const recoveryPct = hoursSince !== null
+      ? Math.min(1, Math.max(0, hoursSince / baseHours))
+      : null;
+
+    // Combined display status (ACWR + recovery)
+    let displayStatus, displayLabel;
+    if (status === 'red') {
+      displayStatus = 'red'; displayLabel = 'Overreaching';
+    } else if (status === 'yellow' && recoveryPct !== null && recoveryPct < 0.5) {
+      displayStatus = 'red'; displayLabel = 'Fatigued';
+    } else if (status === 'yellow') {
+      displayStatus = 'yellow';
+      displayLabel = recoveryPct !== null && recoveryPct < 1.0 ? 'Building' : 'Elevated';
+    } else if (recoveryPct !== null && recoveryPct < 0.5) {
+      displayStatus = 'orange'; displayLabel = 'Recovering';
+    } else if (recoveryPct !== null && recoveryPct < 1.0) {
+      displayStatus = 'yellow'; displayLabel = 'Almost Ready';
+    } else {
+      displayStatus = 'green'; displayLabel = 'Fresh';
+    }
+
+    results[mg] = { acwr, status, label, displayStatus, displayLabel, recoveryPct, hoursSince };
     anyValid = true;
   });
 

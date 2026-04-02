@@ -13,6 +13,7 @@ const TEXTURE_STROKE = 'rgba(255,255,255,0.05)';
 const STATUS_COLORS = {
   green:  { r: 76,  g: 175, b: 80,  fill: 0.40, stroke: 0.65 },
   yellow: { r: 255, g: 193, b: 7,   fill: 0.40, stroke: 0.65 },
+  orange: { r: 251, g: 140, b: 0,   fill: 0.42, stroke: 0.65 },
   red:    { r: 244, g: 67,  b: 54,  fill: 0.45, stroke: 0.7 },
 };
 
@@ -156,7 +157,7 @@ function statusGradientId(mg, view) {
 function buildDefs(muscles, view, fatigue) {
   let defs = '';
   Object.keys(muscles).forEach(mg => {
-    const status = fatigue && fatigue[mg] ? fatigue[mg].status : null;
+    const status = fatigue && fatigue[mg] ? (fatigue[mg].displayStatus || fatigue[mg].status) : null;
     const gId = statusGradientId(mg, view);
     if (status && STATUS_COLORS[status]) {
       const c = STATUS_COLORS[status];
@@ -175,7 +176,7 @@ function buildDefs(muscles, view, fatigue) {
 }
 
 function renderMuscleGroup(mg, polygons, view, fatigue) {
-  const status = fatigue && fatigue[mg] ? fatigue[mg].status : null;
+  const status = fatigue && fatigue[mg] ? (fatigue[mg].displayStatus || fatigue[mg].status) : null;
   const gId = statusGradientId(mg, view);
   const c = status && STATUS_COLORS[status] ? STATUS_COLORS[status] : null;
   const stroke = c ? `rgba(${c.r},${c.g},${c.b},${c.stroke})` : BOUNDARY_STROKE;

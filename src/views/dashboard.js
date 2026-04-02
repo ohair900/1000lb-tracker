@@ -170,14 +170,18 @@ export function updateFatigueBar() {
   function buildCards(groups) {
     return groups.map(mg => {
       const f = byMuscle[mg];
-      const st = f ? f.status : 'none';
-      const val = f ? f.label : '&mdash;';
+      const st = f ? f.displayStatus : 'none';
+      const val = f ? f.displayLabel : '&mdash;';
+      const recPct = f && f.recoveryPct !== null ? Math.round(f.recoveryPct * 100) : null;
+      const recBar = recPct !== null
+        ? `<div class="fatigue-card-recovery"><div class="fatigue-card-recovery-fill ${st}" style="width:${recPct}%"></div></div>`
+        : '';
       return `<div class="fatigue-card" data-muscle="${mg}">` +
         `<div class="fatigue-card-label">${mg}</div>` +
         `<div class="fatigue-card-status">` +
           `<span class="fatigue-dot ${st}"></span>` +
           `<span class="fatigue-level ${st}">${val}</span>` +
-        `</div></div>`;
+        `</div>${recBar}</div>`;
     }).join('');
   }
 

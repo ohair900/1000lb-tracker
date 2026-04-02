@@ -48,6 +48,7 @@
 .fatigue-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
 .fatigue-dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
 .fatigue-dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+.fatigue-dot.orange { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
 .fatigue-dot.none { background: var(--text-dim); opacity: 0.3; }
 .fatigue-level {
   font-size: var(--text-sm); font-weight: 700;
@@ -55,7 +56,21 @@
 .fatigue-level.green { color: var(--green); }
 .fatigue-level.yellow { color: var(--yellow); }
 .fatigue-level.red { color: var(--red); }
+.fatigue-level.orange { color: var(--orange); }
 .fatigue-level.none { color: var(--text-dim); opacity: 0.4; }
+
+/* Mini recovery bar on dashboard cards */
+.fatigue-card-recovery {
+  height: 3px; border-radius: 1.5px; background: var(--surface2);
+  margin-top: 4px; overflow: hidden;
+}
+.fatigue-card-recovery-fill {
+  height: 100%; border-radius: 1.5px; transition: width 0.3s ease;
+}
+.fatigue-card-recovery-fill.green { background: var(--green); }
+.fatigue-card-recovery-fill.yellow { background: var(--yellow); }
+.fatigue-card-recovery-fill.red { background: var(--red); }
+.fatigue-card-recovery-fill.orange { background: var(--orange); }
 
 /* Fatigue detail sheet content */
 .fatigue-detail-banner {
@@ -65,6 +80,7 @@
 .fatigue-detail-banner.green { background: rgba(67,160,71,0.12); color: var(--green); }
 .fatigue-detail-banner.yellow { background: rgba(253,216,53,0.12); color: var(--yellow); }
 .fatigue-detail-banner.red { background: rgba(229,57,53,0.12); color: var(--red); }
+.fatigue-detail-banner.orange { background: rgba(251,140,0,0.12); color: var(--orange); }
 
 .fatigue-recovery-track {
   height: 8px; border-radius: 4px; background: var(--surface2); overflow: hidden; margin-bottom: 4px;
@@ -73,6 +89,7 @@
 .fatigue-recovery-fill.green { background: var(--green); }
 .fatigue-recovery-fill.yellow { background: var(--yellow); }
 .fatigue-recovery-fill.red { background: var(--red); }
+.fatigue-recovery-fill.orange { background: var(--orange); }
 .fatigue-recovery-meta {
   display: flex; justify-content: space-between; font-size: var(--text-xs); color: var(--text-dim); margin-bottom: 12px;
 }
@@ -84,6 +101,7 @@
 .fatigue-advice.green { background: rgba(67,160,71,0.10); color: var(--green); }
 .fatigue-advice.yellow { background: rgba(253,216,53,0.10); color: var(--yellow); }
 .fatigue-advice.red { background: rgba(229,57,53,0.10); color: var(--red); }
+.fatigue-advice.orange { background: rgba(251,140,0,0.10); color: var(--orange); }
 
 .fatigue-trend-chart {
   display: flex; align-items: flex-end; gap: 6px; height: 80px; margin-bottom: 4px;
