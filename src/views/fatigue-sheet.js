@@ -15,7 +15,6 @@ import {
 } from '../systems/fatigue.js';
 import { openFatigueSheet } from '../ui/sheet.js';
 import { getCalibrationInfo } from '../systems/recovery-calibration.js';
-import { renderBodyMap, initBodyMapEvents } from '../views/body-map.js';
 
 // ---------------------------------------------------------------------------
 // Fatigue bar (dashboard widget)
@@ -58,32 +57,12 @@ export function updateFatigueBar() {
  */
 export function showFatigueDetail(mg) {
   $('fatigue-sheet-title').textContent = mg + ' Fatigue';
-  const byMuscle = calcFatigueByMuscle();
-  const backMuscles = ['Back', 'Glutes', 'Hams'];
-  const currentView = backMuscles.includes(mg) ? 'back' : 'front';
   let html = '';
-
-  // Body map always shows at top
-  html += renderBodyMap(byMuscle, mg, currentView);
 
   const detail = calcFatigueDetail(mg);
   if (!detail) {
     html += '<div style="padding:24px 0;text-align:center;color:var(--text-dim)">Not enough data for ' + mg + ' (need 3+ entries in 28 days)</div>';
     $('fatigue-sheet-body').innerHTML = html;
-    // Attach body map events even with no detail data
-    const bodyMapContainer = $('fatigue-sheet-body').querySelector('.body-map-container');
-    if (bodyMapContainer) {
-      initBodyMapEvents(
-        bodyMapContainer,
-        (muscle) => showFatigueDetail(muscle),
-        (view) => {
-          const newMapHtml = renderBodyMap(byMuscle, mg, view);
-          bodyMapContainer.outerHTML = newMapHtml;
-          const newContainer = $('fatigue-sheet-body').querySelector('.body-map-container');
-          if (newContainer) initBodyMapEvents(newContainer, (m) => showFatigueDetail(m), () => showFatigueDetail(mg));
-        }
-      );
-    }
     openFatigueSheet();
     return;
   }
@@ -166,38 +145,6 @@ export function showFatigueDetail(mg) {
   }
 
   $('fatigue-sheet-body').innerHTML = html;
-
-  // Initialize body map interactions
-  const bodyMapContainer = $('fatigue-sheet-body').querySelector('.body-map-container');
-  if (bodyMapContainer) {
-    initBodyMapEvents(
-      bodyMapContainer,
-      (muscle) => showFatigueDetail(muscle), // Navigate to tapped muscle
-      (view) => {
-        // Re-render body map with new view
-        const mapEl = bodyMapContainer;
-        const newMapHtml = renderBodyMap(byMuscle, mg, view);
-        mapEl.outerHTML = newMapHtml;
-        // Re-attach events on new DOM
-        const newContainer = $('fatigue-sheet-body').querySelector('.body-map-container');
-        if (newContainer) {
-          initBodyMapEvents(
-            newContainer,
-            (muscle) => showFatigueDetail(muscle),
-            (v) => {
-              // Recursive toggle — simplified: just re-render the whole detail
-              showFatigueDetail(mg);
-            }
-          );
-          // Update toggle state
-          newContainer.querySelectorAll('.body-map-toggle-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.view === view);
-          });
-        }
-      }
-    );
-  }
-
   openFatigueSheet();
 }
 

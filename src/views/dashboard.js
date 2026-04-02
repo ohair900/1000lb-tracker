@@ -20,6 +20,7 @@ import { calcProgression, detectPlateau } from '../formulas/progression.js';
 import { getClassification, getOverallClassification } from '../formulas/standards.js';
 import { calcFatigueByMuscle } from '../systems/fatigue.js';
 import { showFatigueDetail } from '../views/fatigue-sheet.js';
+import { renderBodyMap, initBodyMapEvents } from '../views/body-map.js';
 import { calcStreak } from '../systems/streak.js';
 import { calcWeeklyRecap } from '../systems/weekly-recap.js';
 import { checkBadges } from '../systems/badges.js';
@@ -141,8 +142,27 @@ export function updateScoreLine() {
 export function updateFatigueBar() {
   const el = $('fatigue-bar');
   const byMuscle = calcFatigueByMuscle();
-  if (!byMuscle) { el.style.display = 'none'; return; }
+
+  // Always show the body map, even with no data (muscles appear dim)
   el.style.display = 'block';
+
+  // Body map above fatigue cards
+  let bodyMapEl = el.querySelector('.body-map-container');
+  if (bodyMapEl) bodyMapEl.remove();
+  const mapHtml = renderBodyMap(byMuscle);
+  $('fatigue-row').insertAdjacentHTML('beforebegin', mapHtml);
+
+  // Attach body map click events
+  bodyMapEl = el.querySelector('.body-map-container');
+  if (bodyMapEl) {
+    initBodyMapEvents(bodyMapEl, (mg) => showFatigueDetail(mg));
+  }
+
+  // Fatigue cards (only if data exists)
+  if (!byMuscle) {
+    $('fatigue-row').innerHTML = '';
+    return;
+  }
   let html = '';
   MUSCLE_GROUPS.forEach(mg => {
     const f = byMuscle[mg];

@@ -1,88 +1,49 @@
-/* ===== Body Map — Muscle Fatigue Visualization ===== */
+/* ===== Body Map — Dashboard Muscle Fatigue Visualization ===== */
 
 .body-map-container {
   display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 10px;
+  padding: 4px 0;
+}
+
+.body-map-figure {
+  display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--space-2) 0 var(--space-3);
-  margin-bottom: var(--space-3);
 }
 
 .body-map-svg {
   width: 100%;
-  max-width: 200px;
+  max-width: 110px;
   height: auto;
-  margin: var(--space-2) 0;
 }
 
-/* Muscle region styling */
-.body-map-muscle {
-  transition: opacity 0.2s ease, filter 0.2s ease;
-}
-
-.body-map-muscle:hover,
-.body-map-muscle:active {
-  opacity: 0.9;
-  filter: brightness(1.2);
-}
-
-/* Active muscle pulse animation */
-.body-map-muscle--active {
-  animation: bodyMapPulse 2s ease-in-out infinite;
-}
-
-@keyframes bodyMapPulse {
-  0%, 100% { opacity: 0.65; }
-  50% { opacity: 0.95; }
-}
-
-/* View transitions */
-.body-map-view {
-  transition: opacity 0.25s ease-in-out;
-}
-
-/* Labels */
-.body-map-label {
-  font-size: 5px;
+.body-map-view-label {
+  font-size: 0.55rem;
   font-weight: 700;
-  fill: var(--text-dim);
-  text-anchor: middle;
-  pointer-events: none;
-  opacity: 0.6;
-  letter-spacing: 0.3px;
   text-transform: uppercase;
-}
-
-/* Toggle button — segmented pill control */
-.body-map-toggle {
-  display: flex;
-  background: var(--surface);
-  border-radius: var(--radius-pill);
-  padding: 2px;
-  gap: 0;
-}
-
-.body-map-toggle-btn {
-  flex: 1;
-  padding: 6px 20px;
-  border: none;
-  background: transparent;
+  letter-spacing: 1px;
   color: var(--text-dim);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-radius: var(--radius-pill);
+  opacity: 0.5;
+  margin-top: 2px;
+  text-align: center;
+}
+
+/* Muscle region interactivity */
+.body-map-muscle {
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: opacity 0.15s ease, filter 0.15s ease;
 }
 
-.body-map-toggle-btn.active {
-  background: var(--accent);
-  color: var(--bg);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+.body-map-muscle:active {
+  opacity: 0.8;
 }
 
-.body-map-toggle-btn:not(.active):hover {
-  color: var(--text);
+@media (hover: hover) {
+  .body-map-muscle:hover {
+    filter: brightness(1.3);
+  }
 }
