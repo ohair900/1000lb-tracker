@@ -48,6 +48,16 @@ export function drawCardBranding(ctx, y) {
   ctx.fillStyle = '#444';
   ctx.textAlign = 'center';
   ctx.fillText('1000LB CLUB TRACKER', 300, y);
+  // Gold accent line under branding
+  ctx.fillStyle = '#fdd835';
+  ctx.fillRect(240, y + 4, 120, 1.5);
+  // Tri-color S/B/D bar
+  ctx.fillStyle = '#e53935';
+  ctx.fillRect(240, y + 7, 40, 1.5);
+  ctx.fillStyle = '#1e88e5';
+  ctx.fillRect(280, y + 7, 40, 1.5);
+  ctx.fillStyle = '#43a047';
+  ctx.fillRect(320, y + 7, 40, 1.5);
 }
 
 /**
@@ -137,6 +147,16 @@ export function generatePRCard(lift, weight, e1rm, date) {
   ctx.fillStyle = '#666';
   ctx.textAlign = 'left';
   ctx.fillText('1000LB CLUB', 30, 40);
+  // Gold accent line under branding
+  ctx.fillStyle = '#fdd835';
+  ctx.fillRect(30, 44, 120, 2);
+  // Tri-color S/B/D bar
+  ctx.fillStyle = '#e53935';
+  ctx.fillRect(30, 48, 40, 2);
+  ctx.fillStyle = '#1e88e5';
+  ctx.fillRect(70, 48, 40, 2);
+  ctx.fillStyle = '#43a047';
+  ctx.fillRect(110, 48, 40, 2);
 
   // PR label
   ctx.font = 'bold 14px -apple-system, sans-serif';

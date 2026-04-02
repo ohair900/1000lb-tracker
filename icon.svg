@@ -1,8 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Dark background -->
   <rect width="32" height="32" rx="6" fill="#121212"/>
-  <rect x="4" y="14.5" width="24" height="3" rx="1.5" fill="#888"/>
-  <rect x="3" y="9" width="4" height="14" rx="1.5" fill="#e74c3c"/>
-  <rect x="8" y="10.5" width="3" height="11" rx="1" fill="#3b82f6"/>
-  <rect x="21" y="10.5" width="3" height="11" rx="1" fill="#3b82f6"/>
-  <rect x="25" y="9" width="4" height="14" rx="1.5" fill="#22c55e"/>
+  <!-- Outer octagon — gold badge ring -->
+  <polygon points="10,2 22,2 30,10 30,22 22,30 10,30 2,22 2,10"
+           fill="none" stroke="#fdd835" stroke-width="1.5"/>
+  <!-- Inner octagon — stamped-metal double-ring -->
+  <polygon points="11.5,4.5 20.5,4.5 27.5,11.5 27.5,20.5 20.5,27.5 11.5,27.5 4.5,20.5 4.5,11.5"
+           fill="none" stroke="#888" stroke-width="0.75"/>
+  <!-- "1" glyph — vertical stem + top-left flag -->
+  <path d="M11,9 L13.5,9 L13.5,21 L11,21 Z M9,9 L11,11.5 L11,9 Z" fill="#fff"/>
+  <!-- "K" glyph — vertical stem + two diagonal strokes -->
+  <path d="M16,9 L18.5,9 L18.5,21 L16,21 Z M18.5,15.5 L23,9 L25.5,9 L20.5,15.8 L25.5,21 L23,21 L18.5,16.1 Z" fill="#fff"/>
+  <!-- S/B/D tri-color accent bars -->
+  <rect x="10" y="23.5" width="4" height="1.5" rx="0.5" fill="#e53935"/>
+  <rect x="14.5" y="23.5" width="4" height="1.5" rx="0.5" fill="#1e88e5"/>
+  <rect x="19" y="23.5" width="4" height="1.5" rx="0.5" fill="#43a047"/>
 </svg>
