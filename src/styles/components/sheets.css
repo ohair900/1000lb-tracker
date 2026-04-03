@@ -15,7 +15,7 @@
 .choice-sheet {
   position: fixed; bottom: 0; left: 0; right: 0; max-height: 85vh; z-index: 251;
   border-radius: 16px 16px 0 0; background: var(--bg);
-  animation: slideUp 0.25s ease; display: flex; flex-direction: column;
+  animation: slideUp 0.25s ease; display: flex; flex-direction: column; overflow: hidden;
   padding-bottom: env(safe-area-inset-bottom, 0);
   overscroll-behavior-y: contain; will-change: transform;
 }
@@ -39,7 +39,7 @@
 .fatigue-sheet {
   position: fixed; bottom: 0; left: 0; right: 0; max-height: 85vh; z-index: 251;
   border-radius: 16px 16px 0 0; background: var(--bg);
-  animation: slideUp 0.25s ease; display: flex; flex-direction: column;
+  animation: slideUp 0.25s ease; display: flex; flex-direction: column; overflow: hidden;
   padding-bottom: env(safe-area-inset-bottom, 0);
   overscroll-behavior-y: contain; will-change: transform;
 }
@@ -63,7 +63,7 @@
 .workout-summary-sheet {
   position: fixed; bottom: 0; left: 0; right: 0; max-height: 85vh; z-index: 251;
   border-radius: 16px 16px 0 0; background: var(--bg);
-  animation: slideUp 0.25s ease; display: flex; flex-direction: column;
+  animation: slideUp 0.25s ease; display: flex; flex-direction: column; overflow: hidden;
   padding-bottom: env(safe-area-inset-bottom, 0);
   overscroll-behavior-y: contain; will-change: transform;
 }
