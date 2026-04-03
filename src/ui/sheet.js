@@ -160,7 +160,7 @@ export function enableSheetSwipeDismiss(sheetId, backdropId, closeFn) {
     if (swiping) {
       // If user pushes back up past start, cancel swipe and let scroll resume
       const currentDy = e.touches[0].clientY - startY;
-      if (currentDy <= 0) {
+      if (currentDy < 0) {
         swiping = false;
         sheet.style.transform = '';
         sheet.style.transition = '';
