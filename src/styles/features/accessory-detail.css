@@ -1,0 +1,97 @@
+/* ===== Accessory Progress (Stats Tab + Detail Sheet) ===== */
+
+/* Stats tab overview */
+.acc-progress-group-header {
+  font-size: var(--text-xs); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; margin: var(--space-3) 0 var(--space-2);
+  padding-bottom: var(--space-1); border-bottom: 1px solid var(--border);
+}
+.acc-progress-list {
+  display: flex; flex-direction: column; gap: var(--space-2);
+}
+.acc-progress-row {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3); background: var(--surface); border-radius: var(--radius-md);
+  cursor: pointer; transition: transform var(--transition-fast);
+}
+.acc-progress-row:active { transform: scale(0.98); }
+.acc-progress-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.acc-progress-dot.squat { background: var(--squat, #e53935); }
+.acc-progress-dot.bench { background: var(--bench, #1e88e5); }
+.acc-progress-dot.deadlift { background: var(--deadlift, #43a047); }
+.acc-progress-info { flex: 1; min-width: 0; }
+.acc-progress-name {
+  font-size: var(--text-sm); font-weight: 600; color: var(--text-strong);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.acc-progress-meta {
+  font-size: var(--text-xs); color: var(--text-dim);
+}
+.acc-progress-right { text-align: right; flex-shrink: 0; }
+.acc-progress-weight {
+  font-size: var(--text-sm); font-weight: 700; color: var(--text-strong);
+}
+.acc-progress-trend {
+  font-size: var(--text-xs); font-weight: 600;
+}
+.acc-progress-trend.up { color: var(--green); }
+.acc-progress-trend.down { color: var(--red); }
+.acc-progress-trend.flat { color: var(--text-dim); }
+.acc-progress-badge {
+  font-size: 0.5rem; font-weight: 700; padding: 1px 5px;
+  border-radius: var(--radius-pill); background: rgba(255,215,0,0.15);
+  color: var(--gold, #ffd700); text-transform: uppercase; margin-left: 4px;
+}
+
+/* Detail sheet overrides */
+.acc-detail-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 250;
+  will-change: opacity;
+}
+.acc-detail-sheet {
+  max-height: 85vh; background: var(--surface);
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
+}
+
+/* Progression status card */
+.acc-progression-card {
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-md);
+  font-size: var(--text-sm); color: var(--text-dim);
+  background: var(--surface2);
+}
+.acc-progression-card.ready {
+  border: 1px solid rgba(255,215,0,0.35);
+  background: rgba(255,215,0,0.08);
+  color: var(--gold, #ffd700);
+}
+
+/* New high badge in workout view */
+.acc-new-high {
+  font-size: var(--text-xs); font-weight: 700; color: var(--gold, #ffd700);
+  background: rgba(255,215,0,0.15); padding: 1px 6px;
+  border-radius: var(--radius-pill); margin-left: 4px;
+}
+
+/* Swap alternatives enriched display */
+.acc-swap-alt-item {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.acc-swap-alt-perf {
+  font-size: var(--text-xs); color: var(--text-dim);
+}
+
+/* Filter pills */
+.acc-filter-pills {
+  display: flex; gap: var(--space-2); margin-bottom: var(--space-3);
+}
+.acc-filter-pill {
+  padding: 4px 12px; border-radius: var(--radius-pill);
+  font-size: var(--text-xs); font-weight: 600; cursor: pointer;
+  background: var(--surface); color: var(--text-dim); border: none;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.acc-filter-pill.active {
+  background: var(--accent, var(--gold)); color: var(--bg);
+}

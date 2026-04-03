@@ -212,7 +212,14 @@ export function renderWorkoutView() {
       <button class="acc-swap-btn" data-acc-swap="${ai}">&#8644; Swap</button>
       <button class="acc-remove-btn" data-acc-remove="${ai}">&times; Remove</button>
     </div>`;
-    html += `<div class="workout-exercise-meta">${acc.equipment}${!isBodyweight ? ` &bull; hit ${targetReps}${isTimeBased ? 's' : ' reps'} on all sets to increase weight` : ''}</div>`;
+    const accLogCount = new Set(store.accessoryLog.filter(l => l.exerciseId === acc.exerciseId).map(l => l.date)).size;
+    const accBestWeight = store.accessoryLog.filter(l => l.exerciseId === acc.exerciseId).reduce((max, l) => Math.max(max, l.weight), 0);
+    const isNewHigh = !isBodyweight && acc.setWeights && acc.setWeights[acc.setWeights.length - 1] > accBestWeight && accBestWeight > 0;
+    let metaParts = [acc.equipment];
+    if (!isBodyweight) metaParts.push(`hit ${targetReps}${isTimeBased ? 's' : ' reps'} on all sets to progress`);
+    if (accLogCount > 0) metaParts.push(`${accLogCount} session${accLogCount !== 1 ? 's' : ''}`);
+    if (!isBodyweight && accBestWeight > 0 && !isNewHigh) metaParts.push(`best: ${formatWeight(accBestWeight)} ${store.unit}`);
+    html += `<div class="workout-exercise-meta">${metaParts.join(' &bull; ')}${isNewHigh ? ' <span class="acc-new-high">New High!</span>' : ''}</div>`;
     const lastAcc = getLastAccPerformance(acc.exerciseId);
     if (lastAcc) {
       let lastWeight;
@@ -472,7 +479,21 @@ export function initWorkoutOverlay() {
       alternatives.forEach(alt => {
         const item = document.createElement('div');
         item.className = 'acc-swap-alt-item';
-        item.innerHTML = `<span>${alt.name}</span><span class="acc-swap-alt-meta">${alt.equipment} &bull; ${alt.score}pts</span>`;
+        const lastPerf = getLastAccPerformance(alt.id);
+        const estWeight = getAccessoryWeight(alt.id, store.workoutSession.mainLift);
+        let perfHtml;
+        if (lastPerf) {
+          const w = lastPerf.weight === 0 ? 'BW' : formatWeight(lastPerf.weight) + ' ' + store.unit;
+          const reps = lastPerf.setsCompleted.join('/');
+          const days = Math.round((Date.now() - new Date(lastPerf.date).getTime()) / 86400000);
+          const ago = days === 0 ? 'today' : days === 1 ? 'yesterday' : days + 'd ago';
+          perfHtml = `<span class="acc-swap-alt-perf">${w} &times; ${reps} &bull; ${ago}</span>`;
+        } else {
+          perfHtml = estWeight > 0
+            ? `<span class="acc-swap-alt-perf">No history &mdash; est. ${formatWeight(estWeight)} ${store.unit}</span>`
+            : `<span class="acc-swap-alt-perf">No history</span>`;
+        }
+        item.innerHTML = `<div><span>${alt.name}</span><span class="acc-swap-alt-meta">${alt.equipment}</span></div><div>${perfHtml}</div>`;
         item.addEventListener('click', () => {
           const newWeight = getAccessoryWeight(alt.id, store.workoutSession.mainLift);
           const newSetWeights = computeSetWeights(newWeight, alt.sets);

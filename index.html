@@ -19,7 +19,7 @@
 <meta name="twitter:description" content="Powerlifting tracker for the 1000lb club — e1RM, PR detection, Wilks/DOTS scoring, and cloud sync">
 <title>1000lb Club Tracker</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23121212'/%3E%3Cpolygon points='10,2 22,2 30,10 30,22 22,30 10,30 2,22 2,10' fill='none' stroke='%23fdd835' stroke-width='1.5'/%3E%3Cpolygon points='11.5,4.5 20.5,4.5 27.5,11.5 27.5,20.5 20.5,27.5 11.5,27.5 4.5,20.5 4.5,11.5' fill='none' stroke='%23888' stroke-width='0.75'/%3E%3Cpath d='M11,9 L13.5,9 L13.5,21 L11,21 Z M9,9 L11,11.5 L11,9 Z' fill='%23fff'/%3E%3Cpath d='M16,9 L18.5,9 L18.5,21 L16,21 Z M18.5,15.5 L23,9 L25.5,9 L20.5,15.8 L25.5,21 L23,21 L18.5,16.1 Z' fill='%23fff'/%3E%3Crect x='10' y='23.5' width='4' height='1.5' rx='0.5' fill='%23e53935'/%3E%3Crect x='14.5' y='23.5' width='4' height='1.5' rx='0.5' fill='%231e88e5'/%3E%3Crect x='19' y='23.5' width='4' height='1.5' rx='0.5' fill='%2343a047'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="data:text/css;base64,LyogPT09PT0gU0JEIFRyYWNrZXIg4oCUIE1hc3RlciBTdHlsZXNoZWV0ID09PT09ICovDQovKiBJbXBvcnQgb3JkZXIgbWF0dGVyczogcmVzZXQgPiB2YXJpYWJsZXMgPiBsYXlvdXQgPiBjb21wb25lbnRzID4gZmVhdHVyZXMgPiB1dGlsaXRpZXMgPiBhbmltYXRpb25zICovDQoNCkBpbXBvcnQgJy4vcmVzZXQuY3NzJzsNCkBpbXBvcnQgJy4vdmFyaWFibGVzLmNzcyc7DQpAaW1wb3J0ICcuL2xheW91dC5jc3MnOw0KDQovKiBDb21wb25lbnRzICovDQpAaW1wb3J0ICcuL2NvbXBvbmVudHMvYnV0dG9ucy5jc3MnOw0KQGltcG9ydCAnLi9jb21wb25lbnRzL2NhcmRzLmNzcyc7DQpAaW1wb3J0ICcuL2NvbXBvbmVudHMvaW5wdXRzLmNzcyc7DQpAaW1wb3J0ICcuL2NvbXBvbmVudHMvcGlsbHMuY3NzJzsNCkBpbXBvcnQgJy4vY29tcG9uZW50cy9tb2RhbHMuY3NzJzsNCkBpbXBvcnQgJy4vY29tcG9uZW50cy9zaGVldHMuY3NzJzsNCkBpbXBvcnQgJy4vY29tcG9uZW50cy90b2FzdC5jc3MnOw0KQGltcG9ydCAnLi9jb21wb25lbnRzL292ZXJsYXlzLmNzcyc7DQoNCi8qIEZlYXR1cmVzICovDQpAaW1wb3J0ICcuL2ZlYXR1cmVzL2Rhc2hib2FyZC5jc3MnOw0KQGltcG9ydCAnLi9mZWF0dXJlcy9mYXRpZ3VlLmNzcyc7DQpAaW1wb3J0ICcuL2ZlYXR1cmVzL3N0cmVhay5jc3MnOw0KQGltcG9ydCAnLi9mZWF0dXJlcy9yZWNhcC5jc3MnOw0KQGltcG9ydCAnLi9mZWF0dXJlcy9sb2ctdGFiLmNzcyc7DQpAaW1wb3J0ICcuL2ZlYXR1cmVzL2hpc3RvcnktdGFiLmNzcyc7DQpAaW1wb3J0ICcuL2ZlYXR1cmVzL2NoYXJ0cy10YWIuY3NzJzsNCkBpbXBvcnQgJy4vZmVhdHVyZXMvc3RhdHMtdGFiLmNzcyc7DQpAaW1wb3J0ICcuL2ZlYXR1cmVzL3Byb2dyYW0uY3NzJzsNCkBpbXBvcnQgJy4vZmVhdHVyZXMvd29ya291dC5jc3MnOw0KQGltcG9ydCAnLi9mZWF0dXJlcy9idWlsZGVyLmNzcyc7DQpAaW1wb3J0ICcuL2ZlYXR1cmVzL3NldHRpbmdzLmNzcyc7DQpAaW1wb3J0ICcuL2ZlYXR1cmVzL3dlbGNvbWUuY3NzJzsNCkBpbXBvcnQgJy4vZmVhdHVyZXMvc3luYy5jc3MnOw0KQGltcG9ydCAnLi9mZWF0dXJlcy9jZWxlYnJhdGlvbi5jc3MnOw0KQGltcG9ydCAnLi9mZWF0dXJlcy9sZWFkZXJib2FyZC5jc3MnOw0KQGltcG9ydCAnLi9mZWF0dXJlcy9saWZ0LWRldGFpbC5jc3MnOw0KQGltcG9ydCAnLi9mZWF0dXJlcy9wbGF0ZWF1LmNzcyc7DQpAaW1wb3J0ICcuL2ZlYXR1cmVzL2JvZHktbWFwLmNzcyc7DQoNCi8qIFV0aWxpdGllcyAmIEFuaW1hdGlvbnMgKi8NCkBpbXBvcnQgJy4vdXRpbGl0aWVzLmNzcyc7DQpAaW1wb3J0ICcuL2FuaW1hdGlvbnMuY3NzJzsNCg==" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="data:text/css;base64,LyogPT09PT0gU0JEIFRyYWNrZXIg4oCUIE1hc3RlciBTdHlsZXNoZWV0ID09PT09ICovDQovKiBJbXBvcnQgb3JkZXIgbWF0dGVyczogcmVzZXQgPiB2YXJpYWJsZXMgPiBsYXlvdXQgPiBjb21wb25lbnRzID4gZmVhdHVyZXMgPiB1dGlsaXRpZXMgPiBhbmltYXRpb25zICovDQoNCkBpbXBvcnQgJy4vcmVzZXQuY3NzJzsNCkBpbXBvcnQgJy4vdmFyaWFibGVzLmNzcyc7DQpAaW1wb3J0ICcuL2xheW91dC5jc3MnOw0KDQovKiBDb21wb25lbnRzICovDQpAaW1wb3J0ICcuL2NvbXBvbmVudHMvYnV0dG9ucy5jc3MnOw0KQGltcG9ydCAnLi9jb21wb25lbnRzL2NhcmRzLmNzcyc7DQpAaW1wb3J0ICcuL2NvbXBvbmVudHMvaW5wdXRzLmNzcyc7DQpAaW1wb3J0ICcuL2NvbXBvbmVudHMvcGlsbHMuY3NzJzsNCkBpbXBvcnQgJy4vY29tcG9uZW50cy9tb2RhbHMuY3NzJzsNCkBpbXBvcnQgJy4vY29tcG9uZW50cy9zaGVldHMuY3NzJzsNCkBpbXBvcnQgJy4vY29tcG9uZW50cy90b2FzdC5jc3MnOw0KQGltcG9ydCAnLi9jb21wb25lbnRzL292ZXJsYXlzLmNzcyc7DQoNCi8qIEZlYXR1cmVzICovDQpAaW1wb3J0ICcuL2ZlYXR1cmVzL2Rhc2hib2FyZC5jc3MnOw0KQGltcG9ydCAnLi9mZWF0dXJlcy9mYXRpZ3VlLmNzcyc7DQpAaW1wb3J0ICcuL2ZlYXR1cmVzL3N0cmVhay5jc3MnOw0KQGltcG9ydCAnLi9mZWF0dXJlcy9yZWNhcC5jc3MnOw0KQGltcG9ydCAnLi9mZWF0dXJlcy9sb2ctdGFiLmNzcyc7DQpAaW1wb3J0ICcuL2ZlYXR1cmVzL2hpc3RvcnktdGFiLmNzcyc7DQpAaW1wb3J0ICcuL2ZlYXR1cmVzL2NoYXJ0cy10YWIuY3NzJzsNCkBpbXBvcnQgJy4vZmVhdHVyZXMvc3RhdHMtdGFiLmNzcyc7DQpAaW1wb3J0ICcuL2ZlYXR1cmVzL3Byb2dyYW0uY3NzJzsNCkBpbXBvcnQgJy4vZmVhdHVyZXMvd29ya291dC5jc3MnOw0KQGltcG9ydCAnLi9mZWF0dXJlcy9idWlsZGVyLmNzcyc7DQpAaW1wb3J0ICcuL2ZlYXR1cmVzL3NldHRpbmdzLmNzcyc7DQpAaW1wb3J0ICcuL2ZlYXR1cmVzL3dlbGNvbWUuY3NzJzsNCkBpbXBvcnQgJy4vZmVhdHVyZXMvc3luYy5jc3MnOw0KQGltcG9ydCAnLi9mZWF0dXJlcy9jZWxlYnJhdGlvbi5jc3MnOw0KQGltcG9ydCAnLi9mZWF0dXJlcy9sZWFkZXJib2FyZC5jc3MnOw0KQGltcG9ydCAnLi9mZWF0dXJlcy9saWZ0LWRldGFpbC5jc3MnOw0KQGltcG9ydCAnLi9mZWF0dXJlcy9hY2Nlc3NvcnktZGV0YWlsLmNzcyc7DQpAaW1wb3J0ICcuL2ZlYXR1cmVzL3BsYXRlYXUuY3NzJzsNCkBpbXBvcnQgJy4vZmVhdHVyZXMvYm9keS1tYXAuY3NzJzsNCg0KLyogVXRpbGl0aWVzICYgQW5pbWF0aW9ucyAqLw0KQGltcG9ydCAnLi91dGlsaXRpZXMuY3NzJzsNCkBpbXBvcnQgJy4vYW5pbWF0aW9ucy5jc3MnOw0K" media="print" onload="this.media='all'">
 <noscript></noscript>
 <style>
 :root{--bg:#121212;--surface:#1e1e1e;--surface2:#2a2a2a;--text:#e0e0e0;--text-dim:#888;--text-strong:#fff;--border:#333;--squat:#e53935;--bench:#1e88e5;--deadlift:#43a047;--total:#fdd835;--gold:#ffd700;--green:#43a047;--yellow:#fdd835;--red:#e53935;--orange:#fb8c00;--text-xs:0.65rem;--text-sm:0.75rem;--text-base:0.875rem;--text-lg:1.1rem;--text-xl:1.25rem;--text-2xl:1.5rem;--space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;--radius-sm:6px;--radius-md:8px;--radius-lg:12px;--radius-pill:9999px;--transition-fast:0.1s ease}
@@ -37,8 +37,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .tab-btn{flex:1;padding:8px 0;border:none;background:transparent;color:var(--text-dim);font-size:var(--text-sm);font-weight:600;cursor:pointer}
 .tab-btn.active{color:var(--text-strong);border-bottom:2px solid var(--text-strong)}
 </style>
-  <script type="module" crossorigin src="/assets/index.src-C4Wq65Uy.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-rVeoz7a7.css">
+  <script type="module" crossorigin src="/assets/index.src-BSxtkysm.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-1wJa0AgM.css">
 </head>
 <body>
 <div id="app">
@@ -135,6 +135,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       <button class="modal-close" id="lift-detail-close">&times;</button>
     </div>
     <div class="fatigue-sheet-body" id="lift-detail-body"></div>
+  </div>
+  <div class="acc-detail-backdrop" id="acc-detail-backdrop" style="display:none"></div>
+  <div class="fatigue-sheet acc-detail-sheet" id="acc-detail-sheet" style="display:none">
+    <div class="sheet-handle fatigue-sheet-handle"></div>
+    <div class="fatigue-sheet-header">
+      <h3 id="acc-detail-title">Accessory Detail</h3>
+      <button class="modal-close" id="acc-detail-close">&times;</button>
+    </div>
+    <div class="fatigue-sheet-body" id="acc-detail-body"></div>
   </div>
   <div class="fatigue-sheet-backdrop" id="fatigue-sheet-backdrop" style="display:none"></div>
   <div class="fatigue-sheet" id="fatigue-sheet" style="display:none">

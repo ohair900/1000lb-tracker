@@ -19,6 +19,8 @@ import { getClassification, getOverallClassification, getWeightClass } from '../
 import { getRepPRs } from '../systems/pr-tracking.js';
 import { calcVolumeSummaries, getProjectedTotal, suggestAttempts } from '../systems/volume.js';
 import { calcGoalProjection, calcMilestoneRoadmap } from '../systems/goals.js';
+import { getAccessorySummaries } from '../systems/accessory-progress.js';
+import { showAccessoryDetail } from './accessory-detail.js';
 import { showToast } from '../ui/toast.js';
 import { sharePRCard, shareOrDownloadCanvas } from '../ui/share.js';
 
@@ -442,6 +444,47 @@ function renderStatsMesocycle() {
   return html;
 }
 
+function renderStatsAccessoryProgress() {
+  let html = statsSection('accessory-progress', 'Accessory Progress', store.statsCollapsed);
+  const summaries = getAccessorySummaries();
+  if (summaries.size === 0) {
+    html += `<div style="color:var(--text-dim);font-size:var(--text-sm);padding:var(--space-2) 0">Complete workouts with accessories to see progress here.</div>`;
+    return html + SECTION_CLOSE;
+  }
+
+  // Group by main lift
+  const groups = { squat: [], bench: [], deadlift: [] };
+  for (const [, s] of summaries) {
+    if (groups[s.mainLift]) groups[s.mainLift].push(s);
+  }
+
+  const TREND_ARROWS = { up: '\u2191', down: '\u2193', flat: '\u2192' };
+  const GROUP_LABELS = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
+
+  for (const [lift, exercises] of Object.entries(groups)) {
+    if (exercises.length === 0) continue;
+    html += `<div class="acc-progress-group-header" style="color:${COLORS[lift]}">${GROUP_LABELS[lift]} Accessories</div>`;
+    html += `<div class="acc-progress-list">`;
+    for (const s of exercises) {
+      const w = s.bestWeight === 0 ? 'BW' : formatWeight(s.lastWeight) + ' ' + store.unit;
+      const arrow = TREND_ARROWS[s.trend];
+      html += `<div class="acc-progress-row" data-exercise-id="${s.exerciseId}">`;
+      html += `<div class="acc-progress-dot ${s.mainLift}"></div>`;
+      html += `<div class="acc-progress-info">`;
+      html += `<div class="acc-progress-name">${escapeHTML(s.name)}${s.readyToProgress ? '<span class="acc-progress-badge">Ready</span>' : ''}</div>`;
+      html += `<div class="acc-progress-meta">${s.sessionCount} session${s.sessionCount !== 1 ? 's' : ''} &bull; ${s.equipment} &bull; ${s.lastDate}</div>`;
+      html += `</div>`;
+      html += `<div class="acc-progress-right">`;
+      html += `<div class="acc-progress-weight">${w}</div>`;
+      html += `<div class="acc-progress-trend ${s.trend}">${arrow}</div>`;
+      html += `</div></div>`;
+    }
+    html += `</div>`;
+  }
+
+  return html + SECTION_CLOSE;
+}
+
 // ---------------------------------------------------------------------------
 // Main renderStats()
 // ---------------------------------------------------------------------------
@@ -458,6 +501,7 @@ export function renderStats() {
     renderStatsRelativeStrength(total),
     renderStatsRecordsBoard(),
     renderStatsVolume(),
+    renderStatsAccessoryProgress(),
     renderStatsMeetPrep(),
     renderStatsCycles(),
     renderStatsPRTimeline(),
@@ -492,6 +536,11 @@ function attachStatsListeners() {
     card.addEventListener('click', () => {
       if (_showMesoWeekDetail) _showMesoWeekDetail(parseInt(card.dataset.mesoStatWeek));
     });
+  });
+
+  // Accessory progress rows
+  document.querySelectorAll('.acc-progress-row[data-exercise-id]').forEach(row => {
+    row.addEventListener('click', () => showAccessoryDetail(row.dataset.exerciseId));
   });
 
   // Volume period toggle

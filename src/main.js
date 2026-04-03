@@ -89,6 +89,7 @@ import {
   updateWorkoutButton,
 } from './views/workout-overlay.js';
 import { initLiftDetailSheet } from './views/lift-detail.js';
+import { initAccessoryDetailSheet } from './views/accessory-detail.js';
 import { initPlateauSheet, setPlateauDeps } from './views/plateau-analysis.js';
 import {
   initBuilderOverlay,
@@ -569,6 +570,7 @@ initStatsTab();
 initModalListeners();
 initSheetListeners();
 initLiftDetailSheet();
+initAccessoryDetailSheet();
 initPlateauSheet();
 initSwipeToDelete();
 initProgramSection();
