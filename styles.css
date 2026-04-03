@@ -174,7 +174,7 @@
   .fatigue-sheet {
     position: fixed; bottom: 0; left: 0; right: 0; max-height: 85vh; z-index: 251;
     border-radius: 16px 16px 0 0; background: var(--bg);
-    animation: slideUp 0.25s ease; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    animation: slideUp 0.25s ease; display: flex; flex-direction: column;
     padding-bottom: env(safe-area-inset-bottom, 0);
     overscroll-behavior-y: contain; will-change: transform;
   }
@@ -189,7 +189,11 @@
     padding: var(--space-3) var(--space-4) 0;
   }
   .fatigue-sheet-header h3 { font-size: var(--text-lg); font-weight: 700; color: var(--text-strong); }
-  .fatigue-sheet-body { padding: var(--space-3) var(--space-4) var(--space-5); }
+  .fatigue-sheet-body {
+    padding: var(--space-3) var(--space-4) var(--space-5);
+    overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1; min-height: 0;
+    overscroll-behavior-y: contain;
+  }
 
   .fatigue-detail-banner {
     display: flex; align-items: center; gap: 10px; padding: 10px 14px;
@@ -772,7 +776,7 @@
   .choice-sheet {
     position: fixed; bottom: 0; left: 0; right: 0; max-height: 85vh; z-index: 251;
     border-radius: 16px 16px 0 0; background: var(--bg);
-    animation: slideUp 0.25s ease; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    animation: slideUp 0.25s ease; display: flex; flex-direction: column;
     padding-bottom: env(safe-area-inset-bottom, 0);
     overscroll-behavior-y: contain; will-change: transform;
   }
@@ -782,7 +786,11 @@
     padding: var(--space-3) var(--space-4) 0;
   }
   .choice-sheet-header h3 { font-size: var(--text-lg); font-weight: 700; color: var(--text-strong); }
-  .choice-sheet-body { padding: var(--space-3) var(--space-4) var(--space-5); }
+  .choice-sheet-body {
+    padding: var(--space-3) var(--space-4) var(--space-5);
+    overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1; min-height: 0;
+    overscroll-behavior-y: contain;
+  }
   .choice-card {
     display: flex; align-items: center; gap: var(--space-3);
     padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg);
@@ -1031,7 +1039,7 @@
   .workout-summary-sheet {
     position: fixed; bottom: 0; left: 0; right: 0; max-height: 85vh; z-index: 251;
     border-radius: 16px 16px 0 0; background: var(--bg);
-    animation: slideUp 0.25s ease; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    animation: slideUp 0.25s ease; display: flex; flex-direction: column;
     padding-bottom: env(safe-area-inset-bottom, 0);
     overscroll-behavior-y: contain; will-change: transform;
   }
