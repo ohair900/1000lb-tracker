@@ -99,11 +99,18 @@ export function enableSheetSwipeDismiss(sheetId, backdropId, closeFn) {
   let startY, startTime, offset, swiping, onHandle;
   const DEAD_ZONE = 8;
 
-  // Find the scrollable child (the body element that actually scrolls)
+  // Find the element that actually scrolls (the one with overflow-y: auto)
   function getScrollable() {
-    return sheet.querySelector('.fatigue-sheet-body') ||
-           sheet.querySelector('[style*="overflow"]') ||
-           sheet;
+    // Check if the sheet itself scrolls (overflow-y set via CSS)
+    const sheetOverflow = getComputedStyle(sheet).overflowY;
+    if (sheetOverflow === 'auto' || sheetOverflow === 'scroll') return sheet;
+    // Otherwise look for a scrollable child
+    const body = sheet.querySelector('.fatigue-sheet-body');
+    if (body) {
+      const bodyOverflow = getComputedStyle(body).overflowY;
+      if (bodyOverflow === 'auto' || bodyOverflow === 'scroll') return body;
+    }
+    return sheet;
   }
 
   sheet.addEventListener('touchstart', e => {
