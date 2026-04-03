@@ -99,9 +99,39 @@ export function enableSheetSwipeDismiss(sheetId, backdropId, closeFn) {
   let startY, startTime, offset, swiping;
   const DEAD_ZONE = 8;
 
-  // Shared dismiss/snap-back logic
-  function onEnd() {
-    if (!swiping) { startY = null; return; }
+  // Swipe-to-dismiss only from the handle. Body scrolls natively
+  // with zero JS touch interference — reliable on all platforms.
+  const handle = sheet.querySelector('.sheet-handle');
+  if (!handle) return;
+
+  handle.addEventListener('touchstart', e => {
+    if (sheet.style.display === 'none') return;
+    startY = e.touches[0].clientY;
+    startTime = Date.now();
+    offset = 0;
+    swiping = false;
+  }, { passive: true });
+
+  handle.addEventListener('touchmove', e => {
+    if (startY == null) return;
+    const dy = e.touches[0].clientY - startY;
+    if (!swiping) {
+      if (dy < DEAD_ZONE) return;
+      swiping = true;
+      startY = e.touches[0].clientY;
+      offset = 0;
+    }
+    e.preventDefault();
+    offset = Math.max(0, e.touches[0].clientY - startY);
+    sheet.style.transition = 'none';
+    sheet.style.transform = 'translateY(' + offset + 'px)';
+    backdrop.style.transition = 'none';
+    backdrop.style.opacity = Math.max(0, 1 - offset / sheet.offsetHeight);
+  }, { passive: false });
+
+  handle.addEventListener('touchend', () => {
+    startY = null;
+    if (!swiping) return;
     const elapsed = Date.now() - startTime;
     const velocity = offset / elapsed;
     if (offset > sheet.offsetHeight * 0.3 || velocity > 0.5) {
@@ -123,75 +153,7 @@ export function enableSheetSwipeDismiss(sheetId, backdropId, closeFn) {
       }, 250);
     }
     swiping = false;
-    startY = null;
-  }
-
-  function applyDrag(clientY) {
-    offset = Math.max(0, clientY - startY);
-    sheet.style.transition = 'none';
-    sheet.style.transform = 'translateY(' + offset + 'px)';
-    backdrop.style.transition = 'none';
-    backdrop.style.opacity = Math.max(0, 1 - offset / sheet.offsetHeight);
-  }
-
-  // --- Handle: non-passive, always allows swipe ---
-  const handle = sheet.querySelector('.sheet-handle');
-  if (handle) {
-    handle.addEventListener('touchstart', e => {
-      if (sheet.style.display === 'none') return;
-      startY = e.touches[0].clientY;
-      startTime = Date.now();
-      offset = 0;
-      swiping = false;
-    }, { passive: true });
-
-    handle.addEventListener('touchmove', e => {
-      if (startY == null) return;
-      const dy = e.touches[0].clientY - startY;
-      if (!swiping) {
-        if (dy < DEAD_ZONE) return;
-        swiping = true;
-        startY = e.touches[0].clientY;
-        offset = 0;
-      }
-      e.preventDefault();
-      applyDrag(e.touches[0].clientY);
-    }, { passive: false });
-
-    handle.addEventListener('touchend', onEnd, { passive: true });
-  }
-
-  // --- Body: passive only, no interference with native scroll ---
-  // When at scroll top and pulling down, translate the sheet.
-  // Since overscroll-behavior:contain prevents bounce, there's no
-  // default to fight — the body simply can't scroll further up.
-  const body = sheet.querySelector('.fatigue-sheet-body') ||
-               sheet.querySelector('.choice-sheet-body');
-  if (body) {
-    body.addEventListener('touchstart', e => {
-      if (sheet.style.display === 'none') return;
-      startY = e.touches[0].clientY;
-      startTime = Date.now();
-      offset = 0;
-      swiping = false;
-    }, { passive: true });
-
-    body.addEventListener('touchmove', e => {
-      if (startY == null) return;
-      if (swiping) {
-        applyDrag(e.touches[0].clientY);
-        return;
-      }
-      const dy = e.touches[0].clientY - startY;
-      if (dy > DEAD_ZONE && body.scrollTop <= 1) {
-        swiping = true;
-        startY = e.touches[0].clientY;
-        offset = 0;
-      }
-    }, { passive: true });
-
-    body.addEventListener('touchend', onEnd, { passive: true });
-  }
+  }, { passive: true });
 }
 
 // ---------------------------------------------------------------------------

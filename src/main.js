@@ -98,7 +98,7 @@ import {
   showTemplateList,
 } from './views/builder-overlay.js';
 import { setChoiceSheetDeps, renderChoiceSheetBody } from './views/choice-sheet.js';
-import { openSmartRecommendation } from './views/smart-recommendation.js';
+
 import {
   initMesocycleUI,
   setMesocycleUIDeps,
@@ -290,7 +290,7 @@ function initExercisePreview() {
 
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js?v=10').catch(() => {});
+    navigator.serviceWorker.register('/sw.js?v=11').catch(() => {});
   }
 }
 
@@ -473,7 +473,6 @@ setBuilderDeps({
 // 4q. Choice sheet deps
 setChoiceSheetDeps({
   openWorkoutView,
-  openSmartRecommendation,
   openBuilder,
   showTemplateList,
   openMesocycleWorkout,
