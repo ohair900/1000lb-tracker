@@ -96,41 +96,39 @@ export function closeWorkoutSummary() {
  */
 export function enableSheetSwipeDismiss(sheetId, backdropId, closeFn) {
   const sheet = $(sheetId), backdrop = $(backdropId);
-  let startY, startTime, offset, swiping;
+  let startY, startTime, offset, swiping, locked, onHandle;
   const DEAD_ZONE = 8;
 
-  // Swipe-to-dismiss only from the handle. Body scrolls natively
-  // with zero JS touch interference — reliable on all platforms.
-  const handle = sheet.querySelector('.sheet-handle');
-  if (!handle) return;
-
-  handle.addEventListener('touchstart', e => {
+  sheet.addEventListener('touchstart', e => {
     if (sheet.style.display === 'none') return;
-    startY = e.touches[0].clientY;
-    startTime = Date.now();
-    offset = 0;
-    swiping = false;
+    const t = e.touches[0];
+    startY = t.clientY; startTime = Date.now();
+    offset = 0; swiping = false; locked = false;
+    onHandle = !!e.target.closest('.sheet-handle');
   }, { passive: true });
 
-  handle.addEventListener('touchmove', e => {
-    if (startY == null) return;
+  sheet.addEventListener('touchmove', e => {
+    if (locked && !swiping) return;
     const dy = e.touches[0].clientY - startY;
-    if (!swiping) {
-      if (dy < DEAD_ZONE) return;
-      swiping = true;
-      startY = e.touches[0].clientY;
-      offset = 0;
+    if (!locked) {
+      if (Math.abs(dy) < DEAD_ZONE) return;
+      locked = true;
+      if (dy > 0 && (onHandle || sheet.scrollTop <= 1)) {
+        swiping = true;
+      } else {
+        return;
+      }
     }
+    if (!swiping) return;
     e.preventDefault();
-    offset = Math.max(0, e.touches[0].clientY - startY);
+    offset = Math.max(0, dy);
     sheet.style.transition = 'none';
     sheet.style.transform = 'translateY(' + offset + 'px)';
     backdrop.style.transition = 'none';
     backdrop.style.opacity = Math.max(0, 1 - offset / sheet.offsetHeight);
   }, { passive: false });
 
-  handle.addEventListener('touchend', () => {
-    startY = null;
+  sheet.addEventListener('touchend', () => {
     if (!swiping) return;
     const elapsed = Date.now() - startTime;
     const velocity = offset / elapsed;
@@ -146,10 +144,8 @@ export function enableSheetSwipeDismiss(sheetId, backdropId, closeFn) {
       backdrop.style.transition = 'opacity 0.25s ease';
       backdrop.style.opacity = '1';
       setTimeout(() => {
-        sheet.style.transform = '';
-        sheet.style.transition = '';
-        backdrop.style.opacity = '';
-        backdrop.style.transition = '';
+        sheet.style.transform = ''; sheet.style.transition = '';
+        backdrop.style.opacity = ''; backdrop.style.transition = '';
       }, 250);
     }
     swiping = false;

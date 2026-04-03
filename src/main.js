@@ -290,7 +290,7 @@ function initExercisePreview() {
 
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js?v=11').catch(() => {});
+    navigator.serviceWorker.register('/sw.js?v=12').catch(() => {});
   }
 }
 

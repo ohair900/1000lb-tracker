@@ -16,30 +16,59 @@
   font-size: var(--text-xl);
 }
 .lift-detail-sheet .fatigue-sheet-body {
-  padding: var(--space-4) var(--space-5) var(--space-6);
+  padding: var(--space-3) var(--space-4) var(--space-4);
 }
 
-/* ---- Recent Progress Grid ---- */
+/* ---- Compact Progress Grid ---- */
 .ld-progress-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
 }
 .ld-progress-item {
   background: var(--surface2); border-radius: var(--radius-md);
-  padding: var(--space-3); text-align: center;
+  padding: 8px; text-align: center;
 }
 .ld-progress-label {
-  font-size: var(--text-xs); color: var(--text-dim);
-  text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px;
+  font-size: 0.6rem; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px;
 }
 .ld-progress-value {
-  font-size: var(--text-base); font-weight: 700; color: var(--text-strong);
+  font-size: var(--text-sm); font-weight: 700; color: var(--text-strong);
 }
 .ld-progress-delta {
-  font-size: var(--text-sm); font-weight: 600; margin-top: 2px;
+  font-size: var(--text-xs); font-weight: 600; margin-top: 1px;
 }
 .ld-progress-delta.up { color: var(--green); }
 .ld-progress-delta.down { color: var(--red); }
 .ld-progress-delta.flat { color: var(--text-dim); }
+
+/* ---- Best line in hero ---- */
+.ld-banner-best {
+  font-size: var(--text-xs); color: var(--text-dim); margin-top: var(--space-2);
+}
+
+/* ---- Milestone Roadmap ---- */
+.ld-roadmap { margin-top: 8px; }
+.ld-roadmap-item {
+  display: flex; align-items: center; gap: 8px;
+  font-size: var(--text-xs); padding: 3px 0;
+}
+.ld-roadmap-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.ld-roadmap-est {
+  margin-left: auto; color: var(--text-dim); font-size: 0.6rem;
+}
+
+/* ---- Compact sessions ---- */
+.ld-compact-session {
+  display: flex; align-items: center; gap: 8px;
+  font-size: var(--text-sm); padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.ld-compact-session:last-child { border-bottom: none; }
+.ld-compact-date { color: var(--text-dim); font-size: var(--text-xs); min-width: 40px; }
+.ld-compact-e1rm { color: var(--text-dim); font-size: var(--text-xs); }
+.ld-compact-sets { color: var(--text-dim); font-size: var(--text-xs); margin-left: auto; }
 
 /* ---- Feature 1: Staggered Section Animations ---- */
 @keyframes ld-enter {
@@ -53,8 +82,8 @@
 
 /* ---- Hero Banner ---- */
 .ld-banner {
-  text-align: center; padding: var(--space-5) var(--space-4);
-  border-radius: var(--radius-lg); margin-bottom: var(--space-4);
+  text-align: center; padding: var(--space-3) var(--space-3);
+  border-radius: var(--radius-lg); margin-bottom: var(--space-2);
   position: relative;
 }
 .ld-banner.squat { background: rgba(229,57,53,0.18); }
@@ -150,9 +179,9 @@
 
 /* ---- Section Titles ---- */
 .ld-section-title {
-  font-size: var(--text-sm); font-weight: 700; text-transform: uppercase;
+  font-size: var(--text-xs); font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.06em; color: var(--text-dim);
-  margin: var(--space-5) 0 var(--space-3);
+  margin: var(--space-3) 0 var(--space-2);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--border);
 }
