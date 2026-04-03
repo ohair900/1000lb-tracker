@@ -46,6 +46,28 @@ self.addEventListener('fetch', e => {
     return;
   }
 
+  // HTML pages: network-first so deploys take effect immediately
+  if (e.request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname === '/') {
+    e.respondWith(
+      fetch(e.request).then(r => {
+        if (r.ok) { const c = r.clone(); caches.open(CACHE_NAME).then(cache => cache.put(e.request, c)); }
+        return r;
+      }).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // Hashed assets (JS/CSS with content hash in filename): cache-first
+  if (url.pathname.startsWith('/assets/')) {
+    e.respondWith(
+      caches.match(e.request).then(cached => cached || fetch(e.request).then(r => {
+        if (r.ok) { const c = r.clone(); caches.open(CACHE_NAME).then(cache => cache.put(e.request, c)); }
+        return r;
+      }))
+    );
+    return;
+  }
+
   // Everything else: stale-while-revalidate
   e.respondWith(
     caches.open(CACHE_NAME).then(cache =>
