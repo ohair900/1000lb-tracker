@@ -6,7 +6,7 @@
  */
 
 import store from '../state/store.js';
-import { $ } from '../utils/helpers.js';
+import { $, escapeHTML } from '../utils/helpers.js';
 import { CYCLE_TYPES } from '../constants/lift-config.js';
 import { openModal, closeModal } from '../ui/modal.js';
 import { showToast } from '../ui/toast.js';
@@ -25,7 +25,7 @@ export function renderCycleBar() {
   } else {
     let html = '';
     store.cycles.filter(c => c.active || !c.endDate).forEach(c => {
-      html += `<button class="cycle-pill${c.id === store.activeCycleId ? ' active' : ''}" data-cycle="${c.id}">${c.name}</button>`;
+      html += `<button class="cycle-pill${c.id === store.activeCycleId ? ' active' : ''}" data-cycle="${c.id}">${escapeHTML(c.name)}</button>`;
     });
     html += '<button class="cycle-pill add" id="cycle-add">+</button>';
     bar.innerHTML = html;

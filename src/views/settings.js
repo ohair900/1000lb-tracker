@@ -307,8 +307,12 @@ export function attachSettingsListeners() {
     store.accessoryLog = []; store.workoutSession = null;
     store.customTemplates = []; store.activeMesocycle = null; store.mesocycleHistory = [];
     store.leaderboardOptedIn = true;
+    store._deletedEntryRecords = [];
+    store.deletedEntryIds = new Set();
     store.dashboardWidgets = { ratios: true, fatigue: true, streak: true, recap: true, prStreak: true };
     store.accentColor = 'gold'; applyAccentColor();
+    // Delete cloud data if signed in
+    import('../firebase/sync.js').then(m => m.clearCloudData()).catch(() => {});
     closeModal('settings-modal');
     if (_updateDashboard) _updateDashboard();
     if (_renderCycleBar) _renderCycleBar();

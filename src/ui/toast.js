@@ -91,34 +91,33 @@ export function executeUndo() {
 export function showToast(msg, isPR, milestone, shareData) {
   const el = $('toast');
   el.className = 'toast' + (isPR ? ' pr-toast' : '');
+  el.textContent = '';
 
-  let html = msg;
+  el.appendChild(document.createTextNode(msg));
 
   if (milestone) {
     const idx = PLATE_MILESTONES.indexOf(parseInt(milestone));
     const plates = idx + 1;
-    html += `<span class="toast-milestone">${plates} PLATE MILESTONE!</span>`;
+    const span = document.createElement('span');
+    span.className = 'toast-milestone';
+    span.textContent = `${plates} PLATE MILESTONE!`;
+    el.appendChild(span);
   }
 
   if (isPR && shareData) {
     store.pendingSharePR = shareData;
-    html += `<button class="toast-share" id="toast-share-btn">Share PR Card</button>`;
+    const btn = document.createElement('button');
+    btn.className = 'toast-share';
+    btn.textContent = 'Share PR Card';
+    btn.addEventListener('click', () => {
+      if (_sharePRCard) {
+        _sharePRCard(shareData.lift, shareData.weight, shareData.e1rm, shareData.date);
+      }
+    });
+    el.appendChild(btn);
   }
 
-  el.innerHTML = html;
   el.classList.add('show');
-
-  if (isPR && shareData) {
-    const shareBtn = $('toast-share-btn');
-    if (shareBtn) {
-      shareBtn.addEventListener('click', () => {
-        if (_sharePRCard) {
-          _sharePRCard(shareData.lift, shareData.weight, shareData.e1rm, shareData.date);
-        }
-      });
-    }
-  }
-
   setTimeout(() => el.classList.remove('show'), isPR ? 3500 : 1500);
 }
 
@@ -131,13 +130,16 @@ export function showToast(msg, isPR, milestone, shareData) {
 export function showToastWithUndo(msg, duration) {
   const el = $('toast');
   el.className = 'toast';
-  el.innerHTML = msg + ' <button class="toast-undo" id="toast-undo-btn">Undo</button>';
+  el.textContent = '';
+
+  el.appendChild(document.createTextNode(msg + ' '));
+
+  const btn = document.createElement('button');
+  btn.className = 'toast-undo';
+  btn.textContent = 'Undo';
+  btn.addEventListener('click', executeUndo);
+  el.appendChild(btn);
+
   el.classList.add('show');
-
-  setTimeout(() => {
-    const btn = $('toast-undo-btn');
-    if (btn) btn.addEventListener('click', executeUndo);
-  }, 0);
-
   setTimeout(() => el.classList.remove('show'), duration || 4000);
 }

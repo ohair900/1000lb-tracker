@@ -117,7 +117,8 @@ service cloud.firestore {
   $('edit-modal').querySelector('h3').textContent = 'Cloud Sync Setup';
   openModal('edit-modal');
 
-  $('save-firebase-config').addEventListener('click', () => {
+  $('save-firebase-config').addEventListener('click', async () => {
+    const saveBtn = $('save-firebase-config');
     const raw = $('firebase-config-input').value.trim();
     const errEl = $('config-error');
     errEl.style.display = 'none';
@@ -144,7 +145,10 @@ service cloud.firestore {
       }
       // Save and initialize
       saveFirebaseConfig(config);
-      if (initFirebase(config)) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Connecting...';
+      const success = await initFirebase(config);
+      if (success) {
         closeModal('edit-modal');
         showToast('Firebase connected!');
         updateSyncButton();
@@ -158,6 +162,8 @@ service cloud.firestore {
         throw new Error('Firebase initialization failed. Check your config.');
       }
     } catch (err) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Connect';
       errEl.textContent = err.message;
       errEl.style.display = '';
     }

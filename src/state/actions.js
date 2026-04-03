@@ -131,6 +131,7 @@ export function editEntry(id, lift, weight, reps, rpe, notes) {
   e.e1rm = Math.round(_calcE1RM(weight, reps) * 10) / 10;
   e.rpe = rpe;
   e.notes = notes || '';
+  e.updatedAt = Date.now();
 
   _rebuildPRs();
 }
@@ -144,6 +145,12 @@ export function editEntry(id, lift, weight, reps, rpe, notes) {
 export function deleteEntry(id) {
   const entry = store.entries.find((e) => e.id === id);
   if (entry) pushUndo('delete', { entry: { ...entry } });
+
+  if (entry) {
+    store._deletedEntryRecords.push({ id: entry.id, deletedAt: Date.now() });
+    store.deletedEntryIds.add(entry.id);
+    store.save('deletedEntryIds');
+  }
 
   const wasPR = entry?.isPR;
   store.entries = store.entries.filter((e) => e.id !== id);

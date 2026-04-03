@@ -43,6 +43,7 @@ import {
   STATS_COLLAPSED_KEY,
   LEADERBOARD_KEY,
   RECOVERY_CALIBRATION_KEY,
+  DELETED_IDS_KEY,
 } from '../constants/storage-keys.js';
 
 import { CURRENT_VERSION } from '../constants/time.js';
@@ -94,6 +95,8 @@ class Store {
     this.mesocycleHistory = [];
     this.leaderboardOptedIn = true;
     this.recoveryCalibration = null;
+    this._deletedEntryRecords = []; // Array of { id, deletedAt }
+    this.deletedEntryIds = new Set();
 
     // -----------------------------------------------------------------------
     // Ephemeral UI state — NOT persisted via the STORES registry.
@@ -242,6 +245,21 @@ class Store {
         default: null,
         nullable: true,
       },
+      deletedEntryIds: {
+        key: DELETED_IDS_KEY,
+        get: () => this._deletedEntryRecords,
+        set: (v) => {
+          this._deletedEntryRecords = v || [];
+          this.deletedEntryIds = new Set(this._deletedEntryRecords.map(r => r.id));
+        },
+        default: [],
+      },
+      leaderboard: {
+        key: LEADERBOARD_KEY,
+        get: () => this.leaderboardOptedIn,
+        set: (v) => { this.leaderboardOptedIn = v; },
+        default: true,
+      },
     };
 
     // -----------------------------------------------------------------------
@@ -282,10 +300,11 @@ class Store {
   /** Stores needed for first paint (dashboard, program section, log tab). */
   static ESSENTIAL_STORES = [
     'entries', 'profile', 'goals', 'prs', 'programs', 'workoutConfig', 'workoutSession', 'mesocycle',
+    'cycles', 'deletedEntryIds', 'leaderboard',
   ];
   /** Stores that can be loaded after first paint. */
   static DEFERRED_STORES = [
-    'cycles', 'accessoryLog', 'customTemplates', 'mesocycleHistory', 'recoveryCalibration',
+    'accessoryLog', 'customTemplates', 'mesocycleHistory', 'recoveryCalibration',
   ];
 
   init() {
@@ -299,6 +318,13 @@ class Store {
 
     // Ensure bodyweightHistory always exists
     if (!this.profile.bodyweightHistory) this.profile.bodyweightHistory = [];
+
+    // Purge deleted entry records older than 30 days
+    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+    const before = this._deletedEntryRecords.length;
+    this._deletedEntryRecords = this._deletedEntryRecords.filter(r => Date.now() - r.deletedAt < THIRTY_DAYS);
+    this.deletedEntryIds = new Set(this._deletedEntryRecords.map(r => r.id));
+    if (this._deletedEntryRecords.length !== before) this.save('deletedEntryIds');
 
     // Derive activeCycleId from cycles
     this.activeCycleId = (this.cycles.find((c) => c.active) || {}).id || null;
@@ -447,6 +473,7 @@ class Store {
       if (e.cycleId === undefined) e.cycleId = null;
       if (e.repPRs === undefined) e.repPRs = [];
       if (e.tags === undefined) e.tags = [];
+      if (e.updatedAt === undefined) e.updatedAt = e.timestamp;
     });
     // NOTE: rebuildPRs() must be called by the caller after init(),
     // since it depends on formula functions not imported here.

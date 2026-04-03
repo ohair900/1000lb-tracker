@@ -116,6 +116,7 @@ export function getLocalData() {
     activeMesocycle: store.activeMesocycle,
     mesocycleHistory: store.mesocycleHistory,
     leaderboardOptedIn: store.leaderboardOptedIn,
+    deletedEntryIds: store._deletedEntryRecords,
     schemaVersion: SCHEMA_VERSION,
   };
 }
@@ -123,8 +124,7 @@ export function getLocalData() {
 // ===== Data hash for change detection (#5) =====
 
 function computeDataHash(data) {
-  // Lightweight hash: entry count + accessory count + key scalars
-  return `${data.entries.length}|${data.accessoryLog.length}|${data.unit}|${data.timer}|${data.accentColor}|${JSON.stringify(data.goals)}|${JSON.stringify(data.programs)}|${data.leaderboardOptedIn}`;
+  return JSON.stringify(data);
 }
 
 // ===== pushToCloud =====
@@ -228,17 +228,39 @@ export function mergeCloudData(cloudData) {
   // #6: Flag to prevent merge saves from triggering another cloud push
   syncState.isMergeOriginated = true;
   try {
-    // Merge entries: union by ID, newer timestamp wins for edits
+    // Merge entries: union by ID, newer updatedAt/timestamp wins for edits
     if (cloudData.entries && Array.isArray(cloudData.entries)) {
       const localMap = new Map(store.entries.map(e => [e.id, e]));
+      const localDeletedIds = store.deletedEntryIds;
       cloudData.entries.forEach(ce => {
+        if (localDeletedIds.has(ce.id)) return; // locally deleted
         const local = localMap.get(ce.id);
         if (!local) {
           store.entries.push(ce);
-        } else if (ce.timestamp > local.timestamp) {
-          Object.assign(local, ce);
+        } else {
+          const cloudTime = ce.updatedAt || ce.timestamp;
+          const localTime = local.updatedAt || local.timestamp;
+          if (cloudTime > localTime) {
+            Object.assign(local, ce);
+          }
         }
       });
+
+      // Remove local entries deleted on cloud side
+      if (cloudData.deletedEntryIds && Array.isArray(cloudData.deletedEntryIds)) {
+        const cloudDeleted = new Set(cloudData.deletedEntryIds.map(r => r.id || r));
+        store.entries = store.entries.filter(e => !cloudDeleted.has(e.id));
+        // Merge cloud deletions into local set
+        cloudData.deletedEntryIds.forEach(r => {
+          const id = r.id || r;
+          if (!store.deletedEntryIds.has(id)) {
+            const rec = typeof r === 'object' ? r : { id: r, deletedAt: Date.now() };
+            store._deletedEntryRecords.push(rec);
+            store.deletedEntryIds.add(id);
+          }
+        });
+        store.save('deletedEntryIds');
+      }
     }
 
     // Merge profile: cloud wins, bodyweight history merged by timestamp
@@ -468,6 +490,21 @@ async function updateLeaderboard(s, b, d) {
   };
 
   await setDoc(doc(db, 'leaderboard', currentUser.uid), leaderboardDoc);
+}
+
+/**
+ * Delete all cloud data for the current user (user doc + leaderboard).
+ */
+export async function clearCloudData() {
+  if (!currentUser || !db) return;
+  try {
+    await deleteDoc(doc(db, 'users', currentUser.uid));
+    await removeFromLeaderboard();
+    syncState.lastPushHash = null;
+    syncState.lastLeaderboardScores = null;
+  } catch (err) {
+    console.warn('Failed to clear cloud data:', err);
+  }
 }
 
 /**

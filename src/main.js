@@ -355,6 +355,9 @@ setToastDeps({
     // Perform the actual undo mutation
     if (type === 'delete' && data.entry) {
       store.entries.push(data.entry);
+      store.deletedEntryIds.delete(data.entry.id);
+      store._deletedEntryRecords = store._deletedEntryRecords.filter(r => r.id !== data.entry.id);
+      store.save('deletedEntryIds');
       rebuildPRs();
     } else if (type === 'edit' && data.id) {
       const e = store.entries.find(x => x.id === data.id);
