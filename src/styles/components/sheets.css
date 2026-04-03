@@ -4,7 +4,7 @@
 .sheet-handle {
   width: 40px; height: 4px; border-radius: 2px; background: var(--text-dim);
   opacity: 0.3; padding: 10px 0; margin: 0 auto; cursor: grab;
-  background-clip: content-box;
+  background-clip: content-box; touch-action: none;
 }
 
 /* Choice sheet */
@@ -28,7 +28,7 @@
 .choice-sheet-body {
   padding: var(--space-3) var(--space-4) var(--space-5);
   overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1; min-height: 0;
-  overscroll-behavior-y: contain; touch-action: pan-y;
+  overscroll-behavior-y: contain;
 }
 
 /* Fatigue sheet */
@@ -52,7 +52,7 @@
 .fatigue-sheet-body {
   padding: var(--space-3) var(--space-4) var(--space-5);
   overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1; min-height: 0;
-  overscroll-behavior-y: contain; touch-action: pan-y;
+  overscroll-behavior-y: contain;
 }
 
 /* Workout summary sheet */

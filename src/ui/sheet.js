@@ -96,56 +96,12 @@ export function closeWorkoutSummary() {
  */
 export function enableSheetSwipeDismiss(sheetId, backdropId, closeFn) {
   const sheet = $(sheetId), backdrop = $(backdropId);
-  let startY, startTime, offset, swiping, locked, onHandle;
+  let startY, startTime, offset, swiping;
   const DEAD_ZONE = 8;
 
-  // Find the scrollable body child (NOT the sheet — it has overflow:hidden)
-  function getScrollableBody() {
-    return sheet.querySelector('.fatigue-sheet-body') ||
-           sheet.querySelector('.choice-sheet-body') ||
-           sheet;
-  }
-
-  sheet.addEventListener('touchstart', e => {
-    if (sheet.style.display === 'none') return;
-    startY = e.touches[0].clientY;
-    startTime = Date.now();
-    offset = 0;
-    swiping = false;
-    locked = false;
-    onHandle = !!e.target.closest('.sheet-handle');
-  }, { passive: true });
-
-  sheet.addEventListener('touchmove', e => {
-    if (startY == null) return;
-    if (locked && !swiping) return; // committed to scroll — bail fast
-    const dy = e.touches[0].clientY - startY;
-
-    // Decide gesture direction once, after dead zone
-    if (!locked) {
-      if (Math.abs(dy) < DEAD_ZONE) return;
-      locked = true;
-      const body = getScrollableBody();
-      if (dy > 0 && (onHandle || body.scrollTop <= 1)) {
-        swiping = true;
-        startY = e.touches[0].clientY; // reset baseline
-        offset = 0;
-      }
-      if (!swiping) return; // let browser scroll
-    }
-
-    if (!swiping) return;
-    e.preventDefault();
-    offset = Math.max(0, e.touches[0].clientY - startY);
-    sheet.style.transition = 'none';
-    sheet.style.transform = 'translateY(' + offset + 'px)';
-    backdrop.style.transition = 'none';
-    backdrop.style.opacity = Math.max(0, 1 - offset / sheet.offsetHeight);
-  }, { passive: false });
-
-  sheet.addEventListener('touchend', () => {
-    startY = null;
-    if (!swiping) return;
+  // Shared dismiss/snap-back logic
+  function onEnd() {
+    if (!swiping) { startY = null; return; }
     const elapsed = Date.now() - startTime;
     const velocity = offset / elapsed;
     if (offset > sheet.offsetHeight * 0.3 || velocity > 0.5) {
@@ -167,7 +123,75 @@ export function enableSheetSwipeDismiss(sheetId, backdropId, closeFn) {
       }, 250);
     }
     swiping = false;
-  }, { passive: true });
+    startY = null;
+  }
+
+  function applyDrag(clientY) {
+    offset = Math.max(0, clientY - startY);
+    sheet.style.transition = 'none';
+    sheet.style.transform = 'translateY(' + offset + 'px)';
+    backdrop.style.transition = 'none';
+    backdrop.style.opacity = Math.max(0, 1 - offset / sheet.offsetHeight);
+  }
+
+  // --- Handle: non-passive, always allows swipe ---
+  const handle = sheet.querySelector('.sheet-handle');
+  if (handle) {
+    handle.addEventListener('touchstart', e => {
+      if (sheet.style.display === 'none') return;
+      startY = e.touches[0].clientY;
+      startTime = Date.now();
+      offset = 0;
+      swiping = false;
+    }, { passive: true });
+
+    handle.addEventListener('touchmove', e => {
+      if (startY == null) return;
+      const dy = e.touches[0].clientY - startY;
+      if (!swiping) {
+        if (dy < DEAD_ZONE) return;
+        swiping = true;
+        startY = e.touches[0].clientY;
+        offset = 0;
+      }
+      e.preventDefault();
+      applyDrag(e.touches[0].clientY);
+    }, { passive: false });
+
+    handle.addEventListener('touchend', onEnd, { passive: true });
+  }
+
+  // --- Body: passive only, no interference with native scroll ---
+  // When at scroll top and pulling down, translate the sheet.
+  // Since overscroll-behavior:contain prevents bounce, there's no
+  // default to fight — the body simply can't scroll further up.
+  const body = sheet.querySelector('.fatigue-sheet-body') ||
+               sheet.querySelector('.choice-sheet-body');
+  if (body) {
+    body.addEventListener('touchstart', e => {
+      if (sheet.style.display === 'none') return;
+      startY = e.touches[0].clientY;
+      startTime = Date.now();
+      offset = 0;
+      swiping = false;
+    }, { passive: true });
+
+    body.addEventListener('touchmove', e => {
+      if (startY == null) return;
+      if (swiping) {
+        applyDrag(e.touches[0].clientY);
+        return;
+      }
+      const dy = e.touches[0].clientY - startY;
+      if (dy > DEAD_ZONE && body.scrollTop <= 1) {
+        swiping = true;
+        startY = e.touches[0].clientY;
+        offset = 0;
+      }
+    }, { passive: true });
+
+    body.addEventListener('touchend', onEnd, { passive: true });
+  }
 }
 
 // ---------------------------------------------------------------------------
