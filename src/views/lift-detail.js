@@ -76,6 +76,70 @@ export function showLiftDetail(lift) {
   }
   html += `</div>`;
 
+  // --- 1a. Recent Progress numbers ---
+  if (liftEntries.length >= 2) {
+    // Build per-date best e1rm map
+    const sessionBests = new Map();
+    for (const e of liftEntries) {
+      const cur = sessionBests.get(e.date);
+      if (!cur || e.e1rm > cur.e1rm) sessionBests.set(e.date, e);
+    }
+    const sortedSessions = [...sessionBests.values()].sort((a, b) => b.timestamp - a.timestamp);
+    const lastSession = sortedSessions[0];
+    const prevSession = sortedSessions[1];
+
+    // 30-day comparison
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const oldEntries = liftEntries.filter(e => e.timestamp < thirtyDaysAgo);
+    const oldBest = oldEntries.length ? Math.max(...oldEntries.map(e => e.e1rm)) : null;
+
+    // This month's session count
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    const monthSessions = new Set(liftEntries.filter(e => e.date.startsWith(thisMonth)).map(e => e.date)).size;
+
+    html += `<div class="ld-section ld-progress" style="--i:${sectionIdx++}">`;
+    html += `<div class="ld-section-title">Recent Progress</div>`;
+    html += `<div class="ld-progress-grid">`;
+
+    // Last vs previous session
+    const lastE1rm = lastSession.e1rm;
+    const prevE1rm = prevSession.e1rm;
+    const delta = lastE1rm - prevE1rm;
+    const deltaSign = delta >= 0 ? '+' : '';
+    const deltaClass = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+    html += `<div class="ld-progress-item">`;
+    html += `<div class="ld-progress-label">Last vs Previous</div>`;
+    html += `<div class="ld-progress-value">${formatWeight(lastE1rm)} vs ${formatWeight(prevE1rm)}</div>`;
+    html += `<div class="ld-progress-delta ${deltaClass}">${deltaSign}${formatWeight(Math.abs(delta))} ${store.unit}</div>`;
+    html += `</div>`;
+
+    // 30-day change
+    if (oldBest) {
+      const d30 = best - oldBest;
+      const d30Sign = d30 >= 0 ? '+' : '';
+      const d30Class = d30 > 0 ? 'up' : d30 < 0 ? 'down' : 'flat';
+      html += `<div class="ld-progress-item">`;
+      html += `<div class="ld-progress-label">30-Day Change</div>`;
+      html += `<div class="ld-progress-value">${formatWeight(best)} e1RM</div>`;
+      html += `<div class="ld-progress-delta ${d30Class}">${d30Sign}${formatWeight(Math.abs(d30))}</div>`;
+      html += `</div>`;
+    }
+
+    // Session count this month
+    html += `<div class="ld-progress-item">`;
+    html += `<div class="ld-progress-label">This Month</div>`;
+    html += `<div class="ld-progress-value">${monthSessions} session${monthSessions !== 1 ? 's' : ''}</div>`;
+    html += `</div>`;
+
+    // Total sets logged
+    html += `<div class="ld-progress-item">`;
+    html += `<div class="ld-progress-label">Total Logged</div>`;
+    html += `<div class="ld-progress-value">${liftEntries.length} set${liftEntries.length !== 1 ? 's' : ''}</div>`;
+    html += `</div>`;
+
+    html += `</div></div>`;
+  }
+
   // --- 1b. Plateau analysis (if plateaued) ---
   if (plateaued) {
     html += `<div class="ld-section" style="--i:${sectionIdx++}">`;

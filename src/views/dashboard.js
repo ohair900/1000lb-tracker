@@ -438,73 +438,9 @@ function showCelebration(total, msTheme) {
 // ---------------------------------------------------------------------------
 
 export function initFatigueSheetListeners() {
-  $('fatigue-sheet-close').addEventListener('click', closeFatigueSheet);
-  $('fatigue-sheet-backdrop').addEventListener('click', closeFatigueSheet);
-
-  // Swipe dismiss
-  enableSheetSwipeDismiss('fatigue-sheet', 'fatigue-sheet-backdrop', closeFatigueSheet);
+  // Close/backdrop listeners and swipe-dismiss are handled by
+  // initSheetListeners() in src/ui/sheet.js — no duplicate wiring needed.
 }
-
-function enableSheetSwipeDismiss(sheetId, backdropId, closeFn) {
-  const sheet = $(sheetId), backdrop = $(backdropId);
-  let startY, startTime, offset, swiping, locked, onHandle;
-  const DEAD_ZONE = 8;
-
-  sheet.addEventListener('touchstart', e => {
-    if (sheet.style.display === 'none') return;
-    const t = e.touches[0];
-    startY = t.clientY; startTime = Date.now();
-    offset = 0; swiping = false; locked = false;
-    onHandle = !!e.target.closest('.sheet-handle');
-  }, { passive: true });
-
-  sheet.addEventListener('touchmove', e => {
-    if (locked && !swiping) return;
-    const dy = e.touches[0].clientY - startY;
-    if (!locked) {
-      if (Math.abs(dy) < DEAD_ZONE) return;
-      locked = true;
-      if (dy > 0 && (onHandle || sheet.scrollTop <= 1)) {
-        swiping = true;
-      } else {
-        return;
-      }
-    }
-    if (!swiping) return;
-    e.preventDefault();
-    offset = Math.max(0, dy);
-    sheet.style.transition = 'none';
-    sheet.style.transform = 'translateY(' + offset + 'px)';
-    backdrop.style.transition = 'none';
-    backdrop.style.opacity = Math.max(0, 1 - offset / sheet.offsetHeight);
-  }, { passive: false });
-
-  sheet.addEventListener('touchend', () => {
-    if (!swiping) return;
-    const elapsed = Date.now() - startTime;
-    const velocity = offset / elapsed;
-    if (offset > sheet.offsetHeight * 0.3 || velocity > 0.5) {
-      sheet.style.transition = 'transform 0.2s ease';
-      sheet.style.transform = 'translateY(100%)';
-      backdrop.style.transition = 'opacity 0.2s ease';
-      backdrop.style.opacity = '0';
-      setTimeout(closeFn, 200);
-    } else {
-      sheet.style.transition = 'transform 0.25s ease';
-      sheet.style.transform = 'translateY(0)';
-      backdrop.style.transition = 'opacity 0.25s ease';
-      backdrop.style.opacity = '1';
-      setTimeout(() => {
-        sheet.style.transform = ''; sheet.style.transition = '';
-        backdrop.style.opacity = ''; backdrop.style.transition = '';
-      }, 250);
-    }
-    swiping = false;
-  }, { passive: true });
-}
-
-// Re-export for use by other views that need sheet swipe dismiss
-export { enableSheetSwipeDismiss };
 
 // ---------------------------------------------------------------------------
 // Main updateDashboard()

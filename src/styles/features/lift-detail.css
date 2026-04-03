@@ -19,6 +19,28 @@
   padding: var(--space-4) var(--space-5) var(--space-6);
 }
 
+/* ---- Recent Progress Grid ---- */
+.ld-progress-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2);
+}
+.ld-progress-item {
+  background: var(--surface2); border-radius: var(--radius-md);
+  padding: var(--space-3); text-align: center;
+}
+.ld-progress-label {
+  font-size: var(--text-xs); color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px;
+}
+.ld-progress-value {
+  font-size: var(--text-base); font-weight: 700; color: var(--text-strong);
+}
+.ld-progress-delta {
+  font-size: var(--text-sm); font-weight: 600; margin-top: 2px;
+}
+.ld-progress-delta.up { color: var(--green); }
+.ld-progress-delta.down { color: var(--red); }
+.ld-progress-delta.flat { color: var(--text-dim); }
+
 /* ---- Feature 1: Staggered Section Animations ---- */
 @keyframes ld-enter {
   from { opacity: 0; transform: translateY(12px); }

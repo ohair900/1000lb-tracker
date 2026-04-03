@@ -96,88 +96,55 @@ export function closeWorkoutSummary() {
  */
 export function enableSheetSwipeDismiss(sheetId, backdropId, closeFn) {
   const sheet = $(sheetId), backdrop = $(backdropId);
-  let startY, startTime, offset, swiping, onHandle;
+  let startY, startTime, offset, swiping, locked, onHandle;
   const DEAD_ZONE = 8;
 
-  // Find the scrollable child — must NOT be the sheet itself, since the
-  // sheet is the element we translateY() for dismiss. Scrolling and
-  // translating on the same element conflict.
-  function getScrollable() {
-    const body = sheet.querySelector('.fatigue-sheet-body') ||
-                 sheet.querySelector('.choice-sheet-body');
-    if (body) {
-      const overflow = getComputedStyle(body).overflowY;
-      if (overflow === 'auto' || overflow === 'scroll') return body;
-    }
-    return sheet;
+  // Find the scrollable body child (NOT the sheet — it has overflow:hidden)
+  function getScrollableBody() {
+    return sheet.querySelector('.fatigue-sheet-body') ||
+           sheet.querySelector('.choice-sheet-body') ||
+           sheet;
   }
 
   sheet.addEventListener('touchstart', e => {
     if (sheet.style.display === 'none') return;
-    const t = e.touches[0];
-    startY = t.clientY;
+    startY = e.touches[0].clientY;
     startTime = Date.now();
     offset = 0;
     swiping = false;
+    locked = false;
     onHandle = !!e.target.closest('.sheet-handle');
   }, { passive: true });
 
   sheet.addEventListener('touchmove', e => {
+    if (startY == null) return;
+    if (locked && !swiping) return; // committed to scroll — bail fast
     const dy = e.touches[0].clientY - startY;
 
-    // Handle always swipes — skip scroll check
-    if (onHandle) {
+    // Decide gesture direction once, after dead zone
+    if (!locked) {
       if (Math.abs(dy) < DEAD_ZONE) return;
-      if (dy > 0) {
+      locked = true;
+      const body = getScrollableBody();
+      if (dy > 0 && (onHandle || body.scrollTop <= 1)) {
         swiping = true;
-        e.preventDefault();
-        offset = Math.max(0, dy);
-        sheet.style.transition = 'none';
-        sheet.style.transform = 'translateY(' + offset + 'px)';
-        backdrop.style.transition = 'none';
-        backdrop.style.opacity = Math.max(0, 1 - offset / sheet.offsetHeight);
-      }
-      return;
-    }
-
-    // Body area: allow scroll first, then swipe when at top
-    const scrollable = getScrollable();
-    const atTop = scrollable.scrollTop <= 1;
-
-    if (!swiping) {
-      // Not yet swiping — let the browser scroll naturally
-      // Only activate swipe if content is at top AND pulling down past dead zone
-      if (dy > DEAD_ZONE && atTop) {
-        swiping = true;
-        startY = e.touches[0].clientY; // Reset start to current position
+        startY = e.touches[0].clientY; // reset baseline
         offset = 0;
-      } else {
-        return; // Let normal scroll happen
       }
+      if (!swiping) return; // let browser scroll
     }
 
-    // Active swipe — drag the sheet down
-    if (swiping) {
-      // If user pushes back up past start, cancel swipe and let scroll resume
-      const currentDy = e.touches[0].clientY - startY;
-      if (currentDy < 0) {
-        swiping = false;
-        sheet.style.transform = '';
-        sheet.style.transition = '';
-        backdrop.style.opacity = '';
-        backdrop.style.transition = '';
-        return;
-      }
-      e.preventDefault();
-      offset = Math.max(0, currentDy);
-      sheet.style.transition = 'none';
-      sheet.style.transform = 'translateY(' + offset + 'px)';
-      backdrop.style.transition = 'none';
-      backdrop.style.opacity = Math.max(0, 1 - offset / sheet.offsetHeight);
-    }
+    if (!swiping) return;
+    e.preventDefault();
+    offset = Math.max(0, e.touches[0].clientY - startY);
+    sheet.style.transition = 'none';
+    sheet.style.transform = 'translateY(' + offset + 'px)';
+    backdrop.style.transition = 'none';
+    backdrop.style.opacity = Math.max(0, 1 - offset / sheet.offsetHeight);
   }, { passive: false });
 
   sheet.addEventListener('touchend', () => {
+    startY = null;
     if (!swiping) return;
     const elapsed = Date.now() - startTime;
     const velocity = offset / elapsed;
