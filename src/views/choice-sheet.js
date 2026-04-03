@@ -202,22 +202,12 @@ export function renderChoiceSheetBody() {
   // --- Workout options ---
   html += `<div class="section-label">${hasMeso || hasProg ? 'Or start a different workout' : 'Choose a workout'}</div>`;
 
-  // Smart Workout
-  html += `<div class="choice-card" data-action="smart">
-    <div class="choice-card-icon gold">&#129504;</div>
-    <div class="choice-card-text">
-      <div class="choice-card-title">Smart Workout</div>
-      <div class="choice-card-desc">Auto-suggested based on fatigue, history & progression</div>
-    </div>
-    <div class="choice-card-arrow">&#8250;</div>
-  </div>`;
-
-  // Build Custom
+  // Guided Builder
   html += `<div class="choice-card" data-action="custom">
     <div class="choice-card-icon purple">&#9998;</div>
     <div class="choice-card-text">
-      <div class="choice-card-title">Build Custom</div>
-      <div class="choice-card-desc">Full workout builder with exercise browser</div>
+      <div class="choice-card-title">Guided Builder</div>
+      <div class="choice-card-desc">Build a custom workout with smart suggestions</div>
     </div>
     <div class="choice-card-arrow">&#8250;</div>
   </div>`;
@@ -287,7 +277,6 @@ export function renderChoiceSheetBody() {
         }
         if (_openWorkoutView) _openWorkoutView(store.currentLift);
       }
-      else if (action === 'smart') { if (_openSmartRecommendation) _openSmartRecommendation(); }
       else if (action === 'custom') { if (_openBuilder) _openBuilder(store.currentLift); }
       else if (action === 'templates') { if (_showTemplateList) _showTemplateList(); }
       else if (action === 'mesocycle') { if (_openMesocycleWorkout) _openMesocycleWorkout(store.currentLift); }

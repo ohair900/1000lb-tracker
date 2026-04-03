@@ -11,6 +11,8 @@ import { LIFTS, LIFT_NAMES } from '../constants/lift-config.js';
 import { WEIGHT_INCREMENT_KG, WEIGHT_INCREMENT_LBS } from '../constants/thresholds.js';
 import { LBS_PER_KG } from '../constants/formulas.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
+import { EXERCISE_CATALOG, PROGRESSION_MODELS } from '../data/exercise-catalog.js';
+import { resolveExercise } from '../data/exercise-compat.js';
 import { PROGRAM_TEMPLATES } from '../data/programs.js';
 import { formatWeight, displayWeight } from '../formulas/units.js';
 import { formatPlates, roundToPlate } from '../formulas/plates.js';
@@ -36,6 +38,34 @@ import {
   stopExerciseTimer,
   cancelExerciseTimer,
 } from '../ui/timer.js';
+
+// ---------------------------------------------------------------------------
+// Progression badge text (category-specific)
+// ---------------------------------------------------------------------------
+
+function getProgressionBadgeText(acc) {
+  const catalogEx = resolveExercise(acc.exerciseId);
+  if (!catalogEx) return 'WEIGHT UP';
+  const pType = catalogEx.progressionType;
+  const model = PROGRESSION_MODELS[pType];
+  if (!model) return 'WEIGHT UP';
+
+  if (pType === 'close-variation') return `${Math.round((catalogEx.pctOfTM[store.workoutSession?.mainLift] || 0.65) * 100)}% TM`;
+  if (pType === 'isolation') {
+    const inc = store.unit === 'kg' ? model.increment.kg : model.increment.lbs;
+    return `+${inc}${store.unit}`;
+  }
+  if (pType === 'compound') {
+    const inc = store.unit === 'kg' ? model.increment.kg : model.increment.lbs;
+    return `+${inc}${store.unit}`;
+  }
+  if (pType === 'bodyweight') {
+    const topReps = catalogEx.repRange ? catalogEx.repRange[1] : 12;
+    return `Hit ${topReps}? Add weight`;
+  }
+  if (pType === 'time') return `+${model.increment}s`;
+  return 'WEIGHT UP';
+}
 
 // ---------------------------------------------------------------------------
 // Dependency injection
@@ -207,7 +237,7 @@ export function renderWorkoutView() {
     const isTimeBased = !!(ex && ex.timeBased);
     const targetReps = acc.repRange[1];
     html += `<div class="workout-exercise">`;
-    html += `<div class="workout-exercise-name" data-exid="${acc.exerciseId}" data-acc-toggle="${ai}">${acc.name}${acc.progressed ? '<span class="acc-progression-badge">WEIGHT UP</span>' : ''}</div>`;
+    html += `<div class="workout-exercise-name" data-exid="${acc.exerciseId}" data-acc-toggle="${ai}">${acc.name}${acc.progressed ? `<span class="acc-progression-badge">${getProgressionBadgeText(acc)}</span>` : ''}</div>`;
     html += `<div class="acc-action-bar" id="acc-action-bar-${ai}" style="display:none">
       <button class="acc-swap-btn" data-acc-swap="${ai}">&#8644; Swap</button>
       <button class="acc-remove-btn" data-acc-remove="${ai}">&times; Remove</button>

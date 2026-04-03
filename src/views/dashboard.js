@@ -24,6 +24,7 @@ import { renderBodyMap, initBodyMapEvents } from '../views/body-map.js';
 import { updatePlateauCards } from '../views/plateau-analysis.js';
 import { calcStreak } from '../systems/streak.js';
 import { calcWeeklyRecap } from '../systems/weekly-recap.js';
+import { calcWeeklyGrade } from '../systems/weekly-grade.js';
 import { checkBadges } from '../systems/badges.js';
 import { openModal } from '../ui/modal.js';
 import { shareMilestoneCard } from '../ui/share.js';
@@ -273,10 +274,27 @@ export function renderRecapCard() {
   const recap = calcWeeklyRecap();
   if (!recap || (recap.sets === 0 && recap.prevSets === 0)) { el.style.display = 'none'; return; }
   el.style.display = 'block';
+
+  // Weekly grade
+  const gradeResult = calcWeeklyGrade();
+  let gradeHtml = '';
+  if (gradeResult && !gradeResult.insufficient && gradeResult.grade) {
+    gradeHtml = `<span class="recap-grade-badge" id="recap-grade-badge">${gradeResult.grade}</span>`;
+  }
+
   let preview = `${recap.sets} sets &middot; ${fmtNum(displayWeight(recap.volume))} ${store.unit} vol`;
   if (recap.prsThisWeek.length > 0) preview += ` &middot; ${recap.prsThisWeek.length} PR${recap.prsThisWeek.length > 1 ? 's' : ''}`;
-  el.innerHTML = `<div class="recap-card-header">This Week</div><div class="recap-card-preview">${preview}</div>`;
+  el.innerHTML = `<div class="recap-card-header">This Week ${gradeHtml}</div><div class="recap-card-preview">${preview}</div>`;
   el.onclick = () => showRecapModal(recap);
+
+  // Grade badge tap handler opens balance sheet
+  const gradeBadge = $('recap-grade-badge');
+  if (gradeBadge) {
+    gradeBadge.onclick = (e) => {
+      e.stopPropagation();
+      showBalanceSheet(gradeResult);
+    };
+  }
 }
 
 function showRecapModal(recap) {
@@ -461,4 +479,81 @@ export function updateDashboard() {
   updatePlateauCards();
   checkAndCelebrateMilestone();
   checkBadges();
+}
+
+// ---------------------------------------------------------------------------
+// Balance sheet (grade detail bottom sheet)
+// ---------------------------------------------------------------------------
+
+function showBalanceSheet(gradeResult) {
+  const body = $('edit-body');
+  let html = '';
+
+  // Grade header
+  html += `<div style="text-align:center;padding:var(--space-4) 0">
+    <div style="font-size:2rem;font-weight:800;color:var(--text-strong)">${gradeResult.grade}</div>
+    <div style="font-size:var(--text-sm);color:var(--text-dim)">${gradeResult.label} &middot; Score: ${gradeResult.score}/100</div>
+  </div>`;
+
+  // Four pillars
+  html += `<div class="section-label">Training Pillars</div>`;
+
+  const pillars = gradeResult.pillars;
+  if (pillars.compliance) {
+    html += renderPillarRow('Compliance', pillars.compliance.score, 35,
+      pillars.compliance.detail || `${pillars.compliance.pct}% of prescribed sets`);
+  }
+  if (pillars.coverage) {
+    html += renderPillarRow('Muscle Coverage', pillars.coverage.score, 30,
+      `Push:Pull ${pillars.coverage.pushPullRatio}:1`);
+  }
+  if (pillars.intensity) {
+    html += renderPillarRow('Intensity', pillars.intensity.score, 20,
+      `Avg ${pillars.intensity.avgIntensity}% of e1RM`);
+  }
+  if (pillars.consistency) {
+    html += renderPillarRow('Consistency', pillars.consistency.score, 15,
+      `${pillars.consistency.days} training days`);
+  }
+
+  // Bonuses
+  const bonuses = gradeResult.bonuses || {};
+  if (gradeResult.bonusPoints > 0) {
+    html += `<div class="section-label" style="margin-top:var(--space-3)">Bonuses (+${gradeResult.bonusPoints})</div>`;
+    if (bonuses.pr) html += `<div style="font-size:var(--text-xs);color:var(--text-dim);padding:2px 0">PR this week +3</div>`;
+    if (bonuses.allLifts) html += `<div style="font-size:var(--text-xs);color:var(--text-dim);padding:2px 0">All 3 lifts trained +2</div>`;
+    if (bonuses.variety) html += `<div style="font-size:var(--text-xs);color:var(--text-dim);padding:2px 0">Accessory variety +2</div>`;
+    if (bonuses.rpeLogging) html += `<div style="font-size:var(--text-xs);color:var(--text-dim);padding:2px 0">RPE data logged +1</div>`;
+  }
+
+  // Muscle coverage breakdown
+  if (pillars.coverage && pillars.coverage.breakdown) {
+    html += `<div class="section-label" style="margin-top:var(--space-3)">Muscle Coverage</div>`;
+    for (const [mg, data] of Object.entries(pillars.coverage.breakdown)) {
+      const pct = data.pts > 0 ? Math.round(data.pts / ((['Quads','Chest','Glutes','Hams','Upper Back'].includes(mg) ? 4.5 : 1.5)) * 100) : 0;
+      html += `<div style="display:flex;justify-content:space-between;font-size:var(--text-xs);padding:3px 0">
+        <span style="color:var(--text)">${mg}</span>
+        <span style="color:${pct >= 70 ? 'var(--green)' : pct > 0 ? 'var(--text-dim)' : 'var(--danger)'}">${data.sets} sets (${pct}%)</span>
+      </div>`;
+    }
+  }
+
+  $('edit-modal-title').textContent = 'Weekly Balance';
+  body.innerHTML = html;
+  openModal('edit-modal');
+}
+
+function renderPillarRow(name, score, maxScore, detail) {
+  const pct = Math.round(score / maxScore * 100);
+  const color = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--text-dim)' : 'var(--danger)';
+  return `<div style="margin-bottom:var(--space-3)">
+    <div style="display:flex;justify-content:space-between;font-size:var(--text-sm)">
+      <span style="color:var(--text);font-weight:600">${name}</span>
+      <span style="color:${color}">${Math.round(score)}/${maxScore}</span>
+    </div>
+    <div style="height:4px;background:var(--surface2);border-radius:2px;margin:4px 0;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:${color};border-radius:2px"></div>
+    </div>
+    <div style="font-size:var(--text-xs);color:var(--text-dim)">${detail}</div>
+  </div>`;
 }

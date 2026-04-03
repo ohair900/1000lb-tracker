@@ -84,6 +84,15 @@ export function renderSettingsBody() {
     <label class="widget-toggle"><input type="checkbox" data-widget="recap" ${store.dashboardWidgets.recap ? 'checked' : ''}> Weekly Recap</label>
     <label class="widget-toggle" style="margin-bottom:12px"><input type="checkbox" data-widget="prStreak" ${store.dashboardWidgets.prStreak ? 'checked' : ''}> PR Tracker</label>`;
   html += settingsDivider;
+  // Equipment Profile
+  html += sectionLabel('Available Equipment');
+  const ep = store.equipmentProfile || {};
+  html += `<label class="widget-toggle"><input type="checkbox" data-equip="barbell" ${ep.barbell !== false ? 'checked' : ''}> Barbell</label>
+    <label class="widget-toggle"><input type="checkbox" data-equip="dumbbell" ${ep.dumbbell !== false ? 'checked' : ''}> Dumbbells</label>
+    <label class="widget-toggle"><input type="checkbox" data-equip="cable" ${ep.cable !== false ? 'checked' : ''}> Cables</label>
+    <label class="widget-toggle"><input type="checkbox" data-equip="machine" ${ep.machine !== false ? 'checked' : ''}> Machines</label>
+    <label class="widget-toggle" style="margin-bottom:12px"><input type="checkbox" data-equip="bodyweight" ${ep.bodyweight !== false ? 'checked' : ''}> Bodyweight</label>`;
+  html += settingsDivider;
   // Leaderboard
   html += sectionLabel('Leaderboard');
   html += `<label class="widget-toggle"><input type="checkbox" id="lb-optin" ${store.leaderboardOptedIn !== false ? 'checked' : ''}> Appear on leaderboard</label>`;
@@ -268,6 +277,16 @@ export function attachSettingsListeners() {
       localStorage.setItem(DASH_WIDGETS_KEY, JSON.stringify(store.dashboardWidgets));
       scheduleCloudSync();
       if (_updateDashboard) _updateDashboard();
+    });
+  });
+
+  // Equipment profile toggles
+  body.querySelectorAll('[data-equip]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (!store.equipmentProfile) store.equipmentProfile = {};
+      store.equipmentProfile[cb.dataset.equip] = cb.checked;
+      store.saveEquipmentProfile();
+      scheduleCloudSync();
     });
   });
 

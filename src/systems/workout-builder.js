@@ -10,6 +10,8 @@
 import store from '../state/store.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
 import { ACCESSORY_CAT_WEIGHTS, MUSCLE_GROUPS } from '../data/muscle-groups.js';
+import { EXERCISE_CATALOG, MOVEMENT_PATTERNS, PROGRESSION_MODELS } from '../data/exercise-catalog.js';
+import { resolveExercise, resolveCanonicalId, getExerciseHistory } from '../data/exercise-compat.js';
 import { MS_PER_DAY } from '../constants/time.js';
 import { roundToPlate } from '../formulas/plates.js';
 import { bestE1RM } from '../formulas/e1rm.js';
@@ -62,45 +64,77 @@ export function computeSetWeights(workingWeight, numSets) {
 /**
  * Determine the working weight for an accessory exercise.
  *
+ * Uses the new catalog + compat layer when available, falling back to
+ * the legacy ACCESSORY_DB for exercises not yet in the catalog.
+ *
  * Priority order:
- *  1. Most recent accessory log entry (with double-progression bump if earned)
+ *  1. Most recent accessory log entry (merged across legacy IDs)
+ *     with category-specific progression bump if earned
  *  2. Percentage of the main lift's training max
  *  3. Percentage of the main lift's best e1RM * 0.9
  *  4. Zero (bodyweight exercises or no data)
  *
- * @param {string} exerciseId - Key in ACCESSORY_DB
+ * @param {string} exerciseId - Key in EXERCISE_CATALOG or ACCESSORY_DB
  * @param {string} mainLift   - 'squat' | 'bench' | 'deadlift'
  * @returns {number} Working weight (rounded to nearest plate increment)
  */
 export function getAccessoryWeight(exerciseId, mainLift) {
-  const ex = ACCESSORY_DB[exerciseId];
-  if (!ex || ex.pctOfTM === 0) return 0; // bodyweight
+  // Try catalog first, then legacy DB
+  const catalogEx = resolveExercise(exerciseId);
+  const legacyEx = ACCESSORY_DB[exerciseId];
+  const ex = catalogEx || legacyEx;
+  if (!ex) return 0;
 
-  // Check log for most recent entry
-  const recent = store.accessoryLog
-    .filter(l => l.exerciseId === exerciseId)
-    .sort((a, b) => b.timestamp - a.timestamp)[0];
+  // Bodyweight exercises
+  const pctOfTM = catalogEx
+    ? (catalogEx.pctOfTM[mainLift] || 0)
+    : (legacyEx ? legacyEx.pctOfTM : 0);
+  if (pctOfTM === 0 && !catalogEx?.pctOfTM) return 0;
+  const progressionType = catalogEx ? catalogEx.progressionType : 'compound';
+
+  // Close-variation: always recalculate from TM (auto-scales when TM changes)
+  if (progressionType === 'close-variation' && pctOfTM > 0) {
+    const tm = store.programConfig.trainingMaxes[mainLift];
+    if (tm) return roundToPlate(tm * pctOfTM);
+    const e1rm = bestE1RM(mainLift);
+    if (e1rm) return roundToPlate(e1rm * 0.9 * pctOfTM);
+    return 0;
+  }
+
+  // Merge history from all legacy IDs for this exercise
+  const canonId = resolveCanonicalId(exerciseId);
+  const history = getExerciseHistory(canonId, store.accessoryLog);
+  const recent = history[0];
 
   if (recent) {
-    // Check double progression: did all sets hit top of rep range?
+    const topOfRange = ex.repRange ? ex.repRange[1] : (recent.repRange ? recent.repRange[1] : 12);
     const allHitTop = recent.setsCompleted.length >= recent.targetSets &&
-      recent.setsCompleted.every(reps => reps >= ex.repRange[1]);
+      recent.setsCompleted.every(reps => reps >= topOfRange);
+
     if (allHitTop) {
-      const bump = (mainLift === 'bench')
-        ? (store.unit === 'kg' ? 2.5 : 5)
-        : (store.unit === 'kg' ? 5 : 10);
+      // Category-specific progression increments
+      const model = PROGRESSION_MODELS[progressionType];
+      let bump;
+      if (model && model.increment) {
+        bump = store.unit === 'kg' ? model.increment.kg : model.increment.lbs;
+      } else {
+        // Fallback to legacy logic
+        bump = (mainLift === 'bench')
+          ? (store.unit === 'kg' ? 2.5 : 5)
+          : (store.unit === 'kg' ? 5 : 10);
+      }
       return roundToPlate(recent.weight + bump);
     }
     return recent.weight;
   }
 
   // Initial weight from TM
-  const tm = store.programConfig.trainingMaxes[mainLift];
-  if (tm) return roundToPlate(tm * ex.pctOfTM);
-
-  // Fallback to e1RM
-  const e1rm = bestE1RM(mainLift);
-  if (e1rm) return roundToPlate(e1rm * 0.9 * ex.pctOfTM);
+  if (pctOfTM > 0) {
+    const tm = store.programConfig.trainingMaxes[mainLift];
+    if (tm) return roundToPlate(tm * pctOfTM);
+    const e1rm = bestE1RM(mainLift);
+    if (e1rm) return roundToPlate(e1rm * 0.9 * pctOfTM);
+  }
 
   return 0;
 }
@@ -113,19 +147,28 @@ export function getAccessoryWeight(exerciseId, mainLift) {
  * Check whether an accessory exercise is ready for a weight increase
  * (double progression: all prescribed sets completed at the top of the rep range).
  *
- * @param {string} exerciseId - Key in ACCESSORY_DB
+ * @param {string} exerciseId - Key in EXERCISE_CATALOG or ACCESSORY_DB
  * @param {string} mainLift   - 'squat' | 'bench' | 'deadlift'
  * @returns {boolean}
  */
 export function checkAccessoryProgression(exerciseId, mainLift) {
-  const ex = ACCESSORY_DB[exerciseId];
-  if (!ex || ex.pctOfTM === 0) return false;
-  const recent = store.accessoryLog
-    .filter(l => l.exerciseId === exerciseId)
-    .sort((a, b) => b.timestamp - a.timestamp)[0];
+  const catalogEx = resolveExercise(exerciseId);
+  const legacyEx = ACCESSORY_DB[exerciseId];
+  const ex = catalogEx || legacyEx;
+  if (!ex) return false;
+
+  const pctOfTM = catalogEx
+    ? (catalogEx.pctOfTM[mainLift] || 0)
+    : (legacyEx ? legacyEx.pctOfTM : 0);
+  if (pctOfTM === 0 && !catalogEx?.pctOfTM) return false;
+
+  const canonId = resolveCanonicalId(exerciseId);
+  const history = getExerciseHistory(canonId, store.accessoryLog);
+  const recent = history[0];
   if (!recent) return false;
+  const topOfRange = ex.repRange ? ex.repRange[1] : 12;
   return recent.setsCompleted.length >= recent.targetSets &&
-    recent.setsCompleted.every(reps => reps >= ex.repRange[1]);
+    recent.setsCompleted.every(reps => reps >= topOfRange);
 }
 
 // ---------------------------------------------------------------------------
@@ -139,75 +182,137 @@ export function checkAccessoryProgression(exerciseId, mainLift) {
  *  - Muscle-group fatigue (green +5, red -10)
  *  - Progression readiness (+10)
  *  - Completion-rate penalty (low -15, moderate -5)
+ *  - Equipment availability (available +0, unavailable -50)
+ *
+ * Uses EXERCISE_CATALOG for cross-lift support. Falls back to legacy
+ * ACCESSORY_DB for exercises not yet in the catalog.
  *
  * @param {string} mainLift - 'squat' | 'bench' | 'deadlift'
+ * @param {Object} [options]
+ * @param {string} [options.excludeEquipment] - Equipment type to exclude
+ * @param {boolean} [options.crossLift=true] - Include exercises from other lifts
  * @returns {Object[]} Scored accessories sorted by score descending
  */
-export function scoreAccessories(mainLift, excludeEquipment = null) {
+export function scoreAccessories(mainLift, options = {}) {
+  const { excludeEquipment = null, crossLift = true } = options;
   const weakPoint = store.workoutConfig.weakPoints[mainLift];
   const now = Date.now();
   const muscleFatigue = calcFatigueByMuscle();
+  const equip = store.equipmentProfile || {};
 
-  return Object.entries(ACCESSORY_DB)
-    .filter(([, ex]) => ex.mainLift === mainLift)
-    .filter(([, ex]) => !excludeEquipment || ex.equipment !== excludeEquipment)
-    .map(([id, ex]) => {
-      let score = 0;
-      const r = [];
+  // Build candidate list from EXERCISE_CATALOG (canonical, cross-lift)
+  const candidates = [];
+  const seenCanonical = new Set();
 
-      // Weak point alignment
-      if (weakPoint && ex.weakPoints.includes(weakPoint)) {
-        score += 25;
-        r.push('Targets weak point');
-      }
+  for (const [id, ex] of Object.entries(EXERCISE_CATALOG)) {
+    if (excludeEquipment && ex.equipment === excludeEquipment) continue;
+    const supportsThisLift = ex.supportsLifts.includes(mainLift);
+    if (!crossLift && !supportsThisLift) continue;
 
-      // Recency
-      const recentLogs = store.accessoryLog
-        .filter(l => l.exerciseId === id)
-        .sort((a, b) => b.timestamp - a.timestamp);
-      const recent = recentLogs[0];
-      if (recent) {
-        const daysSince = Math.floor((now - recent.timestamp) / MS_PER_DAY);
-        const recencyScore = Math.min(20, daysSince * 2);
-        score += recencyScore;
-        if (daysSince >= 5) r.push(`${daysSince}d since last`);
-      } else {
-        score += 20;
-        r.push('Not yet performed');
-      }
+    let score = 0;
+    const r = [];
 
-      // Muscle group fatigue
-      if (muscleFatigue) {
-        const catWeights = ACCESSORY_CAT_WEIGHTS[ex.category];
-        if (catWeights) {
-          MUSCLE_GROUPS.forEach(mg => {
-            if (catWeights[mg] > 0 && muscleFatigue[mg]) {
-              if (muscleFatigue[mg].status === 'green') { score += 5; }
-              else if (muscleFatigue[mg].status === 'red') { score -= 10; r.push(`${mg} fatigued`); }
-            }
-          });
+    // Equipment availability: available is neutral, unavailable is heavily penalized (grayed out)
+    const equipAvailable = equip[ex.equipment] !== false;
+    if (!equipAvailable) {
+      score -= 50;
+      r.push('Equipment unavailable');
+    }
+
+    // Weak point alignment
+    const exerciseWeakPoints = ex.weakPoints[mainLift] || [];
+    if (weakPoint && exerciseWeakPoints.includes(weakPoint)) {
+      score += 25;
+      r.push('Targets weak point');
+    }
+
+    // Cross-lift relevance penalty (exercises that don't directly support this lift)
+    if (!supportsThisLift) {
+      score -= 15;
+      r.push('Cross-lift exercise');
+    }
+
+    // Recency — merge history from all legacy IDs
+    const history = getExerciseHistory(id, store.accessoryLog);
+    const recent = history[0];
+    if (recent) {
+      const daysSince = Math.floor((now - recent.timestamp) / MS_PER_DAY);
+      const recencyScore = Math.min(20, daysSince * 2);
+      score += recencyScore;
+      if (daysSince >= 5) r.push(`${daysSince}d since last`);
+    } else {
+      score += 20;
+      r.push('Not yet performed');
+    }
+
+    // Muscle group fatigue
+    if (muscleFatigue && ex.primaryMuscles) {
+      for (const [mg, weight] of Object.entries(ex.primaryMuscles)) {
+        if (weight > 0.15 && muscleFatigue[mg]) {
+          if (muscleFatigue[mg].status === 'green') score += 5;
+          else if (muscleFatigue[mg].status === 'red') { score -= 10; r.push(`${mg} fatigued`); }
         }
       }
+    }
 
-      // Progression signal
-      if (recent && checkAccessoryProgression(id, mainLift)) {
-        score += 10;
-        r.push('Ready for weight increase');
+    // Progression readiness
+    if (recent && checkAccessoryProgression(id, mainLift)) {
+      score += 10;
+      r.push('Ready for weight increase');
+    }
+
+    // Completion rate penalty
+    const last5 = history.slice(0, 5);
+    if (last5.length >= 2) {
+      const avgCompletion = last5.reduce(
+        (sum, log) => sum + (log.setsCompleted.length / Math.max(log.targetSets, 1)), 0
+      ) / last5.length;
+      if (avgCompletion < 0.5) { score -= 15; r.push('Low completion rate'); }
+      else if (avgCompletion < 0.75) { score -= 5; r.push('Moderate completion'); }
+    }
+
+    candidates.push({
+      id, ...ex, score, reasons: r,
+      equipAvailable,
+      movementPattern: ex.movementPattern,
+      canonicalId: id,
+    });
+    seenCanonical.add(id);
+  }
+
+  // Also include legacy-only exercises not yet in catalog (custom exercises etc.)
+  for (const [id, ex] of Object.entries(ACCESSORY_DB)) {
+    const canonId = resolveCanonicalId(id);
+    if (seenCanonical.has(canonId)) continue; // Already in catalog
+    if (ex.mainLift !== mainLift) continue;
+    if (excludeEquipment && ex.equipment === excludeEquipment) continue;
+
+    let score = 0;
+    const r = [];
+    if (weakPoint && ex.weakPoints.includes(weakPoint)) { score += 25; r.push('Targets weak point'); }
+    const recentLogs = store.accessoryLog.filter(l => l.exerciseId === id).sort((a, b) => b.timestamp - a.timestamp);
+    const recent = recentLogs[0];
+    if (recent) {
+      const daysSince = Math.floor((now - recent.timestamp) / MS_PER_DAY);
+      score += Math.min(20, daysSince * 2);
+      if (daysSince >= 5) r.push(`${daysSince}d since last`);
+    } else { score += 20; r.push('Not yet performed'); }
+    if (muscleFatigue) {
+      const catWeights = ACCESSORY_CAT_WEIGHTS[ex.category];
+      if (catWeights) {
+        MUSCLE_GROUPS.forEach(mg => {
+          if (catWeights[mg] > 0 && muscleFatigue[mg]) {
+            if (muscleFatigue[mg].status === 'green') score += 5;
+            else if (muscleFatigue[mg].status === 'red') { score -= 10; r.push(`${mg} fatigued`); }
+          }
+        });
       }
+    }
+    candidates.push({ id, ...ex, score, reasons: r, equipAvailable: true, canonicalId: canonId });
+    seenCanonical.add(canonId);
+  }
 
-      // Completion rate penalty
-      const last5 = recentLogs.slice(0, 5);
-      if (last5.length >= 2) {
-        const avgCompletion = last5.reduce(
-          (sum, log) => sum + (log.setsCompleted.length / log.targetSets), 0
-        ) / last5.length;
-        if (avgCompletion < 0.5) { score -= 15; r.push('Low completion rate'); }
-        else if (avgCompletion < 0.75) { score -= 5; r.push('Moderate completion'); }
-      }
-
-      return { id, ...ex, score, reasons: r };
-    })
-    .sort((a, b) => b.score - a.score);
+  return candidates.sort((a, b) => b.score - a.score);
 }
 
 // ---------------------------------------------------------------------------
@@ -216,9 +321,12 @@ export function scoreAccessories(mainLift, excludeEquipment = null) {
 
 /**
  * Pick `count` accessories using a multi-pass strategy:
- *  1. One per category (highest scorer)
+ *  1. One per movement pattern (highest scorer)
  *  2. Equipment diversity
  *  3. Pure score fill
+ *
+ * Only includes exercises with available equipment in first two passes.
+ * Unavailable-equipment exercises can fill in pass 3 if needed.
  *
  * @param {string} mainLift - 'squat' | 'bench' | 'deadlift'
  * @param {number} [count=5] - Number of accessories to select
@@ -227,22 +335,24 @@ export function scoreAccessories(mainLift, excludeEquipment = null) {
 export function selectSmartAccessories(mainLift, count) {
   count = count || 5;
   const scored = scoreAccessories(mainLift);
+  const available = scored.filter(ex => ex.equipAvailable !== false);
   const picked = [];
-  const usedCategories = new Set();
+  const usedPatterns = new Set();
   const usedEquip = new Set();
 
-  // Pass 1: one per category (highest scorer)
-  for (const ex of scored) {
+  // Pass 1: one per movement pattern (highest scorer, available equipment only)
+  for (const ex of available) {
     if (picked.length >= count) break;
-    if (!usedCategories.has(ex.category)) {
+    const pattern = ex.movementPattern || ex.category;
+    if (!usedPatterns.has(pattern)) {
       picked.push(ex);
-      usedCategories.add(ex.category);
+      usedPatterns.add(pattern);
       usedEquip.add(ex.equipment);
     }
   }
 
-  // Pass 2: equipment diversity
-  for (const ex of scored) {
+  // Pass 2: equipment diversity (available equipment only)
+  for (const ex of available) {
     if (picked.length >= count) break;
     if (!picked.some(p => p.id === ex.id) && !usedEquip.has(ex.equipment)) {
       picked.push(ex);
@@ -250,7 +360,7 @@ export function selectSmartAccessories(mainLift, count) {
     }
   }
 
-  // Pass 3: pure score
+  // Pass 3: pure score (includes unavailable equipment as fallback)
   for (const ex of scored) {
     if (picked.length >= count) break;
     if (!picked.some(p => p.id === ex.id)) picked.push(ex);

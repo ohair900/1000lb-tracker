@@ -27,6 +27,7 @@
 @import './features/program.css';
 @import './features/workout.css';
 @import './features/builder.css';
+@import './features/guided-builder.css';
 @import './features/settings.css';
 @import './features/welcome.css';
 @import './features/sync.css';

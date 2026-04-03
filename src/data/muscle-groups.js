@@ -44,3 +44,31 @@ export const ACCESSORY_CAT_WEIGHTS = {
   'core':            { Quads: 0, Hams: 0, Glutes: 0, 'Upper Back': 0, 'Lower Back': 0, Chest: 0, Shoulders: 0, Triceps: 0, Biceps: 0, Core: 1.0 },
   'grip':            { Quads: 0, Hams: 0, Glutes: 0, 'Upper Back': 0.10, 'Lower Back': 0.20, Chest: 0, Shoulders: 0, Triceps: 0, Biceps: 0, Core: 0.70 },
 };
+
+// Push/pull classification per muscle group (used by gap analysis for ratio tracking)
+export const MUSCLE_PUSH_PULL = {
+  Quads:       'push',
+  Hams:        'pull',
+  Glutes:      'push',
+  'Upper Back':'pull',
+  'Lower Back':'pull',
+  Chest:       'push',
+  Shoulders:   'push',
+  Triceps:     'push',
+  Biceps:      'pull',
+  Core:        'neutral',
+};
+
+// Evidence-based weekly set minimums per muscle group (for gap analysis)
+export const WEEKLY_SET_TARGETS = {
+  Quads:       { min: 8,  max: 20 },
+  Hams:        { min: 6,  max: 16 },
+  Glutes:      { min: 6,  max: 16 },
+  'Upper Back':{ min: 10, max: 25 },
+  'Lower Back':{ min: 4,  max: 12 },
+  Chest:       { min: 8,  max: 20 },
+  Shoulders:   { min: 8,  max: 16 },
+  Triceps:     { min: 6,  max: 14 },
+  Biceps:      { min: 4,  max: 12 },
+  Core:        { min: 4,  max: 16 },
+};

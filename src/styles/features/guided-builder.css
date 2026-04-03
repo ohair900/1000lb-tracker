@@ -1,0 +1,211 @@
+/* ===== Guided Builder — Summary Bar, Slot Tags, Gap Panel, Swap Sheet ===== */
+
+/* Summary bar in header */
+.builder-summary-bar {
+  display: flex; align-items: center; gap: var(--space-2);
+  font-size: var(--text-xs); color: var(--text-dim); margin-top: 2px;
+}
+.builder-summary-bar .duration-pill {
+  background: var(--surface2); padding: 2px 8px;
+  border-radius: var(--radius-pill); white-space: nowrap;
+}
+
+/* Slot role tags */
+.slot-role-tag {
+  display: inline-block; font-size: 0.55rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-dim); opacity: 0.6; margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* Reason tags (shown first 3 times per exercise) */
+.slot-reason {
+  font-size: var(--text-xs); color: var(--text-dim); font-style: italic;
+  margin-top: 2px; opacity: 0.7;
+}
+
+/* Exercise weight display in builder */
+.slot-weight {
+  font-size: var(--text-xs); color: var(--text-dim); margin-left: 4px;
+}
+.slot-weight-edit {
+  font-size: var(--text-xs); color: var(--bench); cursor: pointer;
+  margin-left: 4px; text-decoration: underline; background: none; border: none;
+  padding: 0;
+}
+
+/* Swap and Remove buttons */
+.slot-actions {
+  display: flex; gap: 4px; flex-shrink: 0; margin-left: auto;
+}
+.slot-btn {
+  padding: 4px 8px; font-size: var(--text-xs); border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text-dim); cursor: pointer; white-space: nowrap;
+}
+.slot-btn:active { background: var(--surface2); }
+.slot-btn.danger { color: var(--danger); border-color: var(--danger); opacity: 0.7; }
+
+/* Add exercise button */
+.builder-add-btn {
+  width: 100%; padding: 12px; margin-top: var(--space-2);
+  border: 2px dashed var(--border); border-radius: var(--radius-lg);
+  background: transparent; color: var(--text-dim);
+  font-size: var(--text-sm); cursor: pointer; text-align: center;
+}
+.builder-add-btn:active { background: var(--surface2); }
+
+/* Guardrail hints */
+.guardrail-hints {
+  margin-top: var(--space-3); padding: 0 var(--space-1);
+}
+.guardrail-hint {
+  font-size: var(--text-xs); color: var(--text-dim); opacity: 0.6;
+  margin-bottom: 4px; line-height: 1.4;
+}
+.guardrail-hint .hint-swap {
+  color: var(--bench); cursor: pointer; text-decoration: underline;
+  background: none; border: none; font-size: inherit; padding: 0;
+}
+
+/* Collapsible gap panel */
+.gap-panel-toggle {
+  width: 100%; padding: 10px; margin-top: var(--space-3);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); color: var(--text-dim);
+  font-size: var(--text-sm); cursor: pointer; text-align: left;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.gap-panel-toggle .arrow { transition: transform 0.2s ease; }
+.gap-panel-toggle.open .arrow { transform: rotate(180deg); }
+
+.gap-panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-top: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  padding: var(--space-3); overflow: hidden;
+  max-height: 0; transition: max-height 0.25s ease, padding 0.25s ease;
+}
+.gap-panel.open {
+  max-height: 600px; padding: var(--space-3);
+}
+
+.gap-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 0; font-size: var(--text-xs);
+}
+.gap-row-label { color: var(--text); flex: 1; }
+.gap-row-value { color: var(--text-dim); margin-right: var(--space-2); }
+.gap-row-value.under { color: var(--danger); }
+.gap-row-value.optimal { color: var(--green); }
+.gap-row-btn {
+  font-size: var(--text-xs); padding: 2px 8px;
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: transparent; color: var(--bench); cursor: pointer;
+}
+.gap-row-btn:active { background: var(--surface2); }
+
+.gap-ratio {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: 8px 0; font-size: var(--text-xs); color: var(--text-dim);
+  border-top: 1px solid var(--border); margin-top: var(--space-2);
+}
+.gap-ratio-value { font-weight: 700; }
+.gap-ratio-value.balanced { color: var(--green); }
+.gap-ratio-value.imbalanced { color: var(--danger); }
+
+/* Gap panel body map container */
+.gap-body-map {
+  display: flex; justify-content: center; gap: var(--space-2);
+  margin-bottom: var(--space-2); padding: var(--space-2) 0;
+}
+.gap-body-map svg { max-height: 120px; }
+
+/* Swap sheet */
+.swap-sheet-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  z-index: 350; transition: opacity 0.2s ease;
+}
+.swap-sheet {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--bg); border-radius: 16px 16px 0 0;
+  z-index: 351; max-height: 60vh; overflow: hidden;
+  display: flex; flex-direction: column;
+  animation: slideUp 0.25s ease;
+}
+.swap-sheet .sheet-handle {
+  width: 40px; height: 4px; border-radius: 2px;
+  background: var(--text-dim); opacity: 0.3;
+  margin: 8px auto;
+}
+.swap-sheet .sheet-header {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm); font-weight: 700;
+  color: var(--text-strong); border-bottom: 1px solid var(--border);
+}
+.swap-sheet-body {
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: var(--space-2) var(--space-4);
+  padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0));
+}
+
+/* Swap sheet section headers */
+.swap-section-label {
+  font-size: var(--text-xs); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-dim);
+  padding: var(--space-2) 0 4px; margin-top: var(--space-2);
+}
+.swap-section-label:first-child { margin-top: 0; }
+
+/* Swap sheet exercise items */
+.swap-item {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: 10px var(--space-2); cursor: pointer;
+  border-radius: var(--radius-md); transition: background var(--transition-fast);
+}
+.swap-item:active { background: var(--surface2); }
+.swap-item-info { flex: 1; min-width: 0; }
+.swap-item-name { font-size: var(--text-sm); color: var(--text); font-weight: 600; }
+.swap-item-meta { font-size: var(--text-xs); color: var(--text-dim); margin-top: 2px; }
+.swap-item-reason { font-size: var(--text-xs); color: var(--bench); font-style: italic; }
+.swap-item-equip {
+  font-size: 0.6rem; padding: 2px 6px; border-radius: var(--radius-pill);
+  background: var(--surface2); color: var(--text-dim); flex-shrink: 0;
+}
+.swap-item.unavailable { opacity: 0.4; }
+
+/* Exercise browser tabs */
+.browser-tabs {
+  display: flex; border-bottom: 1px solid var(--border); margin-bottom: var(--space-2);
+}
+.browser-tab {
+  flex: 1; padding: 8px; text-align: center;
+  font-size: var(--text-xs); font-weight: 700;
+  color: var(--text-dim); background: none; border: none;
+  cursor: pointer; border-bottom: 2px solid transparent;
+}
+.browser-tab.active { color: var(--bench); border-bottom-color: var(--bench); }
+
+/* Movement pattern group in browser */
+.pattern-group-header {
+  font-size: var(--text-xs); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-dim);
+  padding: 10px var(--space-3) 4px;
+  display: flex; align-items: center; gap: 6px;
+}
+.pattern-group-header .pattern-badge {
+  font-size: 0.55rem; padding: 1px 5px;
+  border-radius: var(--radius-pill); font-weight: 600;
+}
+.pattern-badge.push { background: rgba(229,57,53,0.15); color: var(--squat); }
+.pattern-badge.pull { background: rgba(30,136,229,0.15); color: var(--bench); }
+.pattern-badge.neutral { background: rgba(255,255,255,0.08); color: var(--text-dim); }
+
+/* Muscle pills on exercise items */
+.muscle-pills {
+  display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px;
+}
+.muscle-pill {
+  font-size: 0.55rem; padding: 1px 5px;
+  border-radius: var(--radius-pill);
+  background: var(--surface2); color: var(--text-dim);
+}

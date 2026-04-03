@@ -427,6 +427,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div class="builder-header">
       <div>
         <div class="builder-header-title" id="builder-title">Build Workout</div>
+        <div class="builder-summary-bar" id="builder-summary-bar"></div>
       </div>
       <button class="workout-close-btn" id="builder-close">&times;</button>
     </div>
@@ -435,6 +436,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       <button class="btn-secondary" id="builder-save-template">Save Template</button>
       <button class="btn-primary" id="builder-start">Start Workout</button>
     </div>
+  </div>
+
+  <!-- Builder Swap Sheet -->
+  <div class="swap-sheet-backdrop" id="swap-sheet-backdrop" style="display:none"></div>
+  <div class="swap-sheet" id="swap-sheet" style="display:none">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header"><span id="swap-sheet-title">Swap Exercise</span></div>
+    <div class="swap-sheet-body" id="swap-sheet-body"></div>
   </div>
 
   <!-- Leaderboard Detail Sheet -->

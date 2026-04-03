@@ -25,6 +25,8 @@ export const STATS_COLLAPSED_KEY = 'sbd-tracker-stats-collapsed';
 export const LEADERBOARD_KEY = 'sbd-tracker-leaderboard';
 export const RECOVERY_CALIBRATION_KEY = 'sbd-tracker-recovery-calibration';
 export const DELETED_IDS_KEY = 'sbd-tracker-deleted-ids';
+export const EQUIPMENT_PROFILE_KEY = 'sbd-tracker-equipment-profile';
+export const REASON_TAG_COUNTS_KEY = 'sbd-tracker-reason-tag-counts';
 
 export const ALL_DATA_KEYS = [
   STORAGE_KEY, PROFILE_KEY, GOALS_KEY, PRS_KEY, VERSION_KEY, CYCLES_KEY,

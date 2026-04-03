@@ -44,6 +44,8 @@ import {
   LEADERBOARD_KEY,
   RECOVERY_CALIBRATION_KEY,
   DELETED_IDS_KEY,
+  EQUIPMENT_PROFILE_KEY,
+  REASON_TAG_COUNTS_KEY,
 } from '../constants/storage-keys.js';
 
 import { CURRENT_VERSION } from '../constants/time.js';
@@ -97,6 +99,8 @@ class Store {
     this.recoveryCalibration = null;
     this._deletedEntryRecords = []; // Array of { id, deletedAt }
     this.deletedEntryIds = new Set();
+    this.equipmentProfile = { barbell: true, dumbbell: true, cable: true, machine: true, bodyweight: true };
+    this.reasonTagCounts = {}; // { [canonicalExerciseId]: number } — tracks how many times reason tag shown
 
     // -----------------------------------------------------------------------
     // Ephemeral UI state — NOT persisted via the STORES registry.
@@ -260,6 +264,18 @@ class Store {
         set: (v) => { this.leaderboardOptedIn = v; },
         default: true,
       },
+      equipmentProfile: {
+        key: EQUIPMENT_PROFILE_KEY,
+        get: () => this.equipmentProfile,
+        set: (v) => { this.equipmentProfile = v; },
+        default: { barbell: true, dumbbell: true, cable: true, machine: true, bodyweight: true },
+      },
+      reasonTagCounts: {
+        key: REASON_TAG_COUNTS_KEY,
+        get: () => this.reasonTagCounts,
+        set: (v) => { this.reasonTagCounts = v; },
+        default: {},
+      },
     };
 
     // -----------------------------------------------------------------------
@@ -305,6 +321,7 @@ class Store {
   /** Stores that can be loaded after first paint. */
   static DEFERRED_STORES = [
     'accessoryLog', 'customTemplates', 'mesocycleHistory', 'recoveryCalibration',
+    'equipmentProfile', 'reasonTagCounts',
   ];
 
   init() {
@@ -418,6 +435,8 @@ class Store {
   saveCustomTemplates(){ this.save('customTemplates'); }
   saveMesocycle()      { this.save('mesocycle'); }
   saveMesocycleHistory() { this.save('mesocycleHistory'); }
+  saveEquipmentProfile() { this.save('equipmentProfile'); }
+  saveReasonTagCounts()  { this.save('reasonTagCounts'); }
 
   // -------------------------------------------------------------------------
   // Private: load, flush, migrate, patches
