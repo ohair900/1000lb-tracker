@@ -96,8 +96,15 @@ export function closeWorkoutSummary() {
  */
 export function enableSheetSwipeDismiss(sheetId, backdropId, closeFn) {
   const sheet = $(sheetId), backdrop = $(backdropId);
-  let startY, startTime, offset, swiping, locked, onHandle;
+  let startY, startTime, offset, swiping, onHandle;
   const DEAD_ZONE = 8;
+
+  // Find the scrollable child (the body element that actually scrolls)
+  function getScrollable() {
+    return sheet.querySelector('.fatigue-sheet-body') ||
+           sheet.querySelector('[style*="overflow"]') ||
+           sheet;
+  }
 
   sheet.addEventListener('touchstart', e => {
     if (sheet.style.display === 'none') return;
@@ -106,29 +113,62 @@ export function enableSheetSwipeDismiss(sheetId, backdropId, closeFn) {
     startTime = Date.now();
     offset = 0;
     swiping = false;
-    locked = false;
     onHandle = !!e.target.closest('.sheet-handle');
   }, { passive: true });
 
   sheet.addEventListener('touchmove', e => {
-    if (locked && !swiping) return;
     const dy = e.touches[0].clientY - startY;
-    if (!locked) {
+
+    // Handle always swipes — skip scroll check
+    if (onHandle) {
       if (Math.abs(dy) < DEAD_ZONE) return;
-      locked = true;
-      if (dy > 0 && (onHandle || sheet.scrollTop <= 1)) {
+      if (dy > 0) {
         swiping = true;
+        e.preventDefault();
+        offset = Math.max(0, dy);
+        sheet.style.transition = 'none';
+        sheet.style.transform = 'translateY(' + offset + 'px)';
+        backdrop.style.transition = 'none';
+        backdrop.style.opacity = Math.max(0, 1 - offset / sheet.offsetHeight);
+      }
+      return;
+    }
+
+    // Body area: allow scroll first, then swipe when at top
+    const scrollable = getScrollable();
+    const atTop = scrollable.scrollTop <= 1;
+
+    if (!swiping) {
+      // Not yet swiping — let the browser scroll naturally
+      // Only activate swipe if content is at top AND pulling down past dead zone
+      if (dy > DEAD_ZONE && atTop) {
+        swiping = true;
+        startY = e.touches[0].clientY; // Reset start to current position
+        offset = 0;
       } else {
-        return;
+        return; // Let normal scroll happen
       }
     }
-    if (!swiping) return;
-    e.preventDefault();
-    offset = Math.max(0, dy);
-    sheet.style.transition = 'none';
-    sheet.style.transform = 'translateY(' + offset + 'px)';
-    backdrop.style.transition = 'none';
-    backdrop.style.opacity = Math.max(0, 1 - offset / sheet.offsetHeight);
+
+    // Active swipe — drag the sheet down
+    if (swiping) {
+      // If user pushes back up past start, cancel swipe and let scroll resume
+      const currentDy = e.touches[0].clientY - startY;
+      if (currentDy <= 0) {
+        swiping = false;
+        sheet.style.transform = '';
+        sheet.style.transition = '';
+        backdrop.style.opacity = '';
+        backdrop.style.transition = '';
+        return;
+      }
+      e.preventDefault();
+      offset = Math.max(0, currentDy);
+      sheet.style.transition = 'none';
+      sheet.style.transform = 'translateY(' + offset + 'px)';
+      backdrop.style.transition = 'none';
+      backdrop.style.opacity = Math.max(0, 1 - offset / sheet.offsetHeight);
+    }
   }, { passive: false });
 
   sheet.addEventListener('touchend', () => {
