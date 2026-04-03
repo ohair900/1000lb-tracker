@@ -28,7 +28,7 @@
 .choice-sheet-body {
   padding: var(--space-3) var(--space-4) var(--space-5);
   overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1; min-height: 0;
-  overscroll-behavior-y: contain;
+  overscroll-behavior-y: contain; touch-action: pan-y;
 }
 
 /* Fatigue sheet */
@@ -52,7 +52,7 @@
 .fatigue-sheet-body {
   padding: var(--space-3) var(--space-4) var(--space-5);
   overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1; min-height: 0;
-  overscroll-behavior-y: contain;
+  overscroll-behavior-y: contain; touch-action: pan-y;
 }
 
 /* Workout summary sheet */
