@@ -288,7 +288,7 @@ export function attachSettingsListeners() {
   $('s-export').addEventListener('click', exportData);
   $('s-export-csv').addEventListener('click', exportCSV);
   $('s-import').addEventListener('click', () => $('import-file').click());
-  $('s-clear').addEventListener('click', function () {
+  $('s-clear').addEventListener('click', async function () {
     if (!store.clearConfirm) {
       store.clearConfirm = true;
       this.textContent = 'Are you sure? Click again to confirm';
@@ -312,7 +312,13 @@ export function attachSettingsListeners() {
     store.dashboardWidgets = { ratios: true, fatigue: true, streak: true, recap: true, prStreak: true };
     store.accentColor = 'gold'; applyAccentColor();
     // Delete cloud data if signed in
-    import('../firebase/sync.js').then(m => m.clearCloudData()).catch(() => {});
+    try {
+      const { clearCloudData } = await import('../firebase/sync.js');
+      await clearCloudData();
+    } catch (err) {
+      console.warn('Cloud data clear failed:', err);
+      showToast('Local data cleared (cloud clear failed — retry or sign out)');
+    }
     closeModal('settings-modal');
     if (_updateDashboard) _updateDashboard();
     if (_renderCycleBar) _renderCycleBar();

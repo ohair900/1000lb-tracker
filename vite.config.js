@@ -12,4 +12,7 @@ export default defineConfig({
   server: {
     open: '/index.src.html',
   },
+  test: {
+    include: ['src/__tests__/**/*.test.js'],
+  },
 });

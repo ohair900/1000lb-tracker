@@ -4,7 +4,7 @@
  */
 
 import store from '../state/store.js';
-import { $ } from '../utils/helpers.js';
+import { $, escapeHTML } from '../utils/helpers.js';
 import { currentUser, signInWithGoogle, signOutUser, setCurrentUser } from '../firebase/auth.js';
 import {
   initFirebase,
@@ -51,7 +51,7 @@ export function renderSyncMenu() {
   const user = currentUser;
   if (user) {
     menu.innerHTML = `
-      <div class="sync-menu-status">Signed in as<br><strong>${user.displayName || user.email}</strong></div>
+      <div class="sync-menu-status">Signed in as<br><strong>${escapeHTML(user.displayName || user.email || '')}</strong></div>
       <button class="sync-menu-item" id="sync-now-btn">Sync now</button>
       <button class="sync-menu-item" id="sync-signout-btn">Sign out</button>
       <button class="sync-menu-item" id="sync-disconnect-btn" style="color:var(--danger)">Disconnect Firebase</button>`;
@@ -205,12 +205,13 @@ export function initSyncUI() {
       if (syncState.unsubSnapshot) { syncState.unsubSnapshot(); syncState.unsubSnapshot = null; }
       if (auth && currentUser) firebaseSignOut(auth).catch(() => {});
       setCurrentUser(null);
-      resetFirebaseInstances();
-      clearFirebaseConfig();
-      syncState.status = 'disconnected';
-      updateSyncButton();
-      $('sync-menu').classList.remove('open');
-      showToast('Firebase disconnected');
+      resetFirebaseInstances().then(() => {
+        clearFirebaseConfig();
+        syncState.status = 'disconnected';
+        updateSyncButton();
+        $('sync-menu').classList.remove('open');
+        showToast('Firebase disconnected');
+      });
       return;
     }
   });

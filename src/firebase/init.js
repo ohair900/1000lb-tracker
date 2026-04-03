@@ -102,8 +102,17 @@ export async function initFirebase(config) {
 /**
  * Reset all Firebase instance references to null.
  * Called when the user disconnects Firebase.
+ * Deletes the Firebase app to avoid duplicate-app errors on reconnect.
  */
-export function resetFirebaseInstances() {
+export async function resetFirebaseInstances() {
+  if (firebaseApp) {
+    try {
+      const { deleteApp } = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js');
+      await deleteApp(firebaseApp);
+    } catch (e) {
+      console.warn('deleteApp failed:', e);
+    }
+  }
   firebaseApp = null;
   db = null;
   auth = null;
