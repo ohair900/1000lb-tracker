@@ -13,6 +13,30 @@ import { calcWilks, calcDOTS } from '../formulas/scoring.js';
 import { openModal } from '../ui/modal.js';
 
 // ---------------------------------------------------------------------------
+// Sync chart UI state with store on every render
+// ---------------------------------------------------------------------------
+
+function syncChartUI() {
+  // Reconcile chart type buttons
+  document.querySelectorAll('.chart-type-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.type === store.chartType)
+  );
+  // Reconcile filter buttons
+  $('chart-filters').querySelectorAll('.chart-filter-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.filter === store.chartFilter)
+  );
+  // Reconcile date range pills
+  $('chart-date-range').querySelectorAll('.range-pill').forEach(b =>
+    b.classList.toggle('active', b.dataset.range === store.chartDateRange)
+  );
+  // Show/hide filters and date range based on chart type
+  const showFilters = store.chartType === 'e1rm' || store.chartType === 'volume';
+  const showDateRange = store.chartType !== 'heatmap' && store.chartType !== 'calendar';
+  $('chart-filters').style.display = showFilters ? 'flex' : 'none';
+  $('chart-date-range').style.display = showDateRange ? 'flex' : 'none';
+}
+
+// ---------------------------------------------------------------------------
 // Chart date range helper
 // ---------------------------------------------------------------------------
 
@@ -30,6 +54,11 @@ function getChartDateCutoff() {
 function drawEmpty(w, h, msg) {
   ctx.fillStyle = '#888'; ctx.font = '14px -apple-system, sans-serif';
   ctx.textAlign = 'center'; ctx.fillText(msg, w / 2, h / 2);
+  // Show hint if a date range filter might be hiding data
+  if (store.chartDateRange !== 'all' && store.entries.length > 0) {
+    ctx.font = '12px -apple-system, sans-serif'; ctx.fillStyle = '#666';
+    ctx.fillText('Try a wider date range', w / 2, h / 2 + 22);
+  }
 }
 
 function drawAxes(w, h, pad, allDates, minVal, maxVal) {
@@ -151,11 +180,11 @@ function renderE1RMChart(w, h) {
 function renderVolumeChart(w, h) {
   if (store.entries.length === 0) { drawEmpty(w, h, 'No data yet'); return; }
   const { pad, cw, ch, dateCutoff } = chartSetup(w, h, 55);
-  const lifts = store.chartFilter === 'all' ? LIFTS : [store.chartFilter];
+  const lifts = (store.chartFilter === 'all' || store.chartFilter === 'total') ? LIFTS : [store.chartFilter];
 
   const byDate = {};
   store.entries.forEach(e => {
-    if (store.chartFilter !== 'all' && e.lift !== store.chartFilter) return;
+    if (store.chartFilter !== 'all' && store.chartFilter !== 'total' && e.lift !== store.chartFilter) return;
     if (dateCutoff && e.date < dateCutoff) return;
     if (!byDate[e.date]) byDate[e.date] = { squat: 0, bench: 0, deadlift: 0 };
     byDate[e.date][e.lift] += e.weight * e.reps;
@@ -543,6 +572,8 @@ function handleChartHover(e) {
  * Render the current chart type to the canvas, or the calendar.
  */
 export function renderChart() {
+  syncChartUI();
+
   // Calendar is HTML-based, not canvas
   const calEl = document.getElementById('calendar-view');
   if (store.chartType === 'calendar') {
@@ -589,8 +620,6 @@ export function initChartsTab() {
   $('chart-date-range').addEventListener('click', e => {
     const pill = e.target.closest('.range-pill');
     if (!pill) return;
-    $('chart-date-range').querySelectorAll('.range-pill').forEach(b => b.classList.remove('active'));
-    pill.classList.add('active');
     store.chartDateRange = pill.dataset.range;
     renderChart();
   });
@@ -598,14 +627,7 @@ export function initChartsTab() {
   // Chart type selector
   document.querySelectorAll('.chart-type-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.chart-type-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
       store.chartType = btn.dataset.type;
-      // Show/hide lift filters
-      $('chart-filters').style.display = (store.chartType === 'e1rm' || store.chartType === 'volume') ? 'flex' : 'none';
-      if (store.chartType === 'heatmap' || store.chartType === 'calendar') $('chart-filters').style.display = 'none';
-      // Show/hide date range for heatmap/calendar
-      $('chart-date-range').style.display = (store.chartType === 'heatmap' || store.chartType === 'calendar') ? 'none' : 'flex';
       renderChart();
     });
   });
@@ -614,8 +636,6 @@ export function initChartsTab() {
   $('chart-filters').addEventListener('click', e => {
     const btn = e.target.closest('.chart-filter-btn');
     if (!btn) return;
-    $('chart-filters').querySelectorAll('.chart-filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
     store.chartFilter = btn.dataset.filter;
     renderChart();
   });
@@ -623,7 +643,12 @@ export function initChartsTab() {
   // Chart tooltip
   canvas.addEventListener('mousemove', handleChartHover);
   canvas.addEventListener('touchmove', e => {
-    e.preventDefault();
+    if (store.chartPoints.length > 0) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.touches[0].clientX - rect.left, my = e.touches[0].clientY - rect.top;
+      const near = store.chartPoints.some(p => Math.hypot(p.x - mx, p.y - my) < 40);
+      if (near) e.preventDefault();
+    }
     handleChartHover({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY });
   }, { passive: false });
   canvas.addEventListener('mouseleave', () => tooltip.style.opacity = '0');
