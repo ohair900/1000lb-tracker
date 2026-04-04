@@ -109,6 +109,21 @@ function buildMainLiftSlot(mainLift) {
 }
 
 function buildDefaultSlots(mainLift) {
+  // DEBUG: log data state to console AND store for UI display
+  const _tms = store.programConfig.trainingMaxes;
+  const _entries = store.entries;
+  const _e1rms = {};
+  ['squat', 'bench', 'deadlift'].forEach(l => {
+    const v = _entries.filter(e => e.lift === l);
+    _e1rms[l] = v.length > 0 ? Math.max(...v.map(e => e.e1rm)) : null;
+  });
+  console.warn('[buildDefaultSlots] mainLift:', mainLift,
+    'TMs:', JSON.stringify(_tms),
+    'e1RMs:', JSON.stringify(_e1rms),
+    'entries#:', _entries.length);
+  // Store debug info for display in builder
+  window.__builderDebug = { mainLift, tms: { ..._tms }, e1rms: { ..._e1rms }, entryCount: _entries.length };
+
   const slots = [buildMainLiftSlot(mainLift)];
   const smart = selectSmartAccessories(mainLift, 4);
 
@@ -121,6 +136,7 @@ function buildDefaultSlots(mainLift) {
     else if (i === 1 && pType !== 'close-variation') slotRole = 'compound';
 
     const weight = getAccessoryWeight(ex.id, mainLift);
+    console.warn(`[buildDefaultSlots] ${ex.id}: pType=${pType}, pctOfTM=${JSON.stringify(catalogEx.pctOfTM)}, weight=${weight}`);
     slots.push({
       type: 'accessory',
       exerciseId: ex.id,
@@ -158,6 +174,16 @@ export function renderBuilder(mainLift) {
     `<span class="duration-pill">~${duration}min</span>`;
 
   let html = '';
+
+  // DEBUG banner — shows data state so we can diagnose weight issues
+  const _dbg = window.__builderDebug;
+  if (_dbg) {
+    html += `<div style="background:#1a1a2e;border:1px solid #e94560;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:0.7rem;color:#eee;font-family:monospace">
+      <div><b>DEBUG</b> mainLift: ${_dbg.mainLift} | entries: ${_dbg.entryCount}</div>
+      <div>TMs: S=${_dbg.tms.squat||'null'} B=${_dbg.tms.bench||'null'} D=${_dbg.tms.deadlift||'null'}</div>
+      <div>e1RMs: S=${_dbg.e1rms.squat||'null'} B=${_dbg.e1rms.bench||'null'} D=${_dbg.e1rms.deadlift||'null'}</div>
+    </div>`;
+  }
 
   // --- Exercise slot list ---
   store.builderExercises.forEach((ex, i) => {
