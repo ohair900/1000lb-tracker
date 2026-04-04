@@ -150,12 +150,23 @@ export function getAccessoryWeight(exerciseId, mainLift) {
     return recent.weight;
   }
 
-  // Initial weight from TM
+  // Initial weight from TM (try current lift first, then any supported lift)
   if (pctOfTM > 0) {
     const tm = store.programConfig.trainingMaxes[mainLift];
     if (tm) return roundToPlate(tm * pctOfTM);
     const e1rm = bestE1RM(mainLift);
     if (e1rm) return roundToPlate(e1rm * 0.9 * pctOfTM);
+  }
+
+  // Fallback: try other supported lifts if pctOfTM exists for them
+  if (catalogEx && catalogEx.pctOfTM) {
+    for (const [lift, pct] of Object.entries(catalogEx.pctOfTM)) {
+      if (lift === mainLift || pct <= 0) continue;
+      const tm = store.programConfig.trainingMaxes[lift];
+      if (tm) return roundToPlate(tm * pct);
+      const e1rm = bestE1RM(lift);
+      if (e1rm) return roundToPlate(e1rm * 0.9 * pct);
+    }
   }
 
   return 0;
@@ -356,7 +367,8 @@ export function scoreAccessories(mainLift, options = {}) {
  */
 export function selectSmartAccessories(mainLift, count) {
   count = count || 5;
-  const scored = scoreAccessories(mainLift);
+  // Only score exercises that support this lift (no cross-lift in auto-selection)
+  const scored = scoreAccessories(mainLift, { crossLift: false });
   const available = scored.filter(ex => ex.equipAvailable !== false);
   const picked = [];
   const usedPatterns = new Set();
@@ -382,7 +394,7 @@ export function selectSmartAccessories(mainLift, count) {
     }
   }
 
-  // Pass 3: pure score (includes unavailable equipment as fallback)
+  // Pass 3: pure score (still only exercises that support this lift)
   for (const ex of scored) {
     if (picked.length >= count) break;
     if (!picked.some(p => p.id === ex.id)) picked.push(ex);

@@ -17,7 +17,7 @@ import {
   selectSmartAccessories,
   scoreAccessories,
 } from '../systems/workout-builder.js';
-import { getProgramWorkout, findFirstIncompleteWeek } from '../systems/programs.js';
+import { getProgramWorkout, findFirstIncompleteWeek, getLiftWeek } from '../systems/programs.js';
 import {
   analyzeWeeklyVolume,
   analyzePushPullRatio,
