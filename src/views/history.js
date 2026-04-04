@@ -1,6 +1,7 @@
 /**
- * History tab view — session-grouped history list, search/filter,
- * pagination, swipe-to-delete, edit modal, and delete confirmation.
+ * History tab view — session-grouped history list, search/filter/sort,
+ * infinite scroll, swipe-to-delete/edit, bulk select, edit modal,
+ * sticky date separators, and delete confirmation.
  */
 
 import store, { HISTORY_PAGE_SIZE } from '../state/store.js';
@@ -11,34 +12,63 @@ import { groupSessions } from '../systems/volume.js';
 import { deleteEntry, editEntry } from '../state/actions.js';
 import { openModal, closeModal } from '../ui/modal.js';
 import { showToastWithUndo } from '../ui/toast.js';
+import { MS_PER_DAY } from '../constants/time.js';
 
 // ---------------------------------------------------------------------------
-// Expansion state — survives re-renders, keyed by session timestamp
+// Module-level state
 // ---------------------------------------------------------------------------
 
 const expandedSessions = new Set();
-
-// ---------------------------------------------------------------------------
-// Late-bound callbacks
-// ---------------------------------------------------------------------------
-
+let _scrollObserver = null;
 let _updateDashboard = null;
+let selectionMode = false;
+const selectedIds = new Set();
 
-/**
- * Inject view-level dependencies.
- * @param {object} deps
- */
 export function injectHistoryDeps(deps) {
   if (deps.updateDashboard) _updateDashboard = deps.updateDashboard;
+}
+
+// ---------------------------------------------------------------------------
+// Bulk select helpers
+// ---------------------------------------------------------------------------
+
+function showBulkBar() {
+  let bar = document.getElementById('bulk-action-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'bulk-action-bar';
+    bar.className = 'bulk-action-bar';
+    document.body.appendChild(bar);
+  }
+  updateBulkBar();
+  bar.style.display = 'flex';
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulk-action-bar');
+  if (!bar) return;
+  const n = selectedIds.size;
+  bar.innerHTML = `<span class="bulk-count">${n} selected</span>` +
+    `<button class="bulk-delete-btn" id="bulk-delete"${n === 0 ? ' disabled' : ''}>Delete</button>` +
+    `<button class="bulk-cancel-btn" id="bulk-cancel">Cancel</button>`;
+}
+
+function hideBulkBar() {
+  const bar = document.getElementById('bulk-action-bar');
+  if (bar) bar.style.display = 'none';
+}
+
+function exitSelectionMode() {
+  selectionMode = false;
+  selectedIds.clear();
+  hideBulkBar();
+  renderHistory();
 }
 
 // ---------------------------------------------------------------------------
 // Render history list
 // ---------------------------------------------------------------------------
 
-/**
- * Render the full history list into #history-list, applying current filters.
- */
 export function renderHistory() {
   const container = $('history-list');
   let filtered = [...store.entries];
@@ -82,29 +112,77 @@ export function renderHistory() {
     return;
   }
 
-  // Session grouping
+  // Precompute best e1RM per lift for strength indicator
+  const bestE1rm = {};
+  LIFTS.forEach(l => {
+    const vals = store.entries.filter(e => e.lift === l).map(e => e.e1rm);
+    bestE1rm[l] = vals.length > 0 ? Math.max(...vals) : 0;
+  });
+
+  // Session grouping + sorting
   const allSessions = groupSessions(filtered);
+
+  if (store.historySort === 'oldest') {
+    allSessions.reverse();
+  } else if (store.historySort === 'heaviest') {
+    allSessions.sort((a, b) => {
+      const aMax = Math.max(...a.entries.map(e => e.e1rm));
+      const bMax = Math.max(...b.entries.map(e => e.e1rm));
+      return bMax - aMax;
+    });
+  } else if (store.historySort === 'volume') {
+    allSessions.sort((a, b) => b.volume - a.volume);
+  }
+  // 'newest' is the default from groupSessions
+
   const visibleCount = store.historyPage * HISTORY_PAGE_SIZE;
   const sessions = allSessions.slice(0, visibleCount);
   const hasMore = allSessions.length > visibleCount;
+  const maxSessionVol = allSessions.length > 0 ? Math.max(...allSessions.map(s => s.volume)) : 1;
+  const showDateSeps = store.historySort === 'newest' || store.historySort === 'oldest';
+
   let html = '';
+  let lastDate = '';
+
   sessions.forEach((session, si) => {
+    // Sticky date separator
+    if (showDateSeps && session.date !== lastDate) {
+      lastDate = session.date;
+      const sepDate = new Date(session.date + 'T12:00:00');
+      const sepLabel = sepDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+      html += `<div class="date-separator">${sepLabel}</div>`;
+    }
+
     const d = new Date(session.date + 'T12:00:00');
-    const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
     const time = new Date(session.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     const liftTags = session.lifts.map(l => `<span class="session-tag ${l}">${LIFT_SHORT[l]}</span>`).join('');
     const volStr = fmtNum(displayWeight(session.volume)) + ' ' + store.unit;
     const isExpanded = expandedSessions.has(session.timestamp);
     const expanded = isExpanded ? ' expanded' : '';
 
+    // Richer header stats
+    const sessionBest = Math.max(...session.entries.map(e => e.e1rm));
+    const prCount = session.entries.filter(e => e.isPR).length;
+    const rpEntries = session.entries.filter(e => e.rpe !== null && e.rpe !== undefined);
+    const avgRpe = rpEntries.length > 0 ? (rpEntries.reduce((s, e) => s + e.rpe, 0) / rpEntries.length).toFixed(1) : null;
+    const firstNote = session.entries.find(e => e.notes)?.notes || '';
+
+    // Volume comparison bar
+    const volPct = maxSessionVol > 0 ? Math.round((session.volume / maxSessionVol) * 100) : 0;
+
     html += `<div class="session-card${expanded}" data-ts="${session.timestamp}" data-session="${si}">
       <div class="session-header" tabindex="0" role="button" aria-expanded="${isExpanded ? 'true' : 'false'}">
-        <div style="flex:1">
-          <div class="session-date">${label} ${time}</div>
-          <div style="display:flex;gap:6px;align-items:center;margin-top:3px">
+        <div style="flex:1;min-width:0">
+          <div class="session-date">${showDateSeps ? time : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ' ' + time}</div>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap">
             ${liftTags}
             <span class="session-vol">${session.sets} sets &middot; ${volStr}</span>
+            <span class="session-best">${formatWeight(sessionBest)} e1RM</span>
+            ${avgRpe ? `<span class="session-rpe">RPE ${avgRpe}</span>` : ''}
+            ${prCount > 0 ? `<span class="session-pr-badge">PR &times;${prCount}</span>` : ''}
           </div>
+          ${firstNote ? `<div class="session-note-preview">"${escapeHTML(firstNote.slice(0, 45))}${firstNote.length > 45 ? '...' : ''}"</div>` : ''}
+          <div class="session-vol-bar"><div class="session-vol-fill" style="width:${volPct}%"></div></div>
         </div>
         <span class="session-chevron">&#9656;</span>
       </div>
@@ -116,31 +194,64 @@ export function renderHistory() {
       if (e.notes) metaParts.push(`"${escapeHTML(e.notes)}"`);
       const repPRBadgeHtml = (e.repPRs && e.repPRs.length > 0) ? ' <span class="pr-badge" style="font-size:0.55rem">REP PR</span>' : '';
 
+      // Strength indicator
+      const pct = bestE1rm[e.lift] > 0 ? Math.round((e.e1rm / bestE1rm[e.lift]) * 100) : 0;
+
+      // Selection checkbox
+      const checkboxHtml = selectionMode
+        ? `<div class="select-checkbox${selectedIds.has(e.id) ? ' checked' : ''}" data-select-id="${e.id}"></div>`
+        : '';
+
       html += `<div class="swipe-container" data-id="${e.id}">
+        <div class="swipe-edit-bg"><span class="swipe-edit-label">Edit</span></div>
         <div class="swipe-delete-bg"><span class="swipe-delete-label">Delete</span></div>
         <div class="session-entry" data-lift="${e.lift}">
+          <div class="strength-bar" style="width:${pct}%"></div>
+          ${checkboxHtml}
           <span class="history-lift" style="color:${COLORS[e.lift]};font-size:0.65rem;min-width:20px">${LIFT_SHORT[e.lift]}</span>
           <div class="history-detail" style="flex:1">
             <div><span class="history-main" style="font-size:0.8rem">${formatWeight(e.weight)} ${store.unit} &times; ${e.reps}</span>
             <span class="history-e1rm" style="font-size:0.7rem"> = ${formatWeight(e.e1rm)} e1RM</span>
+            <span class="strength-pct">${pct}%</span>
             ${e.isPR ? ' <span class="pr-badge">PR</span>' : ''}${repPRBadgeHtml}</div>
             ${metaParts.length ? `<div class="history-meta" style="font-size:0.65rem">${metaParts.join(' &middot; ')}</div>` : ''}
             ${(e.tags && e.tags.length) ? e.tags.map(t => `<span class="tag-chip">${escapeHTML(t)}</span>`).join('') : ''}
           </div>
-          <div class="history-actions">
+          ${!selectionMode ? `<div class="history-actions">
             <button class="edit-btn" data-id="${e.id}" title="Edit">&#9998;</button>
             <button class="delete-btn" data-id="${e.id}">Del</button>
-          </div>
+          </div>` : ''}
         </div>
       </div>`;
     });
 
     html += '</div></div>';
   });
+
+  // Infinite scroll sentinel
   if (hasMore) {
-    html += `<button class="load-more-btn" id="history-load-more">Load More (${allSessions.length - visibleCount} remaining)</button>`;
+    html += `<div id="history-sentinel" class="history-sentinel"></div>`;
   }
+
   container.innerHTML = html;
+
+  // Set up infinite scroll observer
+  if (_scrollObserver) _scrollObserver.disconnect();
+  if (hasMore) {
+    const sentinel = document.getElementById('history-sentinel');
+    if (sentinel) {
+      _scrollObserver = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          store.historyPage++;
+          renderHistory();
+        }
+      }, { rootMargin: '300px' });
+      _scrollObserver.observe(sentinel);
+    }
+  }
+
+  // Update bulk bar if in selection mode
+  if (selectionMode) updateBulkBar();
 }
 
 // ---------------------------------------------------------------------------
@@ -193,6 +304,21 @@ let recentSwipe = false;
 
 function handleHistoryClick(e) {
   if (recentSwipe) return;
+
+  // Bulk select mode: toggle selection on entry click
+  if (selectionMode) {
+    const container = e.target.closest('.swipe-container');
+    if (container) {
+      const id = container.dataset.id;
+      if (id) {
+        if (selectedIds.has(id)) selectedIds.delete(id);
+        else selectedIds.add(id);
+        renderHistory();
+      }
+      return;
+    }
+  }
+
   const del = e.target.closest('.delete-btn');
   if (del) {
     const id = del.dataset.id;
@@ -219,14 +345,52 @@ function handleHistoryClick(e) {
 }
 
 // ---------------------------------------------------------------------------
-// initHistoryTab — wire up all History tab event listeners
+// Quick date helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Set up all event listeners for the History tab.
- * Call once after DOMContentLoaded.
- */
+function getMonday() {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(d.setDate(diff)).toISOString().split('T')[0];
+}
+
+function getFirstOfMonth() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+}
+
+function getDaysAgo(n) {
+  return new Date(Date.now() - n * MS_PER_DAY).toISOString().split('T')[0];
+}
+
+// ---------------------------------------------------------------------------
+// initHistoryTab — wire up all event listeners
+// ---------------------------------------------------------------------------
+
 export function initHistoryTab() {
+  // Create sort select dynamically
+  const filterBar = document.querySelector('#tab-history .filter-bar');
+  if (filterBar) {
+    const sortSelect = document.createElement('select');
+    sortSelect.id = 'history-sort';
+    sortSelect.className = 'history-sort';
+    sortSelect.innerHTML = '<option value="newest">Newest</option><option value="oldest">Oldest</option><option value="heaviest">Heaviest</option><option value="volume">Most Vol</option>';
+    filterBar.appendChild(sortSelect);
+  }
+
+  // Create quick date chips
+  const dateFilters = $('date-filters');
+  if (dateFilters) {
+    const chips = document.createElement('div');
+    chips.className = 'quick-date-chips';
+    chips.id = 'quick-date-chips';
+    chips.innerHTML = '<button class="quick-date-chip" data-range="week">This Week</button>' +
+      '<button class="quick-date-chip" data-range="month">This Month</button>' +
+      '<button class="quick-date-chip" data-range="30">Last 30d</button>';
+    dateFilters.appendChild(chips);
+  }
+
   // Filter pills
   $('history-filter-pills').addEventListener('click', e => {
     const btn = e.target.closest('.filter-pill');
@@ -245,6 +409,13 @@ export function initHistoryTab() {
     renderHistory();
   }, 200));
 
+  // Sort select
+  document.getElementById('history-sort')?.addEventListener('change', e => {
+    store.historySort = e.target.value;
+    store.historyPage = 1;
+    renderHistory();
+  });
+
   // Date filter toggle
   $('date-toggle-btn').addEventListener('click', () => {
     store.showDateFilters = !store.showDateFilters;
@@ -254,15 +425,26 @@ export function initHistoryTab() {
   $('filter-from').addEventListener('change', e => { store.historyFrom = e.target.value; store.historyPage = 1; renderHistory(); });
   $('filter-to').addEventListener('change', e => { store.historyTo = e.target.value; store.historyPage = 1; renderHistory(); });
 
-  // Click delegation for edit/delete
+  // Quick date chips
+  document.getElementById('quick-date-chips')?.addEventListener('click', e => {
+    const chip = e.target.closest('.quick-date-chip');
+    if (!chip) return;
+    const range = chip.dataset.range;
+    const today = new Date().toISOString().split('T')[0];
+    if (range === 'week') { store.historyFrom = getMonday(); store.historyTo = today; }
+    else if (range === 'month') { store.historyFrom = getFirstOfMonth(); store.historyTo = today; }
+    else if (range === '30') { store.historyFrom = getDaysAgo(30); store.historyTo = ''; }
+    $('filter-from').value = store.historyFrom;
+    $('filter-to').value = store.historyTo;
+    store.historyPage = 1;
+    renderHistory();
+  });
+
+  // Click delegation for edit/delete/expand/selection
   $('history-list').addEventListener('click', handleHistoryClick);
   $('history-list').addEventListener('click', (e) => {
-    // Load More button
-    if (e.target.closest('#history-load-more')) {
-      store.historyPage++;
-      renderHistory();
-      return;
-    }
+    if (selectionMode) return; // handled in handleHistoryClick
+
     // Session expand/collapse
     const hdr = e.target.closest('.session-header');
     if (hdr) {
@@ -293,10 +475,26 @@ export function initHistoryTab() {
     }
   });
 
-  // Swipe-to-delete for touch devices
-  (function initSwipeToDelete() {
+  // Bulk action bar delegation
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#bulk-delete')) {
+      if (selectedIds.size === 0) return;
+      selectedIds.forEach(id => deleteEntry(id));
+      if (_updateDashboard) _updateDashboard();
+      showToastWithUndo(`${selectedIds.size} entries deleted`);
+      exitSelectionMode();
+      return;
+    }
+    if (e.target.closest('#bulk-cancel')) {
+      exitSelectionMode();
+    }
+  });
+
+  // Swipe-to-delete (left) and swipe-to-edit (right) for touch
+  (function initSwipeGestures() {
     const list = $('history-list');
     let startX = 0, startY = 0, currentContainer = null, dirLocked = false, isHorizontal = false;
+    let longPressTimer = null;
 
     list.addEventListener('touchstart', (e) => {
       const container = e.target.closest('.swipe-container');
@@ -306,10 +504,27 @@ export function initHistoryTab() {
       currentContainer = container;
       dirLocked = false;
       isHorizontal = false;
+
+      // Long-press for bulk select
+      if (!selectionMode) {
+        longPressTimer = setTimeout(() => {
+          longPressTimer = null;
+          selectionMode = true;
+          const id = container.dataset.id;
+          if (id) selectedIds.add(id);
+          renderHistory();
+          showBulkBar();
+          // Prevent further swipe processing
+          currentContainer = null;
+        }, 500);
+      }
     }, { passive: true });
 
     list.addEventListener('touchmove', (e) => {
-      if (!currentContainer) return;
+      // Cancel long-press on any movement
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+
+      if (!currentContainer || selectionMode) return;
       const dx = e.touches[0].clientX - startX;
       const dy = e.touches[0].clientY - startY;
 
@@ -321,37 +536,53 @@ export function initHistoryTab() {
       if (!isHorizontal) return;
 
       e.preventDefault();
-      const offset = Math.min(0, dx);
       const entry = currentContainer.querySelector('.session-entry');
-      if (entry) entry.style.transform = `translateX(${offset}px)`;
-      if (offset < -10) {
-        currentContainer.classList.add('swiping');
+      if (!entry) return;
+
+      if (dx < 0) {
+        // Swipe left — delete
+        entry.style.transform = `translateX(${Math.min(0, dx)}px)`;
+        if (dx < -10) currentContainer.classList.add('swiping');
+        currentContainer.classList.remove('swiping-right');
+      } else {
+        // Swipe right — edit
+        entry.style.transform = `translateX(${Math.max(0, dx)}px)`;
+        if (dx > 10) currentContainer.classList.add('swiping-right');
+        currentContainer.classList.remove('swiping');
       }
     }, { passive: false });
 
     list.addEventListener('touchend', () => {
-      if (!currentContainer) return;
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+      if (!currentContainer || selectionMode) { currentContainer = null; return; }
+
       const entry = currentContainer.querySelector('.session-entry');
       if (!entry) { currentContainer = null; return; }
 
       const currentX = parseFloat(entry.style.transform.replace(/[^-\d.]/g, '')) || 0;
       currentContainer.classList.remove('swiping');
+      currentContainer.classList.remove('swiping-right');
 
       if (currentX <= -80) {
-        // Swipe threshold met — delete
+        // Swipe left — delete
         recentSwipe = true;
         setTimeout(() => { recentSwipe = false; }, 300);
         const id = currentContainer.dataset.id;
         currentContainer.classList.add('removing');
         currentContainer.style.maxHeight = currentContainer.offsetHeight + 'px';
-        requestAnimationFrame(() => {
-          currentContainer.style.maxHeight = '0';
-        });
+        requestAnimationFrame(() => { currentContainer.style.maxHeight = '0'; });
         setTimeout(() => {
           deleteEntry(id);
           renderHistory();
           showToastWithUndo('Entry deleted');
         }, 350);
+      } else if (currentX >= 80) {
+        // Swipe right — edit
+        recentSwipe = true;
+        setTimeout(() => { recentSwipe = false; }, 300);
+        entry.style.transform = '';
+        const id = currentContainer.dataset.id;
+        openEditModal(id);
       } else {
         // Snap back
         entry.style.transform = '';
@@ -364,12 +595,10 @@ export function initHistoryTab() {
   (function initEditBodyDelegation() {
     const body = $('edit-body');
     body.addEventListener('click', (e) => {
-      // Confirm cancel
       if (e.target.closest('#confirm-cancel-btn')) {
         closeModal('edit-modal');
         return;
       }
-      // Confirm delete
       if (e.target.closest('#confirm-delete-btn')) {
         const id = body.dataset.deleteId;
         if (id) {
@@ -381,21 +610,18 @@ export function initHistoryTab() {
         }
         return;
       }
-      // Edit lift selector
       const liftBtn = e.target.closest('#edit-lift-selector .lift-btn');
       if (liftBtn) {
         body.querySelectorAll('#edit-lift-selector .lift-btn').forEach(b => b.classList.remove('active'));
         liftBtn.classList.add('active');
         return;
       }
-      // Edit RPE
       const rpeBtn = e.target.closest('#edit-rpe-row .rpe-pill');
       if (rpeBtn) {
         body.querySelectorAll('#edit-rpe-row .rpe-pill').forEach(b => b.classList.remove('active'));
         rpeBtn.classList.add('active');
         return;
       }
-      // Save edit
       if (e.target.closest('#edit-save')) {
         const activeBtn = body.querySelector('#edit-lift-selector .lift-btn.active');
         if (!activeBtn) return;

@@ -116,6 +116,7 @@ class Store {
     this.historyFrom = '';
     this.historyTo = '';
     this.historySearch = '';
+    this.historySort = 'newest';
     this.historyPage = 1;
     this.showDateFilters = false;
     this.notesVisible = false;
