@@ -60,8 +60,15 @@ function getProgressionBadgeText(acc) {
     return `+${inc}${store.unit}`;
   }
   if (pType === 'bodyweight') {
-    const topReps = catalogEx.repRange ? catalogEx.repRange[1] : 12;
-    return `Hit ${topReps}? Add weight`;
+    // Check current weight context
+    const weight = acc.setWeights ? acc.setWeights[0] : 0;
+    if (weight < 0) return 'Less assist';
+    if (weight === 0) {
+      const topReps = catalogEx.repRange ? catalogEx.repRange[1] : 12;
+      return `Hit ${topReps}? Add weight`;
+    }
+    const inc = store.unit === 'kg' ? model.increment.kg : model.increment.lbs;
+    return `+${inc}${store.unit}`;
   }
   if (pType === 'time') return `+${model.increment}s`;
   return 'WEIGHT UP';
@@ -233,8 +240,9 @@ export function renderWorkoutView() {
   // Accessory sections
   store.workoutSession.accessories.forEach((acc, ai) => {
     const ex = ACCESSORY_DB[acc.exerciseId];
-    const isBodyweight = !ex || ex.pctOfTM === 0;
-    const isTimeBased = !!(ex && ex.timeBased);
+    const catalogEx = resolveExercise(acc.exerciseId);
+    const isBodyweight = catalogEx ? catalogEx.progressionType === 'bodyweight' : (!ex || ex.pctOfTM === 0);
+    const isTimeBased = catalogEx ? !!catalogEx.timeBased : !!(ex && ex.timeBased);
     const targetReps = acc.repRange[1];
     html += `<div class="workout-exercise">`;
     html += `<div class="workout-exercise-name" data-exid="${acc.exerciseId}" data-acc-toggle="${ai}">${acc.name}${acc.progressed ? `<span class="acc-progression-badge">${getProgressionBadgeText(acc)}</span>` : ''}</div>`;
@@ -253,7 +261,13 @@ export function renderWorkoutView() {
     const lastAcc = getLastAccPerformance(acc.exerciseId);
     if (lastAcc) {
       let lastWeight;
-      if (lastAcc.weight === 0) {
+      if (isBodyweight && lastAcc.weight < 0) {
+        lastWeight = `Assisted ${formatWeight(Math.abs(lastAcc.weight))} ${store.unit}`;
+      } else if (isBodyweight && lastAcc.weight === 0) {
+        lastWeight = 'BW';
+      } else if (isBodyweight && lastAcc.weight > 0) {
+        lastWeight = `BW +${formatWeight(lastAcc.weight)} ${store.unit}`;
+      } else if (lastAcc.weight === 0) {
         lastWeight = 'BW';
       } else if (lastAcc.setWeights && lastAcc.setWeights.length > 1 && new Set(lastAcc.setWeights).size > 1) {
         lastWeight = lastAcc.setWeights.map(w => formatWeight(w)).join('/') + ' ' + store.unit;
@@ -269,7 +283,15 @@ export function renderWorkoutView() {
       const done = si < acc.setsCompleted.length;
       const repsVal = done ? acc.setsCompleted[si] : '';
       const repTarget = isTimeBased ? `${targetReps}s` : targetReps;
-      const setWeight = isBodyweight ? 'BW' : `${formatWeight(acc.setWeights[si])} ${store.unit}`;
+      let setWeight;
+      if (isBodyweight) {
+        const w = acc.setWeights ? acc.setWeights[si] : 0;
+        if (w < 0) setWeight = `Assisted ${formatWeight(Math.abs(w))} ${store.unit}`;
+        else if (w === 0) setWeight = 'BW';
+        else setWeight = `BW +${formatWeight(w)} ${store.unit}`;
+      } else {
+        setWeight = `${formatWeight(acc.setWeights[si])} ${store.unit}`;
+      }
       const isCountingDown = isTimeBased && store.exerciseTimer && store.exerciseTimer.accIdx === ai && store.exerciseTimer.setIdx === si;
       html += `<div class="workout-set-row${done ? ' completed' : ''}${isCountingDown ? ' counting-down' : ''}" data-type="acc" data-acc="${ai}" data-set="${si}"${isTimeBased ? ' data-time-based="true"' : ''}>
         <div class="workout-set-check">${done ? '&#10003;' : ''}</div>
@@ -557,8 +579,10 @@ export function initWorkoutOverlay() {
       const dir = parseInt(weightBtn.dataset.dir);
       const acc = store.workoutSession.accessories[ai];
       const increment = store.unit === 'kg' ? WEIGHT_INCREMENT_KG * LBS_PER_KG : WEIGHT_INCREMENT_LBS;
-      acc.setWeights[si] = Math.max(0, acc.setWeights[si] + dir * increment);
-      acc.setWeights[si] = roundToPlate(acc.setWeights[si]);
+      const accCatalogEx = resolveExercise(acc.exerciseId);
+      const isBWExercise = accCatalogEx ? accCatalogEx.progressionType === 'bodyweight' : false;
+      const newWeight = acc.setWeights[si] + dir * increment;
+      acc.setWeights[si] = isBWExercise ? roundToPlate(newWeight) : roundToPlate(Math.max(0, newWeight));
       store.saveWorkoutSession();
       renderWorkoutView();
       return;

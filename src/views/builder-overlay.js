@@ -35,6 +35,21 @@ import { displayWeight } from '../formulas/units.js';
 let _builderMainLift = null;
 let _gapPanelOpen = false;
 
+/**
+ * Format weight for display, handling bodyweight exercises.
+ * Negative = assisted, 0 = BW, positive = weighted or normal weight.
+ */
+function formatBWWeight(weight, catalogEx) {
+  const isBW = catalogEx && catalogEx.progressionType === 'bodyweight';
+  if (isBW) {
+    if (weight < 0) return `Assisted ${displayWeight(Math.abs(weight))}`;
+    if (weight === 0) return 'BW';
+    return `BW +${displayWeight(weight)}`;
+  }
+  if (weight > 0) return displayWeight(weight);
+  return '';
+}
+
 // ---------------------------------------------------------------------------
 // Open / Close
 // ---------------------------------------------------------------------------
@@ -153,8 +168,8 @@ export function renderBuilder(mainLift) {
 
     // Weight display
     let weightDisplay = '';
-    if (!isMain && ex.weightValue > 0) {
-      weightDisplay = `<span class="slot-weight">${displayWeight(ex.weightValue)}</span>`;
+    if (!isMain) {
+      weightDisplay = `<span class="slot-weight">${formatBWWeight(ex.weightValue, catalogEx)}</span>`;
     }
 
     // Reason tag (first 3 times per exercise)

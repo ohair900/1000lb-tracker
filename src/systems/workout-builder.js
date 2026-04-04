@@ -85,12 +85,36 @@ export function getAccessoryWeight(exerciseId, mainLift) {
   const ex = catalogEx || legacyEx;
   if (!ex) return 0;
 
-  // Bodyweight exercises
+  const progressionType = catalogEx ? catalogEx.progressionType : 'compound';
+
+  // Bodyweight exercises: weight can be negative (assisted), 0 (BW), or positive (weighted)
+  if (progressionType === 'bodyweight') {
+    const canonId = resolveCanonicalId(exerciseId);
+    const history = getExerciseHistory(canonId, store.accessoryLog);
+    const recent = history[0];
+    if (!recent) return 0; // Default to bodyweight (0)
+
+    const topOfRange = ex.repRange ? ex.repRange[1] : 12;
+    const allHitTop = recent.setsCompleted.length >= recent.targetSets &&
+      recent.setsCompleted.every(reps => reps >= topOfRange);
+    if (allHitTop) {
+      const model = PROGRESSION_MODELS['bodyweight'];
+      const bump = store.unit === 'kg' ? model.increment.kg : model.increment.lbs;
+      // Assisted (negative): reduce assistance toward 0. BW/weighted: add weight.
+      return recent.weight + bump;
+    }
+    return recent.weight;
+  }
+
+  // Time-based exercises: no weight
+  if (progressionType === 'time') return 0;
+
+  // Legacy bodyweight check (no catalog entry)
+  if (!catalogEx && legacyEx && legacyEx.pctOfTM === 0) return 0;
+
   const pctOfTM = catalogEx
     ? (catalogEx.pctOfTM[mainLift] || 0)
     : (legacyEx ? legacyEx.pctOfTM : 0);
-  if (pctOfTM === 0 && !catalogEx?.pctOfTM) return 0;
-  const progressionType = catalogEx ? catalogEx.progressionType : 'compound';
 
   // Close-variation: always recalculate from TM (auto-scales when TM changes)
   if (progressionType === 'close-variation' && pctOfTM > 0) {
@@ -112,13 +136,11 @@ export function getAccessoryWeight(exerciseId, mainLift) {
       recent.setsCompleted.every(reps => reps >= topOfRange);
 
     if (allHitTop) {
-      // Category-specific progression increments
       const model = PROGRESSION_MODELS[progressionType];
       let bump;
       if (model && model.increment) {
         bump = store.unit === 'kg' ? model.increment.kg : model.increment.lbs;
       } else {
-        // Fallback to legacy logic
         bump = (mainLift === 'bench')
           ? (store.unit === 'kg' ? 2.5 : 5)
           : (store.unit === 'kg' ? 5 : 10);
