@@ -5,11 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && cp dist/index.src.html index.html && rm -rf assets && cp -r dist/assets assets",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:legacy": "node tests.js",
-    "deploy": "vite build && cp dist/index.src.html index.html && rm -rf assets && cp -r dist/assets assets"
+    "test:legacy": "node tests.js"
   },
   "devDependencies": {
     "vite": "^6.0.0",
