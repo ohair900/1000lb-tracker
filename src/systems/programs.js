@@ -120,15 +120,11 @@ export function isLiftComplete(lift) {
  * @returns {number} Week number (falls back to currentWeek)
  */
 export function findFirstIncompleteWeek(lift) {
-  const lw = getLiftWeek(lift);
-  if (!store.programConfig.activeProgram) return lw;
-  const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
-  if (!tmpl) return lw;
-  for (let w = 1; w <= lw; w++) {
-    const workout = getProgramWorkout(lift, w);
-    if (workout && !workout.sets.every(s => s.completed)) return w;
-  }
-  return lw;
+  // Always return the current lift week. Don't search back to old weeks —
+  // if completedSets data was lost, old weeks appear incomplete and the
+  // function would get stuck returning week 1 forever. Users advance
+  // weeks manually via the program section UI.
+  return getLiftWeek(lift);
 }
 
 // ---------------------------------------------------------------------------
