@@ -57,7 +57,8 @@ export function updateLiftCard(lift) {
   } else { bwEl.style.display = 'none'; }
   const badgeEl = ensureChild(card, 'class-badge');
   const cls = getClassification(lift, best);
-  if (cls) { badgeEl.textContent = cls; badgeEl.className = 'class-badge ' + cls; badgeEl.style.display = ''; }
+  const clsShort = { beginner: 'Beg', novice: 'Nov', intermediate: 'Int', advanced: 'Adv', elite: 'Elite' };
+  if (cls) { badgeEl.textContent = clsShort[cls] || cls; badgeEl.className = 'class-badge ' + cls; badgeEl.style.display = ''; }
   else { badgeEl.style.display = 'none'; }
   const trendEl = ensureChild(card, 'card-trend');
   const prog = calcProgression(lift);
@@ -95,7 +96,8 @@ export function updateTotalCard() {
   else { tbw.style.display = 'none'; }
   const tBadge = ensureChild(totalCard, 'class-badge');
   const oc = getOverallClassification();
-  if (oc) { tBadge.textContent = oc; tBadge.className = 'class-badge ' + oc; tBadge.style.display = ''; }
+  const ocShort = { beginner: 'Beg', novice: 'Nov', intermediate: 'Int', advanced: 'Adv', elite: 'Elite' };
+  if (oc) { tBadge.textContent = ocShort[oc] || oc; tBadge.className = 'class-badge ' + oc; tBadge.style.display = ''; }
   else { tBadge.style.display = 'none'; }
 }
 
@@ -132,7 +134,8 @@ export function updateScoreLine() {
     el.style.display = '';
     let html = `Wilks: <strong>${Math.round(w)}</strong> &middot; DOTS: <strong>${Math.round(d)}</strong>`;
     const cls = getOverallClassification();
-    if (cls) html += ` &middot; <span class="class-badge ${cls}" style="vertical-align:middle">${cls}</span>`;
+    const clsLabel = { beginner: 'Beg', novice: 'Nov', intermediate: 'Int', advanced: 'Adv', elite: 'Elite' };
+    if (cls) html += ` &middot; <span class="class-badge ${cls}" style="vertical-align:middle">${clsLabel[cls] || cls}</span>`;
     el.innerHTML = html;
   } else { el.style.display = 'none'; }
 }

@@ -35,7 +35,7 @@
 .class-badge {
   display: inline-block; padding: 2px 6px; border-radius: var(--radius-sm);
   font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.03em;
-  margin-top: 3px; text-transform: uppercase;
+  margin-top: 3px; text-transform: uppercase; white-space: nowrap;
 }
 .class-badge.beginner { background: rgba(136,136,136,0.15); color: #888; }
 .class-badge.novice { background: rgba(67,160,71,0.15); color: var(--green); }

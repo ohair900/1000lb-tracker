@@ -3,39 +3,33 @@
 /* Hero summary (non-collapsible) */
 .stats-hero {
   background: var(--surface); border-radius: var(--radius-lg);
-  padding: 20px; margin-bottom: var(--space-3);
+  padding: 0; margin-bottom: var(--space-3);
   box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
-.hero-total { text-align: center; margin-bottom: 12px; }
-.hero-total-value { font-size: 1.8rem; font-weight: 800; color: var(--text-strong); }
-.hero-total-unit { font-size: 0.9rem; font-weight: 600; color: var(--text-dim); }
-.hero-total-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
-.hero-class-badge {
-  display: inline-block; padding: 1px 8px; border-radius: 4px;
-  font-size: 0.6rem; font-weight: 700; color: #fff;
-  text-transform: uppercase; letter-spacing: 0.04em; vertical-align: middle;
+.hero-gradient-bar {
+  height: 4px;
+  background: linear-gradient(90deg, var(--squat) 0%, var(--bench) 50%, var(--deadlift) 100%);
 }
+.hero-total { text-align: center; padding: 20px 20px 8px; }
+.hero-total-value { font-size: 2.2rem; font-weight: 800; color: var(--text-strong); letter-spacing: -0.02em; }
+.hero-total-unit { font-size: 0.85rem; font-weight: 600; color: var(--text-dim); }
+.hero-total-label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
 .hero-scores {
-  display: flex; justify-content: center; gap: 24px; margin-bottom: 12px;
+  display: flex; justify-content: center; gap: 32px;
+  padding: 0 20px 16px;
 }
 .hero-score { text-align: center; }
-.hero-score-value { font-size: 1.3rem; font-weight: 700; color: var(--text-strong); }
-.hero-score-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; display: block; }
-.hero-lifts {
-  display: flex; justify-content: center; gap: 16px; margin-bottom: 12px;
-}
-.hero-lift {
-  display: flex; align-items: center; gap: 6px;
-}
-.hero-lift-name { font-size: 0.7rem; font-weight: 700; }
-.hero-lift-value { font-size: 0.85rem; font-weight: 600; color: var(--text-strong); }
+.hero-score-value { font-size: 1.4rem; font-weight: 700; color: var(--text-strong); }
+.hero-score-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; display: block; letter-spacing: 0.06em; }
 .hero-quick-stats {
   display: flex; justify-content: space-around;
-  padding-top: 10px; border-top: 1px solid var(--border);
+  padding: 14px 20px;
+  background: var(--surface2);
 }
 .hero-quick { text-align: center; }
-.hero-quick-value { font-size: 1.1rem; font-weight: 700; color: var(--text-strong); display: block; }
-.hero-quick-label { font-size: 0.55rem; color: var(--text-dim); text-transform: uppercase; }
+.hero-quick-value { font-size: 1.2rem; font-weight: 700; color: var(--text-strong); display: block; }
+.hero-quick-label { font-size: 0.55rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
 
 /* Collapsible sections */
 .stats-section {

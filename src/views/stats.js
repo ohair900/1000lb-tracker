@@ -173,7 +173,6 @@ export function buildGoalsHTML(total) {
 
 function renderStatsHero(total) {
   const hasProfile = store.profile.gender && store.profile.bodyweight;
-  const overallClass = getOverallClassification();
   const streak = calcStreak();
   const now = new Date();
   const thisMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
@@ -182,12 +181,13 @@ function renderStatsHero(total) {
   const monthPRs = monthEntries.filter(e => e.isPR).length;
 
   let html = `<div class="stats-hero">`;
+  html += `<div class="hero-gradient-bar"></div>`;
 
-  // Total + classification
+  // SBD Total
   if (total) {
     html += `<div class="hero-total">
       <div class="hero-total-value">${formatWeight(total)} <span class="hero-total-unit">${store.unit}</span></div>
-      <div class="hero-total-label">SBD Total${overallClass ? ` <span class="hero-class-badge" style="background:${CLASS_COLORS[overallClass]}">${CLASS_LABELS[overallClass]}</span>` : ''}</div>
+      <div class="hero-total-label">SBD Total</div>
     </div>`;
   }
 
@@ -202,20 +202,6 @@ function renderStatsHero(total) {
       if (dt) html += `<div class="hero-score"><span class="hero-score-value">${Math.round(dt)}</span><span class="hero-score-label">DOTS</span></div>`;
       html += `</div>`;
     }
-  }
-
-  // Per-lift classifications
-  if (hasProfile) {
-    const liftRows = LIFTS.map(l => {
-      const e1 = bestE1RM(l);
-      const cls = e1 ? getClassification(l, e1) : null;
-      return `<div class="hero-lift">
-        <span class="hero-lift-name" style="color:${COLORS[l]}">${LIFT_SHORT[l]}</span>
-        <span class="hero-lift-value">${e1 ? formatWeight(e1) : '\u2014'}</span>
-        ${cls ? `<span class="hero-class-badge" style="background:${CLASS_COLORS[cls]}">${CLASS_LABELS[cls]}</span>` : ''}
-      </div>`;
-    }).join('');
-    html += `<div class="hero-lifts">${liftRows}</div>`;
   }
 
   // Quick stats
