@@ -213,6 +213,7 @@ export function renderWorkoutView() {
         ${isAmrap ? `<input type="number" class="workout-set-input" data-main-amrap="${i}" placeholder="${parseInt(s.reps)}" min="1" inputmode="numeric" ${s.completed ? 'disabled' : ''}>` : ''}
       </div>`;
     });
+    html += `<button class="workout-add-set-btn" data-add-main-set>+ Add Set</button>`;
   } else {
     html += `<div class="workout-no-program">No active program. Log your main lift from the Log tab, then come back for accessories.</div>`;
   }
@@ -234,6 +235,7 @@ export function renderWorkoutView() {
         </div>
       </div>`;
     });
+    html += `<button class="workout-add-set-btn" data-add-bbb-set>+ Add Set</button>`;
     html += `</div>`;
   }
 
@@ -320,8 +322,13 @@ export function renderWorkoutView() {
         ${!done && !isTimeBased ? `<input type="number" class="workout-set-input" data-acc-input="${ai}-${si}" placeholder="${targetReps}" min="1" inputmode="numeric">` : ''}
       </div>`;
     }
+    html += `<button class="workout-add-set-btn small" data-add-acc-set="${ai}">+ Set</button>`;
     html += `</div>`;
   });
+
+  // Add Exercise button
+  html += `<button class="workout-add-exercise-btn" id="workout-add-exercise">+ Add Exercise</button>`;
+  html += `<div id="workout-exercise-picker" style="display:none"></div>`;
 
   body.innerHTML = html;
   updateCompleteButton();
@@ -598,6 +605,101 @@ export function initWorkoutOverlay() {
       acc.repRange[1] = Math.max(5, acc.repRange[1] + dir * 5);
       store.saveWorkoutSession();
       renderWorkoutView();
+      return;
+    }
+
+    // Add Set — Main lift
+    if (e.target.closest('[data-add-main-set]')) {
+      const sets = store.workoutSession.mainSets;
+      if (sets.length > 0) {
+        const last = sets[sets.length - 1];
+        sets.push({ ...last, num: sets.length + 1, completed: false });
+        store.saveWorkoutSession();
+        renderWorkoutView();
+      }
+      return;
+    }
+
+    // Add Set — BBB
+    if (e.target.closest('[data-add-bbb-set]')) {
+      const sets = store.workoutSession.bbbSets;
+      if (sets && sets.length > 0) {
+        const last = sets[sets.length - 1];
+        sets.push({ ...last, num: sets.length + 1, completed: false });
+        store.saveWorkoutSession();
+        renderWorkoutView();
+      }
+      return;
+    }
+
+    // Add Set — Accessory
+    const addAccSetBtn = e.target.closest('[data-add-acc-set]');
+    if (addAccSetBtn) {
+      const ai = parseInt(addAccSetBtn.dataset.addAccSet);
+      const acc = store.workoutSession.accessories[ai];
+      acc.targetSets += 1;
+      const lastWeight = acc.setWeights[acc.setWeights.length - 1] || 0;
+      acc.setWeights.push(lastWeight);
+      store.saveWorkoutSession();
+      renderWorkoutView();
+      return;
+    }
+
+    // Add Exercise — show picker
+    if (e.target.closest('#workout-add-exercise')) {
+      const picker = document.getElementById('workout-exercise-picker');
+      if (picker.style.display !== 'none') {
+        picker.style.display = 'none';
+        return;
+      }
+      const mainLift = store.workoutSession.mainLift;
+      const usedIds = new Set(store.workoutSession.accessories.map(a => a.exerciseId));
+      const scored = scoreAccessories(mainLift).filter(ex => !usedIds.has(ex.id) && ex.equipAvailable !== false);
+      const picks = scored.slice(0, 8);
+      if (picks.length === 0) {
+        showToast('No more exercises available');
+        return;
+      }
+      let pickerHtml = '<div class="workout-exercise-picker-list">';
+      picks.forEach(ex => {
+        const weight = getAccessoryWeight(ex.id, mainLift);
+        const weightStr = (ex.progressionType === 'bodyweight') ? 'BW'
+          : (ex.progressionType === 'time') ? 'Timed'
+          : weight > 0 ? `${formatWeight(weight)} ${store.unit}` : '—';
+        pickerHtml += `<div class="workout-exercise-pick" data-pick-exercise="${ex.id}">
+          <span class="pick-name">${ex.name}</span>
+          <span class="pick-meta">${ex.equipment} &bull; ${ex.sets}x${ex.repRange[1]} &bull; ${weightStr}</span>
+        </div>`;
+      });
+      pickerHtml += '</div>';
+      picker.innerHTML = pickerHtml;
+      picker.style.display = '';
+      return;
+    }
+
+    // Pick exercise from picker
+    const pickEx = e.target.closest('[data-pick-exercise]');
+    if (pickEx) {
+      const exId = pickEx.dataset.pickExercise;
+      const mainLift = store.workoutSession.mainLift;
+      const catalogEx = EXERCISE_CATALOG[exId];
+      if (!catalogEx) return;
+      const weight = getAccessoryWeight(exId, mainLift);
+      const sets = catalogEx.sets || 3;
+      const progressed = checkAccessoryProgression(exId, mainLift);
+      store.workoutSession.accessories.push({
+        exerciseId: exId,
+        name: catalogEx.name,
+        setWeights: computeSetWeights(weight, sets),
+        targetSets: sets,
+        repRange: catalogEx.repRange ? [...catalogEx.repRange] : [8, 12],
+        equipment: catalogEx.equipment,
+        setsCompleted: [],
+        progressed: !!progressed,
+      });
+      store.saveWorkoutSession();
+      renderWorkoutView();
+      showToast(`Added ${catalogEx.name}`);
       return;
     }
 
