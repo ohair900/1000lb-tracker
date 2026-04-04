@@ -467,18 +467,22 @@ export function calcFatigueByMuscle() {
       ? Math.min(1, Math.max(0, hoursSince / adjustedHours))
       : null;
 
-    // Combined display status (ACWR + recovery)
+    // Combined display status (ACWR + recovery) — 5-tier color ramp
     let displayStatus;
     if (status === 'red') {
       displayStatus = 'red';
-    } else if (status === 'yellow' && recoveryPct !== null && recoveryPct < 0.5) {
+    } else if (status === 'yellow' && recoveryPct !== null && recoveryPct < 0.15) {
       displayStatus = 'red';
-    } else if (status === 'yellow') {
-      displayStatus = 'yellow';
-    } else if (recoveryPct !== null && recoveryPct < 0.5) {
+    } else if (recoveryPct !== null && recoveryPct < 0.15) {
+      displayStatus = 'red';
+    } else if (status === 'yellow' && recoveryPct !== null && recoveryPct < 0.4) {
       displayStatus = 'orange';
-    } else if (recoveryPct !== null && recoveryPct < 1.0) {
+    } else if (recoveryPct !== null && recoveryPct < 0.4) {
+      displayStatus = 'orange';
+    } else if (recoveryPct !== null && recoveryPct < 0.7) {
       displayStatus = 'yellow';
+    } else if (recoveryPct !== null && recoveryPct < 0.9) {
+      displayStatus = 'lime';
     } else {
       displayStatus = 'green';
     }

@@ -12,6 +12,7 @@ const TEXTURE_STROKE = 'rgba(255,255,255,0.05)';
 
 const STATUS_COLORS = {
   green:  { r: 76,  g: 175, b: 80,  fill: 0.40, stroke: 0.65 },
+  lime:   { r: 124, g: 179, b: 66,  fill: 0.40, stroke: 0.65 },
   yellow: { r: 255, g: 193, b: 7,   fill: 0.40, stroke: 0.65 },
   orange: { r: 251, g: 140, b: 0,   fill: 0.42, stroke: 0.65 },
   red:    { r: 244, g: 67,  b: 54,  fill: 0.45, stroke: 0.7 },

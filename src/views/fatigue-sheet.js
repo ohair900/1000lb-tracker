@@ -72,10 +72,12 @@ export function showFatigueDetail(mg) {
   const recoveryPct = rec.percentRecovered;
   let displayStatus;
   if (detail.status === 'red') displayStatus = 'red';
-  else if (detail.status === 'yellow' && recoveryPct !== null && recoveryPct < 0.5) displayStatus = 'red';
-  else if (detail.status === 'yellow') displayStatus = 'yellow';
-  else if (recoveryPct !== null && recoveryPct < 0.5) displayStatus = 'orange';
-  else if (recoveryPct !== null && recoveryPct < 1.0) displayStatus = 'yellow';
+  else if (detail.status === 'yellow' && recoveryPct !== null && recoveryPct < 0.15) displayStatus = 'red';
+  else if (recoveryPct !== null && recoveryPct < 0.15) displayStatus = 'red';
+  else if (detail.status === 'yellow' && recoveryPct !== null && recoveryPct < 0.4) displayStatus = 'orange';
+  else if (recoveryPct !== null && recoveryPct < 0.4) displayStatus = 'orange';
+  else if (recoveryPct !== null && recoveryPct < 0.7) displayStatus = 'yellow';
+  else if (recoveryPct !== null && recoveryPct < 0.9) displayStatus = 'lime';
   else displayStatus = 'green';
   const displayColor = `var(--${displayStatus})`;
 

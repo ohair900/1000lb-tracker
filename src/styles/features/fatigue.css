@@ -46,6 +46,7 @@
   width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
 }
 .fatigue-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.fatigue-dot.lime { background: var(--lime); box-shadow: 0 0 6px var(--lime); }
 .fatigue-dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
 .fatigue-dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
 .fatigue-dot.orange { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
@@ -54,6 +55,7 @@
   font-size: var(--text-sm); font-weight: 700;
 }
 .fatigue-level.green { color: var(--green); }
+.fatigue-level.lime { color: var(--lime); }
 .fatigue-level.yellow { color: var(--yellow); }
 .fatigue-level.red { color: var(--red); }
 .fatigue-level.orange { color: var(--orange); }
@@ -68,6 +70,7 @@
   height: 100%; border-radius: 1.5px; transition: width 0.3s ease;
 }
 .fatigue-card-recovery-fill.green { background: var(--green); }
+.fatigue-card-recovery-fill.lime { background: var(--lime); }
 .fatigue-card-recovery-fill.yellow { background: var(--yellow); }
 .fatigue-card-recovery-fill.red { background: var(--red); }
 .fatigue-card-recovery-fill.orange { background: var(--orange); }
@@ -78,6 +81,7 @@
   border-radius: var(--radius-md); margin-bottom: 12px; font-weight: 700;
 }
 .fatigue-detail-banner.green { background: rgba(67,160,71,0.12); color: var(--green); }
+.fatigue-detail-banner.lime { background: rgba(124,179,66,0.12); color: var(--lime); }
 .fatigue-detail-banner.yellow { background: rgba(253,216,53,0.12); color: var(--yellow); }
 .fatigue-detail-banner.red { background: rgba(229,57,53,0.12); color: var(--red); }
 .fatigue-detail-banner.orange { background: rgba(251,140,0,0.12); color: var(--orange); }
@@ -87,6 +91,7 @@
 }
 .fatigue-recovery-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
 .fatigue-recovery-fill.green { background: var(--green); }
+.fatigue-recovery-fill.lime { background: var(--lime); }
 .fatigue-recovery-fill.yellow { background: var(--yellow); }
 .fatigue-recovery-fill.red { background: var(--red); }
 .fatigue-recovery-fill.orange { background: var(--orange); }
