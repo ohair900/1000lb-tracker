@@ -95,7 +95,7 @@ export function isWeekComplete(lift) {
   if (!store.programConfig.trainingMaxes[lift]) return false;
   const workout = getProgramWorkout(lift);
   if (!workout) return false;
-  return workout.sets.every(s => s.completed);
+  return _primarySets(workout).every(s => s.completed);
 }
 
 /**
@@ -109,12 +109,12 @@ export function isLiftComplete(lift) {
   if (!store.programConfig.activeProgram || !store.programConfig.trainingMaxes[lift]) return false;
   const workout = getProgramWorkout(lift);
   if (!workout) return false;
-  return workout.sets.every(s => s.completed);
+  return _primarySets(workout).every(s => s.completed);
 }
 
 /**
  * Find the first week (from 1 to currentWeek) where the lift still
- * has incomplete sets.
+ * has incomplete primary sets (BBB/supplemental excluded).
  *
  * @param {string} lift - 'squat' | 'bench' | 'deadlift'
  * @returns {number} Week number (falls back to currentWeek)
@@ -126,9 +126,14 @@ export function findFirstIncompleteWeek(lift) {
   if (!tmpl) return lw;
   for (let w = 1; w <= lw; w++) {
     const workout = getProgramWorkout(lift, w);
-    if (workout && !workout.sets.every(s => s.completed)) return w;
+    if (workout && !_primarySets(workout).every(s => s.completed)) return w;
   }
   return lw;
+}
+
+/** Filter to only primary working sets (exclude BBB supplemental). */
+function _primarySets(workout) {
+  return workout.sets.filter(s => s.tier !== 'BBB');
 }
 
 // ---------------------------------------------------------------------------
