@@ -294,9 +294,16 @@ export function mergeCloudData(cloudData) {
       store.activeCycleId = (store.cycles.find(c => c.active) || {}).id || null;
     }
 
-    // Programs: cloud wins (last-write-wins)
+    // Programs: cloud wins EXCEPT completedSets/amrapResults/completedWeeks (union merge)
     if (cloudData.programs) {
+      const localCompleted = { ...store.programConfig.completedSets };
+      const localAmrap = { ...store.programConfig.amrapResults };
+      const localCompletedWeeks = { ...store.programConfig.completedWeeks };
       store.programConfig = { ...store.programConfig, ...cloudData.programs };
+      // Union merge — never lose a local completion
+      store.programConfig.completedSets = { ...(store.programConfig.completedSets || {}), ...localCompleted };
+      store.programConfig.amrapResults = { ...(store.programConfig.amrapResults || {}), ...localAmrap };
+      store.programConfig.completedWeeks = { ...(store.programConfig.completedWeeks || {}), ...localCompletedWeeks };
       store._patchProgramConfig();
       store.save('programs');
     }

@@ -642,6 +642,7 @@ try { showWelcomeScreen(); } catch (e) { console.warn('showWelcomeScreen failed:
 // ----- Step 16: Visibility change — flush sync & manage listener -----
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
+    store._flush();      // Flush any pending localStorage writes before tab goes away
     flushPendingSync();
     stopRealtimeSync(); // #4: detach listener when backgrounded
   } else {

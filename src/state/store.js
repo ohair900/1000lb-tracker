@@ -368,6 +368,9 @@ class Store {
       if (dw) this.dashboardWidgets = { ...this.dashboardWidgets, ...dw };
     } catch { /* keep defaults */ }
 
+    // 2b. Restore completedSets from backup if main store lost them
+    this._restoreCompletedSetsIfLost();
+
     // 3. Check schema version and migrate if needed
     const version = parseInt(localStorage.getItem(VERSION_KEY)) || 0;
     if (version < CURRENT_VERSION) {
@@ -428,7 +431,7 @@ class Store {
   saveGoals()          { this.save('goals'); }
   savePRs()            { this.save('prs'); }
   saveCycles()         { this.save('cycles'); }
-  saveProgramConfig()  { this.save('programs'); }
+  saveProgramConfig()  { this.saveNow('programs'); this._backupCompletedSets(); }
   saveWorkoutConfig()  { this.save('workoutConfig'); }
   saveAccessoryLog()   { this.save('accessoryLog'); }
   saveWorkoutSession() { this.saveNow('workoutSession'); }
@@ -551,6 +554,42 @@ class Store {
         pc.weekStreak = 0;
       }
     }
+  }
+
+  /** @private Write completedSets to a separate backup key for redundancy. */
+  _backupCompletedSets() {
+    try {
+      localStorage.setItem('sbd-completed-backup', JSON.stringify({
+        completedSets: this.programConfig.completedSets,
+        amrapResults: this.programConfig.amrapResults,
+        completedWeeks: this.programConfig.completedWeeks,
+        ts: Date.now(),
+      }));
+    } catch (e) { /* quota exceeded — ignore */ }
+  }
+
+  /** @private Restore completedSets from backup if main store lost them. */
+  _restoreCompletedSetsIfLost() {
+    const current = this.programConfig.completedSets || {};
+    const currentCount = Object.keys(current).length;
+    try {
+      const raw = localStorage.getItem('sbd-completed-backup');
+      if (!raw) return;
+      const backup = JSON.parse(raw);
+      if (!backup || !backup.completedSets) return;
+      const backupCount = Object.keys(backup.completedSets).length;
+      if (backupCount > currentCount) {
+        // Backup has more — union merge (never lose a completion)
+        this.programConfig.completedSets = { ...backup.completedSets, ...current };
+        if (backup.amrapResults) {
+          this.programConfig.amrapResults = { ...backup.amrapResults, ...(this.programConfig.amrapResults || {}) };
+        }
+        if (backup.completedWeeks) {
+          this.programConfig.completedWeeks = { ...backup.completedWeeks, ...(this.programConfig.completedWeeks || {}) };
+        }
+        this.saveNow('programs');
+      }
+    } catch (e) { /* corrupt backup — ignore */ }
   }
 
   /** @private Ensure workoutConfig has all expected sub-fields. */

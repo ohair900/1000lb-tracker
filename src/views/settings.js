@@ -181,7 +181,7 @@ function handleImport(ev) {
     if (data.goals) store.goals = data.goals;
     if (data.prs) store.prs = data.prs;
     if (data.cycles) store.cycles = data.cycles;
-    if (data.programs) { store.programConfig = data.programs; store.saveProgramConfig(); }
+    if (data.programs) { store.programConfig = data.programs; store._patchProgramConfig(); store.saveProgramConfig(); }
     if (data.unit) { store.unit = data.unit; localStorage.setItem(UNIT_KEY, store.unit); }
     if (data.badges) { store.unlockedBadges = data.badges; localStorage.setItem(BADGES_KEY, JSON.stringify(store.unlockedBadges)); }
     if (data.dashboardWidgets) { store.dashboardWidgets = { ...store.dashboardWidgets, ...data.dashboardWidgets }; localStorage.setItem(DASH_WIDGETS_KEY, JSON.stringify(store.dashboardWidgets)); }

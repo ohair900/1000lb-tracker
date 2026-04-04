@@ -302,6 +302,10 @@ export function showProgramSetupModal() {
   $('program-save').addEventListener('click', () => {
     const sel = $('program-select').value;
     const programChanged = sel !== (store.programConfig.activeProgram || '');
+    // Confirm before wiping progress
+    if (programChanged && Object.keys(store.programConfig.completedSets || {}).length > 0) {
+      if (!confirm('Changing programs will reset your weekly progress. Continue?')) return;
+    }
     store.programConfig.activeProgram = sel || null;
     LIFTS.forEach(lift => {
       if (lift === 'total') return;
