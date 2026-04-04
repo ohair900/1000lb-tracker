@@ -1,5 +1,43 @@
 /* ===== Stats Tab ===== */
 
+/* Hero summary (non-collapsible) */
+.stats-hero {
+  background: var(--surface); border-radius: var(--radius-lg);
+  padding: 20px; margin-bottom: var(--space-3);
+  box-shadow: var(--shadow-sm);
+}
+.hero-total { text-align: center; margin-bottom: 12px; }
+.hero-total-value { font-size: 1.8rem; font-weight: 800; color: var(--text-strong); }
+.hero-total-unit { font-size: 0.9rem; font-weight: 600; color: var(--text-dim); }
+.hero-total-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+.hero-class-badge {
+  display: inline-block; padding: 1px 8px; border-radius: 4px;
+  font-size: 0.6rem; font-weight: 700; color: #fff;
+  text-transform: uppercase; letter-spacing: 0.04em; vertical-align: middle;
+}
+.hero-scores {
+  display: flex; justify-content: center; gap: 24px; margin-bottom: 12px;
+}
+.hero-score { text-align: center; }
+.hero-score-value { font-size: 1.3rem; font-weight: 700; color: var(--text-strong); }
+.hero-score-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; display: block; }
+.hero-lifts {
+  display: flex; justify-content: center; gap: 16px; margin-bottom: 12px;
+}
+.hero-lift {
+  display: flex; align-items: center; gap: 6px;
+}
+.hero-lift-name { font-size: 0.7rem; font-weight: 700; }
+.hero-lift-value { font-size: 0.85rem; font-weight: 600; color: var(--text-strong); }
+.hero-quick-stats {
+  display: flex; justify-content: space-around;
+  padding-top: 10px; border-top: 1px solid var(--border);
+}
+.hero-quick { text-align: center; }
+.hero-quick-value { font-size: 1.1rem; font-weight: 700; color: var(--text-strong); display: block; }
+.hero-quick-label { font-size: 0.55rem; color: var(--text-dim); text-transform: uppercase; }
+
+/* Collapsible sections */
 .stats-section {
   background: var(--surface); border-radius: var(--radius-lg);
   padding: 20px; margin-bottom: var(--space-3);
@@ -23,9 +61,7 @@
   transition: max-height 0.3s ease, opacity 0.2s ease;
   overflow: hidden;
 }
-.stats-section.collapsed .stats-body {
-  max-height: 0; opacity: 0;
-}
+.stats-section.collapsed .stats-body { max-height: 0; opacity: 0; }
 .stats-hint { font-size: 0.8rem; color: var(--text-dim); text-align: center; padding: 12px; }
 
 /* Records grid */
@@ -43,8 +79,14 @@
 .records-grid .rg-cell {
   text-align: center; padding: var(--space-2) 2px;
   background: var(--surface2); border-radius: var(--radius-sm); font-weight: 600;
+  position: relative;
 }
 .records-grid .rg-cell.pr-cell { background: var(--gold-bg); color: var(--gold); }
+.rg-date {
+  font-size: 0.45rem; color: var(--text-dim); font-weight: 400;
+  margin-top: 1px; opacity: 0.7;
+}
+.rg-cell.pr-cell .rg-date { color: var(--gold); opacity: 0.8; }
 
 /* Volume summary rows */
 .vol-row {
@@ -60,27 +102,6 @@
 .vol-change { font-size: 0.65rem; font-weight: 600; min-width: 45px; text-align: right; }
 .vol-change.up { color: var(--green); }
 .vol-change.down { color: var(--red); }
-
-/* Meet prep */
-.attempt-grid {
-  display: grid; grid-template-columns: auto repeat(3, 1fr); gap: 6px;
-  align-items: center; font-size: 0.8rem;
-}
-.attempt-grid .ag-header { text-align: center; font-size: 0.65rem; color: var(--text-dim); font-weight: 600; }
-.attempt-grid .ag-lift { font-weight: 700; font-size: 0.75rem; }
-.attempt-grid .ag-cell { text-align: center; padding: 6px; background: var(--surface2); border-radius: 6px; }
-.attempt-grid input {
-  width: 100%; padding: 6px; border: 1px solid var(--border);
-  background: var(--surface); color: var(--text); font-size: 0.8rem;
-  text-align: center; border-radius: 6px; outline: none;
-}
-.attempt-grid input:focus { border-color: var(--border-hover); }
-.meet-total {
-  text-align: center; margin-top: 12px; padding: 10px;
-  background: var(--surface2); border-radius: 8px;
-}
-.meet-total-label { font-size: 0.7rem; color: var(--text-dim); }
-.meet-total-value { font-size: 1.3rem; font-weight: 700; }
 
 /* Goals section */
 .goal-row { margin-bottom: 10px; }
@@ -99,6 +120,12 @@
 .goal-pct { font-size: 0.7rem; color: var(--text-dim); margin-top: 2px; text-align: right; }
 
 /* PR Timeline */
+.pr-since {
+  font-size: 0.75rem; font-weight: 600; color: var(--gold);
+  margin-bottom: 10px; padding: 6px 10px;
+  background: var(--gold-bg); border-radius: var(--radius-sm);
+  display: inline-block;
+}
 .pr-timeline { position: relative; padding-left: 20px; }
 .pr-timeline::before {
   content: ''; position: absolute; left: 5px; top: 4px; bottom: 4px;
@@ -117,11 +144,55 @@
 .pr-content { flex: 1; }
 .pr-main { font-size: var(--text-base); color: var(--text-strong); }
 .pr-date { font-size: 0.7rem; color: var(--text-dim); margin-top: 1px; }
+.pr-gap { color: var(--text-dim); font-weight: 400; font-size: 0.6rem; }
 .milestone-badge {
   display: inline-block; padding: 1px 6px; margin-left: 4px;
   border-radius: 4px; background: var(--gold-bg);
   color: var(--gold); font-size: 0.65rem; font-weight: 700;
   border: 1px solid rgba(255,215,0,0.3);
+}
+
+/* Period comparison — visual bars */
+.compare-row {
+  display: grid; grid-template-columns: 50px 1fr 1fr;
+  gap: 6px; align-items: center; margin-bottom: 6px;
+}
+.compare-label { font-size: 0.7rem; font-weight: 600; color: var(--text-dim); }
+.compare-bar-wrap {
+  position: relative; height: 22px; display: flex; align-items: center;
+}
+.compare-bar-wrap.right { justify-content: flex-end; }
+.compare-bar {
+  height: 100%; background: var(--surface2); border-radius: 3px;
+  min-width: 2px; transition: width 0.3s ease;
+}
+.compare-bar.winner { background: var(--green); opacity: 0.35; }
+.compare-bar-val {
+  position: absolute; right: 4px; font-size: 0.65rem;
+  font-weight: 600; color: var(--text);
+}
+.compare-bar-wrap.right .compare-bar-val { right: auto; left: 4px; }
+
+/* Badge cards */
+.badge-category-label {
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-dim); font-weight: 600; margin: 12px 0 6px;
+}
+.badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 6px; }
+.badge-card {
+  background: var(--surface2); border-radius: var(--radius-md);
+  padding: 8px; text-align: center;
+}
+.badge-card.locked { opacity: 0.5; }
+.badge-icon { font-size: 1.2rem; display: block; margin-bottom: 2px; }
+.badge-name { font-size: 0.6rem; font-weight: 700; color: var(--text); }
+.badge-date { font-size: 0.5rem; color: var(--text-dim); margin-top: 2px; }
+.badge-progress {
+  height: 3px; background: var(--border); border-radius: 2px;
+  margin: 4px 0 2px; overflow: hidden;
+}
+.badge-progress-fill {
+  height: 100%; background: var(--gold); border-radius: 2px;
 }
 
 /* Year in review */
@@ -137,8 +208,10 @@
 /* Responsive */
 @media (max-width: 599px) {
   .records-grid { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .hero-lifts { gap: 10px; }
 }
 
 @media (min-width: 600px) {
   .stats-section { padding: var(--space-5); }
+  .stats-hero { padding: var(--space-5); }
 }

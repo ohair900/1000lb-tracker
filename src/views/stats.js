@@ -1,8 +1,10 @@
 /**
- * Stats tab view — badges, relative strength, records board, volume,
- * meet prep, training cycles, PR timeline, training insights,
- * period comparison, goals, milestone roadmap, year in review,
- * data management, and mesocycle overview.
+ * Stats tab view — hero summary, records board, goals, PR timeline,
+ * volume, period comparison, training insights, badges, training cycles,
+ * accessory progress, mesocycle, and year in review.
+ *
+ * Organized in tiers: Hero → Progress → Analysis → Contextual → Engagement
+ * Empty sections are hidden instead of showing placeholder messages.
  */
 
 import store from '../state/store.js';
@@ -16,6 +18,7 @@ import { bestE1RM, getTotal } from '../formulas/e1rm.js';
 import { displayWeight, formatWeight, lbsToKg, inputToLbs } from '../formulas/units.js';
 import { calcWilks, calcDOTS } from '../formulas/scoring.js';
 import { getClassification, getOverallClassification, getWeightClass } from '../formulas/standards.js';
+import { calcStreak } from '../systems/streak.js';
 import { getRepPRs } from '../systems/pr-tracking.js';
 import { calcVolumeSummaries, getProjectedTotal, suggestAttempts } from '../systems/volume.js';
 import { calcGoalProjection, calcMilestoneRoadmap } from '../systems/goals.js';
@@ -34,10 +37,6 @@ let _exportData = null;
 let _exportCSV = null;
 let _showMesoWeekDetail = null;
 
-/**
- * Inject view-level dependencies.
- * @param {object} deps
- */
 export function injectStatsDeps(deps) {
   if (deps.updateDashboard) _updateDashboard = deps.updateDashboard;
   if (deps.renderCycleBar) _renderCycleBar = deps.renderCycleBar;
@@ -47,7 +46,7 @@ export function injectStatsDeps(deps) {
 }
 
 // ---------------------------------------------------------------------------
-// Helper: calcBestTrainingDay (not extracted to a system yet)
+// Helpers
 // ---------------------------------------------------------------------------
 
 function calcBestTrainingDay() {
@@ -70,6 +69,9 @@ function calcBestTrainingDay() {
   results.sort((a, b) => b.avg - a.avg);
   return results;
 }
+
+const CLASS_LABELS = { beginner: 'Beg', novice: 'Nov', intermediate: 'Int', advanced: 'Adv', elite: 'Elite' };
+const CLASS_COLORS = { beginner: '#888', novice: '#1e88e5', intermediate: '#fdd835', advanced: '#ff9800', elite: '#e53935' };
 
 // ---------------------------------------------------------------------------
 // Profile / Goals HTML builders (shared with settings)
@@ -128,255 +130,210 @@ export function buildGoalsHTML(total) {
     }
     html += `</div>`;
   });
-  return html;
-}
 
-// ---------------------------------------------------------------------------
-// Section renderers
-// ---------------------------------------------------------------------------
-
-function renderStatsBadges() {
-  const totalBadges = BADGE_DEFINITIONS.length;
-  const unlockedCount = Object.keys(store.unlockedBadges).length;
-  let html = statsSection('badges', `Badges (${unlockedCount}/${totalBadges})`, store.statsCollapsed);
-  const categories = ['consistency', 'strength', 'milestones', 'volume'];
-  const catLabels = { consistency: 'Consistency', strength: 'Strength', milestones: 'Milestones', volume: 'Volume' };
-  categories.forEach(cat => {
-    const badges = BADGE_DEFINITIONS.filter(b => b.category === cat);
-    html += `<div class="badge-category-label">${catLabels[cat]}</div><div class="badge-grid">`;
-    badges.forEach(b => {
-      const unlocked = store.unlockedBadges[b.id];
-      if (unlocked) {
-        const d = new Date(unlocked.date + 'T12:00:00');
-        const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        html += `<div class="badge-card"><span class="badge-icon">${b.icon}</span><div class="badge-name">${b.name}</div><div class="badge-date">${dateStr}</div></div>`;
-      } else {
-        html += `<div class="badge-card locked"><span class="badge-icon">${b.icon}</span><div class="badge-name">???</div><div class="badge-date" style="font-style:italic">${b.desc}</div></div>`;
-      }
-    });
-    html += `</div>`;
-  });
-  return html + SECTION_CLOSE;
-}
-
-function renderStatsRelativeStrength(total) {
-  let html = statsSection('relative-strength', 'Relative Strength', store.statsCollapsed);
-  if (total && store.profile.gender && store.profile.bodyweight) {
-    const tKg = lbsToKg(total), bKg = lbsToKg(store.profile.bodyweight);
-    const wi = calcWilks(tKg, bKg, store.profile.gender);
-    const dt = calcDOTS(tKg, bKg, store.profile.gender);
-    html += `<div class="score-cards">
-      <div class="score-card"><div class="score-label">Wilks</div><div class="score-value">${wi ? Math.round(wi) : '\u2014'}</div></div>
-      <div class="score-card"><div class="score-label">DOTS</div><div class="score-value">${dt ? Math.round(dt) : '\u2014'}</div></div>
-    </div>`;
-  } else {
-    html += `<div class="stats-hint">Set gender &amp; bodyweight in \u2699 Settings, then log all 3 lifts</div>`;
-  }
-  return html + SECTION_CLOSE;
-}
-
-function renderStatsRecordsBoard() {
-  let html = statsSection('records-board', 'Records Board', store.statsCollapsed);
-  if (store.entries.length > 0) {
-    const repPRs = getRepPRs();
-    html += `<div class="records-grid">
-      <div class="rg-header"></div>`;
-    REP_RANGES.forEach(r => { html += `<div class="rg-header">${r}RM</div>`; });
-    LIFTS.forEach(lift => {
-      html += `<div class="rg-lift" style="color:${COLORS[lift]}">${LIFT_SHORT[lift]}</div>`;
-      REP_RANGES.forEach(r => {
-        const best = repPRs[lift][r];
-        if (best) {
-          const isRecent = (Date.now() - new Date(best.date + 'T12:00:00').getTime()) < 30 * MS_PER_DAY;
-          html += `<div class="rg-cell${isRecent ? ' pr-cell' : ''}">${formatWeight(best.weight)}</div>`;
-        } else {
-          html += `<div class="rg-cell" style="color:var(--text-dim)">\u2014</div>`;
-        }
-      });
-    });
-    html += `</div>`;
-  } else {
-    html += `<div class="stats-hint">Log sets to see your records</div>`;
-  }
-  return html + SECTION_CLOSE;
-}
-
-function renderStatsVolume() {
-  let html = statsSection('volume', 'Volume', store.statsCollapsed);
-  if (store.entries.length > 0) {
-    html += `<div class="vol-period-toggle">
-      <button class="vol-period-btn${store.volPeriod === 'weekly' ? ' active' : ''}" data-period="weekly">Weekly</button>
-      <button class="vol-period-btn${store.volPeriod === 'monthly' ? ' active' : ''}" data-period="monthly">Monthly</button>
-    </div>`;
-    const summaries = calcVolumeSummaries(store.volPeriod);
-    if (summaries.length > 0) {
-      const maxTotal = Math.max(...summaries.map(s => s.total));
-      summaries.forEach(s => {
-        const changeStr = s.change !== null ? `<span class="vol-change ${s.change >= 0 ? 'up' : 'down'}">${s.change >= 0 ? '\u2191' : '\u2193'}${Math.abs(s.change).toFixed(0)}%</span>` : '';
-        const label = store.volPeriod === 'weekly' ? s.key.split('-W')[1] ? 'W' + s.key.split('-W')[1] : s.key : new Date(s.key + '-01T12:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-        html += `<div class="vol-row">
-          <span class="vol-period-label">${label}</span>
-          <div class="vol-bars">`;
-        LIFTS.forEach(l => {
-          const pct = maxTotal > 0 ? (s[l] / maxTotal * 100) : 0;
-          if (pct > 0) html += `<div class="vol-bar-seg" style="width:${pct}%;background:${COLORS[l]}"></div>`;
-        });
-        html += `</div>
-          <span class="vol-total">${fmtNum(displayWeight(s.total))}</span>
-          ${changeStr}
-        </div>`;
-      });
-      html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-top:6px">${summaries[0].sets} sets &middot; ${summaries[0].reps} reps this ${store.volPeriod === 'weekly' ? 'week' : 'month'}</div>`;
-    }
-  } else {
-    html += `<div class="stats-hint">Log sets to see volume trends</div>`;
-  }
-  return html + SECTION_CLOSE;
-}
-
-function renderStatsMeetPrep() {
-  let html = statsSection('meet-prep', 'Meet Prep', store.statsCollapsed);
-  const proj = getProjectedTotal();
-  if (proj.total) {
-    html += `<div style="font-size:var(--text-sm);color:var(--text-dim);margin-bottom:10px">Projected conservative total (95% of recent e1RM)</div>`;
-    html += `<div class="attempt-grid">
-      <div class="ag-header"></div><div class="ag-header">Opener</div><div class="ag-header">2nd</div><div class="ag-header">3rd</div>`;
-    LIFTS.forEach(lift => {
-      const est = proj[lift];
-      const opener = est ? Math.round(est * 0.9 / 2.5) * 2.5 : 0;
-      const att = opener ? suggestAttempts(opener) : { second: 0, third: 0 };
-      html += `<div class="ag-lift" style="color:${COLORS[lift]}">${LIFT_NAMES[lift]}</div>`;
-      html += `<div class="ag-cell"><input type="number" class="attempt-input" data-lift="${lift}" value="${opener ? displayWeight(opener) : ''}" placeholder="\u2014" inputmode="decimal" step="any"></div>`;
-      html += `<div class="ag-cell" id="att2-${lift}">${att.second ? formatWeight(att.second) : '\u2014'}</div>`;
-      html += `<div class="ag-cell" id="att3-${lift}">${att.third ? formatWeight(att.third) : '\u2014'}</div>`;
-    });
-    html += `</div>`;
-    html += `<div class="meet-total">
-      <div class="meet-total-label">Projected Total</div>
-      <div class="meet-total-value">${formatWeight(proj.total)} ${store.unit}</div>
-    </div>`;
-  } else {
-    html += `<div class="stats-hint">Log all 3 lifts in the last 8 weeks to see projections</div>`;
-  }
-  return html + SECTION_CLOSE;
-}
-
-function renderStatsGoals(total) {
-  return statsSection('goals', 'Goals', store.statsCollapsed) + buildGoalsHTML(total) + SECTION_CLOSE;
-}
-
-function buildMilestoneRoadmapHTML() {
+  // Inline milestone roadmap
   const roadmapLifts = LIFTS.filter(lift => {
     const cur = bestE1RM(lift);
     const goal = store.goals[lift];
     return goal && cur && cur < goal;
   });
-  if (roadmapLifts.length === 0) return '';
-  let html = '';
-  roadmapLifts.forEach(lift => {
-    const rm = calcMilestoneRoadmap(lift);
-    if (!rm) return;
-    html += `<div style="margin-bottom:16px">
-      <div style="font-size:var(--text-base);font-weight:600;color:${COLORS[lift]};margin-bottom:8px">${LIFT_NAMES[lift]}</div>
-      <div style="position:relative;padding-left:16px">`;
-    html += `<div style="position:absolute;left:5px;top:4px;bottom:4px;width:2px;background:var(--border)"></div>`;
-    rm.milestones.forEach(ms => {
-      const dotColor = ms.achieved ? COLORS[lift] : 'var(--border)';
-      const textColor = ms.achieved ? 'var(--text)' : 'var(--text-dim)';
-      const estLabel = ms.estDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      html += `<div style="position:relative;padding:4px 0 8px 12px;font-size:var(--text-sm);color:${textColor}">
-        <div style="position:absolute;left:-3px;top:7px;width:10px;height:10px;border-radius:50%;background:${dotColor};border:2px solid var(--surface)"></div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline">
-          <span><strong>${formatWeight(ms.target)} ${store.unit}</strong> <span style="font-size:var(--text-xs)">${ms.label}</span></span>
-          <span style="font-size:var(--text-xs);color:var(--text-dim)">${ms.achieved ? 'Achieved' : estLabel + ' (~' + ms.weeksAway + 'w)'}</span>
-        </div>
-      </div>`;
+  if (roadmapLifts.length > 0) {
+    html += `<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+      <div style="font-size:var(--text-xs);color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Milestone Roadmap</div>`;
+    roadmapLifts.forEach(lift => {
+      const rm = calcMilestoneRoadmap(lift);
+      if (!rm) return;
+      html += `<div style="margin-bottom:12px">
+        <div style="font-size:var(--text-sm);font-weight:600;color:${COLORS[lift]};margin-bottom:4px">${LIFT_NAMES[lift]}</div>
+        <div style="position:relative;padding-left:16px">
+        <div style="position:absolute;left:5px;top:4px;bottom:4px;width:2px;background:var(--border)"></div>`;
+      rm.milestones.forEach(ms => {
+        const dotColor = ms.achieved ? COLORS[lift] : 'var(--border)';
+        const textColor = ms.achieved ? 'var(--text)' : 'var(--text-dim)';
+        const estLabel = ms.estDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        html += `<div style="position:relative;padding:3px 0 6px 12px;font-size:var(--text-sm);color:${textColor}">
+          <div style="position:absolute;left:-3px;top:6px;width:8px;height:8px;border-radius:50%;background:${dotColor};border:2px solid var(--surface)"></div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <span><strong>${formatWeight(ms.target)} ${store.unit}</strong> <span style="font-size:var(--text-xs)">${ms.label}</span></span>
+            <span style="font-size:var(--text-xs);color:var(--text-dim)">${ms.achieved ? 'Done' : estLabel}</span>
+          </div>
+        </div>`;
+      });
+      html += `</div></div>`;
     });
-    html += `</div></div>`;
-  });
+    html += `</div>`;
+  }
+
   return html;
 }
 
-function renderStatsMilestoneRoadmap() {
-  const html = buildMilestoneRoadmapHTML();
-  if (!html) return '';
-  return statsSection('milestone-roadmap', 'Milestone Roadmap', store.statsCollapsed) + html + SECTION_CLOSE;
+// ---------------------------------------------------------------------------
+// TIER 1: Hero Summary (non-collapsible)
+// ---------------------------------------------------------------------------
+
+function renderStatsHero(total) {
+  const hasProfile = store.profile.gender && store.profile.bodyweight;
+  const overallClass = getOverallClassification();
+  const streak = calcStreak();
+  const now = new Date();
+  const thisMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const monthEntries = store.entries.filter(e => e.date.startsWith(thisMonth));
+  const monthSessions = new Set(monthEntries.map(e => e.date)).size;
+  const monthPRs = monthEntries.filter(e => e.isPR).length;
+
+  let html = `<div class="stats-hero">`;
+
+  // Total + classification
+  if (total) {
+    html += `<div class="hero-total">
+      <div class="hero-total-value">${formatWeight(total)} <span class="hero-total-unit">${store.unit}</span></div>
+      <div class="hero-total-label">SBD Total${overallClass ? ` <span class="hero-class-badge" style="background:${CLASS_COLORS[overallClass]}">${CLASS_LABELS[overallClass]}</span>` : ''}</div>
+    </div>`;
+  }
+
+  // Wilks / DOTS
+  if (total && hasProfile) {
+    const tKg = lbsToKg(total), bKg = lbsToKg(store.profile.bodyweight);
+    const wi = calcWilks(tKg, bKg, store.profile.gender);
+    const dt = calcDOTS(tKg, bKg, store.profile.gender);
+    if (wi || dt) {
+      html += `<div class="hero-scores">`;
+      if (wi) html += `<div class="hero-score"><span class="hero-score-value">${Math.round(wi)}</span><span class="hero-score-label">Wilks</span></div>`;
+      if (dt) html += `<div class="hero-score"><span class="hero-score-value">${Math.round(dt)}</span><span class="hero-score-label">DOTS</span></div>`;
+      html += `</div>`;
+    }
+  }
+
+  // Per-lift classifications
+  if (hasProfile) {
+    const liftRows = LIFTS.map(l => {
+      const e1 = bestE1RM(l);
+      const cls = e1 ? getClassification(l, e1) : null;
+      return `<div class="hero-lift">
+        <span class="hero-lift-name" style="color:${COLORS[l]}">${LIFT_SHORT[l]}</span>
+        <span class="hero-lift-value">${e1 ? formatWeight(e1) : '\u2014'}</span>
+        ${cls ? `<span class="hero-class-badge" style="background:${CLASS_COLORS[cls]}">${CLASS_LABELS[cls]}</span>` : ''}
+      </div>`;
+    }).join('');
+    html += `<div class="hero-lifts">${liftRows}</div>`;
+  }
+
+  // Quick stats
+  html += `<div class="hero-quick-stats">
+    <div class="hero-quick"><span class="hero-quick-value">${monthSessions}</span><span class="hero-quick-label">sessions this mo</span></div>
+    <div class="hero-quick"><span class="hero-quick-value">${monthPRs}</span><span class="hero-quick-label">PRs this mo</span></div>
+    <div class="hero-quick"><span class="hero-quick-value">${streak?.current || 0}</span><span class="hero-quick-label">week streak</span></div>
+  </div>`;
+
+  html += `</div>`;
+  return html;
 }
 
-function renderStatsCycles() {
-  let html = statsSection('training-cycles', 'Training Cycles', store.statsCollapsed);
-  if (store.cycles.length > 0) {
-    store.cycles.slice().reverse().forEach(cy => {
-      const cycleEntries = store.entries.filter(e => e.cycleId === cy.id);
-      const vol = cycleEntries.reduce((s, e) => s + e.weight * e.reps, 0);
-      const sets = cycleEntries.length;
-      const statusLabel = cy.active ? '<span style="color:#43a047">Active</span>' : (cy.endDate || 'Ended');
-      html += `<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:var(--text-base)">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <strong>${cy.name}</strong> <span style="font-size:var(--text-sm);color:var(--text-dim)">${cy.type} &middot; ${statusLabel}</span>
-        </div>
-        <div style="font-size:var(--text-sm);color:var(--text-dim);margin-top:2px">${sets} sets &middot; ${fmtNum(displayWeight(vol))} ${store.unit} volume &middot; Started ${cy.startDate}</div>
-        ${cy.active ? `<button class="timer-btn" data-end-cycle="${cy.id}" style="margin-top:4px">End Cycle</button>` : ''}
-      </div>`;
+// ---------------------------------------------------------------------------
+// TIER 2: Progress sections
+// ---------------------------------------------------------------------------
+
+function renderStatsRecordsBoard() {
+  if (store.entries.length === 0) return '';
+  let html = statsSection('records-board', 'Records Board', store.statsCollapsed);
+  const repPRs = getRepPRs();
+  html += `<div class="records-grid"><div class="rg-header"></div>`;
+  REP_RANGES.forEach(r => { html += `<div class="rg-header">${r}RM</div>`; });
+  LIFTS.forEach(lift => {
+    html += `<div class="rg-lift" style="color:${COLORS[lift]}">${LIFT_SHORT[lift]}</div>`;
+    REP_RANGES.forEach(r => {
+      const best = repPRs[lift][r];
+      if (best) {
+        const daysAgo = Math.round((Date.now() - new Date(best.date + 'T12:00:00').getTime()) / MS_PER_DAY);
+        const isRecent = daysAgo < 30;
+        const dateLabel = daysAgo < 7 ? `${daysAgo}d ago` : daysAgo < 60 ? `${Math.round(daysAgo / 7)}w ago` : '';
+        html += `<div class="rg-cell${isRecent ? ' pr-cell' : ''}" title="${best.date}">${formatWeight(best.weight)}${dateLabel ? `<div class="rg-date">${dateLabel}</div>` : ''}</div>`;
+      } else {
+        html += `<div class="rg-cell" style="color:var(--text-dim)">\u2014</div>`;
+      }
     });
-  } else {
-    html += `<div class="stats-hint">Use the cycle bar in the Log tab to start tracking training phases</div>`;
-  }
+  });
+  html += `</div>`;
   return html + SECTION_CLOSE;
+}
+
+function renderStatsGoals(total) {
+  return statsSection('goals', 'Goals & Milestones', store.statsCollapsed) + buildGoalsHTML(total) + SECTION_CLOSE;
 }
 
 function renderStatsPRTimeline() {
+  if (store.prs.length === 0) return '';
   let html = statsSection('pr-timeline', 'PR Timeline', store.statsCollapsed);
-  if (store.prs.length > 0) {
-    const sorted = [...store.prs].sort((a, b) => b.timestamp - a.timestamp);
-    html += `<div class="pr-timeline">`;
-    sorted.forEach(pr => {
-      const d = new Date(pr.date + 'T12:00:00');
-      const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      const name = LIFT_NAMES[pr.lift] || pr.lift;
-      let milestoneHtml = '';
-      if (pr.milestone) {
-        const idx = PLATE_MILESTONES.indexOf(parseInt(pr.milestone));
-        milestoneHtml = `<span class="milestone-badge">${idx + 1} plate${idx > 0 ? 's' : ''}</span>`;
-      }
-      html += `<div class="pr-item">
-        <div class="pr-dot" style="background:${COLORS[pr.lift]}"></div>
-        <div class="pr-content">
-          <div class="pr-main"><span style="color:${COLORS[pr.lift]}">${name}</span> <strong>${formatWeight(pr.e1rm)} ${store.unit}</strong> ${milestoneHtml}
-            <button class="toast-share" onclick="return false" data-share-lift="${pr.lift}" data-share-e1rm="${pr.e1rm}" data-share-date="${pr.date}" style="font-size:var(--text-xs);padding:1px 6px;vertical-align:middle">Share</button>
-          </div>
-          <div class="pr-date">${label}</div>
+  const sorted = [...store.prs].sort((a, b) => b.timestamp - a.timestamp);
+
+  // Days since last PR
+  const daysSince = Math.round((Date.now() - sorted[0].timestamp) / MS_PER_DAY);
+  html += `<div class="pr-since">${daysSince === 0 ? 'PR today!' : `${daysSince}d since last PR`}</div>`;
+
+  html += `<div class="pr-timeline">`;
+  sorted.forEach((pr, i) => {
+    const d = new Date(pr.date + 'T12:00:00');
+    const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const name = LIFT_NAMES[pr.lift] || pr.lift;
+    let milestoneHtml = '';
+    if (pr.milestone) {
+      const idx = PLATE_MILESTONES.indexOf(parseInt(pr.milestone));
+      milestoneHtml = `<span class="milestone-badge">${idx + 1} plate${idx > 0 ? 's' : ''}</span>`;
+    }
+    // Gap from previous PR
+    const nextPR = sorted[i + 1];
+    const gap = nextPR ? Math.round((pr.timestamp - nextPR.timestamp) / MS_PER_DAY) : null;
+
+    html += `<div class="pr-item">
+      <div class="pr-dot" style="background:${COLORS[pr.lift]}"></div>
+      <div class="pr-content">
+        <div class="pr-main"><span style="color:${COLORS[pr.lift]}">${name}</span> <strong>${formatWeight(pr.e1rm)} ${store.unit}</strong> ${milestoneHtml}
+          <button class="toast-share" onclick="return false" data-share-lift="${pr.lift}" data-share-e1rm="${pr.e1rm}" data-share-date="${pr.date}" style="font-size:var(--text-xs);padding:1px 6px;vertical-align:middle">Share</button>
         </div>
-      </div>`;
-    });
-    html += `</div>`;
-  } else {
-    html += `<div class="stats-hint">No PRs yet \u2014 start logging!</div>`;
-  }
+        <div class="pr-date">${label}${gap !== null ? ` <span class="pr-gap">(${gap}d gap)</span>` : ''}</div>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
   return html + SECTION_CLOSE;
 }
 
-function renderStatsInsights() {
-  let html = statsSection('training-insights', 'Training Insights', store.statsCollapsed);
-  const btd = calcBestTrainingDay();
-  if (btd && btd.length > 0) {
-    html += `<div style="font-size:var(--text-sm);color:var(--text-dim);margin-bottom:8px">Your strongest day is <strong style="color:var(--text)">${btd[0].name}</strong></div>`;
-    const maxAvg = btd[0].avg;
-    btd.forEach(d => {
-      const pct = maxAvg > 0 ? (d.avg / maxAvg * 100) : 0;
+// ---------------------------------------------------------------------------
+// TIER 3: Analysis sections
+// ---------------------------------------------------------------------------
+
+function renderStatsVolume() {
+  if (store.entries.length === 0) return '';
+  let html = statsSection('volume', 'Volume', store.statsCollapsed);
+  html += `<div class="vol-period-toggle">
+    <button class="vol-period-btn${store.volPeriod === 'weekly' ? ' active' : ''}" data-period="weekly">Weekly</button>
+    <button class="vol-period-btn${store.volPeriod === 'monthly' ? ' active' : ''}" data-period="monthly">Monthly</button>
+  </div>`;
+  const summaries = calcVolumeSummaries(store.volPeriod);
+  if (summaries.length > 0) {
+    const maxTotal = Math.max(...summaries.map(s => s.total));
+    summaries.forEach(s => {
+      const changeStr = s.change !== null ? `<span class="vol-change ${s.change >= 0 ? 'up' : 'down'}">${s.change >= 0 ? '\u2191' : '\u2193'}${Math.abs(s.change).toFixed(0)}%</span>` : '';
+      const label = store.volPeriod === 'weekly' ? s.key.split('-W')[1] ? 'W' + s.key.split('-W')[1] : s.key : new Date(s.key + '-01T12:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
       html += `<div class="vol-row">
-        <span class="vol-period-label" style="min-width:32px">${d.name.slice(0, 3)}</span>
-        <div class="vol-bars"><div class="vol-bar-seg" style="width:${pct}%;background:var(--bench)"></div></div>
-        <span class="vol-total">${formatWeight(d.avg)}</span>
+        <span class="vol-period-label">${label}</span>
+        <div class="vol-bars">`;
+      LIFTS.forEach(l => {
+        const pct = maxTotal > 0 ? (s[l] / maxTotal * 100) : 0;
+        if (pct > 0) html += `<div class="vol-bar-seg" style="width:${pct}%;background:${COLORS[l]}"></div>`;
+      });
+      html += `</div>
+        <span class="vol-total">${fmtNum(displayWeight(s.total))}</span>
+        ${changeStr}
       </div>`;
     });
-  } else {
-    html += `<div class="stats-hint">Need 10+ entries with 3+ per day shown</div>`;
+    html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-top:6px">${summaries[0].sets} sets &middot; ${summaries[0].reps} reps this ${store.volPeriod === 'weekly' ? 'week' : 'month'}</div>`;
   }
   return html + SECTION_CLOSE;
 }
 
 function renderStatsPeriodComparison() {
+  if (store.entries.length < 5) return '';
   let html = statsSection('period-comparison', 'Period Comparison', store.statsCollapsed);
   html += `<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
     <select class="compare-select" id="compare-a">
@@ -397,12 +354,58 @@ function renderStatsPeriodComparison() {
   return html + SECTION_CLOSE;
 }
 
-function renderStatsYIR() {
-  let html = statsSection('year-in-review', 'Year in Review', store.statsCollapsed);
-  html += `<button class="data-btn" id="yir-btn" style="width:100%">Generate ${new Date().getFullYear()} Review</button>`;
-  html += `<div id="yir-content"></div>`;
+function renderStatsInsights() {
+  const btd = calcBestTrainingDay();
+  if (!btd || btd.length === 0) return '';
+  let html = statsSection('training-insights', 'Training Insights', store.statsCollapsed);
+
+  // Best training day
+  html += `<div style="font-size:var(--text-sm);color:var(--text-dim);margin-bottom:8px">Strongest day: <strong style="color:var(--text)">${btd[0].name}</strong></div>`;
+  const maxAvg = btd[0].avg;
+  btd.forEach(d => {
+    const pct = maxAvg > 0 ? (d.avg / maxAvg * 100) : 0;
+    html += `<div class="vol-row">
+      <span class="vol-period-label" style="min-width:32px">${d.name.slice(0, 3)}</span>
+      <div class="vol-bars"><div class="vol-bar-seg" style="width:${pct}%;background:var(--bench)"></div></div>
+      <span class="vol-total">${formatWeight(d.avg)}</span>
+    </div>`;
+  });
+
+  // Strongest rep range
+  if (store.entries.length >= 20) {
+    const ranges = [[1, 3, 'Singles-Triples'], [4, 6, 'Medium (4-6)'], [7, 10, 'Hypertrophy (7-10)'], [11, 50, 'Endurance (11+)']];
+    const rangeAvgs = ranges.map(([lo, hi, label]) => {
+      const entries = store.entries.filter(e => e.reps >= lo && e.reps <= hi);
+      if (entries.length < 3) return null;
+      const avg = entries.reduce((s, e) => s + e.e1rm, 0) / entries.length;
+      return { label, avg, count: entries.length };
+    }).filter(Boolean);
+    if (rangeAvgs.length >= 2) {
+      rangeAvgs.sort((a, b) => b.avg - a.avg);
+      html += `<div style="margin-top:12px;padding-top:8px;border-top:1px solid var(--border);font-size:var(--text-sm);color:var(--text-dim)">Best rep range: <strong style="color:var(--text)">${rangeAvgs[0].label}</strong> (avg ${formatWeight(rangeAvgs[0].avg)} e1RM)</div>`;
+    }
+  }
+
+  // Most consistent lift
+  if (store.entries.length >= 20) {
+    const last90 = new Date(Date.now() - 90 * MS_PER_DAY).toISOString().split('T')[0];
+    const recent = store.entries.filter(e => e.date >= last90);
+    const liftFreq = {};
+    LIFTS.forEach(l => {
+      liftFreq[l] = new Set(recent.filter(e => e.lift === l).map(e => e.date)).size;
+    });
+    const sorted = Object.entries(liftFreq).sort((a, b) => b[1] - a[1]);
+    if (sorted[0][1] > 0) {
+      html += `<div style="margin-top:4px;font-size:var(--text-sm);color:var(--text-dim)">Most trained (90d): <strong style="color:${COLORS[sorted[0][0]]}">${LIFT_NAMES[sorted[0][0]]}</strong> (${sorted[0][1]} sessions)</div>`;
+    }
+  }
+
   return html + SECTION_CLOSE;
 }
+
+// ---------------------------------------------------------------------------
+// TIER 4: Contextual sections (only if data exists)
+// ---------------------------------------------------------------------------
 
 function renderStatsMesocycle() {
   const meso = store.activeMesocycle;
@@ -413,7 +416,7 @@ function renderStatsMesocycle() {
   const pct = Math.round((completedWeeks / meso.durationWeeks) * 100);
 
   let html = `<div class="stats-section${isCollapsed ? ' collapsed' : ''}">
-    <div class="stats-header" data-toggle="mesocycle"><span>Mesocycle</span><span class="collapse-arrow">${isCollapsed ? '&#9654;' : '&#9660;'}</span></div>
+    <div class="stats-header" data-toggle="mesocycle"><span>Mesocycle</span><span class="stats-header-chevron">&#9656;</span></div>
     <div class="stats-body">
       <div style="font-weight:700;color:var(--text-strong);margin-bottom:8px">${escapeHTML(meso.name)}</div>
       <div class="recap-stat-grid">
@@ -444,15 +447,30 @@ function renderStatsMesocycle() {
   return html;
 }
 
-function renderStatsAccessoryProgress() {
-  let html = statsSection('accessory-progress', 'Accessory Progress', store.statsCollapsed);
-  const summaries = getAccessorySummaries();
-  if (summaries.size === 0) {
-    html += `<div style="color:var(--text-dim);font-size:var(--text-sm);padding:var(--space-2) 0">Complete workouts with accessories to see progress here.</div>`;
-    return html + SECTION_CLOSE;
-  }
+function renderStatsCycles() {
+  if (store.cycles.length === 0) return '';
+  let html = statsSection('training-cycles', 'Training Cycles', store.statsCollapsed);
+  store.cycles.slice().reverse().forEach(cy => {
+    const cycleEntries = store.entries.filter(e => e.cycleId === cy.id);
+    const vol = cycleEntries.reduce((s, e) => s + e.weight * e.reps, 0);
+    const sets = cycleEntries.length;
+    const statusLabel = cy.active ? '<span style="color:#43a047">Active</span>' : (cy.endDate || 'Ended');
+    html += `<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:var(--text-base)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>${cy.name}</strong> <span style="font-size:var(--text-sm);color:var(--text-dim)">${cy.type} &middot; ${statusLabel}</span>
+      </div>
+      <div style="font-size:var(--text-sm);color:var(--text-dim);margin-top:2px">${sets} sets &middot; ${fmtNum(displayWeight(vol))} ${store.unit} volume &middot; Started ${cy.startDate}</div>
+      ${cy.active ? `<button class="timer-btn" data-end-cycle="${cy.id}" style="margin-top:4px">End Cycle</button>` : ''}
+    </div>`;
+  });
+  return html + SECTION_CLOSE;
+}
 
-  // Group by main lift
+function renderStatsAccessoryProgress() {
+  const summaries = getAccessorySummaries();
+  if (summaries.size === 0) return '';
+  let html = statsSection('accessory-progress', 'Accessory Progress', store.statsCollapsed);
+
   const groups = { squat: [], bench: [], deadlift: [] };
   for (const [, s] of summaries) {
     if (groups[s.mainLift]) groups[s.mainLift].push(s);
@@ -468,20 +486,93 @@ function renderStatsAccessoryProgress() {
     for (const s of exercises) {
       const w = s.bestWeight === 0 ? 'BW' : formatWeight(s.lastWeight) + ' ' + store.unit;
       const arrow = TREND_ARROWS[s.trend];
-      html += `<div class="acc-progress-row" data-exercise-id="${s.exerciseId}">`;
-      html += `<div class="acc-progress-dot ${s.mainLift}"></div>`;
-      html += `<div class="acc-progress-info">`;
-      html += `<div class="acc-progress-name">${escapeHTML(s.name)}${s.readyToProgress ? '<span class="acc-progress-badge">Ready</span>' : ''}</div>`;
-      html += `<div class="acc-progress-meta">${s.sessionCount} session${s.sessionCount !== 1 ? 's' : ''} &bull; ${s.equipment} &bull; ${s.lastDate}</div>`;
-      html += `</div>`;
-      html += `<div class="acc-progress-right">`;
-      html += `<div class="acc-progress-weight">${w}</div>`;
-      html += `<div class="acc-progress-trend ${s.trend}">${arrow}</div>`;
-      html += `</div></div>`;
+      html += `<div class="acc-progress-row" data-exercise-id="${s.exerciseId}">
+        <div class="acc-progress-dot ${s.mainLift}"></div>
+        <div class="acc-progress-info">
+          <div class="acc-progress-name">${escapeHTML(s.name)}${s.readyToProgress ? '<span class="acc-progress-badge">Ready</span>' : ''}</div>
+          <div class="acc-progress-meta">${s.sessionCount} session${s.sessionCount !== 1 ? 's' : ''} &bull; ${s.equipment} &bull; ${s.lastDate}</div>
+        </div>
+        <div class="acc-progress-right">
+          <div class="acc-progress-weight">${w}</div>
+          <div class="acc-progress-trend ${s.trend}">${arrow}</div>
+        </div></div>`;
     }
     html += `</div>`;
   }
+  return html + SECTION_CLOSE;
+}
 
+// ---------------------------------------------------------------------------
+// TIER 5: Engagement
+// ---------------------------------------------------------------------------
+
+function renderStatsBadges() {
+  const totalBadges = BADGE_DEFINITIONS.length;
+  const unlockedCount = Object.keys(store.unlockedBadges).length;
+  let html = statsSection('badges', `Badges (${unlockedCount}/${totalBadges})`, store.statsCollapsed);
+
+  // Precompute progress context
+  const uniqueDays = new Set(store.entries.map(e => e.date)).size;
+  const total = getTotal();
+  const maxLiftE1rm = Math.max(0, ...LIFTS.map(l => bestE1RM(l) || 0));
+  const totalVol = store.entries.reduce((s, e) => s + e.weight * e.reps, 0);
+
+  function getProgress(b) {
+    if (store.unlockedBadges[b.id]) return null;
+    switch (b.id) {
+      case 'first-rep': return { cur: store.entries.length, target: 1 };
+      case 'week-warrior': return { cur: uniqueDays, target: 14 };
+      case 'fifty-strong': return { cur: uniqueDays, target: 50 };
+      case 'century': return { cur: uniqueDays, target: 100 };
+      case '1plate': return { cur: maxLiftE1rm, target: 135 };
+      case '2plate': return { cur: maxLiftE1rm, target: 225 };
+      case '3plate': return { cur: maxLiftE1rm, target: 315 };
+      case '4plate': return { cur: maxLiftE1rm, target: 405 };
+      case '5plate': return { cur: maxLiftE1rm, target: 495 };
+      case 'total-500': return { cur: total || 0, target: 500 };
+      case 'total-750': return { cur: total || 0, target: 750 };
+      case 'total-1000': return { cur: total || 0, target: 1000 };
+      case 'total-1500': return { cur: total || 0, target: 1500 };
+      case 'vol-100k': return { cur: totalVol, target: 100000 };
+      case 'vol-500k': return { cur: totalVol, target: 500000 };
+      case 'vol-1m': return { cur: totalVol, target: 1000000 };
+      default: return null;
+    }
+  }
+
+  const categories = ['consistency', 'strength', 'milestones', 'volume'];
+  const catLabels = { consistency: 'Consistency', strength: 'Strength', milestones: 'Milestones', volume: 'Volume' };
+  categories.forEach(cat => {
+    const badges = BADGE_DEFINITIONS.filter(b => b.category === cat);
+    html += `<div class="badge-category-label">${catLabels[cat]}</div><div class="badge-grid">`;
+    badges.forEach(b => {
+      const unlocked = store.unlockedBadges[b.id];
+      if (unlocked) {
+        const d = new Date(unlocked.date + 'T12:00:00');
+        const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        html += `<div class="badge-card"><span class="badge-icon">${b.icon}</span><div class="badge-name">${b.name}</div><div class="badge-date">${dateStr}</div></div>`;
+      } else {
+        const prog = getProgress(b);
+        const pct = prog ? Math.min(100, Math.round((prog.cur / prog.target) * 100)) : 0;
+        html += `<div class="badge-card locked"><span class="badge-icon">${b.icon}</span><div class="badge-name">${b.name}</div>`;
+        if (prog && prog.target > 0) {
+          html += `<div class="badge-progress"><div class="badge-progress-fill" style="width:${pct}%"></div></div>`;
+          html += `<div class="badge-date">${pct}%</div>`;
+        } else {
+          html += `<div class="badge-date" style="font-style:italic">${b.desc}</div>`;
+        }
+        html += `</div>`;
+      }
+    });
+    html += `</div>`;
+  });
+  return html + SECTION_CLOSE;
+}
+
+function renderStatsYIR() {
+  let html = statsSection('year-in-review', 'Year in Review', store.statsCollapsed);
+  html += `<button class="data-btn" id="yir-btn" style="width:100%">Generate ${new Date().getFullYear()} Review</button>`;
+  html += `<div id="yir-content"></div>`;
   return html + SECTION_CLOSE;
 }
 
@@ -489,33 +580,33 @@ function renderStatsAccessoryProgress() {
 // Main renderStats()
 // ---------------------------------------------------------------------------
 
-/**
- * Render the full Stats tab content.
- */
 export function renderStats() {
   const c = $('stats-content');
   const total = getTotal();
   c.innerHTML = [
-    renderStatsMesocycle(),
-    renderStatsBadges(),
-    renderStatsRelativeStrength(total),
+    // Tier 1: Hero
+    renderStatsHero(total),
+    // Tier 2: Progress
     renderStatsRecordsBoard(),
-    renderStatsVolume(),
-    renderStatsAccessoryProgress(),
-    renderStatsMeetPrep(),
-    renderStatsCycles(),
-    renderStatsPRTimeline(),
-    renderStatsInsights(),
-    renderStatsPeriodComparison(),
     renderStatsGoals(total),
-    renderStatsMilestoneRoadmap(),
+    renderStatsPRTimeline(),
+    // Tier 3: Analysis
+    renderStatsVolume(),
+    renderStatsPeriodComparison(),
+    renderStatsInsights(),
+    // Tier 4: Contextual
+    renderStatsMesocycle(),
+    renderStatsCycles(),
+    renderStatsAccessoryProgress(),
+    // Tier 5: Engagement
+    renderStatsBadges(),
     renderStatsYIR()
   ].join('');
   attachStatsListeners();
 }
 
 // ---------------------------------------------------------------------------
-// attachStatsListeners — wire up dynamic listeners after render
+// attachStatsListeners
 // ---------------------------------------------------------------------------
 
 function attachStatsListeners() {
@@ -548,22 +639,6 @@ function attachStatsListeners() {
     btn.addEventListener('click', () => {
       store.volPeriod = btn.dataset.period;
       renderStats();
-    });
-  });
-
-  // Attempt inputs
-  document.querySelectorAll('.attempt-input').forEach(input => {
-    input.addEventListener('input', () => {
-      const lift = input.dataset.lift;
-      const v = parseFloat(input.value);
-      if (v > 0) {
-        const openerLbs = inputToLbs(v);
-        const att = suggestAttempts(openerLbs);
-        const att2El = document.getElementById('att2-' + lift);
-        const att3El = document.getElementById('att3-' + lift);
-        if (att2El) att2El.textContent = formatWeight(att.second);
-        if (att3El) att3El.textContent = formatWeight(att.third);
-      }
     });
   });
 
@@ -626,24 +701,40 @@ function attachStatsListeners() {
       }
       const rA = getPeriodRange(compareA.value), rB = getPeriodRange(compareB.value);
       const sA = calcPeriodStats(rA.start, rA.end), sB = calcPeriodStats(rB.start, rB.end);
-      function ind(a, b) { return a > b ? '<span class="compare-indicator up">\u2191</span>' : a < b ? '<span class="compare-indicator down">\u2193</span>' : '<span class="compare-indicator same">=</span>'; }
+      function diffBar(a, b, label) {
+        const max = Math.max(a, b, 1);
+        const pctA = (a / max * 100).toFixed(0);
+        const pctB = (b / max * 100).toFixed(0);
+        const better = a > b ? 'a' : a < b ? 'b' : 'same';
+        return `<div class="compare-row">
+          <div class="compare-label">${label}</div>
+          <div class="compare-bar-wrap">
+            <div class="compare-bar${better === 'a' ? ' winner' : ''}" style="width:${pctA}%"></div>
+            <span class="compare-bar-val">${typeof a === 'number' && a > 999 ? fmtNum(a) : a}</span>
+          </div>
+          <div class="compare-bar-wrap right">
+            <div class="compare-bar${better === 'b' ? ' winner' : ''}" style="width:${pctB}%"></div>
+            <span class="compare-bar-val">${typeof b === 'number' && b > 999 ? fmtNum(b) : b}</span>
+          </div>
+        </div>`;
+      }
       const cRes = $('compare-results');
-      cRes.innerHTML = `<div class="compare-grid">
-        <div class="compare-label">Overview</div>
-        <div class="compare-val">${sA.sets} sets</div>${ind(sA.sets, sB.sets)}<div class="compare-val">${sB.sets} sets</div>
-        <div class="compare-val">${fmtNum(displayWeight(sA.volume))} vol</div>${ind(sA.volume, sB.volume)}<div class="compare-val">${fmtNum(displayWeight(sB.volume))} vol</div>
-        <div class="compare-val">${sA.trainingDays} days</div>${ind(sA.trainingDays, sB.trainingDays)}<div class="compare-val">${sB.trainingDays} days</div>
-        <div class="compare-val">${sA.prs} PRs</div>${ind(sA.prs, sB.prs)}<div class="compare-val">${sB.prs} PRs</div>
-        <div class="compare-label">Best e1RM</div>
-        ${LIFTS.map(l => `<div class="compare-val" style="color:${COLORS[l]}">${sA[l] > 0 ? formatWeight(sA[l]) : '\u2014'}</div>${ind(sA[l], sB[l])}<div class="compare-val" style="color:${COLORS[l]}">${sB[l] > 0 ? formatWeight(sB[l]) : '\u2014'}</div>`).join('')}
-      </div>`;
+      cRes.innerHTML = diffBar(sA.sets, sB.sets, 'Sets') +
+        diffBar(Math.round(displayWeight(sA.volume)), Math.round(displayWeight(sB.volume)), 'Volume') +
+        diffBar(sA.trainingDays, sB.trainingDays, 'Days') +
+        diffBar(sA.prs, sB.prs, 'PRs') +
+        LIFTS.map(l => diffBar(
+          sA[l] > 0 ? Math.round(displayWeight(sA[l])) : 0,
+          sB[l] > 0 ? Math.round(displayWeight(sB[l])) : 0,
+          LIFT_SHORT[l]
+        )).join('');
     }
     compareA.addEventListener('change', runComparison);
     compareB.addEventListener('change', runComparison);
     runComparison();
   }
 
-  // Goal input listeners in Stats tab
+  // Goal input listeners
   document.querySelectorAll('#stats-content .goal-input').forEach(inp => {
     inp.addEventListener('change', () => {
       const lift = inp.dataset.lift;
@@ -687,12 +778,10 @@ function attachStatsListeners() {
     }
     rhtml += `<button class="data-btn" id="yir-share" style="width:100%">\uD83D\uDCE4 Share Year in Review</button>`;
     $('yir-content').innerHTML = rhtml;
-    // Share card
     $('yir-share').addEventListener('click', () => {
       const cv = document.createElement('canvas'); cv.width = 1080; cv.height = 1920;
       const yirCtx = cv.getContext('2d');
       yirCtx.fillStyle = '#121212'; yirCtx.fillRect(0, 0, 1080, 1920);
-      // SBD bar
       const grd = yirCtx.createLinearGradient(0, 0, 1080, 0);
       grd.addColorStop(0, COLORS.squat); grd.addColorStop(0.5, COLORS.bench); grd.addColorStop(1, COLORS.deadlift);
       yirCtx.fillStyle = grd; yirCtx.fillRect(0, 0, 1080, 8);
@@ -716,14 +805,9 @@ function attachStatsListeners() {
 }
 
 // ---------------------------------------------------------------------------
-// initStatsTab — one-time setup (if needed beyond renderStats)
+// initStatsTab
 // ---------------------------------------------------------------------------
 
-/**
- * Set up any one-time listeners for the Stats tab.
- * Currently stats are fully re-rendered each time the tab is shown,
- * so this is a no-op placeholder for future use.
- */
 export function initStatsTab() {
   // All listeners are attached dynamically in attachStatsListeners()
 }
