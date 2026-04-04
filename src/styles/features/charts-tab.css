@@ -10,21 +10,76 @@
 }
 
 .chart-date-range {
-  display: flex; gap: 4px; margin-bottom: var(--space-2); flex-wrap: wrap;
+  display: flex; gap: 6px; margin-bottom: var(--space-2); flex-wrap: wrap;
 }
 
+/* Larger, bolder controls (overrides pills.css base) */
+.chart-type-btn { padding: 8px 0; }
+.chart-filter-btn { padding: 8px 16px; }
+.chart-date-range .range-pill { padding: 6px 14px; font-size: 0.75rem; }
+
+/* Active accent underline on type selector */
+.chart-type-btn.active {
+  box-shadow: inset 0 -2px 0 var(--gold, #ffd700);
+}
+
+/* Active accent on range pills */
+.chart-date-range .range-pill.active {
+  background: var(--gold, #ffd700);
+  color: var(--bg, #121212);
+  border-color: var(--gold, #ffd700);
+}
+
+/* Chart container */
 .chart-container {
   position: relative; background: var(--surface);
   border-radius: var(--radius-lg); padding: var(--space-4);
   box-shadow: var(--shadow-sm);
 }
-.chart-container canvas { width: 100%; display: block; }
+.chart-container canvas {
+  width: 100%; display: block;
+  transition: opacity 0.3s ease-out;
+}
 .chart-tooltip {
   position: absolute; background: var(--surface2);
-  border: 1px solid var(--border); border-radius: 6px;
-  padding: 6px 10px; font-size: 0.75rem;
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 12px; font-size: 0.75rem;
   pointer-events: none; opacity: 0; transition: opacity 0.1s;
   z-index: 10; white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  line-height: 1.4;
+}
+
+/* Crosshair */
+.chart-crosshair {
+  position: absolute;
+  top: var(--space-4); bottom: var(--space-4);
+  width: 1px;
+  background: rgba(255,255,255,0.12);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s, left 0.05s ease-out;
+  z-index: 5;
+}
+
+/* Summary header */
+.chart-summary {
+  display: flex; align-items: baseline; gap: 8px;
+  min-height: 28px; margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.chart-summary .summary-value {
+  font-size: 1.2rem; font-weight: 700; color: var(--text-strong, #fff);
+}
+.chart-summary .summary-delta {
+  font-size: 0.75rem; font-weight: 600;
+}
+.chart-summary .summary-delta.positive { color: var(--green, #43a047); }
+.chart-summary .summary-delta.negative { color: var(--red, #e53935); }
+.chart-summary .summary-delta.up { color: var(--text-dim, #888); }
+.chart-summary .summary-delta.down { color: var(--text-dim, #888); }
+.chart-summary .summary-label {
+  font-size: 0.7rem; color: var(--text-dim, #888);
 }
 
 /* Training calendar */

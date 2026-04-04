@@ -13,23 +13,25 @@ import { calcWilks, calcDOTS } from '../formulas/scoring.js';
 import { openModal } from '../ui/modal.js';
 
 // ---------------------------------------------------------------------------
+// Module-level state for animation & crosshair
+// ---------------------------------------------------------------------------
+
+let _prevChartKey = '';
+
+// ---------------------------------------------------------------------------
 // Sync chart UI state with store on every render
 // ---------------------------------------------------------------------------
 
 function syncChartUI() {
-  // Reconcile chart type buttons
   document.querySelectorAll('.chart-type-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.type === store.chartType)
   );
-  // Reconcile filter buttons
   $('chart-filters').querySelectorAll('.chart-filter-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.filter === store.chartFilter)
   );
-  // Reconcile date range pills
   $('chart-date-range').querySelectorAll('.range-pill').forEach(b =>
     b.classList.toggle('active', b.dataset.range === store.chartDateRange)
   );
-  // Show/hide filters and date range based on chart type
   const showFilters = store.chartType === 'e1rm' || store.chartType === 'volume';
   const showDateRange = store.chartType !== 'heatmap' && store.chartType !== 'calendar';
   $('chart-filters').style.display = showFilters ? 'flex' : 'none';
@@ -48,13 +50,67 @@ function getChartDateCutoff() {
 }
 
 // ---------------------------------------------------------------------------
-// Canvas helpers
+// Canvas helpers — bezier curves, gradients, drawing
 // ---------------------------------------------------------------------------
+
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/** Trace a smooth bezier path through points (monotone cubic). Does NOT beginPath. */
+function traceSmoothPath(pts) {
+  if (pts.length === 0) return;
+  ctx.moveTo(pts[0].x, pts[0].y);
+  if (pts.length <= 2) {
+    if (pts.length === 2) ctx.lineTo(pts[1].x, pts[1].y);
+    return;
+  }
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    ctx.bezierCurveTo(
+      p1.x + (p2.x - p0.x) / 6, p1.y + (p2.y - p0.y) / 6,
+      p2.x - (p3.x - p1.x) / 6, p2.y - (p3.y - p1.y) / 6,
+      p2.x, p2.y
+    );
+  }
+}
+
+/** Draw a gradient fill under a smooth curve. */
+function drawGradientFill(pts, color, bottomY) {
+  if (pts.length < 2) return;
+  const minY = Math.min(...pts.map(p => p.y));
+  const grad = ctx.createLinearGradient(0, minY, 0, bottomY);
+  grad.addColorStop(0, hexToRgba(color, 0.15));
+  grad.addColorStop(1, hexToRgba(color, 0));
+  ctx.beginPath();
+  traceSmoothPath(pts);
+  ctx.lineTo(pts[pts.length - 1].x, bottomY);
+  ctx.lineTo(pts[0].x, bottomY);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+}
+
+/** Draw a smooth bezier line. */
+function drawSmoothLine(pts, color, width) {
+  if (pts.length < 2) return;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width || 2;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  traceSmoothPath(pts);
+  ctx.stroke();
+}
 
 function drawEmpty(w, h, msg) {
   ctx.fillStyle = '#888'; ctx.font = '14px -apple-system, sans-serif';
   ctx.textAlign = 'center'; ctx.fillText(msg, w / 2, h / 2);
-  // Show hint if a date range filter might be hiding data
   if (store.chartDateRange !== 'all' && store.entries.length > 0) {
     ctx.font = '12px -apple-system, sans-serif'; ctx.fillStyle = '#666';
     ctx.fillText('Try a wider date range', w / 2, h / 2 + 22);
@@ -66,15 +122,27 @@ function drawAxes(w, h, pad, allDates, minVal, maxVal) {
   const ch = h - pad.top - pad.bottom;
   const valRange = maxVal - minVal || 1;
 
-  // Grid
-  ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 1;
+  // Zebra banding
+  for (let i = 0; i < 5; i++) {
+    if (i % 2 === 0) {
+      const y1 = pad.top + (i / 5) * ch;
+      const y2 = pad.top + ((i + 1) / 5) * ch;
+      ctx.fillStyle = 'rgba(255,255,255,0.015)';
+      ctx.fillRect(pad.left, y1, cw, y2 - y1);
+    }
+  }
+
+  // Dashed grid lines
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
   for (let i = 0; i <= 5; i++) {
     const y = pad.top + (i / 5) * ch;
     ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cw, y); ctx.stroke();
-    const val = maxVal - (i / 5) * valRange;
     ctx.fillStyle = '#666'; ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'right';
-    ctx.fillText(fmtNum(val), pad.left - 8, y + 3);
+    ctx.fillText(fmtNum(maxVal - (i / 5) * valRange), pad.left - 8, y + 3);
   }
+  ctx.setLineDash([]);
+
   // X labels
   ctx.fillStyle = '#666'; ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'center';
   const maxLabels = Math.floor(cw / 60);
@@ -95,7 +163,7 @@ function chartSetup(w, h, leftPad) {
 }
 
 // ---------------------------------------------------------------------------
-// e1RM Chart
+// e1RM Chart — gradient fills, bezier curves, PR glow
 // ---------------------------------------------------------------------------
 
 function renderE1RMChart(w, h) {
@@ -146,35 +214,52 @@ function renderE1RMChart(w, h) {
   drawAxes(w, h, pad, allDates, minVal, maxVal);
 
   const drawOrder = [...liftsToShow]; if (showTotal) drawOrder.push('total');
+  const bottomY = pad.top + ch;
+
+  // Phase 1: Gradient fills (behind lines)
+  drawOrder.forEach(key => {
+    const pts = series[key]; if (!pts || pts.length === 0) return;
+    const screenPts = pts.map(p => ({ x: xPos(p.date), y: yPos(p.value) }));
+    drawGradientFill(screenPts, COLORS[key], bottomY);
+  });
+
+  // Phase 2: Smooth lines
   drawOrder.forEach(key => {
     const pts = series[key]; if (!pts || pts.length === 0) return;
     const color = COLORS[key];
-    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round';
-    ctx.beginPath();
-    pts.forEach((p, i) => {
-      const x = xPos(p.date), y = yPos(p.value);
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      store.chartPoints.push({ x, y, date: p.date, value: p.value, lift: key, color, isPR: p.isPR });
+    const screenPts = pts.map(p => ({ x: xPos(p.date), y: yPos(p.value) }));
+    drawSmoothLine(screenPts, color, 2.5);
+    pts.forEach(p => {
+      store.chartPoints.push({ x: xPos(p.date), y: yPos(p.value), date: p.date, value: p.value, lift: key, color, isPR: p.isPR });
     });
-    ctx.stroke();
-    // Dots
+  });
+
+  // Phase 3: Dots + PR glow
+  drawOrder.forEach(key => {
+    const pts = series[key]; if (!pts || pts.length === 0) return;
+    const color = COLORS[key];
     pts.forEach(p => {
       const x = xPos(p.date), y = yPos(p.value);
-      ctx.beginPath();
       if (p.isPR) {
-        ctx.arc(x, y, 5, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffd700';
+        // Glow
+        const glow = ctx.createRadialGradient(x, y, 2, x, y, 12);
+        glow.addColorStop(0, 'rgba(255,215,0,0.45)');
+        glow.addColorStop(1, 'rgba(255,215,0,0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(x, y, 12, 0, Math.PI * 2); ctx.fill();
+        // Gold dot
+        ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffd700'; ctx.fill();
       } else {
-        ctx.arc(x, y, 3, 0, Math.PI * 2);
-        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fillStyle = color; ctx.fill();
       }
-      ctx.fill();
     });
   });
 }
 
 // ---------------------------------------------------------------------------
-// Volume Chart
+// Volume Chart — rounded bars, depth effect
 // ---------------------------------------------------------------------------
 
 function renderVolumeChart(w, h) {
@@ -199,16 +284,33 @@ function renderVolumeChart(w, h) {
   drawAxes(w, h, pad, dates, minVal, maxVal);
 
   const barW = Math.max(4, Math.min(30, (cw / dates.length) * 0.7));
+  const barR = Math.min(3, barW / 4);
+
   dates.forEach((date, i) => {
     const x = pad.left + (dates.length === 1 ? cw / 2 : (i / (dates.length - 1)) * cw) - barW / 2;
     let yBottom = pad.top + ch;
+    const nonZero = lifts.filter(l => (byDate[date][l] || 0) > 0);
+    const topLift = nonZero[nonZero.length - 1];
+
     lifts.forEach(lift => {
       const vol = byDate[date][lift] || 0;
       if (vol <= 0) return;
       const dispVol = displayWeight(vol);
       const barH = (dispVol / (maxVal - minVal)) * ch;
       ctx.fillStyle = COLORS[lift];
-      ctx.fillRect(x, yBottom - barH, barW, barH);
+
+      if (lift === topLift && barH > barR * 2) {
+        ctx.beginPath();
+        ctx.roundRect(x, yBottom - barH, barW, barH, [barR, barR, 0, 0]);
+        ctx.fill();
+      } else {
+        ctx.fillRect(x, yBottom - barH, barW, barH);
+      }
+
+      // Depth: lighter left edge
+      ctx.fillStyle = 'rgba(255,255,255,0.07)';
+      ctx.fillRect(x, yBottom - barH, 1.5, barH);
+
       store.chartPoints.push({ x: x + barW / 2, y: yBottom - barH / 2, date, value: vol, lift, color: COLORS[lift] });
       yBottom -= barH;
     });
@@ -216,7 +318,7 @@ function renderVolumeChart(w, h) {
 }
 
 // ---------------------------------------------------------------------------
-// Bodyweight Chart
+// Bodyweight Chart — gradient fill, bezier curves
 // ---------------------------------------------------------------------------
 
 function renderBWChart(w, h) {
@@ -237,16 +339,16 @@ function renderBWChart(w, h) {
 
   const xPos = i => pad.left + (dates.length === 1 ? cw / 2 : (i / (dates.length - 1)) * cw);
   const yPos = v => pad.top + ch - ((v - minVal) / valRange) * ch;
+  const bottomY = pad.top + ch;
 
-  // Raw line
-  ctx.strokeStyle = '#aaa'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
-  ctx.beginPath();
+  // Raw line: gradient fill + smooth line
+  const rawPts = sorted.map((b, i) => ({ x: xPos(i), y: yPos(displayWeight(b.weight)) }));
+  drawGradientFill(rawPts, '#aaaaaa', bottomY);
+  drawSmoothLine(rawPts, '#aaa', 2);
   sorted.forEach((b, i) => {
-    const x = xPos(i), y = yPos(displayWeight(b.weight));
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    store.chartPoints.push({ x, y, date: b.date, value: b.weight, lift: 'BW', color: '#aaa' });
+    store.chartPoints.push({ x: xPos(i), y: yPos(displayWeight(b.weight)), date: b.date, value: b.weight, lift: 'BW', color: '#aaa' });
   });
-  ctx.stroke();
+  // Raw dots
   sorted.forEach((b, i) => {
     ctx.beginPath(); ctx.arc(xPos(i), yPos(displayWeight(b.weight)), 3, 0, Math.PI * 2);
     ctx.fillStyle = '#aaa'; ctx.fill();
@@ -254,26 +356,25 @@ function renderBWChart(w, h) {
 
   // 7-day rolling average
   if (sorted.length >= 3) {
-    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
-    ctx.beginPath();
-    let started = false;
+    const avgPts = [];
     sorted.forEach((b, i) => {
       const windowStart = new Date(new Date(b.date + 'T12:00:00').getTime() - 7 * MS_PER_DAY).toISOString().split('T')[0];
-      const windowPts = sorted.filter(p => p.date >= windowStart && p.date <= b.date);
-      const avg = windowPts.reduce((s, p) => s + displayWeight(p.weight), 0) / windowPts.length;
-      const x = xPos(i), y = yPos(avg);
-      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+      const windowData = sorted.filter(p => p.date >= windowStart && p.date <= b.date);
+      const avg = windowData.reduce((s, p) => s + displayWeight(p.weight), 0) / windowData.length;
+      avgPts.push({ x: xPos(i), y: yPos(avg) });
     });
-    ctx.stroke();
+    drawGradientFill(avgPts, '#ffd700', bottomY);
+    drawSmoothLine(avgPts, '#ffd700', 2);
+
     // Legend
-    ctx.font = '11px -apple-system, sans-serif';
-    ctx.fillStyle = '#aaa'; ctx.textAlign = 'left'; ctx.fillText('Raw', pad.left + 5, pad.top + 12);
+    ctx.font = '11px -apple-system, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#aaa'; ctx.fillText('Raw', pad.left + 5, pad.top + 12);
     ctx.fillStyle = '#ffd700'; ctx.fillText('7d Avg', pad.left + 40, pad.top + 12);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Wilks/DOTS Chart
+// Wilks/DOTS Chart — gradient fill, bezier curves
 // ---------------------------------------------------------------------------
 
 function renderWilksChart(w, h) {
@@ -297,7 +398,6 @@ function renderWilksChart(w, h) {
     });
     if (running.squat > 0 && running.bench > 0 && running.deadlift > 0) {
       const total = running.squat + running.bench + running.deadlift;
-      // Interpolate bodyweight
       let bw = store.profile.bodyweight;
       if (bwHist.length > 0) {
         const before = bwHist.filter(b => b.date <= date);
@@ -324,34 +424,43 @@ function renderWilksChart(w, h) {
   const minVal = Math.floor(Math.min(...allVals) * 0.9);
   const maxVal = Math.ceil(Math.max(...allVals) * 1.05);
   const valRange = maxVal - minVal || 1;
+  const bottomY = pad.top + ch;
 
   drawAxes(w, h, pad, dates, minVal, maxVal);
 
   const xPos = i => pad.left + (dates.length === 1 ? cw / 2 : (i / (dates.length - 1)) * cw);
   const yPos = v => pad.top + ch - ((v - minVal) / valRange) * ch;
 
-  // Wilks line
-  ctx.strokeStyle = '#ff9800'; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.beginPath();
-  dataPoints.forEach((p, i) => { const x = xPos(i), y = yPos(p.wilks); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    store.chartPoints.push({ x, y, date: p.date, value: p.wilks, lift: 'Wilks', color: '#ff9800' }); });
-  ctx.stroke();
-  dataPoints.forEach((p, i) => { ctx.beginPath(); ctx.arc(xPos(i), yPos(p.wilks), 3, 0, Math.PI * 2); ctx.fillStyle = '#ff9800'; ctx.fill(); });
+  // Wilks: gradient fill + smooth line
+  const wilksPts = dataPoints.map((p, i) => ({ x: xPos(i), y: yPos(p.wilks) }));
+  drawGradientFill(wilksPts, '#ff9800', bottomY);
+  drawSmoothLine(wilksPts, '#ff9800', 2.5);
+  dataPoints.forEach((p, i) => {
+    store.chartPoints.push({ x: xPos(i), y: yPos(p.wilks), date: p.date, value: p.wilks, lift: 'Wilks', color: '#ff9800' });
+  });
+  dataPoints.forEach((p, i) => {
+    ctx.beginPath(); ctx.arc(xPos(i), yPos(p.wilks), 3, 0, Math.PI * 2); ctx.fillStyle = '#ff9800'; ctx.fill();
+  });
 
-  // DOTS line
-  ctx.strokeStyle = '#ab47bc'; ctx.lineWidth = 2; ctx.beginPath();
-  dataPoints.forEach((p, i) => { const x = xPos(i), y = yPos(p.dots); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    store.chartPoints.push({ x, y, date: p.date, value: p.dots, lift: 'DOTS', color: '#ab47bc' }); });
-  ctx.stroke();
-  dataPoints.forEach((p, i) => { ctx.beginPath(); ctx.arc(xPos(i), yPos(p.dots), 3, 0, Math.PI * 2); ctx.fillStyle = '#ab47bc'; ctx.fill(); });
+  // DOTS: gradient fill + smooth line
+  const dotsPts = dataPoints.map((p, i) => ({ x: xPos(i), y: yPos(p.dots) }));
+  drawGradientFill(dotsPts, '#ab47bc', bottomY);
+  drawSmoothLine(dotsPts, '#ab47bc', 2.5);
+  dataPoints.forEach((p, i) => {
+    store.chartPoints.push({ x: xPos(i), y: yPos(p.dots), date: p.date, value: p.dots, lift: 'DOTS', color: '#ab47bc' });
+  });
+  dataPoints.forEach((p, i) => {
+    ctx.beginPath(); ctx.arc(xPos(i), yPos(p.dots), 3, 0, Math.PI * 2); ctx.fillStyle = '#ab47bc'; ctx.fill();
+  });
 
   // Legend
-  ctx.font = '11px -apple-system, sans-serif';
+  ctx.font = '11px -apple-system, sans-serif'; ctx.textAlign = 'left';
   ctx.fillStyle = '#ff9800'; ctx.fillText('Wilks', pad.left + 5, pad.top + 12);
   ctx.fillStyle = '#ab47bc'; ctx.fillText('DOTS', pad.left + 55, pad.top + 12);
 }
 
 // ---------------------------------------------------------------------------
-// Heatmap Chart
+// Heatmap Chart — larger cells, gold accent ramp
 // ---------------------------------------------------------------------------
 
 function renderHeatmap(w, h) {
@@ -361,21 +470,20 @@ function renderHeatmap(w, h) {
   const weeksToShow = Math.min(26, Math.floor(w / 14));
   const daysBack = weeksToShow * 7;
   const startDate = new Date(today.getTime() - daysBack * MS_PER_DAY);
-  // Adjust to start on Monday
   const startDay = startDate.getDay();
   const adjustedStart = new Date(startDate.getTime() - ((startDay + 6) % 7) * MS_PER_DAY);
 
-  // Build volume by date
   const volByDate = {};
   store.entries.forEach(e => { volByDate[e.date] = (volByDate[e.date] || 0) + e.weight * e.reps; });
   const allVols = Object.values(volByDate).filter(v => v > 0);
   const maxVol = allVols.length > 0 ? Math.max(...allVols) : 1;
 
-  const cellSize = Math.min(12, Math.floor((w - 40) / (weeksToShow + 1)));
+  const cellSize = Math.min(16, Math.floor((w - 40) / (weeksToShow + 1)));
   const gap = 2;
   const padLeft = 28;
   const padTop = 20;
   const dayLabels = ['M', '', 'W', '', 'F', '', 'S'];
+  const surface2 = getComputedStyle(document.documentElement).getPropertyValue('--surface2').trim() || '#2a2a2a';
 
   // Day of week labels
   ctx.font = '9px -apple-system, sans-serif'; ctx.fillStyle = '#666'; ctx.textAlign = 'right';
@@ -396,6 +504,16 @@ function renderHeatmap(w, h) {
     }
   }
 
+  // Gold accent color ramp: surface2 → gold (#ffd700 = 255,215,0)
+  function heatColor(vol) {
+    if (vol === 0) return surface2;
+    const t = Math.pow(Math.min(1, vol / maxVol), 0.7);
+    const r = Math.round(42 + (255 - 42) * t);
+    const g = Math.round(42 + (215 - 42) * t);
+    const b = Math.round(42 - 42 * t);
+    return `rgb(${r},${g},${b})`;
+  }
+
   // Draw cells
   for (let wk = 0; wk <= weeksToShow; wk++) {
     for (let day = 0; day < 7; day++) {
@@ -406,17 +524,9 @@ function renderHeatmap(w, h) {
       const x = padLeft + wk * (cellSize + gap);
       const y = padTop + day * (cellSize + gap);
 
-      if (vol === 0) {
-        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--surface2').trim() || '#2a2a2a';
-      } else {
-        const intensity = Math.min(1, vol / maxVol);
-        const r = Math.round(67 + (229 - 67) * intensity);
-        const g = Math.round(160 + (57 - 160) * intensity * 0.3);
-        const b = Math.round(71 * (1 - intensity * 0.5));
-        ctx.fillStyle = `rgb(${r},${g},${b})`;
-      }
+      ctx.fillStyle = heatColor(vol);
       ctx.beginPath();
-      ctx.roundRect(x, y, cellSize, cellSize, 2);
+      ctx.roundRect(x, y, cellSize, cellSize, 3);
       ctx.fill();
 
       if (vol > 0) {
@@ -426,21 +536,16 @@ function renderHeatmap(w, h) {
   }
 
   // Legend
-  const legendX = w - 100, legendY = h - 14;
+  const legendX = w - 110, legendY = h - 14;
   ctx.font = '9px -apple-system, sans-serif'; ctx.fillStyle = '#666'; ctx.textAlign = 'left';
   ctx.fillText('Less', legendX, legendY);
   for (let i = 0; i < 5; i++) {
-    const intensity = i / 4;
-    if (intensity === 0) { ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--surface2').trim() || '#2a2a2a'; }
-    else {
-      const r = Math.round(67 + (229 - 67) * intensity);
-      const g = Math.round(160 + (57 - 160) * intensity * 0.3);
-      const b = Math.round(71 * (1 - intensity * 0.5));
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
-    }
-    ctx.fillRect(legendX + 30 + i * 11, legendY - 9, 9, 9);
+    ctx.fillStyle = i === 0 ? surface2 : heatColor((i / 4) * maxVol);
+    ctx.beginPath();
+    ctx.roundRect(legendX + 30 + i * 13, legendY - 10, 10, 10, 2);
+    ctx.fill();
   }
-  ctx.fillStyle = '#666'; ctx.fillText('More', legendX + 88, legendY);
+  ctx.fillStyle = '#666'; ctx.fillText('More', legendX + 98, legendY);
 }
 
 // ---------------------------------------------------------------------------
@@ -453,11 +558,10 @@ export function renderCalendar() {
   const year = store.calendarMonth.getFullYear(), month = store.calendarMonth.getMonth();
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
-  const startDow = (firstDay.getDay() + 6) % 7; // Monday = 0
+  const startDow = (firstDay.getDay() + 6) % 7;
   const daysInMonth = lastDay.getDate();
   const today = new Date().toISOString().split('T')[0];
 
-  // Build data maps
   const dayData = {};
   store.entries.forEach(e => {
     const d = e.date;
@@ -477,7 +581,6 @@ export function renderCalendar() {
   html += `<div class="calendar-grid">`;
   ['M', 'T', 'W', 'T', 'F', 'S', 'S'].forEach(d => html += `<div class="calendar-day-header">${d}</div>`);
 
-  // Empty cells before first day
   for (let i = 0; i < startDow; i++) html += `<div class="calendar-cell"></div>`;
 
   for (let d = 1; d <= daysInMonth; d++) {
@@ -501,7 +604,6 @@ export function renderCalendar() {
   html += `</div>`;
   el.innerHTML = html;
 
-  // Navigation
   el.querySelector('#cal-prev').addEventListener('click', () => {
     store.calendarMonth = new Date(year, month - 1, 1);
     renderCalendar();
@@ -511,7 +613,6 @@ export function renderCalendar() {
     renderCalendar();
   });
 
-  // Click day to show session in edit modal
   el.querySelectorAll('.calendar-cell.has-data').forEach(cell => {
     cell.addEventListener('click', () => {
       const date = cell.dataset.date;
@@ -536,43 +637,155 @@ export function renderCalendar() {
 }
 
 // ---------------------------------------------------------------------------
-// Chart tooltip
+// Chart summary header
+// ---------------------------------------------------------------------------
+
+function updateChartSummary() {
+  const el = document.getElementById('chart-summary');
+  if (!el) return;
+
+  if (store.chartType === 'heatmap' || store.chartType === 'calendar') {
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = '';
+
+  const dateCutoff = getChartDateCutoff();
+  const rangeLabel = store.chartDateRange === 'all' ? 'all time'
+    : store.chartDateRange === '365' ? 'last year'
+    : store.chartDateRange === '180' ? 'last 6mo'
+    : `last ${store.chartDateRange}d`;
+  let html = '';
+
+  if (store.chartType === 'e1rm') {
+    const lift = (store.chartFilter !== 'all' && store.chartFilter !== 'total') ? store.chartFilter : null;
+    if (lift) {
+      const filtered = store.entries.filter(e => e.lift === lift && (!dateCutoff || e.date >= dateCutoff));
+      if (filtered.length > 0) {
+        const best = Math.max(...filtered.map(e => e.e1rm));
+        const oldest = [...filtered].sort((a, b) => a.timestamp - b.timestamp);
+        const firstBest = Math.max(...store.entries.filter(e => e.lift === lift && e.date === oldest[0].date).map(e => e.e1rm));
+        const delta = best - firstBest;
+        const color = COLORS[lift];
+        html = `<span class="summary-value" style="color:${color}">${formatWeight(best)} ${store.unit}</span>`;
+        if (delta !== 0 && oldest.length > 1) {
+          html += ` <span class="summary-delta ${delta > 0 ? 'positive' : 'negative'}">${delta > 0 ? '+' : ''}${formatWeight(delta)}</span>`;
+        }
+        html += ` <span class="summary-label">best e1RM &middot; ${rangeLabel}</span>`;
+      }
+    } else {
+      const best = {};
+      LIFTS.forEach(l => {
+        const vals = store.entries.filter(e => e.lift === l && (!dateCutoff || e.date >= dateCutoff)).map(e => e.e1rm);
+        if (vals.length > 0) best[l] = Math.max(...vals);
+      });
+      if (best.squat && best.bench && best.deadlift) {
+        const total = best.squat + best.bench + best.deadlift;
+        html = `<span class="summary-value" style="color:${COLORS.total}">${formatWeight(total)} ${store.unit}</span>`;
+        html += ` <span class="summary-label">total &middot; ${rangeLabel}</span>`;
+      }
+    }
+  } else if (store.chartType === 'volume') {
+    let filtered = store.entries.filter(e => !dateCutoff || e.date >= dateCutoff);
+    if (store.chartFilter !== 'all' && store.chartFilter !== 'total') {
+      filtered = filtered.filter(e => e.lift === store.chartFilter);
+    }
+    const totalVol = filtered.reduce((s, e) => s + e.weight * e.reps, 0);
+    if (totalVol > 0) {
+      html = `<span class="summary-value">${fmtNum(displayWeight(totalVol))} ${store.unit}</span>`;
+      html += ` <span class="summary-label">total volume &middot; ${rangeLabel}</span>`;
+    }
+  } else if (store.chartType === 'bodyweight') {
+    const bwh = (store.profile.bodyweightHistory || []).slice().sort((a, b) => a.timestamp - b.timestamp);
+    if (bwh.length > 0) {
+      const latest = bwh[bwh.length - 1];
+      let filtered = bwh;
+      if (dateCutoff) filtered = bwh.filter(b => b.date >= dateCutoff);
+      if (filtered.length > 0) {
+        const first = filtered[0];
+        const delta = latest.weight - first.weight;
+        html = `<span class="summary-value">${formatWeight(latest.weight)} ${store.unit}</span>`;
+        if (delta !== 0 && filtered.length > 1) {
+          html += ` <span class="summary-delta ${delta > 0 ? 'up' : 'down'}">${delta > 0 ? '+' : ''}${formatWeight(delta)}</span>`;
+        }
+        html += ` <span class="summary-label">bodyweight &middot; ${rangeLabel}</span>`;
+      }
+    }
+  } else if (store.chartType === 'wilks') {
+    html = '';
+  }
+
+  el.innerHTML = html;
+}
+
+// ---------------------------------------------------------------------------
+// Chart tooltip + crosshair
 // ---------------------------------------------------------------------------
 
 function handleChartHover(e) {
+  const crosshair = document.getElementById('chart-crosshair');
   if (store.chartPoints.length === 0) return;
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
   let closest = null, minDist = Infinity;
   store.chartPoints.forEach(p => { const d = Math.hypot(p.x - mx, p.y - my); if (d < minDist && d < 40) { minDist = d; closest = p; } });
+
   if (closest) {
+    // Crosshair
+    if (crosshair && store.chartType !== 'heatmap') {
+      crosshair.style.left = (closest.x + 12) + 'px';
+      crosshair.style.opacity = '1';
+    }
+
     const d = new Date(closest.date + 'T12:00:00');
-    const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const dateLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const name = LIFT_NAMES[closest.lift] || closest.lift;
     const valDisplay = (store.chartType === 'volume')
       ? fmtNum(displayWeight(closest.value)) + ' ' + store.unit
       : (store.chartType === 'wilks' || closest.lift === 'Wilks' || closest.lift === 'DOTS')
         ? Math.round(closest.value).toString()
         : formatWeight(closest.value) + ' ' + store.unit;
-    tooltip.innerHTML = `<span style="color:${closest.color}">${name}</span>: ${valDisplay}<br>${label}`;
+
+    // Delta from previous point
+    let deltaHtml = '';
+    if (store.chartType !== 'heatmap') {
+      const prev = store.chartPoints.filter(p => p.lift === closest.lift && p.date < closest.date)
+        .sort((a, b) => b.date.localeCompare(a.date))[0];
+      if (prev) {
+        const diff = closest.value - prev.value;
+        if (diff !== 0) {
+          const absDiff = store.chartType === 'volume'
+            ? fmtNum(displayWeight(Math.abs(diff)))
+            : (store.chartType === 'wilks' || closest.lift === 'Wilks' || closest.lift === 'DOTS')
+              ? Math.round(Math.abs(diff)).toString()
+              : formatWeight(Math.abs(diff));
+          const sign = diff > 0 ? '+' : '-';
+          const cls = diff > 0 ? '#43a047' : '#e53935';
+          deltaHtml = ` <span style="color:${cls};font-size:0.65rem">${sign}${absDiff}</span>`;
+        }
+      }
+    }
+
+    tooltip.innerHTML = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${closest.color};margin-right:4px;vertical-align:middle"></span><span style="color:${closest.color};font-weight:600">${name}</span>${deltaHtml}<br><span style="font-size:0.85rem;font-weight:700;color:#fff">${valDisplay}</span><br><span style="color:#888;font-size:0.65rem">${dateLabel}</span>`;
     const containerRect = canvas.parentElement.getBoundingClientRect();
     let tx = closest.x + 12, ty = closest.y - 40;
-    if (tx + 120 > containerRect.width - 12) tx = closest.x - 120;
+    if (tx + 140 > containerRect.width - 12) tx = closest.x - 140;
     if (ty < 0) ty = closest.y + 12;
     tooltip.style.left = (tx + 12) + 'px'; tooltip.style.top = (ty + 12) + 'px';
     tooltip.style.opacity = '1';
-  } else { tooltip.style.opacity = '0'; }
+  } else {
+    tooltip.style.opacity = '0';
+    if (crosshair) crosshair.style.opacity = '0';
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Main renderChart()
 // ---------------------------------------------------------------------------
 
-/**
- * Render the current chart type to the canvas, or the calendar.
- */
 export function renderChart() {
   syncChartUI();
+  updateChartSummary();
 
   // Calendar is HTML-based, not canvas
   const calEl = document.getElementById('calendar-view');
@@ -590,6 +803,11 @@ export function renderChart() {
     if (calEl) calEl.innerHTML = '';
   }
 
+  // Fade animation on chart type/filter/range change
+  const chartKey = `${store.chartType}-${store.chartFilter}-${store.chartDateRange}`;
+  const shouldFade = chartKey !== _prevChartKey;
+  _prevChartKey = chartKey;
+
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.parentElement.getBoundingClientRect();
   const w = rect.width - 24;
@@ -600,22 +818,34 @@ export function renderChart() {
   store.chartPoints = [];
   ctx.clearRect(0, 0, w, h);
 
+  if (shouldFade) canvas.style.opacity = '0';
+
   if (store.chartType === 'e1rm') renderE1RMChart(w, h);
   else if (store.chartType === 'volume') renderVolumeChart(w, h);
   else if (store.chartType === 'bodyweight') renderBWChart(w, h);
   else if (store.chartType === 'wilks') renderWilksChart(w, h);
   else if (store.chartType === 'heatmap') renderHeatmap(w, h);
+
+  if (shouldFade) requestAnimationFrame(() => { canvas.style.opacity = '1'; });
 }
 
 // ---------------------------------------------------------------------------
-// initChartsTab — wire up all Charts tab event listeners
+// initChartsTab — wire up event listeners + create dynamic elements
 // ---------------------------------------------------------------------------
 
-/**
- * Set up all event listeners for the Charts tab.
- * Call once after DOMContentLoaded.
- */
 export function initChartsTab() {
+  // Create summary header (before chart container)
+  const summary = document.createElement('div');
+  summary.id = 'chart-summary';
+  summary.className = 'chart-summary';
+  canvas.parentElement.parentElement.insertBefore(summary, canvas.parentElement);
+
+  // Create crosshair (inside chart container)
+  const crosshair = document.createElement('div');
+  crosshair.id = 'chart-crosshair';
+  crosshair.className = 'chart-crosshair';
+  canvas.parentElement.appendChild(crosshair);
+
   // Chart date range pills
   $('chart-date-range').addEventListener('click', e => {
     const pill = e.target.closest('.range-pill');
@@ -651,6 +881,14 @@ export function initChartsTab() {
     }
     handleChartHover({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY });
   }, { passive: false });
-  canvas.addEventListener('mouseleave', () => tooltip.style.opacity = '0');
-  canvas.addEventListener('touchend', () => tooltip.style.opacity = '0');
+  canvas.addEventListener('mouseleave', () => {
+    tooltip.style.opacity = '0';
+    const ch = document.getElementById('chart-crosshair');
+    if (ch) ch.style.opacity = '0';
+  });
+  canvas.addEventListener('touchend', () => {
+    tooltip.style.opacity = '0';
+    const ch = document.getElementById('chart-crosshair');
+    if (ch) ch.style.opacity = '0';
+  });
 }
