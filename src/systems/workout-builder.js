@@ -122,6 +122,14 @@ export function getAccessoryWeight(exerciseId, mainLift) {
     if (tm) return roundToPlate(tm * pctOfTM);
     const e1rm = bestE1RM(mainLift);
     if (e1rm) return roundToPlate(e1rm * 0.9 * pctOfTM);
+    // Fallback: try any other lift's TM/e1RM as proxy
+    for (const lift of ['squat', 'bench', 'deadlift']) {
+      if (lift === mainLift) continue;
+      const otherTm = store.programConfig.trainingMaxes[lift];
+      if (otherTm) return roundToPlate(otherTm * pctOfTM);
+      const otherE1rm = bestE1RM(lift);
+      if (otherE1rm) return roundToPlate(otherE1rm * 0.9 * pctOfTM);
+    }
     return 0;
   }
 
@@ -169,6 +177,11 @@ export function getAccessoryWeight(exerciseId, mainLift) {
     }
   }
 
+  // Diagnostic: log when non-BW/non-time exercise gets 0 weight
+  if (catalogEx && catalogEx.progressionType !== 'bodyweight' && catalogEx.progressionType !== 'time') {
+    console.warn(`[getAccessoryWeight] ${exerciseId}: weight=0, no TM or e1RM found. TMs:`,
+      store.programConfig.trainingMaxes, 'mainLift:', mainLift, 'pctOfTM:', pctOfTM);
+  }
   return 0;
 }
 

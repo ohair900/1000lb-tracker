@@ -47,7 +47,7 @@ function formatBWWeight(weight, catalogEx) {
     return `BW +${displayWeight(weight)}`;
   }
   if (weight > 0) return displayWeight(weight);
-  return '';
+  return '—';
 }
 
 // ---------------------------------------------------------------------------

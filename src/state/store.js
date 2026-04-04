@@ -503,6 +503,7 @@ class Store {
   /** @private Ensure programConfig has all expected sub-fields. */
   _patchProgramConfig() {
     const pc = this.programConfig;
+    if (!pc.trainingMaxes) pc.trainingMaxes = {};
     if (!pc.completedSets) pc.completedSets = {};
     if (!pc.amrapResults) pc.amrapResults = {};
     if (!pc.tmHistory) pc.tmHistory = [];
