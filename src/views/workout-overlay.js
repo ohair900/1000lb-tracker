@@ -174,10 +174,13 @@ function updateCompleteButton() {
 }
 
 // ---------------------------------------------------------------------------
-// Complete main set with RPE
+// Complete main set (logs immediately, RPE slider shown after)
 // ---------------------------------------------------------------------------
 
-function _completeMainSet(idx, rpe) {
+// Track the entry ID of the last completed main set (for RPE slider update)
+let _lastMainEntryId = null;
+
+function _completeMainSet(idx) {
   const set = store.workoutSession.mainSets[idx];
   if (!set || set.completed) return;
   const week = store.workoutSession.programWeek || (store.programConfig.liftWeeks?.[store.workoutSession.mainLift] || 1);
@@ -187,10 +190,12 @@ function _completeMainSet(idx, rpe) {
     const amrapInput = document.querySelector(`[data-main-amrap="${idx}"]`);
     if (amrapInput && amrapInput.value) repsToLog = parseInt(amrapInput.value);
   }
-  if (_addEntry) _addEntry(store.workoutSession.mainLift, set.weight, repsToLog, rpe, '', []);
+  const result = _addEntry ? _addEntry(store.workoutSession.mainLift, set.weight, repsToLog, null, '', []) : null;
+  _lastMainEntryId = result ? result.entry.id : null;
   if (_updateDashboard) _updateDashboard();
   set.completed = true;
-  set.rpe = rpe;
+  set.rpe = null;
+  set.entryId = _lastMainEntryId;
   store.programConfig.completedSets[`${store.workoutSession.mainLift}-${week}-${idx}`] = true;
   if (isAmrap && repsToLog) {
     store.programConfig.amrapResults[`${store.workoutSession.mainLift}-${week}-${idx}`] = repsToLog;
@@ -204,8 +209,6 @@ function _completeMainSet(idx, rpe) {
   store.saveWorkoutSession();
   startTimer(store.timerDuration);
   if (navigator.vibrate) navigator.vibrate(50);
-  renderWorkoutView();
-  if (_renderProgramSection) _renderProgramSection();
 }
 
 // ---------------------------------------------------------------------------
@@ -751,17 +754,8 @@ export function initWorkoutOverlay() {
       return;
     }
 
-    // RPE pill click (inline RPE row)
-    const rpePill = e.target.closest('.rpe-pill-sm');
-    if (rpePill) {
-      const rpeRow = rpePill.closest('.workout-rpe-row');
-      if (rpeRow) {
-        const idx = parseInt(rpeRow.dataset.idx);
-        const rpeVal = rpePill.dataset.rpe ? parseFloat(rpePill.dataset.rpe) : null;
-        _completeMainSet(idx, rpeVal);
-      }
-      return;
-    }
+    // RPE slider input (update entry RPE in real-time)
+    if (e.target.classList.contains('rpe-slider')) return; // handled by input event below
 
     // Main set row clicks
     const mainRow = e.target.closest('.workout-set-row[data-type="main"]');
@@ -772,6 +766,7 @@ export function initWorkoutOverlay() {
       if (set.completed) {
         set.completed = false;
         delete set.rpe;
+        delete set.entryId;
         delete store.programConfig.completedSets[`${store.workoutSession.mainLift}-${week}-${idx}`];
         delete store.programConfig.amrapResults[`${store.workoutSession.mainLift}-${week}-${idx}`];
         store.saveProgramConfig();
@@ -779,18 +774,45 @@ export function initWorkoutOverlay() {
         renderWorkoutView();
         if (_renderProgramSection) _renderProgramSection();
       } else {
-        // Show inline RPE picker below this row
+        // Log immediately, then show RPE slider
+        _completeMainSet(idx);
+        // Remove any existing slider
         const existing = document.querySelector('.workout-rpe-row');
         if (existing) existing.remove();
-        const rpeRow = document.createElement('div');
-        rpeRow.className = 'workout-rpe-row';
-        rpeRow.dataset.idx = idx;
-        rpeRow.innerHTML = `<span class="rpe-row-label">RPE</span>` +
-          [6, 7, 7.5, 8, 8.5, 9, 9.5, 10].map(v =>
-            `<button class="rpe-pill-sm" data-rpe="${v}">${v}</button>`
-          ).join('') +
-          `<button class="rpe-pill-sm skip" data-rpe="">Skip</button>`;
-        mainRow.after(rpeRow);
+        // Re-render to show completed state
+        renderWorkoutView();
+        if (_renderProgramSection) _renderProgramSection();
+        // Insert slider after the now-completed row
+        const completedRow = document.querySelector(`.workout-set-row[data-type="main"][data-idx="${idx}"]`);
+        if (completedRow) {
+          const rpeRow = document.createElement('div');
+          rpeRow.className = 'workout-rpe-row';
+          rpeRow.dataset.idx = idx;
+          rpeRow.innerHTML = `<span class="rpe-row-label">1</span>` +
+            `<input type="range" class="rpe-slider" min="1" max="10" step="1" value="8">` +
+            `<span class="rpe-row-label">10</span>` +
+            `<span class="rpe-slider-value">8</span>`;
+          completedRow.after(rpeRow);
+          // Attach slider input event
+          const slider = rpeRow.querySelector('.rpe-slider');
+          const valueDisplay = rpeRow.querySelector('.rpe-slider-value');
+          slider.addEventListener('input', () => {
+            const rpeVal = parseInt(slider.value);
+            valueDisplay.textContent = rpeVal;
+            // Update the entry's RPE
+            set.rpe = rpeVal;
+            if (set.entryId) {
+              const entry = store.entries.find(e => e.id === set.entryId);
+              if (entry) { entry.rpe = rpeVal; store.saveEntries(); }
+            }
+            store.saveWorkoutSession();
+            // Update the set row display
+            const infoEl = completedRow.querySelector('.workout-set-info');
+            if (infoEl) {
+              infoEl.innerHTML = infoEl.innerHTML.replace(/ @ RPE \d+/g, '').replace(/(×\s*\d+)/,  `$1 @ RPE ${rpeVal}`);
+            }
+          });
+        }
       }
       return;
     }

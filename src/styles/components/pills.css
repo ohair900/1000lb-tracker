@@ -35,27 +35,38 @@
 }
 .rpe-pill.active { border-color: var(--text-strong); color: var(--text-strong); background: var(--surface2); }
 
-/* Inline RPE row (workout overlay) */
+/* Inline RPE slider row (workout overlay) */
 .workout-rpe-row {
-  display: flex; align-items: center; gap: 4px; padding: 8px 12px;
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px;
   background: var(--surface2); border-radius: 0 0 var(--radius-md) var(--radius-md);
-  margin: -2px 0 4px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  margin: -2px 0 6px;
 }
 .rpe-row-label {
-  font-size: 0.65rem; font-weight: 700; color: var(--text-dim);
-  text-transform: uppercase; letter-spacing: 0.04em; margin-right: 4px; flex-shrink: 0;
+  font-size: 0.7rem; font-weight: 700; color: var(--text-dim); flex-shrink: 0;
 }
-.rpe-pill-sm {
-  padding: 5px 8px; border: 1px solid var(--border);
-  background: transparent; color: var(--text-dim);
-  font-size: 0.7rem; font-weight: 600; border-radius: 12px;
-  cursor: pointer; white-space: nowrap; flex-shrink: 0;
-  min-width: 32px; text-align: center;
-  transition: all var(--transition-fast);
-  -webkit-tap-highlight-color: transparent;
+.rpe-slider {
+  flex: 1; height: 28px; accent-color: var(--gold);
+  -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer;
 }
-.rpe-pill-sm:active { background: var(--surface); transform: scale(0.95); }
-.rpe-pill-sm.skip { color: var(--text-dim); border-style: dashed; }
+.rpe-slider::-webkit-slider-runnable-track {
+  height: 6px; background: var(--border); border-radius: 3px;
+}
+.rpe-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 22px; height: 22px;
+  background: var(--gold); border-radius: 50%; margin-top: -8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+.rpe-slider::-moz-range-track {
+  height: 6px; background: var(--border); border-radius: 3px; border: none;
+}
+.rpe-slider::-moz-range-thumb {
+  width: 22px; height: 22px; background: var(--gold);
+  border-radius: 50%; border: none; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+.rpe-slider-value {
+  font-size: 1rem; font-weight: 800; color: var(--gold);
+  min-width: 24px; text-align: center; flex-shrink: 0;
+}
 
 /* Filter pills */
 .filter-pill {
