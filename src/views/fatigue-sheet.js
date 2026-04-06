@@ -17,6 +17,19 @@ import { openFatigueSheet } from '../ui/sheet.js';
 import { getCalibrationInfo } from '../systems/recovery-calibration.js';
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function relativeDay(ts) {
+  if (!ts) return '';
+  const days = Math.floor((Date.now() - ts) / 86400000);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return new Date(ts).toLocaleDateString('en', { weekday: 'short' });
+  return `${days}d ago`;
+}
+
+// ---------------------------------------------------------------------------
 // Fatigue bar (dashboard widget)
 // ---------------------------------------------------------------------------
 
@@ -133,21 +146,20 @@ export function showFatigueDetail(mg) {
   html += `</div>`;
   html += `<div class="fatigue-trend-labels"><span>W1</span><span>W2</span><span>W3</span><span>W4</span></div>`;
 
-  // 6. Contributing exercises
-  if (detail.contributors.length > 0) {
-    const maxContrib = Math.max(...detail.contributors.map(c => c.load7), 1);
+  // 6. Contributing exercises (top 5, simplified)
+  const topContribs = detail.contributors.slice(0, 5);
+  if (topContribs.length > 0) {
+    const maxContrib = Math.max(...topContribs.map(c => c.load7), 1);
     html += `<div class="section-label-lg">Contributing Exercises</div>`;
-    detail.contributors.forEach(c => {
+    topContribs.forEach(c => {
       const pctBar = (c.load7 / maxContrib) * 100;
       const barColor = c.lift && COLORS[c.lift] ? COLORS[c.lift] : 'var(--text-dim)';
-      const badgeBg = c.type === 'Main' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)';
-      const badgeColor = c.type === 'Main' ? 'var(--text)' : 'var(--text-dim)';
+      const when = relativeDay(c.lastTs);
+      const setsLabel = c.sets === 1 ? '1 set' : `${c.sets} sets`;
       html += `<div class="fatigue-contributor">` +
         `<span class="fatigue-contributor-name">${c.name}</span>` +
-        `<span class="fatigue-contributor-badge" style="background:${badgeBg};color:${badgeColor}">${c.type}</span>` +
-        `<span style="font-size:var(--text-xs);color:var(--text-dim)">${Math.round(c.muscleWeight * 100)}%</span>` +
+        `<span class="fatigue-contributor-meta">${setsLabel} &middot; ${when}</span>` +
         `<div class="fatigue-contributor-bar"><div class="fatigue-contributor-bar-fill" style="width:${pctBar}%;background:${barColor}"></div></div>` +
-        `<span class="fatigue-contributor-vol">${c.load7.toFixed(1)}</span>` +
         `</div>`;
     });
   }

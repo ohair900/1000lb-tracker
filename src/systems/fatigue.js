@@ -21,6 +21,8 @@ import {
 } from '../constants/thresholds.js';
 import { LIFT_NAMES } from '../constants/lift-config.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
+import { resolveExercise } from '../data/exercise-compat.js';
+import { EXERCISE_CATALOG } from '../data/exercise-catalog.js';
 import {
   MUSCLE_GROUPS,
   MUSCLE_RECOVERY_HOURS,
@@ -536,28 +538,35 @@ export function calcFatigueDetail(mg) {
 
   // Contributors (7-day)
   const contribMap = {};
-  function addContrib(key, name, type, lift, muscleWeight, load) {
-    if (!contribMap[key]) { contribMap[key] = { name, type, lift, muscleWeight, load7: 0 }; }
+  function addContrib(key, name, type, lift, muscleWeight, load, sets, timestamp) {
+    if (!contribMap[key]) { contribMap[key] = { name, type, lift, muscleWeight, load7: 0, sets: 0, lastTs: 0 }; }
     contribMap[key].load7 += load;
+    contribMap[key].sets += sets;
+    if (timestamp > contribMap[key].lastTs) contribMap[key].lastTs = timestamp;
   }
 
   main7.forEach(e => {
     const w = MAIN_LIFT_WEIGHTS[e.lift];
     if (!w || !w[mg]) return;
     const l = calcINOL(e.weight, e.reps, e.e1rm) * w[mg];
-    addContrib('main-' + e.lift, LIFT_NAMES[e.lift], 'Main', e.lift, w[mg], l);
+    addContrib('main-' + e.lift, LIFT_NAMES[e.lift], 'Main', e.lift, w[mg], l, 1, e.timestamp);
   });
   acc7.forEach(a => {
     const ex = ACCESSORY_DB[a.exerciseId];
-    if (!ex) return;
-    const cw = ACCESSORY_CAT_WEIGHTS[ex.category];
+    const catalogEx = !ex ? resolveExercise(a.exerciseId) : null;
+    if (!ex && !catalogEx) return;
+    const category = ex ? ex.category : (catalogEx.movementPattern || null);
+    const cw = ex ? ACCESSORY_CAT_WEIGHTS[ex.category] : (catalogEx ? catalogEx.primaryMuscles : null);
     if (!cw || !cw[mg]) return;
     const sets = a.setsCompleted || [];
+    const pctOfTM = ex ? ex.pctOfTM : 0;
     const accLoad = sets.reduce((s, reps, i) => {
       const w = (a.setWeights && a.setWeights[i]) || a.weight || 0;
-      return s + calcAccessoryINOL(w, reps, ex.pctOfTM);
+      return s + calcAccessoryINOL(w, reps, pctOfTM);
     }, 0) * cw[mg] * 0.5;
-    addContrib('acc-' + a.exerciseId, ex.name, 'Acc', ex.mainLift, cw[mg], accLoad);
+    const name = ex ? ex.name : catalogEx.name;
+    const lift = ex ? ex.mainLift : (catalogEx.supportsLifts ? catalogEx.supportsLifts[0] : null);
+    addContrib('acc-' + a.exerciseId, name, 'Acc', lift, cw[mg], accLoad, sets.length, a.timestamp);
   });
   const contribArr = Object.values(contribMap)
     .filter(c => c.load7 > 0)
