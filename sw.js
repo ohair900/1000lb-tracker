@@ -1,4 +1,4 @@
-const CACHE_NAME = '1000lb-tracker-v17';
+const CACHE_NAME = '1000lb-tracker-v18';
 
 self.addEventListener('install', e => {
   e.waitUntil(

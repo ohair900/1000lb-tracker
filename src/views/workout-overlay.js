@@ -252,13 +252,25 @@ export function renderWorkoutView() {
       <button class="acc-swap-btn" data-acc-swap="${ai}">&#8644; Swap</button>
       <button class="acc-remove-btn" data-acc-remove="${ai}">&times; Remove</button>
     </div>`;
-    const accLogCount = new Set(store.accessoryLog.filter(l => l.exerciseId === acc.exerciseId).map(l => l.date)).size;
-    const accBestWeight = store.accessoryLog.filter(l => l.exerciseId === acc.exerciseId).reduce((max, l) => Math.max(max, l.weight), 0);
-    const isNewHigh = !isBodyweight && acc.setWeights && acc.setWeights[acc.setWeights.length - 1] > accBestWeight && accBestWeight > 0;
+    const accLogs = store.accessoryLog.filter(l => l.exerciseId === acc.exerciseId);
+    const accLogCount = new Set(accLogs.map(l => l.date)).size;
+    const accBestWeight = isBodyweight
+      ? accLogs.reduce((best, l) => Math.max(best, l.weight), -Infinity)
+      : accLogs.reduce((max, l) => Math.max(max, l.weight), 0);
+    const hasBestWeight = accLogs.length > 0 && (isBodyweight || accBestWeight > 0);
+    const currentTopWeight = acc.setWeights ? acc.setWeights[acc.setWeights.length - 1] : 0;
+    const isNewHigh = hasBestWeight && currentTopWeight > accBestWeight;
     let metaParts = [acc.equipment];
-    if (!isBodyweight) metaParts.push(`hit ${targetReps}${isTimeBased ? 's' : ' reps'} on all sets to progress`);
+    metaParts.push(`hit ${targetReps}${isTimeBased ? 's' : ' reps'} on all sets to progress`);
     if (accLogCount > 0) metaParts.push(`${accLogCount} session${accLogCount !== 1 ? 's' : ''}`);
-    if (!isBodyweight && accBestWeight > 0 && !isNewHigh) metaParts.push(`best: ${formatWeight(accBestWeight)} ${store.unit}`);
+    if (hasBestWeight && !isNewHigh) {
+      if (isBodyweight) {
+        const bestLabel = accBestWeight < 0 ? `Assisted ${formatWeight(Math.abs(accBestWeight))}` : accBestWeight === 0 ? 'BW' : `BW +${formatWeight(accBestWeight)}`;
+        metaParts.push(`best: ${bestLabel} ${store.unit}`);
+      } else {
+        metaParts.push(`best: ${formatWeight(accBestWeight)} ${store.unit}`);
+      }
+    }
     html += `<div class="workout-exercise-meta">${metaParts.join(' &bull; ')}${isNewHigh ? ' <span class="acc-new-high">New High!</span>' : ''}</div>`;
     const lastAcc = getLastAccPerformance(acc.exerciseId);
     if (lastAcc) {
@@ -315,7 +327,7 @@ export function renderWorkoutView() {
               <button class="acc-time-adj-btn" data-acc="${ai}" data-dir="1">+</button>
             </div>`)
         : ''}
-        ${!done && !isTimeBased && !isBodyweight ? `<div class="acc-set-weight-controls">
+        ${!done && !isTimeBased ? `<div class="acc-set-weight-controls">
           <button class="acc-set-weight-btn" data-acc="${ai}" data-set="${si}" data-dir="-1">&minus;</button>
           <button class="acc-set-weight-btn" data-acc="${ai}" data-set="${si}" data-dir="1">+</button>
         </div>` : ''}

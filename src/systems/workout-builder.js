@@ -46,6 +46,7 @@ export function selectAccessories(mainLift) {
  */
 export function computeSetWeights(workingWeight, numSets) {
   if (workingWeight === 0) return Array(numSets).fill(0);
+  if (workingWeight < 0) return Array(numSets).fill(roundToPlate(workingWeight));
   const rampPcts = {
     1: [1.00],
     2: [0.85, 1.00],
