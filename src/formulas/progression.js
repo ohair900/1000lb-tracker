@@ -19,14 +19,16 @@ import store from '../state/store.js';
  */
 export function calcProgression(lift) {
   const now = Date.now();
-  const recent = store.entries.filter(
-    e => e.lift === lift && (now - e.timestamp) <= 90 * MS_PER_DAY
-  );
-  if (recent.length < 2) return null;
+  const cutoff = now - 90 * MS_PER_DAY;
+  const liftEntries = store.entries.filter(e => e.lift === lift);
+
+  const recent = liftEntries.filter(e => e.timestamp > cutoff);
+  const prior = liftEntries.filter(e => e.timestamp <= cutoff);
+  if (recent.length === 0 || prior.length === 0) return null;
 
   const currentBest = Math.max(...recent.map(e => e.e1rm));
-  const oldest = recent.reduce((o, e) => e.timestamp < o.timestamp ? e : o);
-  const delta = currentBest - oldest.e1rm;
+  const priorBest = Math.max(...prior.map(e => e.e1rm));
+  const delta = currentBest - priorBest;
 
   return {
     delta,
