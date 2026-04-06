@@ -18,6 +18,26 @@
   letter-spacing: 0.02em;
 }
 
+/* Review sheet — muscle coverage table */
+.review-muscle-row {
+  display: grid; grid-template-columns: 1fr 30px 42px 72px 30px;
+  gap: 4px; align-items: center; padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03); font-size: var(--text-xs);
+}
+.review-muscle-name { color: var(--text); font-weight: 500; }
+.review-muscle-sets { text-align: center; font-weight: 700; color: var(--text-strong); }
+.review-muscle-target { text-align: center; color: var(--text-dim); font-size: 0.6rem; }
+.review-muscle-status { font-weight: 600; font-size: 0.6rem; }
+.review-muscle-delta { text-align: right; font-size: 0.6rem; font-weight: 600; }
+
+/* Review sheet — week comparison */
+.review-compare-grid { display: flex; flex-direction: column; gap: 4px; }
+.review-compare-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: var(--text-xs); padding: 3px 0;
+}
+.review-compare-label { min-width: 60px; color: var(--text-dim); font-weight: 600; }
+
 .recap-grade-badge {
   font-size: 0.85rem; font-weight: 800; padding: 2px 8px;
   border-radius: var(--radius-pill); color: #000;

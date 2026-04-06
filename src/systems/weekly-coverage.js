@@ -168,5 +168,57 @@ export function calcPriorWeekReview() {
   const totalVolume = weekEntries.reduce((s, e) => s + e.weight * e.reps, 0);
   const prs = weekEntries.filter(e => e.isPR);
 
-  return { coverage, liftStats, focus, weekLabel: lastWeekStart.toISOString().split('T')[0], totalSets, totalVolume, prs };
+  // Prior-prior week for comparison (W-2)
+  const priorPriorStart = new Date(lastWeekStart.getTime() - 7 * day);
+  const priorPriorEnd = lastWeekStart;
+  const ppEntries = store.entries.filter(e => e.timestamp >= priorPriorStart.getTime() && e.timestamp < priorPriorEnd.getTime());
+  const priorCoverage = calcWeeklyCoverage(priorPriorStart);
+  const priorTotalSets = ppEntries.length;
+  const priorTotalVolume = ppEntries.reduce((s, e) => s + e.weight * e.reps, 0);
+  const priorDays = new Set(ppEntries.map(e => e.date)).size;
+  // Compute prior week avg intensity
+  let ppIntSum = 0, ppIntCount = 0;
+  ppEntries.forEach(e => {
+    if (e.e1rm > 0) { ppIntSum += e.weight / e.e1rm; ppIntCount++; }
+  });
+  const priorAvgInt = ppIntCount > 0 ? Math.round(ppIntSum / ppIntCount * 100) : 0;
+
+  // Prior week per-lift stats
+  const priorLiftStats = {};
+  LIFTS.forEach(l => {
+    priorLiftStats[l] = { sets: ppEntries.filter(e => e.lift === l).length };
+  });
+
+  // Training days (which weekdays had training)
+  const trainingDays = new Set(weekEntries.map(e => e.date)).size;
+  const trainingDaysList = [];
+  for (let d = 0; d < 7; d++) {
+    const dayDate = new Date(lastWeekStart.getTime() + d * day);
+    const dateStr = dayDate.toISOString().split('T')[0];
+    trainingDaysList.push(weekEntries.some(e => e.date === dateStr) || weekAccessories.some(l => {
+      const lDate = l.date || new Date(l.timestamp).toISOString().split('T')[0];
+      return lDate === dateStr;
+    }));
+  }
+
+  // Avg intensity for last week
+  let lwIntSum = 0, lwIntCount = 0;
+  weekEntries.forEach(e => {
+    if (e.e1rm > 0) { lwIntSum += e.weight / e.e1rm; lwIntCount++; }
+  });
+  const avgIntensity = lwIntCount > 0 ? Math.round(lwIntSum / lwIntCount * 100) : 0;
+
+  return {
+    coverage, liftStats, focus,
+    weekLabel: lastWeekStart.toISOString().split('T')[0],
+    totalSets, totalVolume, prs, trainingDays, trainingDaysList, avgIntensity,
+    prior: {
+      coverage: priorCoverage,
+      totalSets: priorTotalSets,
+      totalVolume: priorTotalVolume,
+      days: priorDays,
+      avgIntensity: priorAvgInt,
+      liftStats: priorLiftStats,
+    }
+  };
 }

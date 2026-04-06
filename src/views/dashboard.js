@@ -12,7 +12,7 @@ import { MS_PER_DAY } from '../constants/time.js';
 import { DIRECTION_ARROWS, CONFETTI_COUNT, CELEBRATION_DISMISS_MS } from '../constants/ui.js';
 import { TOTAL_MILESTONES, TOTAL_MILESTONE_THEMES } from '../data/milestones.js';
 import { TOTAL_CELEBRATED_KEY } from '../constants/storage-keys.js';
-import { MUSCLE_GROUPS } from '../data/muscle-groups.js';
+import { MUSCLE_GROUPS, WEEKLY_SET_TARGETS } from '../data/muscle-groups.js';
 import { bestE1RM, getTotal } from '../formulas/e1rm.js';
 import { displayWeight, formatWeight, lbsToKg } from '../formulas/units.js';
 import { calcWilks, calcDOTS } from '../formulas/scoring.js';
@@ -335,6 +335,13 @@ export function renderPriorWeekCard() {
   }
 }
 
+function _compareRow(label, current, prior, pctChange) {
+  const arrow = pctChange > 0 ? '↑' : pctChange < 0 ? '↓' : '';
+  const changeColor = pctChange > 0 ? 'var(--green)' : pctChange < 0 ? 'var(--red)' : 'var(--text-dim)';
+  const changeStr = pctChange !== null && pctChange !== 0 ? `<span style="color:${changeColor};font-size:0.65rem;font-weight:600">${arrow}${Math.abs(pctChange)}%</span>` : '';
+  return `<div class="review-compare-row"><span class="review-compare-label">${label}</span><span style="color:var(--text-dim);font-size:var(--text-xs)">${prior}</span><span style="font-size:var(--text-xs)">→</span><span style="font-weight:600">${current}</span>${changeStr}</div>`;
+}
+
 function showPriorWeekSheet(review, gradeResult, insights) {
   const body = $('review-sheet-body');
   let html = '';
@@ -353,29 +360,66 @@ function showPriorWeekSheet(review, gradeResult, insights) {
   // Body map
   html += `<div id="review-sheet-map">${renderBodyMap(review.coverage)}</div>`;
 
-  // Per-lift breakdown
+  // Week-over-week comparison
+  if (review.prior) {
+    const p = review.prior;
+    const setsChange = p.totalSets > 0 ? Math.round((review.totalSets - p.totalSets) / p.totalSets * 100) : null;
+    const volChange = p.totalVolume > 0 ? Math.round((review.totalVolume - p.totalVolume) / p.totalVolume * 100) : null;
+    html += `<div style="margin:12px 0"><div class="section-label-lg">vs Prior Week</div>`;
+    html += `<div class="review-compare-grid">`;
+    html += _compareRow('Sets', review.totalSets, p.totalSets, setsChange);
+    html += _compareRow('Volume', fmtNum(displayWeight(review.totalVolume)) + ' ' + store.unit, fmtNum(displayWeight(p.totalVolume)) + ' ' + store.unit, volChange);
+    html += _compareRow('Intensity', review.avgIntensity + '%', p.avgIntensity + '%', review.avgIntensity - p.avgIntensity);
+    html += _compareRow('Days', review.trainingDays, p.days, null);
+    html += `</div></div>`;
+  }
+
+  // Per-lift breakdown with prior week comparison
   html += `<div style="margin:12px 0"><div class="section-label-lg">Lift Breakdown</div>`;
   LIFTS.forEach(l => {
     const s = review.liftStats[l];
     const color = COLORS[l];
     const prBadge = s.prs > 0 ? ` <span style="color:var(--gold);font-size:0.65rem;font-weight:700">PR</span>` : '';
-    const intLabel = s.avgIntensity > 0 ? ` &middot; ${s.avgIntensity}% avg` : '';
+    const intLabel = s.avgIntensity > 0 ? ` &middot; ${s.avgIntensity}%` : '';
+    const priorSets = review.prior ? review.prior.liftStats[l]?.sets || 0 : 0;
+    const delta = s.sets - priorSets;
+    const deltaStr = delta !== 0 ? ` <span style="color:${delta > 0 ? 'var(--green)' : 'var(--red)'};font-size:0.6rem">${delta > 0 ? '+' : ''}${delta}</span>` : '';
     html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
       <span style="color:${color};font-weight:700;font-size:0.75rem;min-width:24px">${LIFT_SHORT[l]}</span>
-      <span style="flex:1;font-size:var(--text-sm);color:var(--text)">${s.sets} sets &middot; ${fmtNum(displayWeight(s.volume))} ${store.unit}${intLabel}${prBadge}</span>
+      <span style="flex:1;font-size:var(--text-sm);color:var(--text)">${s.sets} sets${deltaStr} &middot; ${fmtNum(displayWeight(s.volume))} ${store.unit}${intLabel}${prBadge}</span>
     </div>`;
   });
   html += '</div>';
 
-  // Muscle coverage table
+  // Muscle coverage with context
+  const fatigue = calcFatigueByMuscle();
   html += `<div style="margin:12px 0"><div class="section-label-lg">Muscle Coverage</div>`;
   MUSCLE_GROUPS.forEach(mg => {
     const data = review.coverage[mg];
     const sets = data ? Math.round(data.sets) : 0;
-    const color = sets >= 3 ? 'var(--green)' : sets >= 2 ? 'var(--lime, var(--green))' : sets >= 1 ? 'var(--yellow)' : 'var(--text-dim)';
-    html += `<div style="display:flex;justify-content:space-between;font-size:var(--text-xs);padding:3px 0">
-      <span style="color:var(--text)">${mg}</span>
-      <span style="color:${color};font-weight:600">${sets} sets</span>
+    const target = WEEKLY_SET_TARGETS[mg] || { min: 4, max: 16 };
+    const priorSets = review.prior && review.prior.coverage[mg] ? Math.round(review.prior.coverage[mg].sets) : 0;
+    const delta = sets - priorSets;
+
+    // Status label
+    const fatigueStatus = fatigue && fatigue[mg] ? fatigue[mg].displayStatus : null;
+    let status, statusColor;
+    if (sets > target.max * 0.75) { status = 'Worked hard'; statusColor = 'var(--green)'; }
+    else if (sets >= target.min) { status = 'On target'; statusColor = 'var(--green)'; }
+    else if (sets > 0 && (fatigueStatus === 'red' || fatigueStatus === 'orange')) { status = 'Recovering'; statusColor = 'var(--bench)'; }
+    else if (sets > 0 && sets < target.min * 0.5) { status = 'Needs more'; statusColor = 'var(--yellow)'; }
+    else if (sets > 0) { status = 'Light'; statusColor = 'var(--yellow)'; }
+    else if (fatigueStatus === 'red' || fatigueStatus === 'orange') { status = 'Recovering'; statusColor = 'var(--bench)'; }
+    else { status = 'Skipped'; statusColor = 'var(--text-dim)'; }
+
+    const deltaStr = delta !== 0 ? `<span style="color:${delta > 0 ? 'var(--green)' : 'var(--red)'}">${delta > 0 ? '+' : ''}${delta}</span>` : '<span style="color:var(--text-dim)">0</span>';
+
+    html += `<div class="review-muscle-row">
+      <span class="review-muscle-name">${mg}</span>
+      <span class="review-muscle-sets">${sets}</span>
+      <span class="review-muscle-target">${target.min}-${target.max}</span>
+      <span class="review-muscle-status" style="color:${statusColor}">${status}</span>
+      <span class="review-muscle-delta">${deltaStr}</span>
     </div>`;
   });
   html += '</div>';
