@@ -19,6 +19,7 @@ import { showToast } from '../ui/toast.js';
 import { openModal, closeModal } from '../ui/modal.js';
 import { applyAccentColor } from '../ui/theme.js';
 import { buildProfileHTML, buildGoalsHTML } from './stats.js';
+import { buildWeeklyReviewPrompt, buildProgramCheckPrompt, buildLiftDeepDivePrompt, shareCoachingPrompt } from '../systems/ai-export.js';
 
 // ---------------------------------------------------------------------------
 // Late-bound callbacks
@@ -96,6 +97,33 @@ export function renderSettingsBody() {
   // Leaderboard
   html += sectionLabel('Leaderboard');
   html += `<label class="widget-toggle"><input type="checkbox" id="lb-optin" ${store.leaderboardOptedIn !== false ? 'checked' : ''}> Appear on leaderboard</label>`;
+  html += settingsDivider;
+  // AI Coaching
+  html += sectionLabel('AI Coaching');
+  html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:10px">Export your training data with a coaching prompt to share with any AI app</div>
+    <textarea id="ai-notes" placeholder="Optional notes (sleep, injuries, schedule changes...)" style="width:100%;padding:8px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-xs);resize:vertical;min-height:40px;max-height:100px;margin-bottom:10px;font-family:inherit"></textarea>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+      <button class="data-btn" id="ai-weekly" style="text-align:left;padding:10px 12px">
+        <strong style="display:block;font-size:var(--text-sm)">Weekly Review</strong>
+        <span style="font-size:var(--text-xs);color:var(--text-dim)">Last 7 days — what went well, what to improve</span>
+      </button>
+      <button class="data-btn" id="ai-program" style="text-align:left;padding:10px 12px">
+        <strong style="display:block;font-size:var(--text-sm)">Program Check</strong>
+        <span style="font-size:var(--text-xs);color:var(--text-dim)">Last 90 days — volume, intensity, programming</span>
+      </button>
+      <button class="data-btn" id="ai-squat" style="text-align:left;padding:10px 12px">
+        <strong style="display:block;font-size:var(--text-sm)">Squat Deep-Dive</strong>
+        <span style="font-size:var(--text-xs);color:var(--text-dim)">90-day squat analysis + accessory recs</span>
+      </button>
+      <button class="data-btn" id="ai-bench" style="text-align:left;padding:10px 12px">
+        <strong style="display:block;font-size:var(--text-sm)">Bench Deep-Dive</strong>
+        <span style="font-size:var(--text-xs);color:var(--text-dim)">90-day bench analysis + accessory recs</span>
+      </button>
+      <button class="data-btn" id="ai-deadlift" style="text-align:left;padding:10px 12px">
+        <strong style="display:block;font-size:var(--text-sm)">Deadlift Deep-Dive</strong>
+        <span style="font-size:var(--text-xs);color:var(--text-dim)">90-day deadlift analysis + accessory recs</span>
+      </button>
+    </div>`;
   html += settingsDivider;
   // Data
   html += sectionLabel('Data');
@@ -302,6 +330,14 @@ export function attachSettingsListeners() {
       }
     });
   }
+
+  // AI Coaching
+  const aiNotes = () => ($('ai-notes')?.value || '').trim();
+  $('ai-weekly')?.addEventListener('click', () => shareCoachingPrompt(buildWeeklyReviewPrompt(aiNotes()), 'Weekly Training Review'));
+  $('ai-program')?.addEventListener('click', () => shareCoachingPrompt(buildProgramCheckPrompt(aiNotes()), '90-Day Program Check'));
+  $('ai-squat')?.addEventListener('click', () => shareCoachingPrompt(buildLiftDeepDivePrompt('squat', aiNotes()), 'Squat Deep-Dive'));
+  $('ai-bench')?.addEventListener('click', () => shareCoachingPrompt(buildLiftDeepDivePrompt('bench', aiNotes()), 'Bench Deep-Dive'));
+  $('ai-deadlift')?.addEventListener('click', () => shareCoachingPrompt(buildLiftDeepDivePrompt('deadlift', aiNotes()), 'Deadlift Deep-Dive'));
 
   // Data management
   $('s-export').addEventListener('click', exportData);
