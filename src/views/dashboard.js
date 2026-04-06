@@ -64,7 +64,7 @@ export function updateLiftCard(lift) {
   const prog = calcProgression(lift);
   if (prog) {
     const arrow = DIRECTION_ARROWS[prog.direction];
-    trendEl.textContent = `${arrow} ${Math.abs(prog.monthRate).toFixed(1)} ${store.unit}/mo`;
+    trendEl.textContent = `${arrow} ${Math.round(Math.abs(prog.monthRate))} ${store.unit}/mo`;
     trendEl.className = 'card-trend ' + prog.direction;
     trendEl.style.display = '';
   } else { trendEl.style.display = 'none'; }
