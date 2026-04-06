@@ -12,6 +12,8 @@ import { calcWilks, calcDOTS } from '../formulas/scoring.js';
 import { getClassification, getOverallClassification } from '../formulas/standards.js';
 import { calcFatigueByMuscle } from '../systems/fatigue.js';
 import { MUSCLE_GROUPS, MAIN_LIFT_WEIGHTS } from '../data/muscle-groups.js';
+import { ACCESSORY_DB } from '../data/accessories.js';
+import { resolveExercise } from '../data/exercise-compat.js';
 import { showToast } from '../ui/toast.js';
 
 // ---------------------------------------------------------------------------
@@ -89,27 +91,51 @@ function buildAthleteProfile() {
 // Session log
 // ---------------------------------------------------------------------------
 
+function resolveAccName(exerciseId) {
+  const catalogEx = resolveExercise(exerciseId);
+  if (catalogEx) return catalogEx.name;
+  const legacyEx = ACCESSORY_DB[exerciseId];
+  if (legacyEx) return legacyEx.name;
+  return exerciseId;
+}
+
 function buildSessionLog(startDate, endDate) {
   const startMs = new Date(startDate + 'T00:00:00').getTime();
   const endMs = new Date(endDate + 'T23:59:59').getTime();
   const entries = store.entries.filter(e => e.timestamp >= startMs && e.timestamp <= endMs)
     .sort((a, b) => a.timestamp - b.timestamp);
+  const accLogs = store.accessoryLog.filter(l => l.timestamp >= startMs && l.timestamp <= endMs)
+    .sort((a, b) => a.timestamp - b.timestamp);
 
-  if (entries.length === 0) return '\nNo sessions logged in this period.\n';
+  if (entries.length === 0 && accLogs.length === 0) return '\nNo sessions logged in this period.\n';
 
-  // Group by date
-  const byDate = {};
+  // Group main entries by date
+  const mainByDate = {};
   entries.forEach(e => {
-    if (!byDate[e.date]) byDate[e.date] = [];
-    byDate[e.date].push(e);
+    if (!mainByDate[e.date]) mainByDate[e.date] = [];
+    mainByDate[e.date].push(e);
   });
 
+  // Group accessories by date
+  const accByDate = {};
+  accLogs.forEach(l => {
+    const date = l.date || new Date(l.timestamp).toISOString().split('T')[0];
+    if (!accByDate[date]) accByDate[date] = [];
+    accByDate[date].push(l);
+  });
+
+  // Merge all dates
+  const allDates = [...new Set([...Object.keys(mainByDate), ...Object.keys(accByDate)])].sort();
+
   let text = '';
-  for (const [date, sets] of Object.entries(byDate)) {
+  for (const date of allDates) {
     const d = new Date(date + 'T12:00:00');
     const label = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
     text += `\n--- ${label} ---\n`;
-    sets.forEach(e => {
+
+    // Main lifts
+    const mainSets = mainByDate[date] || [];
+    mainSets.forEach(e => {
       const best = bestE1RM(e.lift);
       const pctE1rm = best > 0 ? Math.round(e.weight / best * 100) : null;
       let line = `  ${LIFT_NAMES[e.lift]}: ${Math.round(displayWeight(e.weight))} x ${e.reps}`;
@@ -118,6 +144,29 @@ function buildSessionLog(startDate, endDate) {
       if (e.isPR) line += ' ★ PR';
       text += line + '\n';
     });
+
+    // Accessories
+    const dayAcc = accByDate[date] || [];
+    if (dayAcc.length > 0) {
+      text += `  Accessories:\n`;
+      dayAcc.forEach(l => {
+        const name = resolveAccName(l.exerciseId);
+        const unit = store.unit;
+        const reps = l.setsCompleted || [];
+        if (reps.length === 0) return;
+        // Format weight
+        const catalogEx = resolveExercise(l.exerciseId);
+        const isBW = catalogEx && catalogEx.progressionType === 'bodyweight';
+        let weightStr;
+        if (isBW) {
+          const w = l.weight || 0;
+          weightStr = w < 0 ? `Assisted ${Math.round(displayWeight(Math.abs(w)))}${unit}` : w === 0 ? 'BW' : `BW+${Math.round(displayWeight(w))}${unit}`;
+        } else {
+          weightStr = `${Math.round(displayWeight(l.weight || 0))} ${unit}`;
+        }
+        text += `    ${name}: ${weightStr} x ${reps.join(', ')}\n`;
+      });
+    }
   }
   return text;
 }
@@ -417,13 +466,13 @@ export function buildLiftDeepDivePrompt(lift, notes = '') {
   if (liftAccessories.length > 0) {
     const accCounts = {};
     liftAccessories.forEach(l => {
-      const name = l.exerciseId;
+      const name = resolveAccName(l.exerciseId);
       accCounts[name] = (accCounts[name] || 0) + 1;
     });
     const topAcc = Object.entries(accCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
     if (topAcc.length > 0) {
       prompt += `\n=== ACCESSORY WORK (90 days) ===\n`;
-      topAcc.forEach(([id, count]) => { prompt += `${id}: ${count} sessions\n`; });
+      topAcc.forEach(([name, count]) => { prompt += `${name}: ${count} sessions\n`; });
     }
   }
 
