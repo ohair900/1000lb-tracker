@@ -780,7 +780,7 @@ export function initWorkoutOverlay() {
         if (_renderProgramSection) _renderProgramSection();
       } else {
         // Show inline RPE picker below this row
-        const existing = container.querySelector('.workout-rpe-row');
+        const existing = document.querySelector('.workout-rpe-row');
         if (existing) existing.remove();
         const rpeRow = document.createElement('div');
         rpeRow.className = 'workout-rpe-row';
