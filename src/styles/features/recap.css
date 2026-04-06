@@ -10,9 +10,10 @@
 .recap-card-header { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; }
 .recap-grade-badge {
   font-size: 0.85rem; font-weight: 800; padding: 2px 8px;
-  border-radius: var(--radius-pill); background: var(--green); color: #000;
-  cursor: pointer; text-transform: none; letter-spacing: 0;
+  border-radius: var(--radius-pill); color: #000;
+  text-transform: none; letter-spacing: 0;
 }
+.recap-grade-label { font-size: 0.65rem; color: var(--text-dim); margin-top: 4px; }
 .recap-card-preview { font-size: 0.8rem; color: var(--text); }
 .recap-stat-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;

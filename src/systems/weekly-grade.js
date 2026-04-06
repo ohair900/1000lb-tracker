@@ -2,12 +2,12 @@
  * Weekly training grade — four-pillar scoring system.
  *
  * Pillars:
- *  1. Compliance (35 pts) — prescribed sets completed (drops out if no program)
+ *  1. Compliance (25 pts) — prescribed sets completed (drops out if no program)
  *  2. Muscle Coverage (30 pts) — Tier 1 + Tier 2 muscles, push:pull modifier
- *  3. Intensity Quality (20 pts) — weight accuracy + effective intensity
- *  4. Consistency (15 pts) — training days this week
+ *  3. Intensity Quality (25 pts) — weight accuracy + effective intensity
+ *  4. Consistency (20 pts) — training days vs elapsed days, 3 days/week = full marks
  *
- * Bonuses (+8 max): PR, all 3 lifts, accessory variety, RPE logging
+ * Bonuses (+8 max): PR, RPE quality, accessory variety, RPE logging
  *
  * Grade scale: A+ (95-100), A (90-94), A- (85-89), B+ (80-84), B (75-79),
  * B- (70-74), C+ (65-69), C (58-64), C- (50-57), D (35-49), F (0-34)
@@ -28,24 +28,24 @@ import { MS_PER_DAY } from '../constants/time.js';
 // ---------------------------------------------------------------------------
 
 const GRADE_MAP = [
-  { min: 95, grade: 'A+', label: 'Amazing week' },
-  { min: 90, grade: 'A',  label: 'Great week' },
+  { min: 95, grade: 'A+', label: 'Peak performance' },
+  { min: 90, grade: 'A',  label: 'Strong week' },
   { min: 85, grade: 'A-', label: 'Good week' },
-  { min: 80, grade: 'B+', label: 'Solid week' },
+  { min: 80, grade: 'B+', label: 'On track' },
   { min: 75, grade: 'B',  label: 'Decent week' },
-  { min: 70, grade: 'B-', label: 'Okay week' },
-  { min: 65, grade: 'C+', label: 'Below average' },
-  { min: 58, grade: 'C',  label: 'Needs improvement' },
-  { min: 50, grade: 'C-', label: 'Poor balance' },
-  { min: 35, grade: 'D',  label: 'Significant gaps' },
-  { min: 0,  grade: 'F',  label: 'Very incomplete' },
+  { min: 70, grade: 'B-', label: 'Room to grow' },
+  { min: 65, grade: 'C+', label: 'Missing pieces' },
+  { min: 58, grade: 'C',  label: 'Incomplete week' },
+  { min: 50, grade: 'C-', label: 'Fell short' },
+  { min: 35, grade: 'D',  label: 'Minimal training' },
+  { min: 0,  grade: 'F',  label: 'Rest week?' },
 ];
 
 function scoreToGrade(score) {
   for (const g of GRADE_MAP) {
     if (score >= g.min) return { grade: g.grade, label: g.label };
   }
-  return { grade: 'F', label: 'Very incomplete' };
+  return { grade: 'F', label: 'Rest week?' };
 }
 
 // ---------------------------------------------------------------------------
@@ -89,12 +89,12 @@ export function calcWeeklyGrade(options = {}) {
   const weekEntries = store.entries.filter(e => e.timestamp >= weekStartMs && e.timestamp < weekEndMs);
   const weekAccessories = store.accessoryLog.filter(l => l.timestamp >= weekStartMs && l.timestamp < weekEndMs);
 
-  // Insufficient data check
+  // Insufficient data: hide grade until at least 1 training day
   const uniqueDays = new Set([
     ...weekEntries.map(e => e.date),
     ...weekAccessories.map(l => new Date(l.timestamp).toISOString().split('T')[0]),
   ]);
-  if (weekEntries.length < 3 && uniqueDays.size < 2) {
+  if (uniqueDays.size < 1) {
     return { score: 0, grade: null, label: 'Building baseline...', insufficient: true,
              pillars: {}, bonuses: {}, bonusPoints: 0, isDeload: false };
   }
@@ -107,7 +107,7 @@ export function calcWeeklyGrade(options = {}) {
   const compliance = hasProg ? calcCompliance(weekEntries) : null;
   const coverage = calcCoverage(weekEntries, weekAccessories, isDeload);
   const intensity = calcIntensity(weekEntries, hasProg, isDeload);
-  const consistency = calcConsistency(uniqueDays.size);
+  const consistency = calcConsistency(uniqueDays.size, weekStart);
 
   // Determine active pillars and redistribute if no program
   const pillars = { compliance, coverage, intensity, consistency };
@@ -116,8 +116,8 @@ export function calcWeeklyGrade(options = {}) {
   if (compliance !== null) {
     totalScore = compliance.score + coverage.score + intensity.score + consistency.score;
   } else {
-    // No program: redistribute compliance weight (35 pts) proportionally
-    const activeMax = 30 + 20 + 15; // 65
+    // No program: redistribute compliance weight (25 pts) proportionally
+    const activeMax = 30 + 25 + 20; // 75
     const scale = 100 / activeMax;
     totalScore = (coverage.score + intensity.score + consistency.score) * scale;
   }
@@ -141,7 +141,7 @@ export function calcWeeklyGrade(options = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Pillar 1: Compliance (35 pts)
+// Pillar 1: Compliance (25 pts)
 // ---------------------------------------------------------------------------
 
 function calcCompliance(weekEntries) {
@@ -153,7 +153,6 @@ function calcCompliance(weekEntries) {
     const workout = getProgramWorkout(lift, week);
     if (!workout || !workout.sets) continue;
     prescribed += workout.sets.length;
-    // Count sets completed this week for this lift
     for (const set of workout.sets) {
       const key = `${lift}-${week}-${set.num}`;
       if (store.programConfig.completedSets[key]) completed++;
@@ -162,16 +161,15 @@ function calcCompliance(weekEntries) {
 
   if (prescribed === 0) return { score: 0, detail: 'No sets prescribed', pct: 0 };
   const pct = completed / prescribed;
-  // Scoring curve
   let score;
-  if (pct >= 1.0) score = 35;
-  else if (pct >= 0.9) score = 31;
-  else if (pct >= 0.8) score = 27;
-  else if (pct >= 0.7) score = 22;
-  else if (pct >= 0.6) score = 17;
-  else if (pct >= 0.5) score = 12;
-  else if (pct >= 0.3) score = 7;
-  else score = pct > 0 ? 3 : 0;
+  if (pct >= 1.0) score = 25;
+  else if (pct >= 0.9) score = 22;
+  else if (pct >= 0.8) score = 19;
+  else if (pct >= 0.7) score = 16;
+  else if (pct >= 0.6) score = 12;
+  else if (pct >= 0.5) score = 9;
+  else if (pct >= 0.3) score = 5;
+  else score = pct > 0 ? 2 : 0;
 
   return { score, detail: `${completed}/${prescribed} sets`, pct: Math.round(pct * 100) };
 }
@@ -224,10 +222,11 @@ function calcCoverage(weekEntries, weekAccessories, isDeload) {
   let score = 0;
   const breakdown = {};
 
-  function scoreMuscle(mg, maxPts) {
+  function scoreMuscle(mg, maxPts, isTier2) {
     const sets = muscleSets[mg] || 0;
+    const fullThreshold = isTier2 ? 2 : 3; // Tier 2: 2 sets = full credit
     let pct;
-    if (sets >= 3) pct = 1.0;
+    if (sets >= fullThreshold) pct = 1.0;
     else if (sets >= 1) pct = 0.7;
     else if (sets >= 0.5) pct = isDeload ? 0.7 : 0.4;
     else pct = isDeload ? 0.4 : 0;
@@ -236,8 +235,8 @@ function calcCoverage(weekEntries, weekAccessories, isDeload) {
     breakdown[mg] = { sets: Math.round(sets * 10) / 10, pts: Math.round(pts * 10) / 10 };
   }
 
-  TIER1.forEach(mg => scoreMuscle(mg, 4.5));
-  TIER2.forEach(mg => scoreMuscle(mg, 1.5));
+  TIER1.forEach(mg => scoreMuscle(mg, 4.5, false));
+  TIER2.forEach(mg => scoreMuscle(mg, 1.5, true));
 
   // Push:pull balance modifier
   let pushSets = 0, pullSets = 0;
@@ -255,13 +254,13 @@ function calcCoverage(weekEntries, weekAccessories, isDeload) {
 }
 
 // ---------------------------------------------------------------------------
-// Pillar 3: Intensity Quality (20 pts)
+// Pillar 3: Intensity Quality (25 pts)
 // ---------------------------------------------------------------------------
 
 function calcIntensity(weekEntries, hasProg, isDeload) {
   if (weekEntries.length === 0) return { score: 0, avgIntensity: 0, weightAccuracy: null };
 
-  // Sub-component B: Effective intensity (weight / e1RM) — always available
+  // Sub-component B: Effective intensity (weight / e1RM)
   let intensitySum = 0;
   let intensityCount = 0;
   for (const entry of weekEntries) {
@@ -273,23 +272,19 @@ function calcIntensity(weekEntries, hasProg, isDeload) {
   }
   const avgIntensity = intensityCount > 0 ? intensitySum / intensityCount : 0;
 
-  // Intensity scoring
-  const sweetLow = isDeload ? 0.50 : 0.70;
-  const sweetHigh = isDeload ? 0.65 : 0.85;
+  // Intensity scoring — widened sweet zone (65-90% non-deload)
+  const sweetLow = isDeload ? 0.50 : 0.65;
+  const sweetHigh = isDeload ? 0.65 : 0.90;
   let intensityPts;
-  if (avgIntensity >= sweetLow && avgIntensity <= sweetHigh) intensityPts = 8;
-  else if (avgIntensity > sweetHigh && avgIntensity <= 0.95) intensityPts = 7;
-  else if (avgIntensity >= 0.60 && avgIntensity < sweetLow) intensityPts = 6;
-  else if (avgIntensity >= 0.50) intensityPts = 4;
-  else if (avgIntensity > 0.95) intensityPts = 5;
-  else intensityPts = 2;
+  if (avgIntensity >= sweetLow && avgIntensity <= sweetHigh) intensityPts = 10;
+  else if ((avgIntensity > 0.55 && avgIntensity < sweetLow) || (avgIntensity > sweetHigh && avgIntensity <= 0.95)) intensityPts = 9;
+  else if (avgIntensity >= 0.50) intensityPts = 6;
+  else if (avgIntensity > 0.95) intensityPts = 6;
+  else intensityPts = 3;
 
-  // Sub-component A: Weight accuracy vs program (12 pts, program users only)
+  // Sub-component A: Weight accuracy vs program (15 pts, program users only)
   let weightAccuracy = null;
   if (hasProg) {
-    // Simplified: if we have program sets and entries, compare them
-    // Full accuracy tracking would require matching individual sets — approximate
-    // by checking if entries exist for all 3 lifts
     const liftsWithEntries = new Set(weekEntries.map(e => e.lift));
     const programLifts = LIFTS.filter(l => {
       const week = store.programConfig.liftWeeks?.[l] || 1;
@@ -300,10 +295,10 @@ function calcIntensity(weekEntries, hasProg, isDeload) {
       : 0;
 
     let accuracyPts;
-    if (accuracyPct >= 0.97) accuracyPts = 12;
-    else if (accuracyPct >= 0.90) accuracyPts = 10;
-    else if (accuracyPct >= 0.80) accuracyPts = 7;
-    else if (accuracyPct >= 0.70) accuracyPts = 4;
+    if (accuracyPct >= 0.97) accuracyPts = 15;
+    else if (accuracyPct >= 0.90) accuracyPts = 12;
+    else if (accuracyPct >= 0.80) accuracyPts = 9;
+    else if (accuracyPct >= 0.70) accuracyPts = 5;
     else accuracyPts = 2;
 
     weightAccuracy = { pts: accuracyPts, pct: Math.round(accuracyPct * 100) };
@@ -314,27 +309,25 @@ function calcIntensity(weekEntries, hasProg, isDeload) {
     };
   }
 
-  // No program: intensity is worth full 20 pts
-  // Scale 8-pt intensity score to 20 pts
+  // No program: intensity is worth full 25 pts
   return {
-    score: Math.round(intensityPts * 20 / 8),
+    score: Math.round(intensityPts * 25 / 10),
     avgIntensity: Math.round(avgIntensity * 100),
     weightAccuracy: null,
   };
 }
 
 // ---------------------------------------------------------------------------
-// Pillar 4: Consistency (15 pts)
+// Pillar 4: Consistency (20 pts) — elapsed-day aware, 3 days = full marks
 // ---------------------------------------------------------------------------
 
-function calcConsistency(trainingDays) {
-  let score;
-  if (trainingDays >= 5) score = 15;
-  else if (trainingDays >= 4) score = 14;
-  else if (trainingDays >= 3) score = 12;
-  else if (trainingDays >= 2) score = 8;
-  else if (trainingDays >= 1) score = 4;
-  else score = 0;
+function calcConsistency(trainingDays, weekStart) {
+  const now = new Date();
+  const daysElapsed = Math.max(1, Math.ceil((now - weekStart) / MS_PER_DAY));
+  const targetRate = 3 / 7; // 3 sessions per week
+  const currentRate = trainingDays / daysElapsed;
+  const ratio = Math.min(1, currentRate / targetRate);
+  const score = Math.round(ratio * 20);
   return { score, days: trainingDays };
 }
 
@@ -346,20 +339,22 @@ function calcBonuses(weekEntries, weekAccessories) {
   let total = 0;
   const details = {};
 
-  // PR this week (+3)
+  // PR this week (+1)
   const hasPR = weekEntries.some(e => e.isPR);
-  if (hasPR) { total += 3; details.pr = true; }
+  if (hasPR) { total += 1; details.pr = true; }
 
-  // All 3 lifts trained (+2)
-  const lifts = new Set(weekEntries.map(e => e.lift));
-  if (lifts.size >= 3) { total += 2; details.allLifts = true; }
+  // RPE quality: avg RPE of main lifts in 7-9 range (+2)
+  const withRPE = weekEntries.filter(e => e.rpe != null && e.rpe > 0);
+  if (withRPE.length >= 2) {
+    const avgRPE = withRPE.reduce((s, e) => s + e.rpe, 0) / withRPE.length;
+    if (avgRPE >= 7 && avgRPE <= 9) { total += 2; details.rpeQuality = true; }
+  }
 
   // Accessory variety: 3+ distinct exercises (+2)
   const distinctAccessories = new Set(weekAccessories.map(l => resolveCanonicalId(l.exerciseId)));
   if (distinctAccessories.size >= 3) { total += 2; details.variety = true; }
 
   // RPE data quality: 50%+ of main sets have RPE (+1)
-  const withRPE = weekEntries.filter(e => e.rpe != null && e.rpe > 0);
   if (weekEntries.length > 0 && withRPE.length / weekEntries.length >= 0.5) {
     total += 1; details.rpeLogging = true;
   }
@@ -378,6 +373,5 @@ function detectDeload() {
     const week = store.activeMesocycle.weeks[store.activeMesocycle.currentWeek - 1];
     if (week && week.phase && week.phase.toLowerCase().includes('deload')) return true;
   }
-  // Could also check program schedule labels in the future
   return false;
 }

@@ -281,28 +281,48 @@ export function renderRecapCard() {
   // Weekly grade
   const gradeResult = calcWeeklyGrade();
   let gradeHtml = '';
+  let gradeLabel = '';
   if (gradeResult && !gradeResult.insufficient && gradeResult.grade) {
-    gradeHtml = `<span class="recap-grade-badge" id="recap-grade-badge">${gradeResult.grade}</span>`;
+    const gradeColor = gradeResult.grade.startsWith('A') || gradeResult.grade.startsWith('B') ? 'var(--green)'
+      : gradeResult.grade.startsWith('C') ? 'var(--yellow)' : 'var(--red)';
+    gradeHtml = `<span class="recap-grade-badge" style="background:${gradeColor}">${gradeResult.grade}</span>`;
+    gradeLabel = `<div class="recap-grade-label">${gradeResult.label}</div>`;
   }
 
   let preview = `${recap.sets} sets &middot; ${fmtNum(displayWeight(recap.volume))} ${store.unit} vol`;
   if (recap.prsThisWeek.length > 0) preview += ` &middot; ${recap.prsThisWeek.length} PR${recap.prsThisWeek.length > 1 ? 's' : ''}`;
-  el.innerHTML = `<div class="recap-card-header">This Week ${gradeHtml}</div><div class="recap-card-preview">${preview}</div>`;
-  el.onclick = () => showRecapModal(recap);
-
-  // Grade badge tap handler opens balance sheet
-  const gradeBadge = $('recap-grade-badge');
-  if (gradeBadge) {
-    gradeBadge.onclick = (e) => {
-      e.stopPropagation();
-      showBalanceSheet(gradeResult);
-    };
-  }
+  el.innerHTML = `<div class="recap-card-header">This Week ${gradeHtml}</div><div class="recap-card-preview">${preview}</div>${gradeLabel}`;
+  el.onclick = () => showRecapModal(recap, gradeResult);
 }
 
-function showRecapModal(recap) {
+function showRecapModal(recap, gradeResult) {
   const body = $('edit-body');
   let html = '';
+
+  // Grade breakdown
+  if (gradeResult && !gradeResult.insufficient && gradeResult.grade) {
+    const gradeColor = gradeResult.grade.startsWith('A') || gradeResult.grade.startsWith('B') ? 'var(--green)'
+      : gradeResult.grade.startsWith('C') ? 'var(--yellow)' : 'var(--red)';
+    html += `<div style="text-align:center;margin-bottom:12px">
+      <span style="font-size:1.8rem;font-weight:800;color:${gradeColor}">${gradeResult.grade}</span>
+      <span style="font-size:var(--text-sm);color:var(--text-dim);margin-left:8px">${gradeResult.label} &middot; ${gradeResult.score}/100</span>
+    </div>`;
+    const p = gradeResult.pillars;
+    if (p.compliance) html += renderPillarRow('Compliance', p.compliance.score, 25, p.compliance.detail || `${p.compliance.pct}% of prescribed sets`);
+    if (p.coverage) html += renderPillarRow('Coverage', p.coverage.score, 30, `Push:Pull ${p.coverage.pushPullRatio}:1`);
+    if (p.intensity) html += renderPillarRow('Intensity', p.intensity.score, 25, `Avg ${p.intensity.avgIntensity}% of e1RM`);
+    if (p.consistency) html += renderPillarRow('Consistency', p.consistency.score, 20, `${p.consistency.days} training days`);
+    if (gradeResult.bonusPoints > 0) {
+      const b = gradeResult.bonuses;
+      const parts = [];
+      if (b.pr) parts.push('PR +1');
+      if (b.rpeQuality) parts.push('RPE quality +2');
+      if (b.variety) parts.push('Variety +2');
+      if (b.rpeLogging) parts.push('RPE logged +1');
+      html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:12px">Bonuses: ${parts.join(', ')}</div>`;
+    }
+    html += `<div style="border-top:1px solid var(--border);margin:12px 0"></div>`;
+  }
 
   // Top set
   if (recap.topSet) {
