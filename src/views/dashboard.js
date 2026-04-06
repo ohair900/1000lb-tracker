@@ -391,35 +391,42 @@ function showPriorWeekSheet(review, gradeResult, insights) {
   });
   html += '</div>';
 
-  // Muscle coverage with context
+  // Muscle coverage with volume-based status
+  const statusColors = {
+    'Worked hard': 'var(--green)',
+    'On target': 'var(--green)',
+    'Light': 'var(--yellow)',
+    'Needs more': 'var(--yellow)',
+    'Recovering': 'var(--bench)',
+    'Skipped': '#b55',
+  };
   const fatigue = calcFatigueByMuscle();
   html += `<div style="margin:12px 0"><div class="section-label-lg">Muscle Coverage</div>`;
   MUSCLE_GROUPS.forEach(mg => {
     const data = review.coverage[mg];
     const sets = data ? Math.round(data.sets) : 0;
-    const target = WEEKLY_SET_TARGETS[mg] || { min: 4, max: 16 };
-    const priorSets = review.prior && review.prior.coverage[mg] ? Math.round(review.prior.coverage[mg].sets) : 0;
-    const delta = sets - priorSets;
 
-    // Status label
+    // Status: use volume-based status from coverage, override with Recovering if fatigued
     const fatigueStatus = fatigue && fatigue[mg] ? fatigue[mg].displayStatus : null;
-    let status, statusColor;
-    if (sets > target.max * 0.75) { status = 'Worked hard'; statusColor = 'var(--green)'; }
-    else if (sets >= target.min) { status = 'On target'; statusColor = 'var(--green)'; }
-    else if (sets > 0 && (fatigueStatus === 'red' || fatigueStatus === 'orange')) { status = 'Recovering'; statusColor = 'var(--bench)'; }
-    else if (sets > 0 && sets < target.min * 0.5) { status = 'Needs more'; statusColor = 'var(--yellow)'; }
-    else if (sets > 0) { status = 'Light'; statusColor = 'var(--yellow)'; }
-    else if (fatigueStatus === 'red' || fatigueStatus === 'orange') { status = 'Recovering'; statusColor = 'var(--bench)'; }
-    else { status = 'Skipped'; statusColor = 'var(--text-dim)'; }
+    let status = data ? data.status : 'Skipped';
+    if ((status === 'Light' || status === 'Needs more' || status === 'Skipped') && (fatigueStatus === 'red' || fatigueStatus === 'orange')) {
+      status = 'Recovering';
+    }
+    const statusColor = statusColors[status] || 'var(--text-dim)';
 
-    const deltaStr = delta !== 0 ? `<span style="color:${delta > 0 ? 'var(--green)' : 'var(--red)'}">${delta > 0 ? '+' : ''}${delta}</span>` : '<span style="color:var(--text-dim)">0</span>';
+    // vs average column
+    const vsAvg = data ? data.vsAvg : null;
+    let vsAvgStr;
+    if (vsAvg === null) { vsAvgStr = '<span style="color:var(--text-dim)">—</span>'; }
+    else if (vsAvg > 10) { vsAvgStr = `<span style="color:var(--green)">+${vsAvg}%</span>`; }
+    else if (vsAvg < -10) { vsAvgStr = `<span style="color:var(--red)">${vsAvg}%</span>`; }
+    else { vsAvgStr = `<span style="color:var(--text-dim)">${vsAvg > 0 ? '+' : ''}${vsAvg}%</span>`; }
 
     html += `<div class="review-muscle-row">
       <span class="review-muscle-name">${mg}</span>
       <span class="review-muscle-sets">${sets}</span>
-      <span class="review-muscle-target">${target.min}-${target.max}</span>
       <span class="review-muscle-status" style="color:${statusColor}">${status}</span>
-      <span class="review-muscle-delta">${deltaStr}</span>
+      <span class="review-muscle-delta">${vsAvgStr}</span>
     </div>`;
   });
   html += '</div>';

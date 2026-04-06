@@ -19,7 +19,7 @@ import { resolveExercise } from '../data/exercise-compat.js';
  * @param {Date} weekStart - Monday of the week to analyze
  * @returns {Object} { [muscleGroup]: { displayStatus, displayLabel, sets, exercises } }
  */
-export function calcWeeklyCoverage(weekStart) {
+export function calcWeeklyCoverage(weekStart, avgVolume) {
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 7);
   const startMs = weekStart.getTime();
@@ -28,10 +28,11 @@ export function calcWeeklyCoverage(weekStart) {
   const weekEntries = store.entries.filter(e => e.timestamp >= startMs && e.timestamp < endMs);
   const weekAccessories = store.accessoryLog.filter(l => l.timestamp >= startMs && l.timestamp < endMs);
 
-  // Count sets per muscle
+  // Count sets AND volume per muscle
   const muscleSets = {};
+  const muscleVolume = {};
   const muscleExercises = {};
-  MUSCLE_GROUPS.forEach(mg => { muscleSets[mg] = 0; muscleExercises[mg] = []; });
+  MUSCLE_GROUPS.forEach(mg => { muscleSets[mg] = 0; muscleVolume[mg] = 0; muscleExercises[mg] = []; });
 
   for (const entry of weekEntries) {
     const weights = MAIN_LIFT_WEIGHTS[entry.lift];
@@ -39,6 +40,7 @@ export function calcWeeklyCoverage(weekStart) {
     for (const mg of MUSCLE_GROUPS) {
       if (weights[mg] >= 0.15) {
         muscleSets[mg] += 1;
+        muscleVolume[mg] += entry.weight * entry.reps * weights[mg];
         const name = LIFT_NAMES[entry.lift];
         if (!muscleExercises[mg].includes(name)) muscleExercises[mg].push(name);
       }
@@ -46,8 +48,8 @@ export function calcWeeklyCoverage(weekStart) {
   }
 
   for (const log of weekAccessories) {
-    const setsCompleted = log.setsCompleted ? log.setsCompleted.length : 0;
-    if (setsCompleted === 0) continue;
+    const setsCompleted = log.setsCompleted || [];
+    if (setsCompleted.length === 0) continue;
     const catalogEx = resolveExercise(log.exerciseId);
     const legacyEx = !catalogEx ? ACCESSORY_DB[log.exerciseId] : null;
     const name = catalogEx ? catalogEx.name : (legacyEx ? legacyEx.name : null);
@@ -55,7 +57,10 @@ export function calcWeeklyCoverage(weekStart) {
     if (catalogEx && catalogEx.primaryMuscles) {
       for (const [mg, weight] of Object.entries(catalogEx.primaryMuscles)) {
         if (weight >= 0.15) {
-          muscleSets[mg] += setsCompleted;
+          muscleSets[mg] += setsCompleted.length;
+          const w = log.weight || 0;
+          const vol = setsCompleted.reduce((s, r) => s + Math.abs(w) * r, 0) * weight;
+          muscleVolume[mg] += vol;
           if (name && !muscleExercises[mg].includes(name)) muscleExercises[mg].push(name);
         }
       }
@@ -64,7 +69,10 @@ export function calcWeeklyCoverage(weekStart) {
       if (catWeights) {
         for (const mg of MUSCLE_GROUPS) {
           if (catWeights[mg] >= 0.15) {
-            muscleSets[mg] += setsCompleted;
+            muscleSets[mg] += setsCompleted.length;
+            const w = log.weight || 0;
+            const vol = setsCompleted.reduce((s, r) => s + Math.abs(w) * r, 0) * catWeights[mg];
+            muscleVolume[mg] += vol;
             if (name && !muscleExercises[mg].includes(name)) muscleExercises[mg].push(name);
           }
         }
@@ -72,19 +80,56 @@ export function calcWeeklyCoverage(weekStart) {
     }
   }
 
-  // Map sets to display status for body map coloring
+  // Derive status from volume relative to average
   const result = {};
   MUSCLE_GROUPS.forEach(mg => {
     const sets = Math.round(muscleSets[mg] * 10) / 10;
-    let displayStatus;
-    if (sets >= 3) displayStatus = 'green';
-    else if (sets >= 2) displayStatus = 'lime';
-    else if (sets >= 1) displayStatus = 'yellow';
-    else displayStatus = null; // gray/dim on body map
-    result[mg] = { displayStatus, displayLabel: `${Math.round(sets)}`, sets, exercises: muscleExercises[mg] };
+    const volume = Math.round(muscleVolume[mg]);
+    const avg = avgVolume ? (avgVolume[mg] || 0) : 0;
+    const ratio = avg > 0 ? volume / avg : (volume > 0 ? 2.0 : 0);
+
+    let status, displayStatus;
+    if (volume === 0) { status = 'Skipped'; displayStatus = 'red'; }
+    else if (ratio > 1.20) { status = 'Worked hard'; displayStatus = 'green'; }
+    else if (ratio >= 0.80) { status = 'On target'; displayStatus = 'green'; }
+    else if (ratio >= 0.40) { status = 'Light'; displayStatus = 'yellow'; }
+    else { status = 'Needs more'; displayStatus = 'orange'; }
+
+    const vsAvg = avg > 0 ? Math.round((ratio - 1) * 100) : null;
+
+    result[mg] = { displayStatus, displayLabel: `${Math.round(sets)}`, sets, volume, status, vsAvg, exercises: muscleExercises[mg] };
   });
 
   return result;
+}
+
+/**
+ * Compute 4-week rolling average volume per muscle (W-2 to W-5).
+ */
+export function calcAverageMuscleCoverage() {
+  const now = new Date();
+  const thisMonday = new Date(now.getTime() - ((now.getDay() + 6) % 7) * MS_PER_DAY);
+  thisMonday.setHours(0, 0, 0, 0);
+
+  const totals = {};
+  MUSCLE_GROUPS.forEach(mg => { totals[mg] = 0; });
+  let weekCount = 0;
+
+  for (let w = 2; w <= 5; w++) {
+    const weekStart = new Date(thisMonday.getTime() - w * 7 * MS_PER_DAY);
+    const cov = calcWeeklyCoverage(weekStart, null); // no avg needed for baseline calc
+    let hasData = false;
+    MUSCLE_GROUPS.forEach(mg => {
+      if (cov[mg] && cov[mg].volume > 0) hasData = true;
+      totals[mg] += cov[mg] ? cov[mg].volume : 0;
+    });
+    if (hasData) weekCount++;
+  }
+
+  if (weekCount === 0) return null;
+  const avg = {};
+  MUSCLE_GROUPS.forEach(mg => { avg[mg] = Math.round(totals[mg] / weekCount); });
+  return avg;
 }
 
 /**
@@ -147,7 +192,8 @@ export function calcPriorWeekReview() {
 
   if (weekEntries.length === 0 && weekAccessories.length === 0) return null;
 
-  const coverage = calcWeeklyCoverage(lastWeekStart);
+  const avgVolume = calcAverageMuscleCoverage();
+  const coverage = calcWeeklyCoverage(lastWeekStart, avgVolume);
   const focus = calcWeeklyFocus(coverage, lastWeekStart);
 
   // Per-lift stats
