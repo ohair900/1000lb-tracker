@@ -22,31 +22,15 @@ export function calcProgression(lift) {
   const recent = store.entries.filter(
     e => e.lift === lift && (now - e.timestamp) <= 90 * MS_PER_DAY
   );
-  if (recent.length < 4) return null;
+  if (recent.length < 2) return null;
 
-  // Best e1RM per day — filters out warm-ups and volume noise
-  const byDay = {};
-  recent.forEach(e => {
-    const day = e.date || new Date(e.timestamp).toISOString().split('T')[0];
-    if (!byDay[day] || e.e1rm > byDay[day].e1rm) byDay[day] = e;
-  });
-  const dailyBests = Object.values(byDay).sort((a, b) => a.timestamp - b.timestamp);
-  if (dailyBests.length < 2) return null;
+  const currentBest = Math.max(...recent.map(e => e.e1rm));
+  const oldest = recent.reduce((o, e) => e.timestamp < o.timestamp ? e : o);
+  const delta = currentBest - oldest.e1rm;
 
-  const third = Math.ceil(dailyBests.length / 3);
-  const firstThird = dailyBests.slice(0, third);
-  const lastThird = dailyBests.slice(-third);
-
-  const avgFirst = firstThird.reduce((s, e) => s + e.e1rm, 0) / firstThird.length;
-  const avgLast = lastThird.reduce((s, e) => s + e.e1rm, 0) / lastThird.length;
-
-  const daySpan = (dailyBests[dailyBests.length - 1].timestamp - dailyBests[0].timestamp) / MS_PER_DAY;
-  if (daySpan < 14) return null;
-
-  const monthRate = (avgLast - avgFirst) / (daySpan / 30);
   return {
-    monthRate,
-    direction: monthRate > 1 ? 'up' : monthRate < -1 ? 'down' : 'flat',
+    delta,
+    direction: delta > 1 ? 'up' : delta < -1 ? 'down' : 'flat',
   };
 }
 
