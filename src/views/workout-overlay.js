@@ -174,6 +174,41 @@ function updateCompleteButton() {
 }
 
 // ---------------------------------------------------------------------------
+// Complete main set with RPE
+// ---------------------------------------------------------------------------
+
+function _completeMainSet(idx, rpe) {
+  const set = store.workoutSession.mainSets[idx];
+  if (!set || set.completed) return;
+  const week = store.workoutSession.programWeek || (store.programConfig.liftWeeks?.[store.workoutSession.mainLift] || 1);
+  const isAmrap = typeof set.reps === 'string' && set.reps.toString().includes('+');
+  let repsToLog = typeof set.reps === 'string' ? parseInt(set.reps) : set.reps;
+  if (isAmrap) {
+    const amrapInput = document.querySelector(`[data-main-amrap="${idx}"]`);
+    if (amrapInput && amrapInput.value) repsToLog = parseInt(amrapInput.value);
+  }
+  if (_addEntry) _addEntry(store.workoutSession.mainLift, set.weight, repsToLog, rpe, '', []);
+  if (_updateDashboard) _updateDashboard();
+  set.completed = true;
+  set.rpe = rpe;
+  store.programConfig.completedSets[`${store.workoutSession.mainLift}-${week}-${idx}`] = true;
+  if (isAmrap && repsToLog) {
+    store.programConfig.amrapResults[`${store.workoutSession.mainLift}-${week}-${idx}`] = repsToLog;
+  }
+  const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
+  if (tmpl && tmpl.progression && tmpl.progression.type === 'session') {
+    const progResult = checkAutoProgression(store.workoutSession.mainLift);
+    if (progResult) applyProgression(progResult);
+  }
+  store.saveProgramConfig();
+  store.saveWorkoutSession();
+  startTimer(store.timerDuration);
+  if (navigator.vibrate) navigator.vibrate(50);
+  renderWorkoutView();
+  if (_renderProgramSection) _renderProgramSection();
+}
+
+// ---------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------
 
@@ -202,10 +237,11 @@ export function renderWorkoutView() {
       const isAmrap = typeof s.reps === 'string' && s.reps.toString().includes('+');
       const repDisplay = s.reps;
       const plateStr = formatPlates(s.weight);
+      const rpeLabel = s.completed && s.rpe ? ` @ RPE ${s.rpe}` : '';
       html += `<div class="workout-set-row${s.completed ? ' completed' : ''}" data-type="main" data-idx="${i}">
         <div class="workout-set-check">${s.completed ? '&#10003;' : ''}</div>
         <div class="workout-set-info">
-          Set ${s.num}: ${formatWeight(s.weight)} ${store.unit} &times; ${repDisplay}
+          Set ${s.num}: ${formatWeight(s.weight)} ${store.unit} &times; ${repDisplay}${rpeLabel}
           ${s.pct ? `<span style="color:var(--text-dim);font-size:var(--text-xs)"> (${s.pct}%)</span>` : ''}
           ${isAmrap ? '<span class="amrap-badge">AMRAP</span>' : ''}
           ${plateStr ? `<div class="plate-display">${plateStr} /side</div>` : ''}
@@ -715,6 +751,18 @@ export function initWorkoutOverlay() {
       return;
     }
 
+    // RPE pill click (inline RPE row)
+    const rpePill = e.target.closest('.rpe-pill-sm');
+    if (rpePill) {
+      const rpeRow = rpePill.closest('.workout-rpe-row');
+      if (rpeRow) {
+        const idx = parseInt(rpeRow.dataset.idx);
+        const rpeVal = rpePill.dataset.rpe ? parseFloat(rpePill.dataset.rpe) : null;
+        _completeMainSet(idx, rpeVal);
+      }
+      return;
+    }
+
     // Main set row clicks
     const mainRow = e.target.closest('.workout-set-row[data-type="main"]');
     if (mainRow) {
@@ -723,38 +771,27 @@ export function initWorkoutOverlay() {
       const week = store.workoutSession.programWeek || (store.programConfig.liftWeeks?.[store.workoutSession.mainLift] || 1);
       if (set.completed) {
         set.completed = false;
+        delete set.rpe;
         delete store.programConfig.completedSets[`${store.workoutSession.mainLift}-${week}-${idx}`];
         delete store.programConfig.amrapResults[`${store.workoutSession.mainLift}-${week}-${idx}`];
         store.saveProgramConfig();
+        store.saveWorkoutSession();
+        renderWorkoutView();
+        if (_renderProgramSection) _renderProgramSection();
       } else {
-        const isAmrap = typeof set.reps === 'string' && set.reps.toString().includes('+');
-        let repsToLog = typeof set.reps === 'string' ? parseInt(set.reps) : set.reps;
-        if (isAmrap) {
-          const amrapInput = mainRow.querySelector('.workout-set-input');
-          if (amrapInput && amrapInput.value) repsToLog = parseInt(amrapInput.value);
-        }
-        const weight = set.weight;
-        if (_addEntry) _addEntry(store.workoutSession.mainLift, weight, repsToLog, null, '', []);
-        if (_updateDashboard) _updateDashboard();
-        set.completed = true;
-        store.programConfig.completedSets[`${store.workoutSession.mainLift}-${week}-${idx}`] = true;
-        if (isAmrap && repsToLog) {
-          store.programConfig.amrapResults[`${store.workoutSession.mainLift}-${week}-${idx}`] = repsToLog;
-        }
-        const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
-        if (tmpl && tmpl.progression && tmpl.progression.type === 'session') {
-          const progResult = checkAutoProgression(store.workoutSession.mainLift);
-          if (progResult) {
-            applyProgression(progResult);
-          }
-        }
-        store.saveProgramConfig();
-        startTimer(store.timerDuration);
-        if (navigator.vibrate) navigator.vibrate(50);
+        // Show inline RPE picker below this row
+        const existing = container.querySelector('.workout-rpe-row');
+        if (existing) existing.remove();
+        const rpeRow = document.createElement('div');
+        rpeRow.className = 'workout-rpe-row';
+        rpeRow.dataset.idx = idx;
+        rpeRow.innerHTML = `<span class="rpe-row-label">RPE</span>` +
+          [6, 7, 7.5, 8, 8.5, 9, 9.5, 10].map(v =>
+            `<button class="rpe-pill-sm" data-rpe="${v}">${v}</button>`
+          ).join('') +
+          `<button class="rpe-pill-sm skip" data-rpe="">Skip</button>`;
+        mainRow.after(rpeRow);
       }
-      store.saveWorkoutSession();
-      renderWorkoutView();
-      if (_renderProgramSection) _renderProgramSection();
       return;
     }
 
