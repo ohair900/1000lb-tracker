@@ -42,7 +42,7 @@ export function updateLiftCard(lift) {
   const card = el.parentElement;
   const best = bestE1RM(lift);
   const bar = $('goal-bar-' + lift);
-  if (best !== null) { el.textContent = formatWeight(best); el.classList.remove('empty'); }
+  if (best !== null) { el.textContent = Math.round(displayWeight(best)); el.classList.remove('empty'); }
   else { el.textContent = '\u2014'; el.classList.add('empty'); }
   if (bar) {
     if (store.goals[lift] && best) {
@@ -82,7 +82,7 @@ export function updateTotalCard() {
   const totalEl = $('dash-total');
   const bar = $('goal-bar-total');
   const total = getTotal();
-  if (total) { totalEl.textContent = formatWeight(total); totalEl.classList.remove('empty'); }
+  if (total) { totalEl.textContent = Math.round(displayWeight(total)); totalEl.classList.remove('empty'); }
   else { totalEl.textContent = '\u2014'; totalEl.classList.add('empty'); }
   if (bar) {
     if (store.goals.total && total) {
