@@ -13,6 +13,19 @@
   display: flex; gap: 6px; margin-bottom: var(--space-2); flex-wrap: wrap;
 }
 
+/* Heatmap metric toggle */
+.heatmap-metric-toggle {
+  display: flex; gap: 4px; margin-bottom: 8px;
+}
+.heatmap-metric-btn {
+  font-size: 0.7rem; font-weight: 600; padding: 4px 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-pill);
+  color: var(--text-dim); cursor: pointer; transition: all var(--transition-fast);
+}
+.heatmap-metric-btn.active {
+  background: var(--gold-bg); color: var(--gold); border-color: rgba(255,215,0,0.3);
+}
+
 /* Larger, bolder controls (overrides pills.css base) */
 .chart-type-btn { padding: 8px 0; }
 .chart-filter-btn { padding: 8px 16px; }

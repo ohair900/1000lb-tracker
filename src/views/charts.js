@@ -36,6 +36,13 @@ function syncChartUI() {
   const showDateRange = store.chartType !== 'heatmap' && store.chartType !== 'calendar';
   $('chart-filters').style.display = showFilters ? 'flex' : 'none';
   $('chart-date-range').style.display = showDateRange ? 'flex' : 'none';
+  const metricToggle = document.getElementById('heatmap-metric-toggle');
+  if (metricToggle) {
+    metricToggle.style.display = store.chartType === 'heatmap' ? 'flex' : 'none';
+    metricToggle.querySelectorAll('.heatmap-metric-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.metric === (store.heatmapMetric || 'volume'))
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -460,92 +467,221 @@ function renderWilksChart(w, h) {
 }
 
 // ---------------------------------------------------------------------------
-// Heatmap Chart — larger cells, gold accent ramp
+// Heatmap Chart — per-lift colors, PR stars, streaks, weekly summary
 // ---------------------------------------------------------------------------
 
 function renderHeatmap(w, h) {
   if (store.entries.length === 0) { drawEmpty(w, h, 'No data yet'); return; }
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const weeksToShow = Math.min(26, Math.floor(w / 14));
+  const weeksToShow = Math.min(52, Math.floor((w - 40) / 10));
   const daysBack = weeksToShow * 7;
   const startDate = new Date(today.getTime() - daysBack * MS_PER_DAY);
   const startDay = startDate.getDay();
   const adjustedStart = new Date(startDate.getTime() - ((startDay + 6) % 7) * MS_PER_DAY);
 
-  const volByDate = {};
-  store.entries.forEach(e => { volByDate[e.date] = (volByDate[e.date] || 0) + e.weight * e.reps; });
-  const allVols = Object.values(volByDate).filter(v => v > 0);
-  const maxVol = allVols.length > 0 ? Math.max(...allVols) : 1;
+  // --- Data collection ---
+  const metric = store.heatmapMetric || 'volume';
+  const valByDate = {}, liftsByDate = {}, prsByDate = {}, setsByDate = {};
+  store.entries.forEach(e => {
+    if (metric === 'sets') valByDate[e.date] = (valByDate[e.date] || 0) + 1;
+    else valByDate[e.date] = (valByDate[e.date] || 0) + e.weight * e.reps;
+    if (!liftsByDate[e.date]) liftsByDate[e.date] = new Set();
+    liftsByDate[e.date].add(e.lift);
+    setsByDate[e.date] = (setsByDate[e.date] || 0) + 1;
+    if (e.isPR) { if (!prsByDate[e.date]) prsByDate[e.date] = []; prsByDate[e.date].push(e.lift); }
+  });
+  const allVals = Object.values(valByDate).filter(v => v > 0);
+  const maxVal = allVals.length > 0 ? Math.max(...allVals) : 1;
 
-  const cellSize = Math.min(16, Math.floor((w - 40) / (weeksToShow + 1)));
+  // Streak data
+  const trainingDates = new Set(Object.keys(valByDate));
+
+  // --- Layout ---
+  const cellSize = Math.min(14, Math.max(8, Math.floor((w - 40) / (weeksToShow + 1))));
   const gap = 2;
-  const padLeft = 28;
-  const padTop = 20;
+  const padLeft = 22;
+  const padTop = 18;
+  const summaryRowH = 16;
   const dayLabels = ['M', '', 'W', '', 'F', '', 'S'];
   const surface2 = getComputedStyle(document.documentElement).getPropertyValue('--surface2').trim() || '#2a2a2a';
 
-  // Day of week labels
-  ctx.font = '9px -apple-system, sans-serif'; ctx.fillStyle = '#666'; ctx.textAlign = 'right';
-  for (let d = 0; d < 7; d++) {
-    if (dayLabels[d]) ctx.fillText(dayLabels[d], padLeft - 4, padTop + d * (cellSize + gap) + cellSize - 1);
+  // Lift colors (parse COLORS into rgb for blending)
+  const LIFT_RGB = {
+    squat: [229, 57, 53],
+    bench: [30, 136, 229],
+    deadlift: [67, 160, 71],
+  };
+  const baseRGB = [42, 42, 42]; // surface2 approximate
+
+  function liftColor(dateStr, val) {
+    if (val === 0) return surface2;
+    const lifts = liftsByDate[dateStr];
+    if (!lifts || lifts.size === 0) return surface2;
+    const t = Math.pow(Math.min(1, val / maxVal), 0.7);
+    // Blend lift colors
+    let r = 0, g = 0, b = 0, count = 0;
+    for (const lift of lifts) {
+      const rgb = LIFT_RGB[lift];
+      if (rgb) { r += rgb[0]; g += rgb[1]; b += rgb[2]; count++; }
+    }
+    if (count === 0) return surface2;
+    r /= count; g /= count; b /= count;
+    // Interpolate from base to lift color
+    const fr = Math.round(baseRGB[0] + (r - baseRGB[0]) * t);
+    const fg = Math.round(baseRGB[1] + (g - baseRGB[1]) * t);
+    const fb = Math.round(baseRGB[2] + (b - baseRGB[2]) * t);
+    return `rgb(${fr},${fg},${fb})`;
   }
 
-  // Month labels
+  // --- Day of week labels ---
+  ctx.font = `${Math.max(7, cellSize - 3)}px -apple-system, sans-serif`;
+  ctx.fillStyle = '#666'; ctx.textAlign = 'right';
+  for (let d = 0; d < 7; d++) {
+    if (dayLabels[d]) ctx.fillText(dayLabels[d], padLeft - 3, padTop + d * (cellSize + gap) + cellSize - 1);
+  }
+
+  // --- Month labels + separator lines ---
   ctx.textAlign = 'center';
   let lastMonth = -1;
   for (let wk = 0; wk <= weeksToShow; wk++) {
     const weekStart = new Date(adjustedStart.getTime() + wk * 7 * MS_PER_DAY);
     const month = weekStart.getMonth();
     if (month !== lastMonth) {
+      // Month separator line
+      if (lastMonth !== -1) {
+        const sx = padLeft + wk * (cellSize + gap) - gap / 2;
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 2]);
+        ctx.beginPath();
+        ctx.moveTo(sx, padTop);
+        ctx.lineTo(sx, padTop + 7 * (cellSize + gap));
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
       lastMonth = month;
       const x = padLeft + wk * (cellSize + gap) + cellSize / 2;
-      ctx.fillText(weekStart.toLocaleDateString('en-US', { month: 'short' }), x, padTop - 6);
+      ctx.font = `bold ${Math.max(8, cellSize - 2)}px -apple-system, sans-serif`;
+      ctx.fillStyle = '#888';
+      ctx.fillText(weekStart.toLocaleDateString('en-US', { month: 'short' }), x, padTop - 5);
     }
   }
 
-  // Gold accent color ramp: surface2 → gold (#ffd700 = 255,215,0)
-  function heatColor(vol) {
-    if (vol === 0) return surface2;
-    const t = Math.pow(Math.min(1, vol / maxVol), 0.7);
-    const r = Math.round(42 + (255 - 42) * t);
-    const g = Math.round(42 + (215 - 42) * t);
-    const b = Math.round(42 - 42 * t);
-    return `rgb(${r},${g},${b})`;
-  }
-
-  // Draw cells
+  // --- Draw cells ---
+  const weekTotals = [];
   for (let wk = 0; wk <= weeksToShow; wk++) {
+    let weekTotal = 0;
     for (let day = 0; day < 7; day++) {
       const cellDate = new Date(adjustedStart.getTime() + (wk * 7 + day) * MS_PER_DAY);
       if (cellDate > today) continue;
       const dateStr = cellDate.toISOString().split('T')[0];
-      const vol = volByDate[dateStr] || 0;
+      const val = valByDate[dateStr] || 0;
+      weekTotal += val;
       const x = padLeft + wk * (cellSize + gap);
       const y = padTop + day * (cellSize + gap);
 
-      ctx.fillStyle = heatColor(vol);
+      // Cell fill
+      ctx.fillStyle = liftColor(dateStr, val);
       ctx.beginPath();
-      ctx.roundRect(x, y, cellSize, cellSize, 3);
+      ctx.roundRect(x, y, cellSize, cellSize, 2);
       ctx.fill();
 
-      if (vol > 0) {
-        store.chartPoints.push({ x: x + cellSize / 2, y: y + cellSize / 2, date: dateStr, value: vol, lift: 'Volume', color: ctx.fillStyle });
+      // Streak highlight: border on consecutive training days
+      if (val > 0) {
+        const prevDateStr = new Date(cellDate.getTime() - MS_PER_DAY).toISOString().split('T')[0];
+        const nextDateStr = new Date(cellDate.getTime() + MS_PER_DAY).toISOString().split('T')[0];
+        if (trainingDates.has(prevDateStr) || trainingDates.has(nextDateStr)) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.roundRect(x + 0.5, y + 0.5, cellSize - 1, cellSize - 1, 2);
+          ctx.stroke();
+        }
       }
+
+      // PR star
+      if (prsByDate[dateStr]) {
+        ctx.font = `${Math.max(6, cellSize - 5)}px sans-serif`;
+        ctx.fillStyle = '#ffd700';
+        ctx.textAlign = 'center';
+        ctx.fillText('\u2605', x + cellSize / 2, y + cellSize / 2 + Math.max(2, cellSize / 5));
+      }
+
+      // Tooltip data
+      if (val > 0) {
+        const lifts = liftsByDate[dateStr] ? [...liftsByDate[dateStr]].map(l => LIFT_SHORT[l] || l).join('/') : '';
+        const sets = setsByDate[dateStr] || 0;
+        const prs = prsByDate[dateStr] ? prsByDate[dateStr].length : 0;
+        store.chartPoints.push({
+          x: x + cellSize / 2, y: y + cellSize / 2,
+          date: dateStr, value: val,
+          lift: lifts, color: ctx.fillStyle,
+          sets, prs,
+          tooltipExtra: `${sets} sets${prs > 0 ? ` · ${prs} PR` : ''}`,
+        });
+      }
+    }
+    weekTotals.push(weekTotal);
+  }
+
+  // --- Weekly summary row ---
+  const maxWeekTotal = Math.max(...weekTotals, 1);
+  const summaryY = padTop + 7 * (cellSize + gap) + 4;
+  for (let wk = 0; wk <= weeksToShow; wk++) {
+    const x = padLeft + wk * (cellSize + gap);
+    const barH = Math.max(1, (weekTotals[wk] / maxWeekTotal) * summaryRowH);
+    ctx.fillStyle = weekTotals[wk] > 0 ? 'rgba(255,215,0,0.3)' : 'transparent';
+    ctx.beginPath();
+    ctx.roundRect(x, summaryY + summaryRowH - barH, cellSize, barH, 1);
+    ctx.fill();
+  }
+
+  // --- Streak counter ---
+  const streakData = _calcHeatmapStreak(trainingDates);
+  if (streakData) {
+    ctx.font = `bold ${Math.max(9, cellSize - 1)}px -apple-system, sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#888';
+    const streakText = streakData.current > 0
+      ? `${streakData.current}d streak · Best: ${streakData.longest}d`
+      : `Best streak: ${streakData.longest}d`;
+    ctx.fillText(streakText, padLeft, summaryY + summaryRowH + 14);
+  }
+
+  // --- Legend ---
+  const legendY = h - 12;
+  ctx.font = '8px -apple-system, sans-serif'; ctx.textAlign = 'left';
+  ctx.fillStyle = '#666'; ctx.fillText('SQ', padLeft, legendY);
+  ctx.fillStyle = `rgb(${LIFT_RGB.squat})`; ctx.fillRect(padLeft + 14, legendY - 7, 8, 8);
+  ctx.fillStyle = '#666'; ctx.fillText('BP', padLeft + 28, legendY);
+  ctx.fillStyle = `rgb(${LIFT_RGB.bench})`; ctx.fillRect(padLeft + 42, legendY - 7, 8, 8);
+  ctx.fillStyle = '#666'; ctx.fillText('DL', padLeft + 56, legendY);
+  ctx.fillStyle = `rgb(${LIFT_RGB.deadlift})`; ctx.fillRect(padLeft + 68, legendY - 7, 8, 8);
+  ctx.fillStyle = '#ffd700'; ctx.fillText('\u2605 = PR', padLeft + 84, legendY);
+}
+
+function _calcHeatmapStreak(trainingDates) {
+  if (trainingDates.size === 0) return null;
+  const sorted = [...trainingDates].sort().reverse();
+  const today = new Date().toISOString().split('T')[0];
+  const dayDiff = (a, b) => Math.round((new Date(a + 'T12:00:00') - new Date(b + 'T12:00:00')) / MS_PER_DAY);
+
+  let current = 0;
+  if (dayDiff(today, sorted[0]) <= 1) {
+    current = 1;
+    for (let i = 1; i < sorted.length; i++) {
+      if (dayDiff(sorted[i - 1], sorted[i]) <= 1) current++;
+      else break;
     }
   }
 
-  // Legend
-  const legendX = w - 110, legendY = h - 14;
-  ctx.font = '9px -apple-system, sans-serif'; ctx.fillStyle = '#666'; ctx.textAlign = 'left';
-  ctx.fillText('Less', legendX, legendY);
-  for (let i = 0; i < 5; i++) {
-    ctx.fillStyle = i === 0 ? surface2 : heatColor((i / 4) * maxVol);
-    ctx.beginPath();
-    ctx.roundRect(legendX + 30 + i * 13, legendY - 10, 10, 10, 2);
-    ctx.fill();
+  let longest = 1, run = 1;
+  for (let i = 1; i < sorted.length; i++) {
+    if (dayDiff(sorted[i - 1], sorted[i]) <= 1) { run++; if (run > longest) longest = run; }
+    else run = 1;
   }
-  ctx.fillStyle = '#666'; ctx.fillText('More', legendX + 98, legendY);
+  return { current, longest };
 }
 
 // ---------------------------------------------------------------------------
@@ -766,7 +902,11 @@ function handleChartHover(e) {
       }
     }
 
-    tooltip.innerHTML = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${closest.color};margin-right:4px;vertical-align:middle"></span><span style="color:${closest.color};font-weight:600">${name}</span>${deltaHtml}<br><span style="font-size:0.85rem;font-weight:700;color:#fff">${valDisplay}</span><br><span style="color:#888;font-size:0.65rem">${dateLabel}</span>`;
+    if (store.chartType === 'heatmap' && closest.tooltipExtra) {
+      tooltip.innerHTML = `<span style="color:${closest.color};font-weight:600">${closest.lift}</span><br><span style="font-size:0.85rem;font-weight:700;color:#fff">${fmtNum(displayWeight(closest.value))} ${store.unit}</span><br><span style="color:#aaa;font-size:0.7rem">${closest.tooltipExtra}</span><br><span style="color:#888;font-size:0.65rem">${dateLabel}</span>`;
+    } else {
+      tooltip.innerHTML = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${closest.color};margin-right:4px;vertical-align:middle"></span><span style="color:${closest.color};font-weight:600">${name}</span>${deltaHtml}<br><span style="font-size:0.85rem;font-weight:700;color:#fff">${valDisplay}</span><br><span style="color:#888;font-size:0.65rem">${dateLabel}</span>`;
+    }
     const containerRect = canvas.parentElement.getBoundingClientRect();
     let tx = closest.x + 12, ty = closest.y - 40;
     if (tx + 140 > containerRect.width - 12) tx = closest.x - 140;
@@ -845,6 +985,20 @@ export function initChartsTab() {
   crosshair.id = 'chart-crosshair';
   crosshair.className = 'chart-crosshair';
   canvas.parentElement.appendChild(crosshair);
+
+  // Heatmap metric toggle
+  const metricToggle = document.createElement('div');
+  metricToggle.id = 'heatmap-metric-toggle';
+  metricToggle.className = 'heatmap-metric-toggle';
+  metricToggle.style.display = 'none';
+  metricToggle.innerHTML = `<button class="heatmap-metric-btn active" data-metric="volume">Volume</button><button class="heatmap-metric-btn" data-metric="sets">Sets</button>`;
+  canvas.parentElement.parentElement.insertBefore(metricToggle, canvas.parentElement);
+  metricToggle.addEventListener('click', e => {
+    const btn = e.target.closest('.heatmap-metric-btn');
+    if (!btn) return;
+    store.heatmapMetric = btn.dataset.metric;
+    renderChart();
+  });
 
   // Chart date range pills
   $('chart-date-range').addEventListener('click', e => {

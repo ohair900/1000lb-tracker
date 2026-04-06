@@ -112,6 +112,7 @@ class Store {
     this.chartFilter = 'all';
     this.chartType = 'e1rm';
     this.chartDateRange = 'all';
+    this.heatmapMetric = 'volume';
     this.historyFilter = 'all';
     this.historyFrom = '';
     this.historyTo = '';
