@@ -9,6 +9,15 @@
 }
 .prior-week-card:hover { border-color: var(--border-hover); }
 .prior-week-focus { font-size: 0.7rem; color: var(--text-dim); margin-top: 4px; font-weight: 600; }
+
+/* Insight chips */
+.insight-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.insight-chip {
+  font-size: 0.6rem; font-weight: 700; padding: 2px 8px;
+  border-radius: 10px; color: #000; white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
 .recap-grade-badge {
   font-size: 0.85rem; font-weight: 800; padding: 2px 8px;
   border-radius: var(--radius-pill); color: #000;

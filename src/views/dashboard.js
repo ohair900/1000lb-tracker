@@ -25,6 +25,7 @@ import { updatePlateauCards } from '../views/plateau-analysis.js';
 import { calcStreak } from '../systems/streak.js';
 import { calcWeeklyRecap } from '../systems/weekly-recap.js';
 import { calcPriorWeekReview } from '../systems/weekly-coverage.js';
+import { calcWeeklyInsights } from '../systems/weekly-insights.js';
 import { calcWeeklyGrade } from '../systems/weekly-grade.js';
 import { openReviewSheet, closeReviewSheet } from '../ui/sheet.js';
 import { enableSheetSwipeDismiss } from '../ui/sheet.js';
@@ -311,10 +312,19 @@ export function renderPriorWeekCard() {
   let statsLine = `${review.totalSets} sets &middot; ${fmtNum(displayWeight(review.totalVolume))} ${store.unit} vol`;
   if (prCount > 0) statsLine += ` &middot; ${prCount} PR${prCount > 1 ? 's' : ''}`;
 
+  // Insight chips
+  const insights = calcWeeklyInsights();
+  let chipsHtml = '';
+  if (insights && insights.chips.length > 0) {
+    chipsHtml = `<div class="insight-chips">` +
+      insights.chips.map(c => `<span class="insight-chip" style="background:${c.color}">${c.label}</span>`).join('') +
+      `</div>`;
+  }
+
   el.innerHTML = `<div class="recap-card-header">Last Week in Review ${gradeHtml}</div>` +
     `<div class="recap-card-preview">${statsLine}</div>` +
-    `<div class="prior-week-focus">${review.focus}</div>`;
-  el.onclick = () => showPriorWeekSheet(review, gradeResult);
+    chipsHtml;
+  el.onclick = () => showPriorWeekSheet(review, gradeResult, insights);
 
   // Init swipe dismiss once
   if (!_reviewSheetSwipeInit) {
@@ -325,7 +335,7 @@ export function renderPriorWeekCard() {
   }
 }
 
-function showPriorWeekSheet(review, gradeResult) {
+function showPriorWeekSheet(review, gradeResult, insights) {
   const body = $('review-sheet-body');
   let html = '';
   let _fullHtml = ''; // saved for back navigation
@@ -379,8 +389,17 @@ function showPriorWeekSheet(review, gradeResult) {
     html += '</div>';
   }
 
-  // Focus suggestion
-  html += `<div style="font-size:0.8rem;color:var(--text);padding:10px 0;border-top:1px solid var(--border);font-weight:600">${review.focus}</div>`;
+  // Insights (all, with detail text)
+  if (insights && insights.allInsights.length > 0) {
+    html += `<div style="margin:12px 0;border-top:1px solid var(--border);padding-top:12px"><div class="section-label-lg">Insights</div>`;
+    insights.allInsights.forEach(c => {
+      html += `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px">
+        <span class="insight-chip" style="background:${c.color};flex-shrink:0">${c.label}</span>
+        <span style="font-size:var(--text-xs);color:var(--text-dim);padding-top:2px">${c.detail}</span>
+      </div>`;
+    });
+    html += '</div>';
+  }
 
   body.innerHTML = html;
   _fullHtml = html;
