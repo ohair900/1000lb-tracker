@@ -25,6 +25,9 @@ import { updatePlateauCards } from '../views/plateau-analysis.js';
 import { calcStreak } from '../systems/streak.js';
 import { calcWeeklyRecap } from '../systems/weekly-recap.js';
 import { calcPriorWeekReview } from '../systems/weekly-coverage.js';
+import { calcWeeklyGrade } from '../systems/weekly-grade.js';
+import { openReviewSheet, closeReviewSheet } from '../ui/sheet.js';
+import { enableSheetSwipeDismiss } from '../ui/sheet.js';
 import { checkBadges } from '../systems/badges.js';
 import { openModal } from '../ui/modal.js';
 import { shareMilestoneCard } from '../ui/share.js';
@@ -276,65 +279,69 @@ export function updatePRStreakBar() {
 // Prior Week Review card (Mon–Wed only)
 // ---------------------------------------------------------------------------
 
+let _reviewSheetSwipeInit = false;
+
 export function renderPriorWeekCard() {
   const el = $('prior-week-card');
   const dayOfWeek = new Date().getDay(); // 0=Sun, 1=Mon, 2=Tue, 3=Wed
-  // Show Mon(1), Tue(2), Wed(3) only
-  if (dayOfWeek < 1 || dayOfWeek > 3) { el.style.display = 'none'; return; }
+  // Show Sun(0), Mon(1), Tue(2), Wed(3) — hide Thu(4), Fri(5), Sat(6)
+  if (dayOfWeek >= 4) { el.style.display = 'none'; return; }
 
   const review = calcPriorWeekReview();
   if (!review) { el.style.display = 'none'; return; }
   el.style.display = 'block';
 
-  // Compact body map
-  const mapHtml = renderBodyMap(review.coverage);
+  // Grade the prior week
+  const now = new Date();
+  const thisMonday = new Date(now.getTime() - ((now.getDay() + 6) % 7) * MS_PER_DAY);
+  thisMonday.setHours(0, 0, 0, 0);
+  const lastMonday = new Date(thisMonday.getTime() - 7 * MS_PER_DAY);
+  const gradeResult = calcWeeklyGrade({ weekStart: lastMonday });
 
-  // Lift summary line
-  const liftLine = LIFTS.map(l => {
-    const s = review.liftStats[l];
-    return `${LIFT_SHORT[l]}: ${s.sets} sets`;
-  }).join(' &middot; ');
+  // Grade badge
+  let gradeHtml = '';
+  if (gradeResult && !gradeResult.insufficient && gradeResult.grade) {
+    const gradeColor = gradeResult.grade.startsWith('A') || gradeResult.grade.startsWith('B') ? 'var(--green)'
+      : gradeResult.grade.startsWith('C') ? 'var(--yellow)' : 'var(--red)';
+    gradeHtml = `<span class="recap-grade-badge" style="background:${gradeColor}">${gradeResult.grade}</span>`;
+  }
 
-  el.innerHTML = `<div class="recap-card-header">Last Week in Review</div>` +
-    `<div class="body-map-compact">${mapHtml}</div>` +
-    `<div class="prior-week-lifts">${liftLine}</div>` +
+  // Stats line
+  const prCount = review.prs.length;
+  let statsLine = `${review.totalSets} sets &middot; ${fmtNum(displayWeight(review.totalVolume))} ${store.unit} vol`;
+  if (prCount > 0) statsLine += ` &middot; ${prCount} PR${prCount > 1 ? 's' : ''}`;
+
+  el.innerHTML = `<div class="recap-card-header">Last Week in Review ${gradeHtml}</div>` +
+    `<div class="recap-card-preview">${statsLine}</div>` +
     `<div class="prior-week-focus">${review.focus}</div>`;
-  el.onclick = () => showPriorWeekModal(review);
+  el.onclick = () => showPriorWeekSheet(review, gradeResult);
 
-  // Attach body map click events
-  const bodyMapEl = el.querySelector('.body-map-container');
-  if (bodyMapEl) {
-    initBodyMapEvents(bodyMapEl, (mg) => showCoverageDetail(mg, review.coverage));
+  // Init swipe dismiss once
+  if (!_reviewSheetSwipeInit) {
+    _reviewSheetSwipeInit = true;
+    enableSheetSwipeDismiss('review-sheet', 'review-sheet-backdrop', closeReviewSheet);
+    $('review-sheet-close').onclick = closeReviewSheet;
+    $('review-sheet-backdrop').onclick = closeReviewSheet;
   }
 }
 
-function showCoverageDetail(mg, coverage) {
-  const data = coverage[mg];
-  if (!data) return;
-  const body = $('edit-body');
-  let html = `<div style="text-align:center;margin-bottom:12px">
-    <div style="font-size:1.2rem;font-weight:700;color:var(--text-strong)">${mg}</div>
-    <div style="font-size:var(--text-sm);color:var(--text-dim)">${Math.round(data.sets)} sets last week</div>
-  </div>`;
-  if (data.exercises.length > 0) {
-    html += `<div class="section-label-lg">Contributing Exercises</div>`;
-    data.exercises.forEach(ex => {
-      html += `<div style="font-size:var(--text-sm);padding:4px 0;color:var(--text)">${ex}</div>`;
-    });
-  } else {
-    html += `<div style="font-size:var(--text-sm);color:var(--text-dim);text-align:center;padding:12px 0">No exercises hit this muscle last week</div>`;
-  }
-  $('edit-modal').querySelector('h3').textContent = 'Muscle Detail';
-  body.innerHTML = html;
-  openModal('edit-modal');
-}
-
-function showPriorWeekModal(review) {
-  const body = $('edit-body');
+function showPriorWeekSheet(review, gradeResult) {
+  const body = $('review-sheet-body');
   let html = '';
+  let _fullHtml = ''; // saved for back navigation
 
-  // Body map (full size)
-  html += `<div id="prior-week-modal-map">${renderBodyMap(review.coverage)}</div>`;
+  // Grade header
+  if (gradeResult && !gradeResult.insufficient && gradeResult.grade) {
+    const gradeColor = gradeResult.grade.startsWith('A') || gradeResult.grade.startsWith('B') ? 'var(--green)'
+      : gradeResult.grade.startsWith('C') ? 'var(--yellow)' : 'var(--red)';
+    html += `<div style="text-align:center;margin-bottom:12px">
+      <span style="font-size:1.8rem;font-weight:800;color:${gradeColor}">${gradeResult.grade}</span>
+      <span style="font-size:var(--text-sm);color:var(--text-dim);margin-left:8px">${gradeResult.label} &middot; ${gradeResult.score}/100</span>
+    </div>`;
+  }
+
+  // Body map
+  html += `<div id="review-sheet-map">${renderBodyMap(review.coverage)}</div>`;
 
   // Per-lift breakdown
   html += `<div style="margin:12px 0"><div class="section-label-lg">Lift Breakdown</div>`;
@@ -375,15 +382,35 @@ function showPriorWeekModal(review) {
   // Focus suggestion
   html += `<div style="font-size:0.8rem;color:var(--text);padding:10px 0;border-top:1px solid var(--border);font-weight:600">${review.focus}</div>`;
 
-  $('edit-modal').querySelector('h3').textContent = 'Last Week Review';
   body.innerHTML = html;
-  openModal('edit-modal');
+  _fullHtml = html;
+  openReviewSheet();
 
-  // Attach body map events inside modal
-  const modalMap = document.getElementById('prior-week-modal-map');
-  if (modalMap) {
-    const mapContainer = modalMap.querySelector('.body-map-container');
-    if (mapContainer) initBodyMapEvents(mapContainer, (mg) => showCoverageDetail(mg, review.coverage));
+  // Attach body map events
+  const mapContainer = document.getElementById('review-sheet-map')?.querySelector('.body-map-container');
+  if (mapContainer) {
+    initBodyMapEvents(mapContainer, (mg) => {
+      // Inline muscle detail with back button
+      const data = review.coverage[mg];
+      if (!data) return;
+      let detailHtml = `<div style="padding:4px 0">
+        <button class="review-back-btn" style="background:none;border:none;color:var(--text-dim);font-size:var(--text-sm);cursor:pointer;padding:4px 0">&larr; Back</button>
+        <div style="text-align:center;margin:12px 0">
+          <div style="font-size:1.2rem;font-weight:700;color:var(--text-strong)">${mg}</div>
+          <div style="font-size:var(--text-sm);color:var(--text-dim)">${Math.round(data.sets)} sets last week</div>
+        </div>`;
+      if (data.exercises.length > 0) {
+        detailHtml += `<div class="section-label-lg">Contributing Exercises</div>`;
+        data.exercises.forEach(ex => {
+          detailHtml += `<div style="font-size:var(--text-sm);padding:4px 0;color:var(--text)">${ex}</div>`;
+        });
+      } else {
+        detailHtml += `<div style="font-size:var(--text-sm);color:var(--text-dim);text-align:center;padding:12px 0">No exercises hit this muscle last week</div>`;
+      }
+      detailHtml += `</div>`;
+      body.innerHTML = detailHtml;
+      body.querySelector('.review-back-btn').onclick = () => showPriorWeekSheet(review, gradeResult);
+    });
   }
 }
 

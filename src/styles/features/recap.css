@@ -8,13 +8,12 @@
   box-shadow: var(--shadow-sm);
 }
 .prior-week-card:hover { border-color: var(--border-hover); }
-.prior-week-lifts { font-size: 0.75rem; color: var(--text); margin-top: 6px; }
 .prior-week-focus { font-size: 0.7rem; color: var(--text-dim); margin-top: 4px; font-weight: 600; }
-
-/* Compact body map for recap cards */
-.body-map-compact .body-map-svg { max-width: 85px; }
-.body-map-compact .body-map-container { margin-bottom: 4px; padding: 4px 0 0; }
-.body-map-compact .body-map-view-label { display: none; }
+.recap-grade-badge {
+  font-size: 0.85rem; font-weight: 800; padding: 2px 8px;
+  border-radius: var(--radius-pill); color: #000;
+  text-transform: none; letter-spacing: 0;
+}
 
 /* This Week card */
 .recap-card {

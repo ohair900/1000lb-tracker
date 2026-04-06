@@ -60,6 +60,18 @@ export function closeFatigueSheet() {
 }
 
 // ---------------------------------------------------------------------------
+// Review sheet (prior week review)
+// ---------------------------------------------------------------------------
+
+export function openReviewSheet() {
+  openSheet('review-sheet', 'review-sheet-backdrop');
+}
+
+export function closeReviewSheet() {
+  closeSheet('review-sheet', 'review-sheet-backdrop');
+}
+
+// ---------------------------------------------------------------------------
 // Choice sheet (workout picker)
 // ---------------------------------------------------------------------------
 

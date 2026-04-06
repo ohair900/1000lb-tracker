@@ -7,7 +7,7 @@
  *  3. Intensity Quality (25 pts) — weight accuracy + effective intensity
  *  4. Consistency (20 pts) — training days vs elapsed days, 3 days/week = full marks
  *
- * Bonuses (+8 max): PR, RPE quality, accessory variety, RPE logging
+ * Bonuses (+15 max): Main lift PRs (+5 each), RPE quality, accessory variety, RPE logging
  *
  * Grade scale: A+ (95-100), A (90-94), A- (85-89), B+ (80-84), B (75-79),
  * B- (70-74), C+ (65-69), C (58-64), C- (50-57), D (35-49), F (0-34)
@@ -332,16 +332,21 @@ function calcConsistency(trainingDays, weekStart) {
 }
 
 // ---------------------------------------------------------------------------
-// Bonuses (+8 max)
+// Bonuses (+15 max)
 // ---------------------------------------------------------------------------
 
 function calcBonuses(weekEntries, weekAccessories) {
   let total = 0;
   const details = {};
 
-  // PR this week (+1)
-  const hasPR = weekEntries.some(e => e.isPR);
-  if (hasPR) { total += 1; details.pr = true; }
+  // Main lift PRs (+5 each, max +10) — PRs are a big deal
+  const mainPRs = weekEntries.filter(e => e.isPR && LIFTS.includes(e.lift));
+  if (mainPRs.length > 0) {
+    const prBonus = Math.min(10, mainPRs.length * 5);
+    total += prBonus;
+    details.pr = true;
+    details.prCount = mainPRs.length;
+  }
 
   // RPE quality: avg RPE of main lifts in 7-9 range (+2)
   const withRPE = weekEntries.filter(e => e.rpe != null && e.rpe > 0);
@@ -359,7 +364,7 @@ function calcBonuses(weekEntries, weekAccessories) {
     total += 1; details.rpeLogging = true;
   }
 
-  total = Math.min(8, total);
+  total = Math.min(15, total);
   return { total, details };
 }
 
