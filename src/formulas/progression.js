@@ -22,10 +22,21 @@ export function calcProgression(lift) {
   const cutoff = now - 90 * MS_PER_DAY;
   const liftEntries = store.entries.filter(e => e.lift === lift);
 
+  // First ever entry — nothing to compare against
+  if (liftEntries.length < 2) return null;
+
   const recent = liftEntries.filter(e => e.timestamp > cutoff);
   const prior = liftEntries.filter(e => e.timestamp <= cutoff);
-  if (recent.length === 0 || prior.length === 0) return null;
 
+  // Under 90 days of history — compare current best vs first entry
+  if (prior.length === 0) {
+    const sorted = liftEntries.sort((a, b) => a.timestamp - b.timestamp);
+    const currentBest = Math.max(...liftEntries.map(e => e.e1rm));
+    const delta = currentBest - sorted[0].e1rm;
+    return { delta, direction: delta > 1 ? 'up' : delta < -1 ? 'down' : 'flat' };
+  }
+
+  // 90+ days of history — compare recent best vs pre-window best
   const currentBest = Math.max(...recent.map(e => e.e1rm));
   const priorBest = Math.max(...prior.map(e => e.e1rm));
   const delta = currentBest - priorBest;
