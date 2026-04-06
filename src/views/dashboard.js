@@ -24,7 +24,7 @@ import { renderBodyMap, initBodyMapEvents } from '../views/body-map.js';
 import { updatePlateauCards } from '../views/plateau-analysis.js';
 import { calcStreak } from '../systems/streak.js';
 import { calcWeeklyRecap } from '../systems/weekly-recap.js';
-import { calcWeeklyGrade } from '../systems/weekly-grade.js';
+import { calcPriorWeekReview } from '../systems/weekly-coverage.js';
 import { checkBadges } from '../systems/badges.js';
 import { openModal } from '../ui/modal.js';
 import { shareMilestoneCard } from '../ui/share.js';
@@ -272,57 +272,142 @@ export function updatePRStreakBar() {
 // Weekly recap card (compact dashboard card)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Prior Week Review card (Mon–Wed only)
+// ---------------------------------------------------------------------------
+
+export function renderPriorWeekCard() {
+  const el = $('prior-week-card');
+  const dayOfWeek = new Date().getDay(); // 0=Sun, 1=Mon, 2=Tue, 3=Wed
+  // Show Mon(1), Tue(2), Wed(3) only
+  if (dayOfWeek < 1 || dayOfWeek > 3) { el.style.display = 'none'; return; }
+
+  const review = calcPriorWeekReview();
+  if (!review) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+
+  // Compact body map
+  const mapHtml = renderBodyMap(review.coverage);
+
+  // Lift summary line
+  const liftLine = LIFTS.map(l => {
+    const s = review.liftStats[l];
+    return `${LIFT_SHORT[l]}: ${s.sets} sets`;
+  }).join(' &middot; ');
+
+  el.innerHTML = `<div class="recap-card-header">Last Week in Review</div>` +
+    `<div class="body-map-compact">${mapHtml}</div>` +
+    `<div class="prior-week-lifts">${liftLine}</div>` +
+    `<div class="prior-week-focus">${review.focus}</div>`;
+  el.onclick = () => showPriorWeekModal(review);
+
+  // Attach body map click events
+  const bodyMapEl = el.querySelector('.body-map-container');
+  if (bodyMapEl) {
+    initBodyMapEvents(bodyMapEl, (mg) => showCoverageDetail(mg, review.coverage));
+  }
+}
+
+function showCoverageDetail(mg, coverage) {
+  const data = coverage[mg];
+  if (!data) return;
+  const body = $('edit-body');
+  let html = `<div style="text-align:center;margin-bottom:12px">
+    <div style="font-size:1.2rem;font-weight:700;color:var(--text-strong)">${mg}</div>
+    <div style="font-size:var(--text-sm);color:var(--text-dim)">${Math.round(data.sets)} sets last week</div>
+  </div>`;
+  if (data.exercises.length > 0) {
+    html += `<div class="section-label-lg">Contributing Exercises</div>`;
+    data.exercises.forEach(ex => {
+      html += `<div style="font-size:var(--text-sm);padding:4px 0;color:var(--text)">${ex}</div>`;
+    });
+  } else {
+    html += `<div style="font-size:var(--text-sm);color:var(--text-dim);text-align:center;padding:12px 0">No exercises hit this muscle last week</div>`;
+  }
+  $('edit-modal').querySelector('h3').textContent = 'Muscle Detail';
+  body.innerHTML = html;
+  openModal('edit-modal');
+}
+
+function showPriorWeekModal(review) {
+  const body = $('edit-body');
+  let html = '';
+
+  // Body map (full size)
+  html += `<div id="prior-week-modal-map">${renderBodyMap(review.coverage)}</div>`;
+
+  // Per-lift breakdown
+  html += `<div style="margin:12px 0"><div class="section-label-lg">Lift Breakdown</div>`;
+  LIFTS.forEach(l => {
+    const s = review.liftStats[l];
+    const color = COLORS[l];
+    const prBadge = s.prs > 0 ? ` <span style="color:var(--gold);font-size:0.65rem;font-weight:700">PR</span>` : '';
+    const intLabel = s.avgIntensity > 0 ? ` &middot; ${s.avgIntensity}% avg` : '';
+    html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="color:${color};font-weight:700;font-size:0.75rem;min-width:24px">${LIFT_SHORT[l]}</span>
+      <span style="flex:1;font-size:var(--text-sm);color:var(--text)">${s.sets} sets &middot; ${fmtNum(displayWeight(s.volume))} ${store.unit}${intLabel}${prBadge}</span>
+    </div>`;
+  });
+  html += '</div>';
+
+  // Muscle coverage table
+  html += `<div style="margin:12px 0"><div class="section-label-lg">Muscle Coverage</div>`;
+  MUSCLE_GROUPS.forEach(mg => {
+    const data = review.coverage[mg];
+    const sets = data ? Math.round(data.sets) : 0;
+    const color = sets >= 3 ? 'var(--green)' : sets >= 2 ? 'var(--lime, var(--green))' : sets >= 1 ? 'var(--yellow)' : 'var(--text-dim)';
+    html += `<div style="display:flex;justify-content:space-between;font-size:var(--text-xs);padding:3px 0">
+      <span style="color:var(--text)">${mg}</span>
+      <span style="color:${color};font-weight:600">${sets} sets</span>
+    </div>`;
+  });
+  html += '</div>';
+
+  // PRs
+  if (review.prs.length > 0) {
+    html += `<div style="margin:12px 0"><div class="section-label-lg">PRs Last Week</div>`;
+    review.prs.forEach(e => {
+      html += `<div class="recap-pr-item"><span style="color:${COLORS[e.lift]}">${LIFT_NAMES[e.lift]}</span> ${formatWeight(e.weight)} ${store.unit} &times; ${e.reps} = ${formatWeight(e.e1rm)} e1RM</div>`;
+    });
+    html += '</div>';
+  }
+
+  // Focus suggestion
+  html += `<div style="font-size:0.8rem;color:var(--text);padding:10px 0;border-top:1px solid var(--border);font-weight:600">${review.focus}</div>`;
+
+  $('edit-modal').querySelector('h3').textContent = 'Last Week Review';
+  body.innerHTML = html;
+  openModal('edit-modal');
+
+  // Attach body map events inside modal
+  const modalMap = document.getElementById('prior-week-modal-map');
+  if (modalMap) {
+    const mapContainer = modalMap.querySelector('.body-map-container');
+    if (mapContainer) initBodyMapEvents(mapContainer, (mg) => showCoverageDetail(mg, review.coverage));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// This Week card (simple stats)
+// ---------------------------------------------------------------------------
+
 export function renderRecapCard() {
   const el = $('recap-card');
   const recap = calcWeeklyRecap();
   if (!recap || (recap.sets === 0 && recap.prevSets === 0)) { el.style.display = 'none'; return; }
   el.style.display = 'block';
 
-  // Weekly grade
-  const gradeResult = calcWeeklyGrade();
-  let gradeHtml = '';
-  let gradeLabel = '';
-  if (gradeResult && !gradeResult.insufficient && gradeResult.grade) {
-    const gradeColor = gradeResult.grade.startsWith('A') || gradeResult.grade.startsWith('B') ? 'var(--green)'
-      : gradeResult.grade.startsWith('C') ? 'var(--yellow)' : 'var(--red)';
-    gradeHtml = `<span class="recap-grade-badge" style="background:${gradeColor}">${gradeResult.grade}</span>`;
-    gradeLabel = `<div class="recap-grade-label">${gradeResult.label}</div>`;
-  }
-
   let preview = `${recap.sets} sets &middot; ${fmtNum(displayWeight(recap.volume))} ${store.unit} vol`;
   if (recap.prsThisWeek.length > 0) preview += ` &middot; ${recap.prsThisWeek.length} PR${recap.prsThisWeek.length > 1 ? 's' : ''}`;
-  el.innerHTML = `<div class="recap-card-header">This Week ${gradeHtml}</div><div class="recap-card-preview">${preview}</div>${gradeLabel}`;
-  el.onclick = () => showRecapModal(recap, gradeResult);
+  el.innerHTML = `<div class="recap-card-header">This Week</div>` +
+    `<div class="recap-card-preview">${preview}</div>` +
+    `<div class="recap-card-days">${recap.trainingDays} training day${recap.trainingDays !== 1 ? 's' : ''}</div>`;
+  el.onclick = () => showRecapModal(recap);
 }
 
-function showRecapModal(recap, gradeResult) {
+function showRecapModal(recap) {
   const body = $('edit-body');
   let html = '';
-
-  // Grade breakdown
-  if (gradeResult && !gradeResult.insufficient && gradeResult.grade) {
-    const gradeColor = gradeResult.grade.startsWith('A') || gradeResult.grade.startsWith('B') ? 'var(--green)'
-      : gradeResult.grade.startsWith('C') ? 'var(--yellow)' : 'var(--red)';
-    html += `<div style="text-align:center;margin-bottom:12px">
-      <span style="font-size:1.8rem;font-weight:800;color:${gradeColor}">${gradeResult.grade}</span>
-      <span style="font-size:var(--text-sm);color:var(--text-dim);margin-left:8px">${gradeResult.label} &middot; ${gradeResult.score}/100</span>
-    </div>`;
-    const p = gradeResult.pillars;
-    if (p.compliance) html += renderPillarRow('Compliance', p.compliance.score, 25, p.compliance.detail || `${p.compliance.pct}% of prescribed sets`);
-    if (p.coverage) html += renderPillarRow('Coverage', p.coverage.score, 30, `Push:Pull ${p.coverage.pushPullRatio}:1`);
-    if (p.intensity) html += renderPillarRow('Intensity', p.intensity.score, 25, `Avg ${p.intensity.avgIntensity}% of e1RM`);
-    if (p.consistency) html += renderPillarRow('Consistency', p.consistency.score, 20, `${p.consistency.days} training days`);
-    if (gradeResult.bonusPoints > 0) {
-      const b = gradeResult.bonuses;
-      const parts = [];
-      if (b.pr) parts.push('PR +1');
-      if (b.rpeQuality) parts.push('RPE quality +2');
-      if (b.variety) parts.push('Variety +2');
-      if (b.rpeLogging) parts.push('RPE logged +1');
-      html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:12px">Bonuses: ${parts.join(', ')}</div>`;
-    }
-    html += `<div style="border-top:1px solid var(--border);margin:12px 0"></div>`;
-  }
 
   // Top set
   if (recap.topSet) {
@@ -497,6 +582,7 @@ export function updateDashboard() {
   updateScoreLine();
   if (store.dashboardWidgets.fatigue) updateFatigueBar(); else $('fatigue-bar').style.display = 'none';
   if (store.dashboardWidgets.streak) updateStreakBar(); else $('streak-bar').style.display = 'none';
+  renderPriorWeekCard();
   if (store.dashboardWidgets.recap) renderRecapCard(); else $('recap-card').style.display = 'none';
   updatePRStreakBar();
   updatePlateauCards();
@@ -504,79 +590,3 @@ export function updateDashboard() {
   checkBadges();
 }
 
-// ---------------------------------------------------------------------------
-// Balance sheet (grade detail bottom sheet)
-// ---------------------------------------------------------------------------
-
-function showBalanceSheet(gradeResult) {
-  const body = $('edit-body');
-  let html = '';
-
-  // Grade header
-  html += `<div style="text-align:center;padding:var(--space-4) 0">
-    <div style="font-size:2rem;font-weight:800;color:var(--text-strong)">${gradeResult.grade}</div>
-    <div style="font-size:var(--text-sm);color:var(--text-dim)">${gradeResult.label} &middot; Score: ${gradeResult.score}/100</div>
-  </div>`;
-
-  // Four pillars
-  html += `<div class="section-label">Training Pillars</div>`;
-
-  const pillars = gradeResult.pillars;
-  if (pillars.compliance) {
-    html += renderPillarRow('Compliance', pillars.compliance.score, 35,
-      pillars.compliance.detail || `${pillars.compliance.pct}% of prescribed sets`);
-  }
-  if (pillars.coverage) {
-    html += renderPillarRow('Muscle Coverage', pillars.coverage.score, 30,
-      `Push:Pull ${pillars.coverage.pushPullRatio}:1`);
-  }
-  if (pillars.intensity) {
-    html += renderPillarRow('Intensity', pillars.intensity.score, 20,
-      `Avg ${pillars.intensity.avgIntensity}% of e1RM`);
-  }
-  if (pillars.consistency) {
-    html += renderPillarRow('Consistency', pillars.consistency.score, 15,
-      `${pillars.consistency.days} training days`);
-  }
-
-  // Bonuses
-  const bonuses = gradeResult.bonuses || {};
-  if (gradeResult.bonusPoints > 0) {
-    html += `<div class="section-label" style="margin-top:var(--space-3)">Bonuses (+${gradeResult.bonusPoints})</div>`;
-    if (bonuses.pr) html += `<div style="font-size:var(--text-xs);color:var(--text-dim);padding:2px 0">PR this week +3</div>`;
-    if (bonuses.allLifts) html += `<div style="font-size:var(--text-xs);color:var(--text-dim);padding:2px 0">All 3 lifts trained +2</div>`;
-    if (bonuses.variety) html += `<div style="font-size:var(--text-xs);color:var(--text-dim);padding:2px 0">Accessory variety +2</div>`;
-    if (bonuses.rpeLogging) html += `<div style="font-size:var(--text-xs);color:var(--text-dim);padding:2px 0">RPE data logged +1</div>`;
-  }
-
-  // Muscle coverage breakdown
-  if (pillars.coverage && pillars.coverage.breakdown) {
-    html += `<div class="section-label" style="margin-top:var(--space-3)">Muscle Coverage</div>`;
-    for (const [mg, data] of Object.entries(pillars.coverage.breakdown)) {
-      const pct = data.pts > 0 ? Math.round(data.pts / ((['Quads','Chest','Glutes','Hams','Upper Back'].includes(mg) ? 4.5 : 1.5)) * 100) : 0;
-      html += `<div style="display:flex;justify-content:space-between;font-size:var(--text-xs);padding:3px 0">
-        <span style="color:var(--text)">${mg}</span>
-        <span style="color:${pct >= 70 ? 'var(--green)' : pct > 0 ? 'var(--text-dim)' : 'var(--danger)'}">${data.sets} sets (${pct}%)</span>
-      </div>`;
-    }
-  }
-
-  $('edit-modal-title').textContent = 'Weekly Balance';
-  body.innerHTML = html;
-  openModal('edit-modal');
-}
-
-function renderPillarRow(name, score, maxScore, detail) {
-  const pct = Math.round(score / maxScore * 100);
-  const color = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--text-dim)' : 'var(--danger)';
-  return `<div style="margin-bottom:var(--space-3)">
-    <div style="display:flex;justify-content:space-between;font-size:var(--text-sm)">
-      <span style="color:var(--text);font-weight:600">${name}</span>
-      <span style="color:${color}">${Math.round(score)}/${maxScore}</span>
-    </div>
-    <div style="height:4px;background:var(--surface2);border-radius:2px;margin:4px 0;overflow:hidden">
-      <div style="height:100%;width:${pct}%;background:${color};border-radius:2px"></div>
-    </div>
-    <div style="font-size:var(--text-xs);color:var(--text-dim)">${detail}</div>
-  </div>`;
-}

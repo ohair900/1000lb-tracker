@@ -1,5 +1,22 @@
 /* ===== Weekly Recap ===== */
 
+/* Prior Week Review card */
+.prior-week-card {
+  background: var(--surface); border-radius: var(--radius-md); padding: var(--space-3);
+  margin-bottom: var(--space-2); cursor: pointer; border: 1px solid var(--border);
+  transition: border-color var(--transition-base);
+  box-shadow: var(--shadow-sm);
+}
+.prior-week-card:hover { border-color: var(--border-hover); }
+.prior-week-lifts { font-size: 0.75rem; color: var(--text); margin-top: 6px; }
+.prior-week-focus { font-size: 0.7rem; color: var(--text-dim); margin-top: 4px; font-weight: 600; }
+
+/* Compact body map for recap cards */
+.body-map-compact .body-map-svg { max-width: 85px; }
+.body-map-compact .body-map-container { margin-bottom: 4px; padding: 4px 0 0; }
+.body-map-compact .body-map-view-label { display: none; }
+
+/* This Week card */
 .recap-card {
   background: var(--surface); border-radius: var(--radius-md); padding: var(--space-3);
   margin-bottom: var(--space-2); cursor: pointer; border: 1px solid var(--border);
@@ -8,13 +25,10 @@
 }
 .recap-card:hover { border-color: var(--border-hover); }
 .recap-card-header { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; }
-.recap-grade-badge {
-  font-size: 0.85rem; font-weight: 800; padding: 2px 8px;
-  border-radius: var(--radius-pill); color: #000;
-  text-transform: none; letter-spacing: 0;
-}
-.recap-grade-label { font-size: 0.65rem; color: var(--text-dim); margin-top: 4px; }
 .recap-card-preview { font-size: 0.8rem; color: var(--text); }
+.recap-card-days { font-size: 0.65rem; color: var(--text-dim); margin-top: 4px; }
+
+/* Recap modal styles */
 .recap-stat-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;
 }
