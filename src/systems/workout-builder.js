@@ -11,7 +11,7 @@ import store from '../state/store.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
 import { ACCESSORY_CAT_WEIGHTS, MUSCLE_GROUPS } from '../data/muscle-groups.js';
 import { EXERCISE_CATALOG, MOVEMENT_PATTERNS, PROGRESSION_MODELS } from '../data/exercise-catalog.js';
-import { resolveExercise, resolveCanonicalId, getExerciseHistory } from '../data/exercise-compat.js';
+import { resolveExercise, resolveCanonicalId, resolveAccessory, getExerciseHistory } from '../data/exercise-compat.js';
 import { MS_PER_DAY } from '../constants/time.js';
 import { roundToPlate } from '../formulas/plates.js';
 import { bestE1RM } from '../formulas/e1rm.js';
@@ -246,13 +246,17 @@ export function scoreAccessories(mainLift, options = {}) {
   const now = Date.now();
   const muscleFatigue = calcFatigueByMuscle();
   const equip = store.equipmentProfile || {};
+  const disabledSet = new Set(store.disabledAccessories || []);
 
   // Build candidate list from EXERCISE_CATALOG (canonical, cross-lift)
   const candidates = [];
   const seenCanonical = new Set();
 
   for (const [id, ex] of Object.entries(EXERCISE_CATALOG)) {
-    if (excludeEquipment && ex.equipment === excludeEquipment) continue;
+    if (disabledSet.has(id)) continue;
+    // Apply user overrides
+    const resolved = resolveAccessory(id) || ex;
+    if (excludeEquipment && resolved.equipment === excludeEquipment) continue;
     const supportsThisLift = ex.supportsLifts.includes(mainLift);
     if (!crossLift && !supportsThisLift) continue;
 
@@ -327,10 +331,11 @@ export function scoreAccessories(mainLift, options = {}) {
     seenCanonical.add(id);
   }
 
-  // Also include legacy-only exercises not yet in catalog (custom exercises etc.)
+  // Also include legacy-only exercises not yet in catalog
   for (const [id, ex] of Object.entries(ACCESSORY_DB)) {
     const canonId = resolveCanonicalId(id);
     if (seenCanonical.has(canonId)) continue; // Already in catalog
+    if (disabledSet.has(canonId)) continue;
     if (ex.mainLift !== mainLift) continue;
     if (excludeEquipment && ex.equipment === excludeEquipment) continue;
 
@@ -357,6 +362,35 @@ export function scoreAccessories(mainLift, options = {}) {
     }
     candidates.push({ id, ...ex, score, reasons: r, equipAvailable: true, canonicalId: canonId });
     seenCanonical.add(canonId);
+  }
+
+  // Include user-created custom exercises
+  for (const custom of (store.customAccessories || [])) {
+    if (seenCanonical.has(custom.id)) continue;
+    if (disabledSet.has(custom.id)) continue;
+    if (custom.mainLift !== mainLift) continue;
+    if (excludeEquipment && custom.equipment === excludeEquipment) continue;
+
+    let score = 0;
+    const r = [];
+    const equipAvailable = equip[custom.equipment] !== false;
+    if (!equipAvailable) { score -= 50; r.push('Equipment unavailable'); }
+    if (weakPoint && Array.isArray(custom.weakPoints) && custom.weakPoints.includes(weakPoint)) {
+      score += 25; r.push('Targets weak point');
+    }
+    const history = getExerciseHistory(custom.id, store.accessoryLog);
+    const recent = history[0];
+    if (recent) {
+      const daysSince = Math.floor((now - recent.timestamp) / MS_PER_DAY);
+      score += Math.min(20, daysSince * 2);
+      if (daysSince >= 5) r.push(`${daysSince}d since last`);
+    } else { score += 20; r.push('Not yet performed'); }
+
+    candidates.push({
+      id: custom.id, ...custom, score, reasons: r,
+      equipAvailable, canonicalId: custom.id,
+    });
+    seenCanonical.add(custom.id);
   }
 
   return candidates.sort((a, b) => b.score - a.score);

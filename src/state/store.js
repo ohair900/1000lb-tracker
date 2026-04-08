@@ -46,6 +46,9 @@ import {
   DELETED_IDS_KEY,
   EQUIPMENT_PROFILE_KEY,
   REASON_TAG_COUNTS_KEY,
+  ACCESSORY_OVERRIDES_KEY,
+  CUSTOM_ACCESSORIES_KEY,
+  DISABLED_ACCESSORIES_KEY,
 } from '../constants/storage-keys.js';
 
 import { CURRENT_VERSION } from '../constants/time.js';
@@ -101,6 +104,9 @@ class Store {
     this.deletedEntryIds = new Set();
     this.equipmentProfile = { barbell: true, dumbbell: true, cable: true, machine: true, bodyweight: true };
     this.reasonTagCounts = {}; // { [canonicalExerciseId]: number } — tracks how many times reason tag shown
+    this.accessoryOverrides = {};   // { [exerciseId]: { sets?, repRange?, pctOfTM? } }
+    this.customAccessories = [];    // [{ id, name, mainLift, weakPoints, pctOfTM, sets, repRange, equipment, category }]
+    this.disabledAccessories = [];  // [exerciseId, ...]
 
     // -----------------------------------------------------------------------
     // Ephemeral UI state — NOT persisted via the STORES registry.
@@ -278,6 +284,24 @@ class Store {
         set: (v) => { this.reasonTagCounts = v; },
         default: {},
       },
+      accessoryOverrides: {
+        key: ACCESSORY_OVERRIDES_KEY,
+        get: () => this.accessoryOverrides,
+        set: (v) => { this.accessoryOverrides = v; },
+        default: {},
+      },
+      customAccessories: {
+        key: CUSTOM_ACCESSORIES_KEY,
+        get: () => this.customAccessories,
+        set: (v) => { this.customAccessories = v; },
+        default: [],
+      },
+      disabledAccessories: {
+        key: DISABLED_ACCESSORIES_KEY,
+        get: () => this.disabledAccessories,
+        set: (v) => { this.disabledAccessories = v; },
+        default: [],
+      },
     };
 
     // -----------------------------------------------------------------------
@@ -323,7 +347,8 @@ class Store {
   /** Stores that can be loaded after first paint. */
   static DEFERRED_STORES = [
     'accessoryLog', 'customTemplates', 'mesocycleHistory', 'recoveryCalibration',
-    'equipmentProfile', 'reasonTagCounts',
+    'equipmentProfile', 'reasonTagCounts', 'accessoryOverrides', 'customAccessories',
+    'disabledAccessories',
   ];
 
   init() {
@@ -441,7 +466,10 @@ class Store {
   saveMesocycle()      { this.save('mesocycle'); }
   saveMesocycleHistory() { this.save('mesocycleHistory'); }
   saveEquipmentProfile() { this.save('equipmentProfile'); }
-  saveReasonTagCounts()  { this.save('reasonTagCounts'); }
+  saveReasonTagCounts()    { this.save('reasonTagCounts'); }
+  saveAccessoryOverrides() { this.save('accessoryOverrides'); }
+  saveCustomAccessories()  { this.save('customAccessories'); }
+  saveDisabledAccessories(){ this.save('disabledAccessories'); }
 
   // -------------------------------------------------------------------------
   // Private: load, flush, migrate, patches

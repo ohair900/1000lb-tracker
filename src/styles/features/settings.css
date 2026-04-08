@@ -1,8 +1,148 @@
 /* ===== Settings ===== */
 
+/* --- Settings tabs (in-modal) --- */
+.settings-tabs {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--surface);
+  margin: -16px -16px 16px -16px;
+  padding: 8px 12px 0;
+  display: flex; gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-tabs .tab-btn {
+  flex: 1; min-height: 36px; padding: 6px 0;
+  font-size: var(--text-sm); font-weight: 600;
+  border: none; background: transparent;
+  color: var(--text-dim); cursor: pointer;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  transition: background var(--transition-base), color var(--transition-base);
+  display: flex; align-items: center; justify-content: center;
+}
+.settings-tabs .tab-btn.active { background: var(--surface2); color: var(--text-strong); }
+.settings-tabs .tab-btn:hover:not(.active) { color: var(--text); }
+
+.settings-tab-panel { display: none; }
+.settings-tab-panel.active { display: block; }
+
 /* Dashboard widget toggle */
 .widget-toggle {
   display: flex; align-items: center; gap: 8px; padding: 6px 0;
   font-size: var(--text-sm); color: var(--text);
 }
 .widget-toggle input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--green); }
+
+/* --- Exercises tab --- */
+.exercises-filter-bar {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--surface);
+  padding-bottom: 8px; margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.exercises-filter-row {
+  display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;
+}
+.exercises-filter-row .filter-pill {
+  flex: 0 0 auto; padding: 4px 10px; border-radius: var(--radius-md);
+  font-size: 0.75rem; font-weight: 600; border: 1px solid var(--border);
+  background: transparent; color: var(--text-dim); cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+.exercises-filter-row .filter-pill.active {
+  background: var(--surface2); color: var(--text-strong); border-color: var(--text-dim);
+}
+.exercise-search {
+  width: 100%; padding: 8px 10px; border-radius: var(--radius-md);
+  border: 1px solid var(--border); background: var(--bg);
+  color: var(--text); font-size: var(--text-sm);
+}
+.exercise-search::placeholder { color: var(--text-dim); }
+
+.exercise-section-label {
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+  color: var(--text-dim); letter-spacing: 0.05em;
+  padding: 10px 0 4px; margin-top: 4px;
+}
+
+.exercise-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: opacity var(--transition-base);
+}
+.exercise-row.disabled { opacity: 0.4; }
+.exercise-row.disabled .exercise-row-name { text-decoration: line-through; }
+
+.exercise-row-toggle { flex-shrink: 0; }
+.exercise-row-toggle input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--green); }
+
+.exercise-row-info { flex: 1; min-width: 0; }
+.exercise-row-name {
+  font-size: var(--text-sm); font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.exercise-row-meta {
+  font-size: 0.7rem; color: var(--text-dim); margin-top: 1px;
+}
+.exercise-row-chevron {
+  flex-shrink: 0; font-size: 0.65rem; color: var(--text-dim);
+  transition: transform 0.2s;
+}
+.exercise-row.expanded .exercise-row-chevron { transform: rotate(180deg); }
+
+.exercise-edit-form {
+  display: none; padding: 10px 0 10px 28px;
+  border-bottom: 1px solid var(--border);
+}
+.exercise-row.expanded + .exercise-edit-form { display: block; }
+.exercise-edit-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px;
+}
+.exercise-edit-grid label {
+  font-size: 0.65rem; text-transform: uppercase; color: var(--text-dim);
+  font-weight: 600; display: block; margin-bottom: 2px;
+}
+.exercise-edit-grid input[type="number"] {
+  width: 100%; padding: 6px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg);
+  color: var(--text); font-size: var(--text-sm); text-align: center;
+}
+.exercise-edit-actions {
+  display: flex; gap: 8px; margin-top: 8px; align-items: center;
+}
+.exercise-reset-btn {
+  font-size: 0.7rem; color: var(--text-dim); background: none;
+  border: none; cursor: pointer; text-decoration: underline;
+  padding: 0;
+}
+.exercise-reset-btn:hover { color: var(--text); }
+.exercise-delete-btn {
+  font-size: 0.7rem; color: var(--red); background: none;
+  border: none; cursor: pointer; text-decoration: underline;
+  padding: 0;
+}
+
+.exercise-add-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; padding: 10px; margin-top: 12px;
+  border: 2px dashed var(--border); border-radius: var(--radius-md);
+  background: transparent; color: var(--text-dim);
+  font-size: var(--text-sm); font-weight: 600; cursor: pointer;
+  transition: border-color var(--transition-base), color var(--transition-base);
+}
+.exercise-add-btn:hover { border-color: var(--text-dim); color: var(--text); }
+
+.exercise-add-form {
+  padding: 12px 0; border-top: 1px solid var(--border); margin-top: 8px;
+}
+.exercise-add-form .exercise-edit-grid {
+  grid-template-columns: 1fr 1fr;
+}
+.exercise-add-form .exercises-filter-row { margin-top: 8px; }
+.exercise-add-form-actions {
+  display: flex; gap: 8px; margin-top: 10px;
+}
+.exercise-add-form-actions button {
+  flex: 1; padding: 8px; border-radius: var(--radius-md);
+  font-size: var(--text-sm); font-weight: 600; cursor: pointer; border: none;
+}
+.exercise-add-save { background: var(--green); color: #fff; }
+.exercise-add-cancel { background: var(--surface2); color: var(--text); }

@@ -20,6 +20,7 @@ import { openModal, closeModal } from '../ui/modal.js';
 import { applyAccentColor } from '../ui/theme.js';
 import { buildProfileHTML, buildGoalsHTML } from './stats.js';
 import { buildWeeklyReviewPrompt, buildProgramCheckPrompt, buildLiftDeepDivePrompt, shareCoachingPrompt } from '../systems/ai-export.js';
+import { renderExercisesTab, attachExercisesListeners, resetExercisesTabState } from './exercises-tab.js';
 
 // ---------------------------------------------------------------------------
 // Late-bound callbacks
@@ -62,22 +63,21 @@ function scheduleCloudSync() {
 const sectionLabel = text => `<div class="section-label-lg">${text}</div>`;
 const settingsDivider = '<hr style="border:none;border-top:1px solid var(--border);margin:14px 0">';
 
-/**
- * Render the settings modal body HTML.
- * @returns {string} HTML string
- */
-export function renderSettingsBody() {
+let _settingsTab = 'profile';
+
+function renderProfileTab() {
   const total = getTotal();
   let html = '';
-  // Profile
   html += sectionLabel('Profile');
   html += buildProfileHTML();
   html += settingsDivider;
-  // Goals
   html += sectionLabel('Goals');
   html += buildGoalsHTML(total);
-  html += settingsDivider;
-  // Dashboard
+  return html;
+}
+
+function renderPrefsTab() {
+  let html = '';
   html += sectionLabel('Dashboard Widgets');
   html += `<label class="widget-toggle"><input type="checkbox" data-widget="ratios" ${store.dashboardWidgets.ratios ? 'checked' : ''}> Strength Ratios</label>
     <label class="widget-toggle"><input type="checkbox" data-widget="fatigue" ${store.dashboardWidgets.fatigue ? 'checked' : ''}> Fatigue Indicator</label>
@@ -85,20 +85,21 @@ export function renderSettingsBody() {
     <label class="widget-toggle"><input type="checkbox" data-widget="recap" ${store.dashboardWidgets.recap ? 'checked' : ''}> Weekly Recap</label>
     <label class="widget-toggle" style="margin-bottom:12px"><input type="checkbox" data-widget="prStreak" ${store.dashboardWidgets.prStreak ? 'checked' : ''}> PR Tracker</label>`;
   html += settingsDivider;
-  // Equipment Profile
-  html += sectionLabel('Available Equipment');
   const ep = store.equipmentProfile || {};
+  html += sectionLabel('Available Equipment');
   html += `<label class="widget-toggle"><input type="checkbox" data-equip="barbell" ${ep.barbell !== false ? 'checked' : ''}> Barbell</label>
     <label class="widget-toggle"><input type="checkbox" data-equip="dumbbell" ${ep.dumbbell !== false ? 'checked' : ''}> Dumbbells</label>
     <label class="widget-toggle"><input type="checkbox" data-equip="cable" ${ep.cable !== false ? 'checked' : ''}> Cables</label>
     <label class="widget-toggle"><input type="checkbox" data-equip="machine" ${ep.machine !== false ? 'checked' : ''}> Machines</label>
     <label class="widget-toggle" style="margin-bottom:12px"><input type="checkbox" data-equip="bodyweight" ${ep.bodyweight !== false ? 'checked' : ''}> Bodyweight</label>`;
   html += settingsDivider;
-  // Leaderboard
   html += sectionLabel('Leaderboard');
   html += `<label class="widget-toggle"><input type="checkbox" id="lb-optin" ${store.leaderboardOptedIn !== false ? 'checked' : ''}> Appear on leaderboard</label>`;
-  html += settingsDivider;
-  // AI Coaching
+  return html;
+}
+
+function renderToolsTab() {
+  let html = '';
   html += sectionLabel('AI Coaching');
   html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:10px">Export your training data with a coaching prompt to share with any AI app</div>
     <textarea id="ai-notes" placeholder="Optional notes (sleep, injuries, schedule changes...)" style="width:100%;padding:8px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-xs);resize:vertical;min-height:40px;max-height:100px;margin-bottom:10px;font-family:inherit"></textarea>
@@ -125,7 +126,6 @@ export function renderSettingsBody() {
       </button>
     </div>`;
   html += settingsDivider;
-  // Data
   html += sectionLabel('Data');
   html += `<div class="data-row" style="margin-bottom:12px">
       <button class="data-btn" id="s-export">Export JSON</button>
@@ -133,6 +133,31 @@ export function renderSettingsBody() {
       <button class="data-btn" id="s-import">Import JSON</button>
     </div>
     <button class="data-btn danger" id="s-clear" style="width:100%">Clear All Data</button>`;
+  return html;
+}
+
+/**
+ * Render the settings modal body HTML with tabs.
+ * @returns {string} HTML string
+ */
+export function renderSettingsBody() {
+  const tabs = [
+    { id: 'profile', label: 'Profile' },
+    { id: 'prefs', label: 'Prefs' },
+    { id: 'exercises', label: 'Exercises' },
+    { id: 'tools', label: 'Tools' },
+  ];
+  let html = `<div class="settings-tabs">`;
+  for (const t of tabs) {
+    html += `<button class="tab-btn${_settingsTab === t.id ? ' active' : ''}" data-settings-tab="${t.id}">${t.label}</button>`;
+  }
+  html += `</div>`;
+
+  html += `<div class="settings-tab-panel${_settingsTab === 'profile' ? ' active' : ''}" id="stab-profile">${renderProfileTab()}</div>`;
+  html += `<div class="settings-tab-panel${_settingsTab === 'prefs' ? ' active' : ''}" id="stab-prefs">${renderPrefsTab()}</div>`;
+  html += `<div class="settings-tab-panel${_settingsTab === 'exercises' ? ' active' : ''}" id="stab-exercises">${renderExercisesTab()}</div>`;
+  html += `<div class="settings-tab-panel${_settingsTab === 'tools' ? ' active' : ''}" id="stab-tools">${renderToolsTab()}</div>`;
+
   return html;
 }
 
@@ -158,7 +183,10 @@ function exportData() {
     accessoryLog: store.accessoryLog,
     customTemplates: store.customTemplates,
     activeMesocycle: store.activeMesocycle,
-    mesocycleHistory: store.mesocycleHistory
+    mesocycleHistory: store.mesocycleHistory,
+    accessoryOverrides: store.accessoryOverrides,
+    customAccessories: store.customAccessories,
+    disabledAccessories: store.disabledAccessories,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -220,6 +248,9 @@ function handleImport(ev) {
     if (data.customTemplates) { store.customTemplates = data.customTemplates; store.saveCustomTemplates(); }
     if (data.activeMesocycle) { store.activeMesocycle = data.activeMesocycle; store.saveMesocycle(); }
     if (data.mesocycleHistory) { store.mesocycleHistory = data.mesocycleHistory; store.saveMesocycleHistory(); }
+    if (data.accessoryOverrides) { store.accessoryOverrides = data.accessoryOverrides; store.saveAccessoryOverrides(); }
+    if (data.customAccessories) { store.customAccessories = data.customAccessories; store.saveCustomAccessories(); }
+    if (data.disabledAccessories) { store.disabledAccessories = data.disabledAccessories; store.saveDisabledAccessories(); }
     if (!store.profile.bodyweightHistory) store.profile.bodyweightHistory = [];
     store.activeCycleId = (store.cycles.find(c => c.active) || {}).id || null;
     localStorage.setItem(VERSION_KEY, CURRENT_VERSION.toString());
@@ -252,6 +283,32 @@ function handleImport(ev) {
  */
 export function attachSettingsListeners() {
   const body = $('settings-body');
+
+  // Settings tab switching
+  body.querySelectorAll('[data-settings-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _settingsTab = btn.dataset.settingsTab;
+      body.querySelectorAll('[data-settings-tab]').forEach(b =>
+        b.classList.toggle('active', b === btn)
+      );
+      body.querySelectorAll('.settings-tab-panel').forEach(p => p.classList.remove('active'));
+      const panel = body.querySelector('#stab-' + _settingsTab);
+      if (panel) panel.classList.add('active');
+      // Reset scroll
+      body.closest('.modal')?.scrollTo(0, 0);
+      // Wire exercises tab listeners when switching to it
+      if (_settingsTab === 'exercises') {
+        const exPanel = body.querySelector('#stab-exercises');
+        if (exPanel) attachExercisesListeners(exPanel);
+      }
+    });
+  });
+
+  // Wire exercises tab listeners if already active
+  if (_settingsTab === 'exercises') {
+    const exPanel = body.querySelector('#stab-exercises');
+    if (exPanel) attachExercisesListeners(exPanel);
+  }
 
   // Gender pills
   body.querySelectorAll('.gender-pill').forEach(btn => {
@@ -292,9 +349,11 @@ export function attachSettingsListeners() {
       store.goals[lift] = v > 0 ? inputToLbs(v) : null;
       store.saveGoals();
       if (_updateDashboard) _updateDashboard();
-      // Re-render settings body so roadmap updates live
+      // Re-render settings body so roadmap updates live (preserve active tab)
+      const prevTab = _settingsTab;
       body.innerHTML = renderSettingsBody();
       attachSettingsListeners();
+      _settingsTab = prevTab;
     });
   });
 
@@ -362,6 +421,9 @@ export function attachSettingsListeners() {
     store.accessoryLog = []; store.workoutSession = null;
     store.customTemplates = []; store.activeMesocycle = null; store.mesocycleHistory = [];
     store.leaderboardOptedIn = true;
+    store.accessoryOverrides = {};
+    store.customAccessories = [];
+    store.disabledAccessories = [];
     store._deletedEntryRecords = [];
     store.deletedEntryIds = new Set();
     store.dashboardWidgets = { ratios: true, fatigue: true, streak: true, recap: true, prStreak: true };
@@ -396,6 +458,8 @@ export function attachSettingsListeners() {
 export function initSettingsListeners() {
   $('gear-btn').addEventListener('click', () => {
     store.clearConfirm = false;
+    _settingsTab = 'profile';
+    resetExercisesTabState();
     const body = $('settings-body');
     body.innerHTML = renderSettingsBody();
     openModal('settings-modal');

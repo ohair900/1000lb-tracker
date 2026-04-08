@@ -516,7 +516,7 @@ document.querySelectorAll('.unit-btn').forEach(b =>
 document.querySelectorAll('.unit-label').forEach(el => el.textContent = store.unit);
 
 // ----- Step 9: Tab switching -----
-document.querySelectorAll('.tab-btn').forEach(btn => {
+document.querySelectorAll('#app .tabs .tab-btn').forEach(btn => {
   btn.addEventListener('click', () => switchToTab(btn.dataset.tab));
 });
 

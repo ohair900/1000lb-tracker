@@ -5,6 +5,8 @@
 // New entries use canonical IDs. This layer resolves at read time.
 
 import { EXERCISE_CATALOG } from './exercise-catalog.js';
+import { ACCESSORY_DB } from './accessories.js';
+import store from '../state/store.js';
 
 // ---------------------------------------------------------------------------
 // Legacy ID → canonical ID mapping
@@ -110,6 +112,37 @@ export function resolveCanonicalId(id) {
 export function resolveExercise(id) {
   const canonical = resolveCanonicalId(id);
   return EXERCISE_CATALOG[canonical] || null;
+}
+
+/**
+ * Resolve any exercise ID to a full exercise object with user overrides applied.
+ * Checks custom accessories, then EXERCISE_CATALOG, then legacy ACCESSORY_DB.
+ * @param {string} id - Any exercise ID
+ * @returns {Object|null} Merged exercise entry or null
+ */
+export function resolveAccessory(id) {
+  const custom = (store.customAccessories || []).find(c => c.id === id);
+  if (custom) return { ...custom, ...(store.accessoryOverrides?.[id] || {}) };
+
+  const canonical = resolveCanonicalId(id);
+  const catalog = EXERCISE_CATALOG[canonical];
+  if (catalog) return { ...catalog, ...(store.accessoryOverrides?.[canonical] || {}) };
+
+  const legacy = ACCESSORY_DB[id];
+  if (legacy) return { ...legacy, ...(store.accessoryOverrides?.[canonical] || {}) };
+
+  return null;
+}
+
+/**
+ * Get all unique exercise IDs (canonical catalog + custom).
+ * Excludes legacy IDs that map to canonical ones.
+ * @returns {string[]}
+ */
+export function getAllExerciseIds() {
+  const ids = new Set(Object.keys(EXERCISE_CATALOG));
+  for (const c of (store.customAccessories || [])) ids.add(c.id);
+  return [...ids];
 }
 
 /**
