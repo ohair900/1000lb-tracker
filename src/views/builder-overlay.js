@@ -653,6 +653,7 @@ export function builderToSession(mainLift) {
     date: now.toISOString().split('T')[0],
     startTime: now.getTime(),
     mainSets: [],
+    bbbSets: [],
     accessories,
     completed: false,
     source: 'guided-builder',
@@ -928,9 +929,11 @@ export function showTemplateList() {
 // ---------------------------------------------------------------------------
 
 let _closeChoiceSheet = null;
+let _renderWorkoutView = null;
 
 export function setBuilderDeps(deps) {
   if (deps.closeChoiceSheet) _closeChoiceSheet = deps.closeChoiceSheet;
+  if (deps.renderWorkoutView) _renderWorkoutView = deps.renderWorkoutView;
 }
 
 // ---------------------------------------------------------------------------
@@ -1169,6 +1172,7 @@ export function initBuilderOverlay() {
     closeBuilder(true);
     $('workout-overlay').style.display = 'flex';
     document.body.style.overflow = 'hidden';
+    if (_renderWorkoutView) _renderWorkoutView();
   });
 
   // Builder save template button

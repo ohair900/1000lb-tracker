@@ -468,6 +468,7 @@ setWorkoutOverlayDeps({
 // 4p. Builder overlay deps
 setBuilderDeps({
   closeChoiceSheet,
+  renderWorkoutView,
 });
 
 // 4q. Choice sheet deps
