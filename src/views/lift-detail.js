@@ -72,7 +72,7 @@ export function showLiftDetail(lift) {
   }
   if (prog) {
     const arrow = DIRECTION_ARROWS[prog.direction];
-    html += `<div class="ld-banner-trend ${prog.direction}">${arrow} ${Math.abs(prog.monthRate).toFixed(1)} ${store.unit}/mo</div>`;
+    html += `<div class="ld-banner-trend ${prog.direction}">${arrow} ${Math.round(Math.abs(prog.delta))} ${store.unit} / 90d</div>`;
   }
   html += `</div>`;
 
