@@ -558,19 +558,20 @@ class Store {
     }
   }
 
-  /** @private Write completedSets to a separate backup key for redundancy. */
+  /** @private Write completedSets + trainingMaxes to a separate backup key. */
   _backupCompletedSets() {
     try {
       localStorage.setItem('sbd-completed-backup', JSON.stringify({
         completedSets: this.programConfig.completedSets,
         amrapResults: this.programConfig.amrapResults,
         completedWeeks: this.programConfig.completedWeeks,
+        trainingMaxes: this.programConfig.trainingMaxes,
         ts: Date.now(),
       }));
     } catch (e) { /* quota exceeded — ignore */ }
   }
 
-  /** @private Restore completedSets from backup if main store lost them. */
+  /** @private Restore from backup only if main store data was lost (not intentionally changed). */
   _restoreCompletedSetsIfLost() {
     const current = this.programConfig.completedSets || {};
     const currentCount = Object.keys(current).length;
@@ -579,17 +580,30 @@ class Store {
       if (!raw) return;
       const backup = JSON.parse(raw);
       if (!backup || !backup.completedSets) return;
+
+      // Only restore if the main store appears to have lost data (e.g., cleared to 0)
+      // but the backup has data. Don't restore if the user intentionally unchecked sets.
       const backupCount = Object.keys(backup.completedSets).length;
-      if (backupCount > currentCount) {
-        // Backup has more — union merge (never lose a completion)
-        this.programConfig.completedSets = { ...backup.completedSets, ...current };
+      if (currentCount === 0 && backupCount > 0) {
+        this.programConfig.completedSets = { ...backup.completedSets };
         if (backup.amrapResults) {
-          this.programConfig.amrapResults = { ...backup.amrapResults, ...(this.programConfig.amrapResults || {}) };
+          this.programConfig.amrapResults = { ...backup.amrapResults };
         }
         if (backup.completedWeeks) {
-          this.programConfig.completedWeeks = { ...backup.completedWeeks, ...(this.programConfig.completedWeeks || {}) };
+          this.programConfig.completedWeeks = { ...backup.completedWeeks };
         }
         this.saveNow('programs');
+      }
+
+      // Restore training maxes if they were lost
+      if (backup.trainingMaxes) {
+        const currentTMs = this.programConfig.trainingMaxes || {};
+        const hasTMs = Object.values(currentTMs).some(v => v > 0);
+        const backupHasTMs = Object.values(backup.trainingMaxes).some(v => v > 0);
+        if (!hasTMs && backupHasTMs) {
+          this.programConfig.trainingMaxes = { ...backup.trainingMaxes };
+          this.saveNow('programs');
+        }
       }
     } catch (e) { /* corrupt backup — ignore */ }
   }

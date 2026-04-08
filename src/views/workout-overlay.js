@@ -12,7 +12,7 @@ import { WEIGHT_INCREMENT_KG, WEIGHT_INCREMENT_LBS } from '../constants/threshol
 import { LBS_PER_KG } from '../constants/formulas.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
 import { EXERCISE_CATALOG, PROGRESSION_MODELS } from '../data/exercise-catalog.js';
-import { resolveExercise } from '../data/exercise-compat.js';
+import { resolveExercise, resolveCanonicalId, getExerciseHistory } from '../data/exercise-compat.js';
 import { PROGRAM_TEMPLATES } from '../data/programs.js';
 import { formatWeight, displayWeight } from '../formulas/units.js';
 import { formatPlates, roundToPlate } from '../formulas/plates.js';
@@ -112,7 +112,9 @@ function getLastMainPerformance(lift) {
 }
 
 function getLastAccPerformance(exerciseId) {
-  const recent = store.accessoryLog.filter(l => l.exerciseId === exerciseId).sort((a, b) => b.timestamp - a.timestamp)[0];
+  const canonId = resolveCanonicalId(exerciseId);
+  const history = getExerciseHistory(canonId, store.accessoryLog);
+  const recent = history[0];
   if (!recent) return null;
   return { weight: recent.weight, setWeights: recent.setWeights, setsCompleted: recent.setsCompleted, date: recent.date };
 }
@@ -192,6 +194,11 @@ function _completeMainSet(idx) {
   }
   const result = _addEntry ? _addEntry(store.workoutSession.mainLift, set.weight, repsToLog, null, '', []) : null;
   _lastMainEntryId = result ? result.entry.id : null;
+  // Track entry for discard rollback
+  if (result && result.entry) {
+    if (!store.workoutSession.loggedEntryIds) store.workoutSession.loggedEntryIds = [];
+    store.workoutSession.loggedEntryIds.push(result.entry.id);
+  }
   if (_updateDashboard) _updateDashboard();
   set.completed = true;
   set.rpe = null;
@@ -828,7 +835,11 @@ export function initWorkoutOverlay() {
         set.completed = true;
         // Log as an entry for volume tracking
         const reps = typeof set.reps === 'string' ? parseInt(set.reps) : set.reps;
-        if (_addEntry) _addEntry(store.workoutSession.mainLift, set.weight, reps, null, '', ['BBB']);
+        const bbbResult = _addEntry ? _addEntry(store.workoutSession.mainLift, set.weight, reps, null, '', ['BBB']) : null;
+        if (bbbResult && bbbResult.entry) {
+          if (!store.workoutSession.loggedEntryIds) store.workoutSession.loggedEntryIds = [];
+          store.workoutSession.loggedEntryIds.push(bbbResult.entry.id);
+        }
         if (_updateDashboard) _updateDashboard();
         startTimer(store.timerDuration);
         if (navigator.vibrate) navigator.vibrate(50);
@@ -887,9 +898,30 @@ export function initWorkoutOverlay() {
   $('workout-discard-btn').addEventListener('click', () => {
     if (!confirm('Discard this workout? All progress will be lost.')) return;
     stopExerciseTimer();
+    // Remove any entries logged during this session
+    if (store.workoutSession && store.workoutSession.loggedEntryIds) {
+      const idsToRemove = new Set(store.workoutSession.loggedEntryIds);
+      store.entries = store.entries.filter(e => !idsToRemove.has(e.id));
+      store.prs = store.prs.filter(p => !idsToRemove.has(p.entryId));
+      store.saveEntries();
+      store.savePRs();
+    }
+    // Undo any completed set flags in program config
+    if (store.workoutSession && store.workoutSession.mainSets) {
+      const lift = store.workoutSession.mainLift;
+      const week = store.workoutSession.programWeek || (store.programConfig.liftWeeks?.[lift] || 1);
+      store.workoutSession.mainSets.forEach((s, i) => {
+        if (s.completed) {
+          delete store.programConfig.completedSets[`${lift}-${week}-${i}`];
+          delete store.programConfig.amrapResults[`${lift}-${week}-${i}`];
+        }
+      });
+      store.saveProgramConfig();
+    }
     store.workoutSession = null;
     store.saveWorkoutSession();
     closeWorkoutView();
+    if (_updateDashboard) _updateDashboard();
     showToast('Workout discarded');
   });
 }
