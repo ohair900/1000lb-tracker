@@ -661,9 +661,15 @@ export function builderToSession(mainLift) {
   };
   const workout = getProgramWorkout(mainLift, session.programWeek);
   if (workout) {
-    session.mainSets = workout.sets.map(s => ({
+    const mainOnly = workout.sets.filter(s => s.tier !== 'BBB');
+    const bbbOnly = workout.sets.filter(s => s.tier === 'BBB');
+    session.mainSets = mainOnly.map(s => ({
       num: s.num, weight: s.weight, reps: s.reps, pct: s.pct,
       tier: s.tier, day: s.day, completed: s.completed
+    }));
+    session.bbbSets = bbbOnly.map((s, i) => ({
+      num: i + 1, weight: s.weight, reps: s.reps, pct: s.pct,
+      tier: 'BBB', completed: false
     }));
   }
   return session;
