@@ -89,6 +89,25 @@ export function executeUndo() {
  * @param {object}  [shareData] - { lift, weight, e1rm, date } for the Share PR button
  */
 export function showToast(msg, isPR, milestone, shareData) {
+  // Support options object as second arg: showToast(msg, { action, onAction, duration })
+  if (isPR && typeof isPR === 'object' && !Array.isArray(isPR) && isPR.action) {
+    const opts = isPR;
+    const el = $('toast');
+    el.className = 'toast';
+    el.textContent = '';
+    el.appendChild(document.createTextNode(msg + ' '));
+    const btn = document.createElement('button');
+    btn.className = 'toast-undo';
+    btn.textContent = opts.action;
+    btn.addEventListener('click', () => {
+      el.classList.remove('show');
+      if (opts.onAction) opts.onAction();
+    });
+    el.appendChild(btn);
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), opts.duration || 5000);
+    return;
+  }
   const el = $('toast');
   el.className = 'toast' + (isPR ? ' pr-toast' : '');
   el.textContent = '';

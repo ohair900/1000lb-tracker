@@ -191,6 +191,13 @@ function generateInsights(lastWeekStats, phase, rolling) {
     }
   }
 
+  // --- #18: Structured workouts chip ---
+  const weekAccLogs = store.accessoryLog.filter(l => l.timestamp >= startMs && l.timestamp < endMs);
+  const structuredDates = new Set(weekAccLogs.filter(l => l.source === 'guided-builder' || l.source === 'mesocycle').map(l => l.date));
+  if (structuredDates.size > 0) {
+    insights.push({ type: 'structured', label: `${structuredDates.size} structured workout${structuredDates.size > 1 ? 's' : ''}`, color: COLORS.green, severity: 5, tier: 3, detail: `${structuredDates.size} guided/mesocycle workout${structuredDates.size > 1 ? 's' : ''} completed` });
+  }
+
   // --- Comeback detection ---
   const prevWeekRange = getWeekRange(2);
   const prevPrevRange = getWeekRange(3);

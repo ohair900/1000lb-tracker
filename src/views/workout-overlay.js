@@ -285,8 +285,13 @@ export function renderWorkoutView() {
     html += `</div>`;
   }
 
-  // Accessory sections
+  // Accessory sections — #20: group supersets visually
   store.workoutSession.accessories.forEach((acc, ai) => {
+    const prevAcc = ai > 0 ? store.workoutSession.accessories[ai - 1] : null;
+    const nextAcc = ai < store.workoutSession.accessories.length - 1 ? store.workoutSession.accessories[ai + 1] : null;
+    if (acc.groupId && (!prevAcc || prevAcc.groupId !== acc.groupId)) {
+      html += `<div class="superset-group"><div class="superset-label">Superset</div>`;
+    }
     const ex = ACCESSORY_DB[acc.exerciseId];
     const catalogEx = resolveExercise(acc.exerciseId);
     const isBodyweight = catalogEx ? catalogEx.progressionType === 'bodyweight' : (!ex || ex.pctOfTM === 0);
@@ -382,6 +387,10 @@ export function renderWorkoutView() {
     }
     html += `<button class="workout-add-set-btn small" data-add-acc-set="${ai}">+ Set</button>`;
     html += `</div>`;
+    // #20: Close superset group container
+    if (acc.groupId && (!nextAcc || nextAcc.groupId !== acc.groupId)) {
+      html += `</div>`;
+    }
   });
 
   // Add Exercise button
@@ -458,11 +467,15 @@ export function completeWorkout() {
   if (!store.workoutSession) return;
   const now = new Date();
   // Save each accessory's results to log
+  // #18: Track source and template in accessory log
+  const sessionSource = store.workoutSession.source || 'quick';
+  const sessionTemplateId = store.workoutSession.templateId || null;
   store.workoutSession.accessories.forEach(acc => {
     if (acc.setsCompleted.length === 0) return;
     store.accessoryLog.push({
       id: now.getTime().toString(36) + Math.random().toString(36).slice(2, 6) + acc.exerciseId,
       exerciseId: acc.exerciseId,
+      name: acc.name,
       weight: acc.setWeights[acc.setWeights.length - 1],
       setWeights: [...acc.setWeights],
       setsCompleted: [...acc.setsCompleted],
@@ -470,10 +483,38 @@ export function completeWorkout() {
       repRange: [...acc.repRange],
       date: store.workoutSession.date,
       timestamp: now.getTime(),
-      mainLift: store.workoutSession.mainLift
+      mainLift: store.workoutSession.mainLift,
+      source: sessionSource,
+      templateId: sessionTemplateId,
     });
   });
   store.saveNow('accessoryLog');
+
+  // #16: Offer weight updates back to template
+  if (sessionTemplateId) {
+    const template = store.customTemplates.find(t => t.id === sessionTemplateId);
+    if (template) {
+      const changed = store.workoutSession.accessories.filter(acc => {
+        const tmplEx = template.exercises.find(e => e.exerciseId === acc.exerciseId);
+        return tmplEx && tmplEx.weightMode === 'manual' && acc.setWeights
+          && Math.abs(tmplEx.weightValue - acc.setWeights[acc.setWeights.length - 1]) > 0.1;
+      });
+      if (changed.length > 0) {
+        setTimeout(() => {
+          showToast(`${changed.length} weight${changed.length > 1 ? 's' : ''} changed`, {
+            action: 'Update Template', onAction: () => {
+              changed.forEach(acc => {
+                const tmplEx = template.exercises.find(e => e.exerciseId === acc.exerciseId);
+                if (tmplEx) tmplEx.weightValue = acc.setWeights[acc.setWeights.length - 1];
+              });
+              store.saveCustomTemplates();
+              showToast('Template weights updated');
+            }, duration: 8000,
+          });
+        }, 2000);
+      }
+    }
+  }
 
   // Mesocycle performance recording & adaptation
   let mesoAdaptation = null;
@@ -558,15 +599,15 @@ export function initWorkoutOverlay() {
       const ai = parseInt(removeBtn.dataset.accRemove);
       const acc = store.workoutSession.accessories[ai];
       if (!confirm(`Remove ${acc.name}?`)) return;
-      // Stop exercise timer if running for this accessory
-      if (store.exerciseTimer && store.exerciseTimer.accIdx === ai) {
-        stopExerciseTimer();
+      // Cancel/adjust timer BEFORE splicing to avoid race condition
+      if (store.exerciseTimer) {
+        if (store.exerciseTimer.accIdx === ai) {
+          stopExerciseTimer();
+        } else if (store.exerciseTimer.accIdx > ai) {
+          store.exerciseTimer.accIdx--;
+        }
       }
       store.workoutSession.accessories.splice(ai, 1);
-      // Fix timer index if it pointed beyond the removed index
-      if (store.exerciseTimer && store.exerciseTimer.accIdx > ai) {
-        store.exerciseTimer.accIdx--;
-      }
       store.saveWorkoutSession();
       renderWorkoutView();
       return;

@@ -34,6 +34,19 @@ import { displayWeight } from '../formulas/units.js';
 
 let _builderMainLift = null;
 let _gapPanelOpen = false;
+let _builderDirty = false;
+
+/** Mark builder as dirty and persist draft for crash recovery (#8, #9). */
+function _markDirty() {
+  _builderDirty = true;
+  try {
+    localStorage.setItem('sbd-builder-draft', JSON.stringify({
+      mainLift: _builderMainLift,
+      exercises: store.builderExercises,
+      timestamp: Date.now(),
+    }));
+  } catch { /* quota exceeded — ignore */ }
+}
 
 /**
  * Format weight for display, handling bodyweight exercises.
@@ -63,6 +76,24 @@ function formatBWWeight(weight, catalogEx) {
 export function openBuilder(mainLift, preloadExercises) {
   _builderMainLift = mainLift;
   _gapPanelOpen = false;
+  _builderDirty = false;
+
+  // #9: Recover draft if no preload provided
+  if (!preloadExercises) {
+    try {
+      const raw = localStorage.getItem('sbd-builder-draft');
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (draft && draft.mainLift === mainLift && draft.exercises && draft.exercises.length > 0
+            && (Date.now() - draft.timestamp) < 7200000) {
+          if (confirm('Recover unsaved builder draft?')) {
+            preloadExercises = draft.exercises;
+          }
+        }
+        localStorage.removeItem('sbd-builder-draft');
+      }
+    } catch { /* corrupt draft — ignore */ }
+  }
 
   if (preloadExercises && preloadExercises.length > 0) {
     store.builderExercises = preloadExercises;
@@ -84,10 +115,16 @@ export function openBuilder(mainLift, preloadExercises) {
 /**
  * Close the builder overlay.
  */
-export function closeBuilder() {
+export function closeBuilder(force) {
+  if (!force && _builderDirty && store.builderExercises.length > 0) {
+    if (!confirm('Discard unsaved changes?')) return;
+  }
   $('builder-overlay').style.display = 'none';
   document.body.style.overflow = '';
   store.builderExercises = [];
+  _builderDirty = false;
+  localStorage.removeItem('sbd-builder-draft');
+  if ($('builder-save-template')) $('builder-save-template')._templateId = null;
   closeSwapSheet();
 }
 
@@ -208,7 +245,17 @@ export function renderBuilder(mainLift) {
       }
     }
 
-    html += `<div class="builder-exercise${isMain ? ` main-lift ${mainLift}` : ''}" data-slot="${i}">
+    // #20: Superset grouping — open group container if this starts a group
+    const prevEx = i > 0 ? store.builderExercises[i - 1] : null;
+    const nextEx = i < store.builderExercises.length - 1 ? store.builderExercises[i + 1] : null;
+    const inGroup = ex.groupId && !isMain;
+    const isGroupStart = inGroup && (!prevEx || prevEx.groupId !== ex.groupId);
+    const isGroupEnd = inGroup && (!nextEx || nextEx.groupId !== ex.groupId);
+    if (isGroupStart) {
+      html += `<div class="superset-group"><div class="superset-label">Superset <button class="slot-btn" data-unlink-group="${ex.groupId}" style="font-size:10px;padding:1px 4px">Unlink</button></div>`;
+    }
+
+    html += `<div class="builder-exercise${isMain ? ` main-lift ${mainLift}` : ''}${inGroup ? ' in-superset' : ''}" data-slot="${i}">
       <div class="builder-exercise-info">
         <div class="builder-exercise-name">
           <span class="slot-role-tag">${roleLabel}</span>
@@ -223,10 +270,14 @@ export function renderBuilder(mainLift) {
         <input type="number" value="${Array.isArray(ex.repRange) ? ex.repRange[1] : ex.reps}" min="1" max="30" data-field="reps" data-idx="${i}" inputmode="numeric" title="Reps">
       </div>
       <div class="slot-actions">
+        ${!isMain && i > 1 ? `<button class="slot-btn" data-move-up="${i}" title="Move up">&uarr;</button>` : ''}
+        ${!isMain && i < store.builderExercises.length - 1 ? `<button class="slot-btn" data-move-down="${i}" title="Move down">&darr;</button>` : ''}
+        ${!isMain && !inGroup && nextEx && !nextEx.groupId && nextEx.type !== 'main' ? `<button class="slot-btn" data-link-ss="${i}" title="Superset with next">SS</button>` : ''}
         ${!isMain ? `<button class="slot-btn" data-swap="${i}">Swap</button>` : ''}
         ${!isMain ? `<button class="slot-btn danger" data-remove="${i}">&times;</button>` : ''}
       </div>
     </div>`;
+    if (isGroupEnd) html += `</div>`;
   });
 
   // Add exercise button
@@ -516,6 +567,7 @@ function swapExercise(slotIdx, newExId) {
     slotRole: old.slotRole || 'accessory',
     reasons: [],
   };
+  _markDirty();
   renderBuilder(mainLift);
 }
 
@@ -526,6 +578,12 @@ function swapExercise(slotIdx, newExId) {
 function addExerciseFromCatalog(exId) {
   const catalogEx = EXERCISE_CATALOG[exId];
   if (!catalogEx) return;
+  // #10: Duplicate detection
+  const canonId = resolveCanonicalId(exId);
+  if (store.builderExercises.some(e => e.type !== 'main' && resolveCanonicalId(e.exerciseId) === canonId)) {
+    showToast('Exercise already in workout');
+    return;
+  }
   const mainLift = _builderMainLift;
   const weight = getAccessoryWeight(exId, mainLift);
 
@@ -549,6 +607,7 @@ function addExerciseFromCatalog(exId) {
     slotRole: 'accessory',
     reasons: [],
   });
+  _markDirty();
   renderBuilder(mainLift);
 }
 
@@ -574,6 +633,8 @@ export function builderToSession(mainLift) {
       equipment: ex.equipment,
       setsCompleted: [],
       progressed: catalogEx ? checkAccessoryProgression(ex.exerciseId, mainLift) : (dbEx ? checkAccessoryProgression(ex.exerciseId, mainLift) : false),
+      groupId: ex.groupId || null,
+      groupType: ex.groupType || null,
     };
   });
 
@@ -595,6 +656,7 @@ export function builderToSession(mainLift) {
     accessories,
     completed: false,
     source: 'guided-builder',
+    templateId: $('builder-save-template')?._templateId || null,
   };
   const workout = getProgramWorkout(mainLift, session.programWeek);
   if (workout) {
@@ -611,33 +673,69 @@ export function builderToSession(mainLift) {
 // ---------------------------------------------------------------------------
 
 export function saveAsTemplate(mainLift) {
-  const name = prompt('Template name:');
-  if (!name) return;
+  const editingId = $('builder-save-template')._templateId || null;
+  const existing = editingId ? store.customTemplates.find(t => t.id === editingId) : null;
+
+  const name = prompt('Template name:', existing ? existing.name : '');
+  if (!name || !name.trim()) return;
 
   const gapReport = getGapReport(mainLift);
   const pushPull = analyzePushPullRatio();
-
-  const template = {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    name: name.trim(),
-    mainLift,
-    createdAt: Date.now(),
-    lastUsed: Date.now(),
-    exercises: store.builderExercises.map(e => ({ ...e })),
-    metadata: {
-      gapCount: gapReport.length,
-      pushPullRatio: pushPull.ratio,
-      slotRoles: store.builderExercises.map(e => e.slotRole || 'accessory'),
-    },
+  const exercises = store.builderExercises.map(e => ({ ...e }));
+  const metadata = {
+    gapCount: gapReport.length,
+    pushPullRatio: pushPull.ratio,
+    slotRoles: store.builderExercises.map(e => e.slotRole || 'accessory'),
   };
-  store.customTemplates.push(template);
-  store.saveCustomTemplates();
-  showToast('Template saved: ' + name);
+
+  // #13: Optional notes
+  const notes = prompt('Notes (optional):', existing ? (existing.notes || '') : '') || '';
+  // #17: Tags
+  const PRESET_TAGS = ['Strength', 'Hypertrophy', 'Recovery', 'Volume', 'Competition'];
+  const tagsInput = prompt(`Tags (comma-separated):\n${PRESET_TAGS.join(', ')}`, existing ? (existing.tags || []).join(', ') : '') || '';
+  const tags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
+
+  if (existing) {
+    // Update in-place
+    existing.name = name.trim();
+    existing.notes = notes.trim();
+    existing.tags = tags;
+    existing.exercises = exercises;
+    existing.metadata = metadata;
+    existing.lastUsed = Date.now();
+    $('builder-save-template')._templateId = null;
+    _builderDirty = false;
+    localStorage.removeItem('sbd-builder-draft');
+    store.saveCustomTemplates();
+    showToast('Template updated: ' + name.trim());
+  } else {
+    const template = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name: name.trim(),
+      notes: notes.trim(),
+      tags,
+      mainLift,
+      createdAt: Date.now(),
+      lastUsed: Date.now(),
+      exercises,
+      metadata,
+    };
+    store.customTemplates.push(template);
+    _builderDirty = false;
+    localStorage.removeItem('sbd-builder-draft');
+    store.saveCustomTemplates();
+    showToast('Template saved: ' + name.trim());
+  }
 }
 
 export function showTemplateList() {
   const lift = store.currentLift;
-  const liftTemplates = store.customTemplates.filter(t => t.mainLift === lift).sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
+  // #11: Pinned templates sort first, then by lastUsed
+  const liftTemplates = store.customTemplates.filter(t => t.mainLift === lift).sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    return (b.lastUsed || 0) - (a.lastUsed || 0);
+  });
   if (liftTemplates.length === 0) {
     showToast('No templates for ' + LIFT_NAMES[lift]);
     return;
@@ -645,16 +743,41 @@ export function showTemplateList() {
 
   const body = $('choice-sheet-body');
   $('choice-sheet-title').textContent = 'Saved Templates';
-  let html = '<div class="template-list">';
+
+  // #17: Tag filter bar
+  const allTags = [...new Set(liftTemplates.flatMap(t => t.tags || []))];
+  let html = '';
+  if (allTags.length > 0) {
+    html += `<div class="template-tag-filters" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:var(--space-2)">`;
+    html += `<button class="template-tag-filter-btn active" data-tag-filter="">All</button>`;
+    allTags.forEach(tag => {
+      html += `<button class="template-tag-filter-btn" data-tag-filter="${escapeHTML(tag)}">${escapeHTML(tag)}</button>`;
+    });
+    html += `</div>`;
+  }
+  html += '<div class="template-list">';
   liftTemplates.forEach(t => {
-    const accCount = t.exercises.filter(e => e.type !== 'main').length;
+    const accExercises = t.exercises.filter(e => e.type !== 'main');
+    const accCount = accExercises.length;
     const lastUsed = t.lastUsed ? new Date(t.lastUsed).toLocaleDateString() : 'Never';
+    const useCount = t.useCount || 0;
+    const totalSets = accExercises.reduce((sum, e) => sum + (e.sets || 3), 0);
+    // #6: Exercise name preview pills
+    const previewNames = accExercises.slice(0, 4).map(e => escapeHTML(e.name));
+    const moreCount = Math.max(0, accCount - 4);
+    const previewHtml = previewNames.map(n => `<span class="template-preview-pill">${n}</span>`).join('')
+      + (moreCount > 0 ? `<span class="template-preview-more">+${moreCount}</span>` : '');
     html += `<div class="template-card" data-tid="${t.id}">
       <div class="template-card-info">
-        <div class="template-card-name">${escapeHTML(t.name)}</div>
-        <div class="template-card-meta">${accCount} exercises &bull; Last used: ${lastUsed}</div>
+        <div class="template-card-name">${t.pinned ? '&#9733; ' : ''}${escapeHTML(t.name)}</div>
+        <div class="template-card-meta">${accCount} exercises &bull; ${totalSets} sets &bull; Used ${useCount}x &bull; Last: ${lastUsed}</div>
+        ${t.notes ? `<div class="template-card-notes">${escapeHTML(t.notes)}</div>` : ''}
+        ${(t.tags && t.tags.length > 0) ? `<div class="template-card-tags">${t.tags.map(tag => `<span class="template-tag-pill">${escapeHTML(tag)}</span>`).join('')}</div>` : ''}
+        <div class="template-card-preview">${previewHtml}</div>
       </div>
       <div class="template-card-actions">
+        <button class="builder-btn-sm" data-pin-template="${t.id}" title="${t.pinned ? 'Unpin' : 'Pin'}">${t.pinned ? '&#9733;' : '&#9734;'}</button>
+        <button class="builder-btn-sm" data-rename-template="${t.id}" title="Rename">Aa</button>
         <button class="builder-btn-sm" data-edit-template="${t.id}" title="Edit">&#9998;</button>
         <button class="builder-btn-sm" data-dup-template="${t.id}" title="Duplicate">&#9901;</button>
         <button class="builder-btn-sm danger" data-del-template="${t.id}" title="Delete">&times;</button>
@@ -668,24 +791,75 @@ export function showTemplateList() {
   $('choice-sheet').style.display = 'block';
   document.body.style.overflow = 'hidden';
 
+  // #17: Tag filter click handler
+  body.querySelectorAll('.template-tag-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tag = btn.dataset.tagFilter;
+      body.querySelectorAll('.template-tag-filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      body.querySelectorAll('.template-card').forEach(card => {
+        const tid = card.dataset.tid;
+        const t = store.customTemplates.find(x => x.id === tid);
+        if (!tag) { card.style.display = ''; return; }
+        card.style.display = (t && t.tags && t.tags.includes(tag)) ? '' : 'none';
+      });
+    });
+  });
+
   body.querySelectorAll('.template-card').forEach(card => {
     card.addEventListener('click', (e) => {
-      if (e.target.closest('[data-edit-template]') || e.target.closest('[data-del-template]') || e.target.closest('[data-dup-template]')) return;
+      if (e.target.closest('[data-edit-template]') || e.target.closest('[data-del-template]') || e.target.closest('[data-dup-template]') || e.target.closest('[data-rename-template]') || e.target.closest('[data-pin-template]')) return;
       const tid = card.dataset.tid;
       const template = store.customTemplates.find(t => t.id === tid);
       if (!template) return;
       template.lastUsed = Date.now();
+      template.useCount = (template.useCount || 0) + 1;
       store.saveCustomTemplates();
       _closeChoiceSheet();
-      // Re-evaluate weights on load (not frozen)
+      // Re-evaluate weights on load; drop stale non-custom exercises
+      let staleCount = 0;
       const exercises = (template.exercises || []).map(e => {
         const copy = { ...e };
+        if (copy.type !== 'main' && !copy.custom && !resolveExercise(copy.exerciseId)) {
+          staleCount++;
+          return null;
+        }
         if (copy.type !== 'main' && copy.weightMode === 'auto') {
           copy.weightValue = getAccessoryWeight(copy.exerciseId, lift);
         }
         return copy;
-      });
+      }).filter(Boolean);
+      if (staleCount > 0) showToast(`Removed ${staleCount} unavailable exercise${staleCount > 1 ? 's' : ''}`);
       openBuilder(lift, exercises);
+    });
+  });
+
+  // #11: Pin/unpin handler
+  body.querySelectorAll('[data-pin-template]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const tid = btn.dataset.pinTemplate;
+      const template = store.customTemplates.find(t => t.id === tid);
+      if (!template) return;
+      template.pinned = !template.pinned;
+      store.saveCustomTemplates();
+      showTemplateList();
+    });
+  });
+
+  // #7: Rename handler
+  body.querySelectorAll('[data-rename-template]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const tid = btn.dataset.renameTemplate;
+      const template = store.customTemplates.find(t => t.id === tid);
+      if (!template) return;
+      const newName = prompt('New template name:', template.name);
+      if (!newName || !newName.trim()) return;
+      template.name = newName.trim();
+      store.saveCustomTemplates();
+      showTemplateList();
+      showToast('Template renamed');
     });
   });
 
@@ -770,6 +944,54 @@ export function initBuilderOverlay() {
     const mainLift = _builderMainLift;
     if (!mainLift) return;
 
+    // #12: Move up/down buttons
+    const moveUpBtn = e.target.closest('[data-move-up]');
+    if (moveUpBtn) {
+      const idx = parseInt(moveUpBtn.dataset.moveUp);
+      if (idx > 1) {
+        [store.builderExercises[idx], store.builderExercises[idx - 1]] = [store.builderExercises[idx - 1], store.builderExercises[idx]];
+        _markDirty();
+        renderBuilder(mainLift);
+      }
+      return;
+    }
+    const moveDownBtn = e.target.closest('[data-move-down]');
+    if (moveDownBtn) {
+      const idx = parseInt(moveDownBtn.dataset.moveDown);
+      if (idx < store.builderExercises.length - 1) {
+        [store.builderExercises[idx], store.builderExercises[idx + 1]] = [store.builderExercises[idx + 1], store.builderExercises[idx]];
+        _markDirty();
+        renderBuilder(mainLift);
+      }
+      return;
+    }
+
+    // #20: Superset link/unlink
+    const linkBtn = e.target.closest('[data-link-ss]');
+    if (linkBtn) {
+      const idx = parseInt(linkBtn.dataset.linkSs);
+      const gid = 'ss-' + Date.now();
+      store.builderExercises[idx].groupId = gid;
+      store.builderExercises[idx].groupType = 'superset';
+      if (store.builderExercises[idx + 1]) {
+        store.builderExercises[idx + 1].groupId = gid;
+        store.builderExercises[idx + 1].groupType = 'superset';
+      }
+      _markDirty();
+      renderBuilder(mainLift);
+      return;
+    }
+    const unlinkBtn = e.target.closest('[data-unlink-group]');
+    if (unlinkBtn) {
+      const gid = unlinkBtn.dataset.unlinkGroup;
+      store.builderExercises.forEach(ex => {
+        if (ex.groupId === gid) { delete ex.groupId; delete ex.groupType; }
+      });
+      _markDirty();
+      renderBuilder(mainLift);
+      return;
+    }
+
     // Swap buttons
     const swapBtn = e.target.closest('[data-swap]');
     if (swapBtn) {
@@ -781,6 +1003,7 @@ export function initBuilderOverlay() {
     const removeBtn = e.target.closest('[data-remove]');
     if (removeBtn) {
       store.builderExercises.splice(parseInt(removeBtn.dataset.remove), 1);
+      _markDirty();
       renderBuilder(mainLift);
       return;
     }
@@ -874,9 +1097,12 @@ export function initBuilderOverlay() {
       const pattern = $('custom-ex-pattern').value;
       const weight = parseFloat($('custom-ex-weight').value) || 0;
 
+      // Deterministic ID from name so history consolidates across sessions
+      const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
       store.builderExercises.push({
         type: 'accessory',
-        exerciseId: 'custom-' + Date.now(),
+        exerciseId: 'custom-' + slug,
         name,
         sets, reps,
         weightMode: 'manual',
@@ -891,6 +1117,7 @@ export function initBuilderOverlay() {
       $('custom-ex-name').value = '';
       $('custom-ex-weight').value = '';
       $('builder-custom-form').style.display = 'none';
+      _markDirty();
       renderBuilder(mainLift);
       return;
     }
@@ -910,6 +1137,7 @@ export function initBuilderOverlay() {
         store.builderExercises[idx].repRange[1] = val;
       }
     }
+    _markDirty();
     // Update summary bar duration
     const duration = estimateWorkoutDuration(store.builderExercises);
     $('builder-summary-bar').innerHTML = `<span class="duration-pill">~${duration}min</span>`;
@@ -938,7 +1166,7 @@ export function initBuilderOverlay() {
     const session = builderToSession(_builderMainLift);
     store.workoutSession = session;
     store.saveWorkoutSession();
-    closeBuilder();
+    closeBuilder(true);
     $('workout-overlay').style.display = 'flex';
     document.body.style.overflow = 'hidden';
   });

@@ -212,15 +212,39 @@ export function renderChoiceSheetBody() {
     <div class="choice-card-arrow">&#8250;</div>
   </div>`;
 
-  // Saved Templates
+  // #14: Repeat Last Workout
+  const lastLogs = store.accessoryLog
+    .filter(l => l.mainLift === store.currentLift)
+    .sort((a, b) => b.timestamp - a.timestamp);
+  if (lastLogs.length > 0) {
+    const lastDate = lastLogs[0].date;
+    const lastSession = lastLogs.filter(l => l.date === lastDate);
+    const lastNames = [...new Set(lastSession.map(l => l.name || l.exerciseId))].slice(0, 3);
+    const lastDesc = lastNames.join(', ') + (lastSession.length > 3 ? '...' : '');
+    html += `<div class="choice-card" data-action="repeat-last">
+      <div class="choice-card-icon gold">&#8634;</div>
+      <div class="choice-card-text">
+        <div class="choice-card-title">Repeat Last (${lastDate})</div>
+        <div class="choice-card-desc">${escapeHTML(lastDesc)}</div>
+      </div>
+      <div class="choice-card-arrow">&#8250;</div>
+    </div>`;
+  }
+
+  // Saved Templates — #19: show recent template name
   if (store.customTemplates.length > 0) {
     const liftTemplates = store.customTemplates.filter(t => t.mainLift === store.currentLift);
     if (liftTemplates.length > 0) {
+      const sorted = [...liftTemplates].sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
+      const recentName = sorted[0].name;
+      const desc = liftTemplates.length === 1
+        ? `"${escapeHTML(recentName)}"`
+        : `"${escapeHTML(recentName)}" and ${liftTemplates.length - 1} more`;
       html += `<div class="choice-card" data-action="templates">
         <div class="choice-card-icon blue">&#128196;</div>
         <div class="choice-card-text">
           <div class="choice-card-title">Saved Templates (${liftTemplates.length})</div>
-          <div class="choice-card-desc">Load a saved workout template</div>
+          <div class="choice-card-desc">${desc}</div>
         </div>
         <div class="choice-card-arrow">&#8250;</div>
       </div>`;
@@ -278,6 +302,22 @@ export function renderChoiceSheetBody() {
         if (_openWorkoutView) _openWorkoutView(store.currentLift);
       }
       else if (action === 'custom') { if (_openBuilder) _openBuilder(store.currentLift); }
+      else if (action === 'repeat-last') {
+        // Reconstruct exercises from last session's accessory log
+        const lift = store.currentLift;
+        const logs = store.accessoryLog.filter(l => l.mainLift === lift).sort((a, b) => b.timestamp - a.timestamp);
+        if (logs.length > 0) {
+          const date = logs[0].date;
+          const session = logs.filter(l => l.date === date);
+          const exercises = session.map((l, i) => ({
+            type: 'accessory', exerciseId: l.exerciseId, name: l.name || l.exerciseId,
+            sets: l.targetSets || l.setsCompleted.length, reps: l.repRange ? l.repRange[1] : 10,
+            weightMode: 'auto', weightValue: l.weight, equipment: l.equipment || 'barbell',
+            repRange: l.repRange || [8, 12], order: i + 1, slotRole: 'accessory', reasons: [],
+          }));
+          if (_openBuilder) _openBuilder(lift, exercises);
+        }
+      }
       else if (action === 'templates') { if (_showTemplateList) _showTemplateList(); }
       else if (action === 'mesocycle') { if (_openMesocycleWorkout) _openMesocycleWorkout(store.currentLift); }
       else if (action === 'mesogen') { if (_showMesocycleGenerator) _showMesocycleGenerator(); }
