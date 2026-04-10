@@ -59,17 +59,19 @@
 }
 .modal-save-btn:hover { opacity: 0.9; }
 
-/* Edit / Delete buttons */
+/* Edit / Delete buttons — visible on both touch and mouse (swipe also works on touch) */
 .edit-btn, .delete-btn {
   padding: 4px 10px; border: 1px solid var(--border);
   background: transparent; color: var(--text-dim);
   font-size: var(--text-sm); border-radius: var(--radius-sm); cursor: pointer;
   transition: all var(--transition-base); white-space: nowrap;
-  min-height: 44px; display: inline-flex; align-items: center;
+  min-height: 44px; min-width: 44px;
+  display: inline-flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
 }
 .edit-btn:hover { border-color: var(--border-hover); color: var(--text-strong); }
+.delete-btn:hover, .delete-btn:active { border-color: var(--danger); color: var(--danger); }
 .delete-btn.confirm { border-color: var(--danger); color: var(--danger); background: rgba(207,102,121,0.08); }
-@media (pointer: coarse) { .delete-btn { display: none; } }
 
 /* Confirm dialog buttons */
 .confirm-dialog { text-align: center; padding: 8px 0; }

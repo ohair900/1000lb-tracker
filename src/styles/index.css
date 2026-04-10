@@ -14,6 +14,7 @@
 @import './components/sheets.css';
 @import './components/toast.css';
 @import './components/overlays.css';
+@import './components/confirm-sheet.css';
 
 /* Features */
 @import './features/dashboard.css';

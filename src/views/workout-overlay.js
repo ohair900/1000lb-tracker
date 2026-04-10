@@ -39,6 +39,7 @@ import {
 } from '../systems/session-optimizer.js';
 import { renderCoachingCard, renderSetEvaluationChip, renderSessionGrade } from '../views/session-coach-ui.js';
 import { showToast } from '../ui/toast.js';
+import { confirmSheet } from '../ui/confirm-sheet.js';
 import {
   startTimer,
   ensureAudioContext,
@@ -419,7 +420,7 @@ export function renderWorkoutView() {
  * Open the workout overlay — resume or create a session.
  * @param {string} mainLift - 'squat' | 'bench' | 'deadlift'
  */
-export function openWorkoutView(mainLift) {
+export async function openWorkoutView(mainLift) {
   // Check if weak points configured
   if (!store.workoutConfig.weakPoints[mainLift]) {
     _deps.showWeakPointSetupModal?.(mainLift);
@@ -446,7 +447,16 @@ export function openWorkoutView(mainLift) {
     if (store.workoutSession && !store.workoutSession.completed && store.workoutSession.mainLift !== mainLift) {
       const hasProgress = store.workoutSession.mainSets.some(s => s.completed) ||
         store.workoutSession.accessories.some(a => a.setsCompleted.length > 0);
-      if (hasProgress && !confirm(`You have an in-progress ${LIFT_NAMES[store.workoutSession.mainLift]} workout. Discard it and start ${LIFT_NAMES[mainLift]}?`)) return;
+      if (hasProgress) {
+        const ok = await confirmSheet({
+          title: `Switch to ${LIFT_NAMES[mainLift]}?`,
+          body: `Your in-progress ${LIFT_NAMES[store.workoutSession.mainLift]} workout will be discarded.`,
+          confirmLabel: `Discard & start ${LIFT_NAMES[mainLift]}`,
+          cancelLabel: `Keep ${LIFT_NAMES[store.workoutSession.mainLift]}`,
+          tone: 'danger',
+        });
+        if (!ok) return;
+      }
     }
     createWorkoutSession(mainLift);
   }
@@ -633,13 +643,15 @@ export function initWorkoutOverlay() {
       return;
     }
 
-    // Remove accessory
+    // Remove accessory — soft-commit with undo toast (no confirm dialog)
     const removeBtn = e.target.closest('.acc-remove-btn');
     if (removeBtn) {
       e.stopPropagation();
       const ai = parseInt(removeBtn.dataset.accRemove);
       const acc = store.workoutSession.accessories[ai];
-      if (!confirm(`Remove ${acc.name}?`)) return;
+      if (!acc) return;
+      // Snapshot for undo (deep clone the accessory object)
+      const snapshot = JSON.parse(JSON.stringify(acc));
       // Cancel/adjust timer BEFORE splicing to avoid race condition
       if (store.exerciseTimer) {
         if (store.exerciseTimer.accIdx === ai) {
@@ -651,6 +663,17 @@ export function initWorkoutOverlay() {
       store.workoutSession.accessories.splice(ai, 1);
       store.saveWorkoutSession();
       renderWorkoutView();
+      showToast(`${acc.name} removed`, {
+        action: 'Undo',
+        duration: 6000,
+        onAction: () => {
+          if (!store.workoutSession) return;
+          const insertAt = Math.min(ai, store.workoutSession.accessories.length);
+          store.workoutSession.accessories.splice(insertAt, 0, snapshot);
+          store.saveWorkoutSession();
+          renderWorkoutView();
+        },
+      });
       return;
     }
 
@@ -995,8 +1018,31 @@ export function initWorkoutOverlay() {
   // Complete & discard buttons
   $('workout-complete-btn').addEventListener('click', completeWorkout);
   $('workout-close').addEventListener('click', closeWorkoutView);
-  $('workout-discard-btn').addEventListener('click', () => {
-    if (!confirm('Discard this workout? All progress will be lost.')) return;
+  $('workout-discard-btn').addEventListener('click', async () => {
+    // Describe what will be lost so the user can decide with full info
+    const session = store.workoutSession;
+    let summary = 'Nothing logged yet.';
+    if (session) {
+      const mainDone = session.mainSets.filter(s => s.completed).length;
+      const bbbDone = (session.bbbSets || []).filter(s => s.completed).length;
+      const accDone = session.accessories.reduce((n, a) => n + a.setsCompleted.length, 0);
+      const total = mainDone + bbbDone + accDone;
+      if (total > 0) {
+        const parts = [];
+        if (mainDone) parts.push(`${mainDone} main set${mainDone > 1 ? 's' : ''}`);
+        if (bbbDone) parts.push(`${bbbDone} BBB set${bbbDone > 1 ? 's' : ''}`);
+        if (accDone) parts.push(`${accDone} accessory set${accDone > 1 ? 's' : ''}`);
+        summary = `${parts.join(', ')} will be removed from your history.`;
+      }
+    }
+    const ok = await confirmSheet({
+      title: 'Discard this workout?',
+      body: summary,
+      confirmLabel: 'Discard workout',
+      cancelLabel: 'Keep going',
+      tone: 'danger',
+    });
+    if (!ok) return;
     stopExerciseTimer();
     // Remove any entries logged during this session
     if (store.workoutSession && store.workoutSession.loggedEntryIds) {
