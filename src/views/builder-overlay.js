@@ -26,7 +26,8 @@ import {
 } from '../systems/gap-analysis.js';
 import { checkGuardrails } from '../systems/workout-guardrails.js';
 import { showToast } from '../ui/toast.js';
-import { displayWeight } from '../formulas/units.js';
+import { displayWeight, formatWeight } from '../formulas/units.js';
+import { formatPlates } from '../formulas/plates.js';
 
 // ---------------------------------------------------------------------------
 // Module state
@@ -142,25 +143,12 @@ function buildMainLiftSlot(mainLift) {
     weightMode: 'program', weightValue: 0,
     equipment: 'barbell', repRange: [1, 5], order: 0,
     slotRole: 'main',
+    programSets: workout ? workout.sets : null,
+    programLabel: workout ? workout.label : null,
   };
 }
 
 function buildDefaultSlots(mainLift) {
-  // DEBUG: log data state to console AND store for UI display
-  const _tms = store.programConfig.trainingMaxes;
-  const _entries = store.entries;
-  const _e1rms = {};
-  ['squat', 'bench', 'deadlift'].forEach(l => {
-    const v = _entries.filter(e => e.lift === l);
-    _e1rms[l] = v.length > 0 ? Math.max(...v.map(e => e.e1rm)) : null;
-  });
-  console.warn('[buildDefaultSlots] mainLift:', mainLift,
-    'TMs:', JSON.stringify(_tms),
-    'e1RMs:', JSON.stringify(_e1rms),
-    'entries#:', _entries.length);
-  // Store debug info for display in builder
-  window.__builderDebug = { mainLift, tms: { ..._tms }, e1rms: { ..._e1rms }, entryCount: _entries.length };
-
   const slots = [buildMainLiftSlot(mainLift)];
   const smart = selectSmartAccessories(mainLift, 4);
 
@@ -173,7 +161,6 @@ function buildDefaultSlots(mainLift) {
     else if (i === 1 && pType !== 'close-variation') slotRole = 'compound';
 
     const weight = getAccessoryWeight(ex.id, mainLift);
-    console.warn(`[buildDefaultSlots] ${ex.id}: pType=${pType}, pctOfTM=${JSON.stringify(catalogEx.pctOfTM)}, weight=${weight}`);
     slots.push({
       type: 'accessory',
       exerciseId: ex.id,
@@ -211,16 +198,6 @@ export function renderBuilder(mainLift) {
     `<span class="duration-pill">~${duration}min</span>`;
 
   let html = '';
-
-  // DEBUG banner — shows data state so we can diagnose weight issues
-  const _dbg = window.__builderDebug;
-  if (_dbg) {
-    html += `<div style="background:#1a1a2e;border:1px solid #e94560;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:0.7rem;color:#eee;font-family:monospace">
-      <div><b>DEBUG</b> mainLift: ${_dbg.mainLift} | entries: ${_dbg.entryCount}</div>
-      <div>TMs: S=${_dbg.tms.squat||'null'} B=${_dbg.tms.bench||'null'} D=${_dbg.tms.deadlift||'null'}</div>
-      <div>e1RMs: S=${_dbg.e1rms.squat||'null'} B=${_dbg.e1rms.bench||'null'} D=${_dbg.e1rms.deadlift||'null'}</div>
-    </div>`;
-  }
 
   // --- Exercise slot list ---
   store.builderExercises.forEach((ex, i) => {
@@ -276,6 +253,26 @@ export function renderBuilder(mainLift) {
         ${!isMain ? `<button class="slot-btn" data-swap="${i}">Swap</button>` : ''}
         ${!isMain ? `<button class="slot-btn danger" data-remove="${i}">&times;</button>` : ''}
       </div>
+      ${isMain && ex.programSets ? (() => {
+        const displaySets = ex.programSets.filter(s => s.tier !== 'BBB');
+        const hasBBB = ex.programSets.some(s => s.tier === 'BBB');
+        let setsHtml = '<div class="builder-program-sets">';
+        displaySets.forEach(s => {
+          const isAmrap = typeof s.reps === 'string' && s.reps.includes('+');
+          const amrapBadge = isAmrap ? ' <span style="color:var(--gold);font-weight:600;font-size:0.65rem">AMRAP</span>' : '';
+          const checkmark = s.completed ? '<span class="program-set-check">&#10003;</span>' : '';
+          const plateStr = formatPlates(s.weight);
+          setsHtml += `<div class="program-set-row${s.completed ? ' completed' : ''}">
+            ${checkmark}<span class="program-set-num">${s.num}</span>
+            <span class="program-set-weight">${formatWeight(s.weight)} ${store.unit} &times; ${s.reps}</span>${amrapBadge}
+            <span class="program-set-pct">${s.pct}%</span>
+            ${plateStr ? `<div class="plate-display">${plateStr} /side</div>` : ''}
+          </div>`;
+        });
+        if (hasBBB) setsHtml += '<div style="font-size:0.65rem;color:var(--text-dim);margin-top:6px;opacity:0.7">+ 5\u00d710 BBB supplemental (shown in workout)</div>';
+        setsHtml += '</div>';
+        return setsHtml;
+      })() : ''}
     </div>`;
     if (isGroupEnd) html += `</div>`;
   });
