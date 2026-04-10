@@ -647,7 +647,9 @@ function showRecapModal(recap) {
     </div>`;
   }
 
-  $('edit-modal').querySelector('h3').textContent = 'Weekly Recap';
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const weekStartLabel = `${thisMonday.getDate()} ${MONTH_NAMES[thisMonday.getMonth()]} ${thisMonday.getFullYear()}`;
+  $('edit-modal').querySelector('h3').textContent = `This Week \u00b7 ${weekStartLabel}`;
   body.innerHTML = html;
   openModal('edit-modal');
 
