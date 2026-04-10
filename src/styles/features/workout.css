@@ -5,7 +5,19 @@
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
   min-height: 56px; flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
 }
+/* Ambient lift-colored wash behind the header when workout is active */
+.workout-header::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, var(--accent-glow, transparent) 0%, transparent 65%);
+  pointer-events: none;
+  opacity: 0.5;
+}
+#workout-overlay[data-lift="squat"]  .workout-header { --accent-glow: rgba(229, 57, 53, 0.22); }
+#workout-overlay[data-lift="bench"]  .workout-header { --accent-glow: rgba(30, 136, 229, 0.22); }
+#workout-overlay[data-lift="deadlift"] .workout-header { --accent-glow: rgba(67, 160, 71, 0.22); }
 .workout-header-title {
   font-family: var(--font-display);
   font-size: 1.45rem; font-weight: 900; color: var(--text-strong);

@@ -183,7 +183,7 @@ function renderMuscleGroup(mg, polygons, view, fatigue) {
   const stroke = c ? `rgba(${c.r},${c.g},${c.b},${c.stroke})` : BOUNDARY_STROKE;
   const sw = c ? '0.6' : '0.3';
 
-  let svg = `<g class="body-map-muscle" data-muscle="${mg}">`;
+  let svg = `<g class="body-map-muscle" data-muscle="${mg}"${status ? ` data-status="${status}"` : ''}>`;
   polygons.forEach(pts => {
     svg += `<polygon points="${pts}" fill="url(#${gId})" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>`;
   });

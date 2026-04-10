@@ -461,6 +461,7 @@ export async function openWorkoutView(mainLift) {
     createWorkoutSession(mainLift);
   }
   $('workout-overlay').style.display = 'flex';
+  $('workout-overlay').dataset.lift = mainLift;
   document.body.style.overflow = 'hidden';
   renderWorkoutView();
 }

@@ -52,3 +52,28 @@
     filter: brightness(1.25);
   }
 }
+
+/* Red/orange muscles pulse slowly to draw attention without distraction.
+   3s cycle is below "jittery" but above "invisible". */
+.body-map-muscle[data-status="red"] {
+  animation: fatigueBodyPulse 2.8s ease-in-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+.body-map-muscle[data-status="orange"] {
+  animation: fatigueBodyPulse 3.6s ease-in-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+@keyframes fatigueBodyPulse {
+  0%, 100% { opacity: 1; filter: brightness(1); }
+  50%      { opacity: 0.72; filter: brightness(1.22); }
+}
+
+/* Ambient red tint on the fatigue card container if any muscle is red.
+   Applied via a parent class set in dashboard.js render step. */
+.fatigue-primary-red {
+  background: linear-gradient(180deg, rgba(229, 57, 53, 0.05) 0%, transparent 100%);
+  border-radius: var(--radius-lg);
+  transition: background 0.6s ease;
+}
