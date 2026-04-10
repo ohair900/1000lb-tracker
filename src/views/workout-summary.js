@@ -10,6 +10,7 @@ import { $ } from '../utils/helpers.js';
 import { LIFT_NAMES } from '../constants/lift-config.js';
 import { formatWeight } from '../formulas/units.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
+import { resolveExercise } from '../data/exercise-compat.js';
 import { renderSessionGrade } from './session-coach-ui.js';
 
 // ---------------------------------------------------------------------------
@@ -89,7 +90,8 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
         weightStr += ' \u00b7 ';
       }
       const ex = ACCESSORY_DB[acc.exerciseId];
-      const isTimeBased = !!(ex && ex.timeBased);
+      const catalogEx = resolveExercise(acc.exerciseId);
+      const isTimeBased = !!((ex && ex.timeBased) || (catalogEx && catalogEx.progressionType === 'time'));
       const repDetail = done > 0 ? acc.setsCompleted.join('/') + (isTimeBased ? 's' : ' reps') : 'skipped';
       const color = done >= target ? 'var(--green)' : done > 0 ? 'var(--yellow)' : 'var(--text-dim)';
       html += `<div class="summary-acc-row">

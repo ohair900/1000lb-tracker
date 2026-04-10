@@ -368,7 +368,9 @@ export function renderWorkoutView() {
           Set ${si + 1}: ${isTimeBased
             ? (isBodyweight
               ? (done ? repsVal + 's' : repTarget)
-              : `${setWeight} &times; ${done ? repsVal + 's' : repTarget}`)
+              : (acc.setWeights[si] > 0
+                ? `${setWeight} &times; ${done ? repsVal + 's' : repTarget}`
+                : (done ? repsVal + 's' : repTarget)))
             : `${setWeight} &times; ${done ? repsVal : repTarget}${done ? ' reps' : ''}`}
         </div>
         ${!done && isTimeBased ? (isCountingDown
@@ -376,10 +378,14 @@ export function renderWorkoutView() {
               <span class="exercise-countdown-display" id="exercise-cd-${ai}-${si}">${store.exerciseTimer.remaining}s</span>
               <button class="exercise-countdown-cancel">&times;</button>
             </div>`
-          : `<button class="exercise-start-btn">&#9201; Start</button>
+          : `${acc.setWeights[si] > 0 ? `<div class="acc-set-weight-controls">
+              <button class="acc-set-weight-btn" data-acc="${ai}" data-set="${si}" data-dir="-1">&minus;wt</button>
+              <button class="acc-set-weight-btn" data-acc="${ai}" data-set="${si}" data-dir="1">+wt</button>
+            </div>` : ''}
+            <button class="exercise-start-btn">&#9201; Start</button>
             <div class="acc-set-weight-controls">
-              <button class="acc-time-adj-btn" data-acc="${ai}" data-dir="-1">&minus;</button>
-              <button class="acc-time-adj-btn" data-acc="${ai}" data-dir="1">+</button>
+              <button class="acc-time-adj-btn" data-acc="${ai}" data-dir="-1">&minus;s</button>
+              <button class="acc-time-adj-btn" data-acc="${ai}" data-dir="1">+s</button>
             </div>`)
         : ''}
         ${!done && !isTimeBased ? `<div class="acc-set-weight-controls">
@@ -855,7 +861,7 @@ export function initWorkoutOverlay() {
         store.saveProgramConfig();
         store.saveWorkoutSession();
         renderWorkoutView();
-        if (_renderProgramSection) _renderProgramSection();
+        _deps.renderProgramSection?.();
       } else {
         // Log immediately, then show RPE slider
         _completeMainSet(idx);
@@ -864,7 +870,7 @@ export function initWorkoutOverlay() {
         if (existing) existing.remove();
         // Re-render to show completed state
         renderWorkoutView();
-        if (_renderProgramSection) _renderProgramSection();
+        _deps.renderProgramSection?.();
         // Insert slider after the now-completed row
         const completedRow = document.querySelector(`.workout-set-row[data-type="main"][data-idx="${idx}"]`);
         if (completedRow) {
@@ -929,12 +935,12 @@ export function initWorkoutOverlay() {
         set.completed = true;
         // Log as an entry for volume tracking
         const reps = typeof set.reps === 'string' ? parseInt(set.reps) : set.reps;
-        const bbbResult = _addEntry ? _addEntry(store.workoutSession.mainLift, set.weight, reps, null, '', ['BBB']) : null;
+        const bbbResult = _deps.addEntry?.(store.workoutSession.mainLift, set.weight, reps, null, '', ['BBB']) ?? null;
         if (bbbResult && bbbResult.entry) {
           if (!store.workoutSession.loggedEntryIds) store.workoutSession.loggedEntryIds = [];
           store.workoutSession.loggedEntryIds.push(bbbResult.entry.id);
         }
-        if (_updateDashboard) _updateDashboard();
+        _deps.updateDashboard?.();
         startTimer(store.timerDuration);
         if (navigator.vibrate) navigator.vibrate(50);
       }
@@ -1015,7 +1021,7 @@ export function initWorkoutOverlay() {
     store.workoutSession = null;
     store.saveWorkoutSession();
     closeWorkoutView();
-    if (_updateDashboard) _updateDashboard();
+    _deps.updateDashboard?.();
     showToast('Workout discarded');
   });
 }

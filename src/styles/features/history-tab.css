@@ -227,6 +227,39 @@
   font-weight: 600; font-size: var(--text-sm); cursor: pointer;
 }
 
+/* Accessory entries in history (Bug 5) */
+.session-acc-separator {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 6px 12px 3px;
+  border-top: 1px dashed var(--border);
+  margin-top: 4px;
+}
+.session-entry-acc {
+  opacity: 0.85;
+}
+.acc-badge {
+  background: var(--surface2);
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.session-acc-count {
+  font-size: 0.55rem;
+  color: var(--text-dim);
+  padding: 1px 5px;
+  background: var(--surface2);
+  border-radius: 3px;
+}
+.session-tag.acc {
+  background: var(--surface2);
+  color: var(--text-dim);
+  font-size: 0.55rem;
+}
+
 /* Infinite scroll sentinel */
 .history-sentinel { height: 1px; }
 

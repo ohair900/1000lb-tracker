@@ -129,6 +129,7 @@ class Store {
     this.showDateFilters = false;
     this.notesVisible = false;
     this.editingEntryId = null;
+    this.editingAccId = null;
     this.clearConfirm = false;
     this.lastLoggedSet = null;
     this.timerDuration = 180;

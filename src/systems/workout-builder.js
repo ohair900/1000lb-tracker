@@ -113,8 +113,24 @@ export function getAccessoryWeight(exerciseId, mainLift) {
     return recent.weight;
   }
 
-  // Time-based exercises: no weight
-  if (progressionType === 'time') return 0;
+  // Time-based exercises: honor pctOfTM if set (e.g., farmer's walk), else return 0
+  if (progressionType === 'time') {
+    const pctOfTM = catalogEx ? (catalogEx.pctOfTM[mainLift] || 0) : 0;
+    if (pctOfTM <= 0) return 0;
+
+    // Use history first if available
+    const canonId = resolveCanonicalId(exerciseId);
+    const history = getExerciseHistory(canonId, store.accessoryLog);
+    const recent = history[0];
+    if (recent && recent.weight > 0) return recent.weight;
+
+    // Compute from TM
+    const tm = store.programConfig.trainingMaxes[mainLift];
+    if (tm) return roundToPlate(tm * pctOfTM);
+    const e1rm = bestE1RM(mainLift);
+    if (e1rm) return roundToPlate(e1rm * 0.9 * pctOfTM);
+    return 0;
+  }
 
   // Legacy bodyweight check (no catalog entry)
   if (!catalogEx && legacyEx && legacyEx.pctOfTM === 0) return 0;

@@ -14,7 +14,9 @@ import { groupSessions } from '../systems/volume.js';
 import { deleteEntry, editEntry } from '../state/actions.js';
 import { openModal, closeModal } from '../ui/modal.js';
 import { showToastWithUndo } from '../ui/toast.js';
-import { MS_PER_DAY } from '../constants/time.js';
+import { MS_PER_DAY, SAME_SESSION_MS } from '../constants/time.js';
+import { ACCESSORY_DB } from '../data/accessories.js';
+import { resolveExercise } from '../data/exercise-compat.js';
 
 // ---------------------------------------------------------------------------
 // Module-level state
@@ -122,6 +124,47 @@ export function renderHistory() {
   // Session grouping + sorting
   const allSessions = groupSessions(filtered);
 
+  // Attach accessory log entries to their sessions (within SAME_SESSION_MS of session timestamp)
+  const accLog = store.accessoryLog || [];
+  const remainingAcc = new Set(accLog.map(a => a.id));
+  allSessions.forEach(session => {
+    session.accessories = accLog.filter(a => {
+      // Match by date first (fast), then by time proximity
+      if (a.date !== session.date) return false;
+      const timeDelta = Math.abs(a.timestamp - session.timestamp);
+      if (timeDelta > SAME_SESSION_MS * 2) return false;
+      // Filter by lift if history filter is set
+      if (store.historyFilter !== 'all' && a.mainLift !== store.historyFilter) return false;
+      return true;
+    });
+    session.accessories.forEach(a => remainingAcc.delete(a.id));
+  });
+
+  // Create accessory-only sessions for orphans (accessories logged without a main lift session)
+  const orphanAcc = accLog.filter(a => remainingAcc.has(a.id));
+  if (orphanAcc.length > 0 && store.historyFilter === 'all') {
+    // Group orphans by date + time window
+    const sortedOrphans = [...orphanAcc].sort((a, b) => b.timestamp - a.timestamp);
+    let currentGroup = null;
+    sortedOrphans.forEach(a => {
+      if (!currentGroup || (currentGroup.accessories[currentGroup.accessories.length - 1].timestamp - a.timestamp) > SAME_SESSION_MS) {
+        currentGroup = {
+          entries: [],
+          lifts: [],
+          accessories: [a],
+          date: a.date,
+          timestamp: a.timestamp,
+          volume: 0,
+          sets: 0,
+          _accessoryOnly: true,
+        };
+        allSessions.push(currentGroup);
+      } else {
+        currentGroup.accessories.push(a);
+      }
+    });
+  }
+
   if (store.historySort === 'oldest') {
     allSessions.reverse();
   } else if (store.historySort === 'heaviest') {
@@ -160,26 +203,30 @@ export function renderHistory() {
     const isExpanded = expandedSessions.has(session.timestamp);
     const expanded = isExpanded ? ' expanded' : '';
 
-    // Richer header stats
-    const sessionBest = Math.max(...session.entries.map(e => e.e1rm));
+    // Richer header stats (guarded for accessory-only sessions)
+    const sessionBest = session.entries.length > 0 ? Math.max(...session.entries.map(e => e.e1rm)) : 0;
     const prCount = session.entries.filter(e => e.isPR).length;
     const rpEntries = session.entries.filter(e => e.rpe !== null && e.rpe !== undefined);
     const avgRpe = rpEntries.length > 0 ? (rpEntries.reduce((s, e) => s + e.rpe, 0) / rpEntries.length).toFixed(1) : null;
     const firstNote = session.entries.find(e => e.notes)?.notes || '';
+    const accSetCount = (session.accessories || []).reduce((s, a) => s + a.setsCompleted.length, 0);
+    const totalSetCount = session.sets + accSetCount;
 
     // Volume comparison bar
     const volPct = maxSessionVol > 0 ? Math.round((session.volume / maxSessionVol) * 100) : 0;
 
+    const accOnlyLabel = session._accessoryOnly ? '<span class="session-tag acc">ACC</span>' : '';
     html += `<div class="session-card${expanded}" data-ts="${session.timestamp}" data-session="${si}">
       <div class="session-header" tabindex="0" role="button" aria-expanded="${isExpanded ? 'true' : 'false'}">
         <div style="flex:1;min-width:0">
           <div class="session-date">${showDateSeps ? time : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ' ' + time}</div>
           <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap">
-            ${liftTags}
-            <span class="session-vol">${session.sets} sets &middot; ${volStr}</span>
-            <span class="session-best">${formatWeight(sessionBest)} e1RM</span>
+            ${liftTags || accOnlyLabel}
+            <span class="session-vol">${totalSetCount} sets${session.volume > 0 ? ' &middot; ' + volStr : ''}</span>
+            ${sessionBest > 0 ? `<span class="session-best">${formatWeight(sessionBest)} e1RM</span>` : ''}
             ${avgRpe ? `<span class="session-rpe">RPE ${avgRpe}</span>` : ''}
             ${prCount > 0 ? `<span class="session-pr-badge">PR &times;${prCount}</span>` : ''}
+            ${accSetCount > 0 && session.entries.length > 0 ? `<span class="session-acc-count">+${accSetCount} acc</span>` : ''}
           </div>
           ${firstNote ? `<div class="session-note-preview">"${escapeHTML(firstNote.slice(0, 45))}${firstNote.length > 45 ? '...' : ''}"</div>` : ''}
           <div class="session-vol-bar"><div class="session-vol-fill" style="width:${volPct}%"></div></div>
@@ -224,6 +271,39 @@ export function renderHistory() {
         </div>
       </div>`;
     });
+
+    // Render accessory entries for this session
+    if (session.accessories && session.accessories.length > 0) {
+      if (session.entries.length > 0) {
+        html += `<div class="session-acc-separator">Accessories</div>`;
+      }
+      session.accessories.forEach(a => {
+        const legacyEx = ACCESSORY_DB[a.exerciseId];
+        const catalogEx = resolveExercise(a.exerciseId);
+        const isTimeBased = !!((legacyEx && legacyEx.timeBased) || (catalogEx && catalogEx.progressionType === 'time'));
+        const setsStr = a.setsCompleted.join('/') + (isTimeBased ? 's' : '');
+        const hasWeight = a.setWeights && a.setWeights.some(w => w > 0);
+        const weightDisplay = hasWeight
+          ? `${formatWeight(a.setWeights[0])} ${store.unit} &times; `
+          : '';
+        const mainLiftColor = a.mainLift ? COLORS[a.mainLift] : 'var(--text-dim)';
+        html += `<div class="swipe-container" data-acc-id="${a.id}">
+          <div class="swipe-edit-bg"><span class="swipe-edit-label">Edit</span></div>
+          <div class="swipe-delete-bg"><span class="swipe-delete-label">Delete</span></div>
+          <div class="session-entry session-entry-acc" data-acc-id="${a.id}">
+            <span class="history-lift acc-badge" style="color:${mainLiftColor};font-size:0.6rem;min-width:24px">ACC</span>
+            <div class="history-detail" style="flex:1">
+              <div><span class="history-main" style="font-size:0.75rem">${escapeHTML(a.name)}</span></div>
+              <div class="history-meta" style="font-size:0.65rem">${weightDisplay}${setsStr}</div>
+            </div>
+            ${!selectionMode ? `<div class="history-actions">
+              <button class="edit-btn" data-acc-id="${a.id}" title="Edit">&#9998;</button>
+              <button class="delete-btn" data-acc-id="${a.id}">Del</button>
+            </div>` : ''}
+          </div>
+        </div>`;
+      });
+    }
 
     html += '</div></div>';
   });
@@ -297,6 +377,45 @@ function openEditModal(id) {
 }
 
 // ---------------------------------------------------------------------------
+// Accessory edit modal
+// ---------------------------------------------------------------------------
+
+function openAccessoryEditModal(id) {
+  const entry = store.accessoryLog.find(a => a.id === id);
+  if (!entry) return;
+  store.editingEntryId = null;
+  store.editingAccId = id;
+  const body = $('edit-body');
+  const legacyEx = ACCESSORY_DB[entry.exerciseId];
+  const catalogEx = resolveExercise(entry.exerciseId);
+  const isTimeBased = !!((legacyEx && legacyEx.timeBased) || (catalogEx && catalogEx.progressionType === 'time'));
+  const numSets = entry.setsCompleted.length;
+  const uniformWeight = entry.setWeights && entry.setWeights.length > 0 ? entry.setWeights[0] : 0;
+  const allSameWeight = (entry.setWeights || []).every(w => w === uniformWeight);
+
+  const setRows = entry.setsCompleted.map((val, i) => {
+    const w = entry.setWeights?.[i] ?? uniformWeight;
+    return `<div class="input-row" style="margin-bottom:6px">
+      <div class="input-group">
+        <label>Set ${i + 1} weight</label>
+        <input type="number" class="edit-acc-weight" data-idx="${i}" value="${displayWeight(w)}" inputmode="decimal" step="any">
+      </div>
+      <div class="input-group">
+        <label>${isTimeBased ? 'Seconds' : 'Reps'}</label>
+        <input type="number" class="edit-acc-val" data-idx="${i}" value="${val}" inputmode="numeric" min="1" step="1">
+      </div>
+    </div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="section-label" style="margin-bottom:8px">${escapeHTML(entry.name)} (${isTimeBased ? 'time-based' : 'reps'})</div>
+    ${setRows || '<div style="color:var(--text-dim);font-size:0.75rem">No sets logged</div>'}
+    <button class="modal-save-btn" id="edit-acc-save">Save Changes</button>
+  `;
+  openModal('edit-modal');
+}
+
+// ---------------------------------------------------------------------------
 // History click handler
 // ---------------------------------------------------------------------------
 
@@ -321,6 +440,28 @@ function handleHistoryClick(e) {
 
   const del = e.target.closest('.delete-btn');
   if (del) {
+    // Accessory delete
+    const accId = del.dataset.accId;
+    if (accId) {
+      const accEntry = store.accessoryLog.find(a => a.id === accId);
+      if (!accEntry) return;
+      const body = $('edit-body');
+      body.dataset.deleteAccId = accId;
+      const dateStr = new Date(accEntry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      body.innerHTML = `<div class="confirm-dialog">
+        <div style="font-size:1.3rem">&#128465;&#65039;</div>
+        <p>Delete this accessory entry?</p>
+        <div class="confirm-entry">${escapeHTML(accEntry.name)} &mdash; ${accEntry.setsCompleted.join('/')} sets</div>
+        <p>${dateStr}</p>
+        <div class="confirm-actions">
+          <button class="confirm-cancel" id="confirm-cancel-btn">Cancel</button>
+          <button class="confirm-delete" id="confirm-delete-btn">Delete</button>
+        </div>
+      </div>`;
+      openModal('edit-modal');
+      return;
+    }
+    // Main lift delete
     const id = del.dataset.id;
     const entry = store.entries.find(en => en.id === id);
     if (!entry) return;
@@ -341,7 +482,10 @@ function handleHistoryClick(e) {
     return;
   }
   const edit = e.target.closest('.edit-btn');
-  if (edit) { openEditModal(edit.dataset.id); }
+  if (edit) {
+    if (edit.dataset.accId) { openAccessoryEditModal(edit.dataset.accId); }
+    else { openEditModal(edit.dataset.id); }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -600,9 +744,21 @@ export function initHistoryTab() {
         return;
       }
       if (e.target.closest('#confirm-delete-btn')) {
+        const accId = body.dataset.deleteAccId;
+        if (accId) {
+          store.accessoryLog = store.accessoryLog.filter(a => a.id !== accId);
+          store.saveNow('accessoryLog');
+          delete body.dataset.deleteAccId;
+          closeModal('edit-modal');
+          _deps.updateDashboard?.();
+          renderHistory();
+          showToastWithUndo('Accessory deleted');
+          return;
+        }
         const id = body.dataset.deleteId;
         if (id) {
           deleteEntry(id);
+          delete body.dataset.deleteId;
           closeModal('edit-modal');
           _deps.updateDashboard?.();
           renderHistory();
@@ -637,6 +793,39 @@ export function initHistoryTab() {
         _deps.updateDashboard?.();
         renderHistory();
         showToastWithUndo('Entry updated');
+        return;
+      }
+      if (e.target.closest('#edit-acc-save')) {
+        const accId = store.editingAccId;
+        if (!accId) return;
+        const entry = store.accessoryLog.find(a => a.id === accId);
+        if (!entry) return;
+        const weightInputs = body.querySelectorAll('.edit-acc-weight');
+        const valInputs = body.querySelectorAll('.edit-acc-val');
+        const newWeights = [];
+        const newVals = [];
+        let valid = true;
+        weightInputs.forEach((input) => {
+          const v = parseFloat(input.value);
+          if (isNaN(v) || v < 0) valid = false;
+          else newWeights.push(inputToLbs(v));
+        });
+        valInputs.forEach((input) => {
+          const v = parseInt(input.value);
+          if (isNaN(v) || v < 0) valid = false;
+          else newVals.push(v);
+        });
+        if (!valid || newWeights.length === 0) return;
+        entry.setWeights = newWeights;
+        entry.setsCompleted = newVals;
+        entry.weight = newWeights[newWeights.length - 1];
+        entry.updatedAt = Date.now();
+        store.saveNow('accessoryLog');
+        store.editingAccId = null;
+        closeModal('edit-modal');
+        _deps.updateDashboard?.();
+        renderHistory();
+        showToastWithUndo('Accessory updated');
         return;
       }
     });
