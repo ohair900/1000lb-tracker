@@ -58,14 +58,28 @@
 
 /* e1RM preview */
 .e1rm-preview {
-  text-align: center; margin-bottom: 16px; padding: 12px;
+  text-align: center; margin-bottom: 16px; padding: 14px;
   background: var(--surface); border-radius: 10px;
   font-size: 0.85rem; color: var(--text-dim); min-height: 46px;
   display: flex; align-items: center; justify-content: center;
   gap: 8px; flex-wrap: wrap;
+  font-variant-numeric: tabular-nums;
 }
-.e1rm-preview .value { font-size: var(--text-lg); font-weight: 700; color: var(--text-strong); }
-.pr-indicator { color: var(--gold); font-weight: 700; font-size: 0.85rem; }
+.e1rm-preview .value {
+  font-family: var(--font-mono);
+  font-size: 1.25rem; font-weight: 700; color: var(--text-strong);
+  letter-spacing: -0.01em;
+}
+.pr-indicator {
+  font-family: var(--font-display);
+  color: var(--gold); font-weight: 900; font-size: 0.95rem;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  animation: prPulse 1.4s ease-in-out infinite;
+}
+@keyframes prPulse {
+  0%, 100% { opacity: 1; text-shadow: 0 0 0 transparent; }
+  50%      { opacity: 0.85; text-shadow: 0 0 14px rgba(255, 215, 0, 0.6); }
+}
 
 /* Tag pills in log tab — revealed on demand, sized for touch */
 .tag-pills {

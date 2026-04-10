@@ -6,8 +6,15 @@
   border-bottom: 1px solid var(--border);
   min-height: 56px; flex-shrink: 0;
 }
-.workout-header-title { font-size: var(--text-lg); font-weight: 700; color: var(--text-strong); }
-.workout-header-subtitle { font-size: var(--text-xs); color: var(--text-dim); margin-top: 2px; }
+.workout-header-title {
+  font-family: var(--font-display);
+  font-size: 1.45rem; font-weight: 900; color: var(--text-strong);
+  letter-spacing: 0.02em; text-transform: uppercase;
+}
+.workout-header-subtitle {
+  font-size: var(--text-xs); color: var(--text-dim); margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
 .workout-close-btn {
   width: 40px; height: 40px; border: none; background: var(--surface2);
   color: var(--text); font-size: 1.4rem; border-radius: var(--radius-md);
@@ -71,8 +78,13 @@
 .workout-exercise:not(.main-lift):not(.bbb-section) {
   border-left: 3px solid transparent;
 }
-.workout-exercise-name { font-size: var(--text-base); font-weight: 700; color: var(--text-strong); margin-bottom: 2px; -webkit-user-select: none; user-select: none; }
-.workout-exercise-meta { font-size: var(--text-xs); color: var(--text-dim); margin-bottom: var(--space-2); }
+.workout-exercise-name {
+  font-family: var(--font-display);
+  font-size: 1.1rem; font-weight: 800; color: var(--text-strong);
+  margin-bottom: 2px; -webkit-user-select: none; user-select: none;
+  letter-spacing: 0.015em;
+}
+.workout-exercise-meta { font-size: var(--text-xs); color: var(--text-dim); margin-bottom: var(--space-2); font-variant-numeric: tabular-nums; }
 .prev-perf {
   font-size: var(--text-xs); color: var(--text-dim); padding: 2px 0 4px;
   font-style: italic; opacity: 0.7;
@@ -105,7 +117,10 @@
 .workout-set-check::before {
   content: ''; position: absolute; inset: 0; pointer-events: none;
 }
-.workout-set-info { flex: 1; font-size: var(--text-sm); color: var(--text); }
+.workout-set-info {
+  flex: 1; font-size: var(--text-sm); color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
 .workout-set-info .amrap-badge {
   font-size: var(--text-xs); color: var(--gold); font-weight: 600; margin-left: 4px;
 }
@@ -138,9 +153,12 @@
 
 /* Complete / Discard buttons */
 .workout-complete-btn {
-  width: 100%; padding: 14px; border: none; border-radius: var(--radius-lg);
-  background: var(--green); color: #fff; font-size: var(--text-base);
-  font-weight: 700; cursor: pointer; transition: all var(--transition-base);
+  width: 100%; padding: 16px; border: none; border-radius: var(--radius-lg);
+  background: var(--green); color: #fff;
+  font-family: var(--font-display);
+  font-size: 1.1rem; font-weight: 900;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  cursor: pointer; transition: all var(--transition-base);
 }
 .workout-complete-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .workout-complete-btn:not(:disabled):hover { filter: brightness(1.1); }
@@ -160,7 +178,11 @@
   display: none; align-items: center; gap: 6px; margin-left: auto; margin-right: 10px;
 }
 .timer-container.active { display: flex; }
-.timer-display { font-size: 0.85rem; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: center; cursor: pointer; }
+.timer-display {
+  font-family: var(--font-mono);
+  font-size: 0.95rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  min-width: 3.2em; text-align: center; cursor: pointer;
+}
 .timer-display.warning { color: var(--yellow); }
 .timer-display.done { color: var(--red); }
 .timer-presets { display: flex; gap: 3px; }

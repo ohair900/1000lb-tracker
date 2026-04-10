@@ -7,10 +7,13 @@
   letter-spacing: 0.06em; color: var(--text-dim); margin-bottom: 4px;
 }
 .input-group input, .input-group select {
-  width: 100%; padding: 10px 12px; border: 2px solid var(--border);
+  width: 100%; padding: 12px 14px; border: 2px solid var(--border);
   border-radius: var(--radius-lg); background: var(--surface); color: var(--text-strong);
-  font-size: 1.1rem; font-weight: 600; text-align: center;
+  font-size: 1.3rem; font-weight: 700; text-align: center;
   outline: none; transition: border-color var(--transition-base);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 .input-group input:focus { border-color: var(--border-hover); }
 .input-group input::placeholder { color: var(--text-muted); }

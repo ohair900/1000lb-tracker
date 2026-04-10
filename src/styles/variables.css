@@ -57,5 +57,13 @@
   --btn-primary-color: #121212;
   --text-muted: #666;
   --border-hover: #555;
+
+  /* Typography — "Gym Journal" direction:
+     - Display face: Big Shoulders Display (condensed, industrial, distinctive)
+     - UI body:      Figtree (warm, modern geometric)
+     - Data face:    JetBrains Mono (tabular nums, training-log feel) */
+  --font-ui: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Big Shoulders Display', 'Figtree', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 }
 
