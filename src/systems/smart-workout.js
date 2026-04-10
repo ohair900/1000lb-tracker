@@ -7,8 +7,10 @@
 import store from '../state/store.js';
 import { LIFTS } from '../constants/lift-config.js';
 import { MS_PER_DAY } from '../constants/time.js';
-import { calcFatigueLift } from '../systems/fatigue.js';
+import { calcFatigueLift, calcFatigueByMuscle } from '../systems/fatigue.js';
 import { detectPlateau, calcProgression } from '../formulas/progression.js';
+import { MAIN_LIFT_WEIGHTS } from '../data/muscle-groups.js';
+import { getCalibratedRecovery } from '../systems/recovery-calibration.js';
 
 // ---------------------------------------------------------------------------
 // Main lift suggestion
@@ -36,13 +38,32 @@ export function suggestMainLift() {
     let score = 0;
     const r = [];
 
-    // Recency
+    // Recency — recovery-aware scoring (#9)
     const liftEntries = store.entries
       .filter(e => e.lift === lift)
       .sort((a, b) => b.timestamp - a.timestamp);
     if (liftEntries.length > 0) {
       const daysSince = Math.floor((Date.now() - liftEntries[0].timestamp) / MS_PER_DAY);
-      const recencyScore = Math.min(30, daysSince * 5);
+
+      // Find slowest-recovering muscle for this lift (weight >= 0.15)
+      const liftWeights = MAIN_LIFT_WEIGHTS[lift] || {};
+      let slowestRecoveryDays = 2; // default fallback
+      for (const [mg, mw] of Object.entries(liftWeights)) {
+        if (mw >= 0.15) {
+          const recoveryDays = getCalibratedRecovery(mg) / 24;
+          if (recoveryDays > slowestRecoveryDays) slowestRecoveryDays = recoveryDays;
+        }
+      }
+      const optimalGap = slowestRecoveryDays * 1.1; // 10% buffer
+
+      let recencyScore;
+      if (daysSince >= optimalGap) {
+        // Past recovery: accelerated scoring
+        recencyScore = Math.min(30, Math.round((daysSince - optimalGap) * 8));
+      } else {
+        // Still recovering: reduced scoring
+        recencyScore = Math.min(30, Math.round(daysSince * 2));
+      }
       score += recencyScore;
       if (daysSince >= 3) r.push(`${daysSince}d since last session`);
     } else {
@@ -88,31 +109,64 @@ export function suggestMainLift() {
  * @returns {{ pctTM: number, rpe: number, sets: number, reps: number }}
  */
 export function suggestIntensity(lift) {
-  // If mesocycle active, use mesocycle prescription
+  // If mesocycle active, use mesocycle prescription with graduated tempering
   if (store.activeMesocycle && store.activeMesocycle.status === 'active') {
     const week = store.activeMesocycle.weeks[store.activeMesocycle.currentWeek - 1];
     if (week && week.workouts[lift]) {
       const w = week.workouts[lift];
       const liftFatigue = calcFatigueLift(lift);
-      // Temper if red fatigue
-      if (liftFatigue && liftFatigue.status === 'red') {
-        return {
-          pctTM: Math.max(60, (w.mainSets[0]?.pct || 75) - 10),
-          rpe: Math.max(6, week.targetRPE - 1),
-          sets: Math.max(3, w.mainSets.length - 1),
-          reps: w.mainSets[0]?.reps || 5
-        };
+      const basePct = w.mainSets[0]?.pct || 75;
+      const baseRPE = week.targetRPE;
+      const baseSets = w.mainSets.length;
+      const baseReps = w.mainSets[0]?.reps || 5;
+
+      // Peaking blocks tolerate yellow fatigue (intentional overreach)
+      const isPeaking = store.activeMesocycle.goal === 'peaking';
+
+      if (liftFatigue) {
+        if (liftFatigue.status === 'red') {
+          return {
+            pctTM: Math.max(60, basePct - 10),
+            rpe: Math.max(6, baseRPE - 1),
+            sets: Math.max(3, baseSets - 1),
+            reps: baseReps
+          };
+        }
+        if (liftFatigue.status === 'yellow' && !isPeaking) {
+          // Get display status for finer granularity (orange vs yellow)
+          const muscleFatigue = calcFatigueByMuscle();
+          const liftWeights = MAIN_LIFT_WEIGHTS[lift] || {};
+          let worstDisplay = 'green';
+          const displayOrder = { green: 0, lime: 1, yellow: 2, orange: 3, red: 4 };
+          if (muscleFatigue) {
+            for (const [mg, mw] of Object.entries(liftWeights)) {
+              if (mw >= 0.15 && muscleFatigue[mg] && displayOrder[muscleFatigue[mg].displayStatus] > displayOrder[worstDisplay]) {
+                worstDisplay = muscleFatigue[mg].displayStatus;
+              }
+            }
+          }
+          if (worstDisplay === 'orange') {
+            return {
+              pctTM: Math.max(60, Math.round(basePct * 0.90)),
+              rpe: Math.min(7, baseRPE),
+              sets: Math.max(3, baseSets - 1),
+              reps: baseReps
+            };
+          }
+          // Yellow: mild tempering
+          return {
+            pctTM: Math.round(basePct * 0.95),
+            rpe: baseRPE,
+            sets: baseSets,
+            reps: baseReps
+          };
+        }
       }
-      return {
-        pctTM: w.mainSets[0]?.pct || 75,
-        rpe: week.targetRPE,
-        sets: w.mainSets.length,
-        reps: w.mainSets[0]?.reps || 5
-      };
+      return { pctTM: basePct, rpe: baseRPE, sets: baseSets, reps: baseReps };
     }
   }
 
-  // Fatigue-based
+  // Fatigue-based fallback (no mesocycle)
   const fatigue = calcFatigueLift(lift);
   const status = fatigue ? fatigue.status : 'green';
   if (status === 'red') return { pctTM: 65, rpe: 6, sets: 3, reps: 5 };

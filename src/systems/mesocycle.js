@@ -18,6 +18,8 @@ import { LIFTS } from '../constants/lift-config.js';
 import { roundToPlate } from '../formulas/plates.js';
 import { bestE1RM } from '../formulas/e1rm.js';
 import { selectSmartAccessories } from './workout-builder.js';
+import { calcFatigueLift, calcFatigueByMuscle } from './fatigue.js';
+import { MAIN_LIFT_WEIGHTS } from '../data/muscle-groups.js';
 
 // ---------------------------------------------------------------------------
 // Generation
@@ -284,7 +286,37 @@ export function adaptRemainingWeeks(lift) {
   const rpeDiff = perf.actualRPE - week.targetRPE;
   let adaptation = null;
 
-  if (rpeDiff <= -1.5) {
+  // ACWR-based fatigue check (#8)
+  const liftFatigue = calcFatigueLift(lift);
+  const muscleFatigue = calcFatigueByMuscle();
+  const isPeaking = store.activeMesocycle.goal === 'peaking';
+
+  // Check if any primary muscle is red
+  let anyPrimaryRed = false;
+  if (muscleFatigue) {
+    const liftWeights = MAIN_LIFT_WEIGHTS[lift] || {};
+    for (const [mg, mw] of Object.entries(liftWeights)) {
+      if (mw >= 0.15 && muscleFatigue[mg] && muscleFatigue[mg].status === 'red') {
+        anyPrimaryRed = true;
+        break;
+      }
+    }
+  }
+
+  // ACWR override: if fatigue is high but RPE says increase, block the increase
+  // (common in intermediates who underrate RPE)
+  const acwrIsHigh = liftFatigue && (liftFatigue.status === 'red' || (!isPeaking && liftFatigue.status === 'yellow'));
+  const shouldBlockIncrease = acwrIsHigh && rpeDiff <= -1.5;
+
+  // ACWR-triggered volume reduction: red primary muscle triggers decrease
+  // regardless of RPE (except during peaking final 2 weeks)
+  const weeksRemaining = store.activeMesocycle.durationWeeks - store.activeMesocycle.currentWeek + 1;
+  const acwrTriggeredDecrease = anyPrimaryRed && !(isPeaking && weeksRemaining <= 2);
+
+  if (shouldBlockIncrease) {
+    // RPE says increase but ACWR says no — log it but don't change
+    adaptation = { type: 'blocked', pctChange: 0, reason: `RPE ${perf.actualRPE} below target but ACWR elevated — holding intensity` };
+  } else if (rpeDiff <= -1.5 && !acwrTriggeredDecrease) {
     // Exceeding targets: increase intensity
     const increase = rpeDiff <= -2.5 ? 5 : 2.5;
     adaptation = { type: 'increase', pctChange: increase, reason: `RPE ${perf.actualRPE} well below target ${week.targetRPE}` };
@@ -299,10 +331,13 @@ export function adaptRemainingWeeks(lift) {
         futureWeek.adapted = true;
       }
     }
-  } else if (rpeDiff >= 1.5) {
-    // Missing targets: reduce intensity and volume
+  } else if (rpeDiff >= 1.5 || acwrTriggeredDecrease) {
+    // Missing targets or ACWR-triggered: reduce intensity and volume
     const decrease = 2.5;
-    adaptation = { type: 'decrease', pctChange: -decrease, reason: `RPE ${perf.actualRPE} above target ${week.targetRPE}` };
+    const reason = acwrTriggeredDecrease && rpeDiff < 1.5
+      ? `ACWR high for ${lift} — reducing load to manage fatigue`
+      : `RPE ${perf.actualRPE} above target ${week.targetRPE}`;
+    adaptation = { type: 'decrease', pctChange: -decrease, reason };
     for (let i = store.activeMesocycle.currentWeek - 1; i < store.activeMesocycle.weeks.length; i++) {
       const futureWeek = store.activeMesocycle.weeks[i];
       if (futureWeek.phase === 'Deload') continue;
@@ -323,7 +358,7 @@ export function adaptRemainingWeeks(lift) {
   if (adaptation) {
     store.activeMesocycle.adaptationLog.push({
       weekNum: week.weekNum, lift, reason: adaptation.reason,
-      adjustment: `${adaptation.type === 'increase' ? '+' : ''}${adaptation.pctChange}% intensity`,
+      adjustment: adaptation.type === 'blocked' ? 'Held (ACWR override)' : `${adaptation.type === 'increase' ? '+' : ''}${adaptation.pctChange}% intensity`,
       timestamp: Date.now()
     });
     store.saveMesocycle();

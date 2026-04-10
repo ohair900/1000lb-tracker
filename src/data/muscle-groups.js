@@ -45,6 +45,17 @@ export const ACCESSORY_CAT_WEIGHTS = {
   'grip':            { Quads: 0, Hams: 0, Glutes: 0, 'Upper Back': 0.10, 'Lower Back': 0.20, Chest: 0, Shoulders: 0, Triceps: 0, Biceps: 0, Core: 0.70 },
 };
 
+// Synergist cross-recovery map (#3): when a group is red/orange, connected groups
+// recover slower. Asymmetric: large prime movers affect synergists, not vice versa.
+export const SYNERGIST_MAP = {
+  'Lower Back': ['Hams', 'Glutes', 'Core'],
+  'Upper Back': ['Biceps', 'Shoulders'],
+  Chest:        ['Shoulders', 'Triceps'],
+  Quads:        ['Glutes', 'Core'],
+  Shoulders:    ['Triceps'],
+};
+export const SYNERGIST_RECOVERY_PENALTY = 0.12; // 12% slower recovery per red synergist
+
 // Push/pull classification per muscle group (used by gap analysis for ratio tracking)
 export const MUSCLE_PUSH_PULL = {
   Quads:       'push',

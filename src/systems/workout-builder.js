@@ -13,10 +13,10 @@ import { ACCESSORY_CAT_WEIGHTS, MUSCLE_GROUPS } from '../data/muscle-groups.js';
 import { EXERCISE_CATALOG, MOVEMENT_PATTERNS, PROGRESSION_MODELS } from '../data/exercise-catalog.js';
 import { resolveExercise, resolveCanonicalId, resolveAccessory, getExerciseHistory } from '../data/exercise-compat.js';
 import { MS_PER_DAY } from '../constants/time.js';
-import { SET_RAMP_PERCENTAGES } from '../constants/thresholds.js';
+import { SET_RAMP_PERCENTAGES, SET_RAMP_MODERATE, SET_RAMP_FATIGUED } from '../constants/thresholds.js';
 import { roundToPlate } from '../formulas/plates.js';
 import { bestE1RM } from '../formulas/e1rm.js';
-import { calcFatigueByMuscle } from '../systems/fatigue.js';
+import { calcFatigueByMuscle, calcFatigueLift } from '../systems/fatigue.js';
 
 // ---------------------------------------------------------------------------
 // Accessory selection (simple wrapper)
@@ -41,14 +41,26 @@ export function selectAccessories(mainLift) {
  * Sets ramp from lighter warm-up percentages up to 100 % of working weight.
  * If `workingWeight` is 0, returns an array of zeros.
  *
+ * Optionally accepts a fatigue status to select a tempered ramp profile (#6).
+ * Only applies to builder-generated ramps, not program templates.
+ *
  * @param {number} workingWeight - Target working weight
  * @param {number} numSets       - Number of sets
+ * @param {string} [fatigueStatus] - 'red'|'orange'|'yellow'|'lime'|'green' (optional)
  * @returns {number[]} Rounded weights for each set
  */
-export function computeSetWeights(workingWeight, numSets) {
+export function computeSetWeights(workingWeight, numSets, fatigueStatus) {
   if (workingWeight === 0) return Array(numSets).fill(0);
   if (workingWeight < 0) return Array(numSets).fill(roundToPlate(workingWeight));
-  const pcts = SET_RAMP_PERCENTAGES[numSets] || SET_RAMP_PERCENTAGES[3];
+
+  let rampTable = SET_RAMP_PERCENTAGES;
+  if (fatigueStatus === 'red' || fatigueStatus === 'orange') {
+    rampTable = SET_RAMP_FATIGUED;
+  } else if (fatigueStatus === 'yellow') {
+    rampTable = SET_RAMP_MODERATE;
+  }
+
+  const pcts = rampTable[numSets] || rampTable[3] || SET_RAMP_PERCENTAGES[3];
   return pcts.map(p => roundToPlate(workingWeight * p));
 }
 
@@ -114,18 +126,24 @@ export function getAccessoryWeight(exerciseId, mainLift) {
   // Close-variation: always recalculate from TM (auto-scales when TM changes)
   if (progressionType === 'close-variation' && pctOfTM > 0) {
     const tm = store.programConfig.trainingMaxes[mainLift];
-    if (tm) return roundToPlate(tm * pctOfTM);
-    const e1rm = bestE1RM(mainLift);
-    if (e1rm) return roundToPlate(e1rm * 0.9 * pctOfTM);
-    // Fallback: try any other lift's TM/e1RM as proxy
-    for (const lift of ['squat', 'bench', 'deadlift']) {
-      if (lift === mainLift) continue;
-      const otherTm = store.programConfig.trainingMaxes[lift];
-      if (otherTm) return roundToPlate(otherTm * pctOfTM);
-      const otherE1rm = bestE1RM(lift);
-      if (otherE1rm) return roundToPlate(otherE1rm * 0.9 * pctOfTM);
+    let baseWeight = 0;
+    if (tm) baseWeight = roundToPlate(tm * pctOfTM);
+    else {
+      const e1rm = bestE1RM(mainLift);
+      if (e1rm) baseWeight = roundToPlate(e1rm * 0.9 * pctOfTM);
+      else {
+        // Fallback: try any other lift's TM/e1RM as proxy
+        for (const lift of ['squat', 'bench', 'deadlift']) {
+          if (lift === mainLift) continue;
+          const otherTm = store.programConfig.trainingMaxes[lift];
+          if (otherTm) { baseWeight = roundToPlate(otherTm * pctOfTM); break; }
+          const otherE1rm = bestE1RM(lift);
+          if (otherE1rm) { baseWeight = roundToPlate(otherE1rm * 0.9 * pctOfTM); break; }
+        }
+      }
     }
-    return 0;
+    // Close-variation: smaller fatigue reduction (0.90 floor)
+    return applyFatigueScalar(baseWeight, catalogEx, 0.90);
   }
 
   // Merge history from all legacy IDs for this exercise
@@ -148,17 +166,17 @@ export function getAccessoryWeight(exerciseId, mainLift) {
           ? (store.unit === 'kg' ? 2.5 : 5)
           : (store.unit === 'kg' ? 5 : 10);
       }
-      return roundToPlate(recent.weight + bump);
+      return applyFatigueScalar(roundToPlate(recent.weight + bump), catalogEx);
     }
-    return recent.weight;
+    return applyFatigueScalar(recent.weight, catalogEx);
   }
 
   // Initial weight from TM (try current lift first, then any supported lift)
   if (pctOfTM > 0) {
     const tm = store.programConfig.trainingMaxes[mainLift];
-    if (tm) return roundToPlate(tm * pctOfTM);
+    if (tm) return applyFatigueScalar(roundToPlate(tm * pctOfTM), catalogEx);
     const e1rm = bestE1RM(mainLift);
-    if (e1rm) return roundToPlate(e1rm * 0.9 * pctOfTM);
+    if (e1rm) return applyFatigueScalar(roundToPlate(e1rm * 0.9 * pctOfTM), catalogEx);
   }
 
   // Fallback: try other supported lifts if pctOfTM exists for them
@@ -166,13 +184,34 @@ export function getAccessoryWeight(exerciseId, mainLift) {
     for (const [lift, pct] of Object.entries(catalogEx.pctOfTM)) {
       if (lift === mainLift || pct <= 0) continue;
       const tm = store.programConfig.trainingMaxes[lift];
-      if (tm) return roundToPlate(tm * pct);
+      if (tm) return applyFatigueScalar(roundToPlate(tm * pct), catalogEx);
       const e1rm = bestE1RM(lift);
-      if (e1rm) return roundToPlate(e1rm * 0.9 * pct);
+      if (e1rm) return applyFatigueScalar(roundToPlate(e1rm * 0.9 * pct), catalogEx);
     }
   }
 
   return 0;
+}
+
+// Fatigue-scaled accessory weight (#5)
+const FATIGUE_WEIGHT_SCALAR = { green: 1.0, lime: 1.0, yellow: 0.95, orange: 0.90, red: 0.85 };
+const DISPLAY_STATUS_ORDER = { green: 0, lime: 1, yellow: 2, orange: 3, red: 4 };
+
+function applyFatigueScalar(weight, catalogEx, floor = 0.85) {
+  if (!weight || weight <= 0 || !catalogEx?.primaryMuscles) return weight;
+  const muscleFatigue = calcFatigueByMuscle();
+  if (!muscleFatigue) return weight;
+
+  let worstStatus = 'green';
+  for (const [mg, mw] of Object.entries(catalogEx.primaryMuscles)) {
+    if (mw > 0.15 && muscleFatigue[mg]) {
+      const ds = muscleFatigue[mg].displayStatus || 'green';
+      if (DISPLAY_STATUS_ORDER[ds] > DISPLAY_STATUS_ORDER[worstStatus]) worstStatus = ds;
+    }
+  }
+  const scalar = Math.max(floor, FATIGUE_WEIGHT_SCALAR[worstStatus] || 1.0);
+  if (scalar >= 1.0) return weight;
+  return roundToPlate(weight * scalar);
 }
 
 // ---------------------------------------------------------------------------
@@ -203,8 +242,28 @@ export function checkAccessoryProgression(exerciseId, mainLift) {
   const recent = history[0];
   if (!recent) return false;
   const topOfRange = ex.repRange ? ex.repRange[1] : 12;
-  return recent.setsCompleted.length >= recent.targetSets &&
+  const allHitTop = recent.setsCompleted.length >= recent.targetSets &&
     recent.setsCompleted.every(reps => reps >= topOfRange);
+  if (!allHitTop) return false;
+
+  // Fatigue gate: hold weight if primary muscles are red/orange (#2)
+  const progressionType = catalogEx ? catalogEx.progressionType : 'compound';
+  if (progressionType !== 'bodyweight' && progressionType !== 'time') {
+    const muscleFatigue = calcFatigueByMuscle();
+    if (muscleFatigue) {
+      const primaryMuscles = catalogEx ? catalogEx.primaryMuscles : null;
+      if (primaryMuscles) {
+        for (const [mg, weight] of Object.entries(primaryMuscles)) {
+          if (weight > 0.2 && muscleFatigue[mg]) {
+            const ds = muscleFatigue[mg].displayStatus;
+            if (ds === 'red' || ds === 'orange') return false;
+          }
+        }
+      }
+    }
+  }
+
+  return true;
 }
 
 // ---------------------------------------------------------------------------

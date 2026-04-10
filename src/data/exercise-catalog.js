@@ -199,6 +199,7 @@ export const EXERCISE_CATALOG = {
     pctOfTM: { squat: 0.60, deadlift: 0.50 },
     supportsLifts: ['squat', 'deadlift'],
     weakPoints: { squat: ['lockout'], deadlift: ['lockout'] },
+    eccentricLoad: 'low',
     desc: 'Back against a bench, drive barbell up with hips. Isolates glutes for lockout power.',
   },
 
@@ -213,6 +214,7 @@ export const EXERCISE_CATALOG = {
     pctOfTM: { squat: 0.50, deadlift: 0.40 },
     supportsLifts: ['squat', 'deadlift'],
     weakPoints: { squat: ['lockout'], deadlift: ['lockout'] },
+    eccentricLoad: 'low',
     desc: 'Lie flat, drive hips up with barbell across hips. Glute activation with less range than hip thrust.',
   },
 
@@ -227,6 +229,7 @@ export const EXERCISE_CATALOG = {
     pctOfTM: { squat: 0.50, deadlift: 0.45 },
     supportsLifts: ['squat', 'deadlift'],
     weakPoints: { squat: ['lockout', 'core'], deadlift: ['lockout'] },
+    eccentricLoad: 'high',
     desc: 'Stand with barbell, hinge at hips keeping legs nearly straight. Targets hamstrings and lower back.',
   },
 
@@ -625,6 +628,7 @@ export const EXERCISE_CATALOG = {
     pctOfTM: { deadlift: 0.65 },
     supportsLifts: ['deadlift'],
     weakPoints: { deadlift: ['floor'] },
+    eccentricLoad: 'high',
     desc: 'Deadlift while standing on a 1-2 inch platform. Increases range of motion off the floor.',
   },
 
@@ -704,6 +708,7 @@ export const EXERCISE_CATALOG = {
     pctOfTM: { deadlift: 0.50 },
     supportsLifts: ['deadlift'],
     weakPoints: { deadlift: ['grip', 'lockout'] },
+    eccentricLoad: 'low',
     timeBased: true,
     desc: 'Walk holding heavy dumbbells at sides. Builds grip endurance and full-body stability.',
   },
@@ -719,6 +724,7 @@ export const EXERCISE_CATALOG = {
     pctOfTM: {},
     supportsLifts: ['deadlift'],
     weakPoints: { deadlift: ['grip'] },
+    eccentricLoad: 'low',
     timeBased: true,
     desc: 'Hang from a pull-up bar as long as possible. Pure grip endurance training.',
   },
@@ -766,6 +772,7 @@ export const EXERCISE_CATALOG = {
     pctOfTM: {},
     supportsLifts: ['squat', 'deadlift'],
     weakPoints: { squat: ['lockout'], deadlift: ['lockout'] },
+    eccentricLoad: 'high',
     desc: 'Kneel and slowly lower body forward under control. Advanced eccentric hamstring exercise for injury prevention.',
   },
 
