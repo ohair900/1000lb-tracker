@@ -120,10 +120,10 @@ export function renderSessionGrade(sessionGrade) {
   const color = GRADE_COLORS[sessionGrade.grade] || 'var(--text)';
   const driftSign = sessionGrade.rpeDrift.avg > 0 ? '+' : '';
   const driftStr = sessionGrade.rpeDrift.avg !== 0
-    ? `RPE ${driftSign}${sessionGrade.rpeDrift.avg}`
-    : 'RPE on target';
-  const trendIcon = sessionGrade.rpeDrift.trend === 'rising' ? ' &#x2191;'
-    : sessionGrade.rpeDrift.trend === 'falling' ? ' &#x2193;' : '';
+    ? `${driftSign}${sessionGrade.rpeDrift.avg}`
+    : 'on target';
+  const trendIcon = sessionGrade.rpeDrift.trend === 'rising' ? '&#x2191;'
+    : sessionGrade.rpeDrift.trend === 'falling' ? '&#x2193;' : '';
 
   let impactHtml = '';
   if (sessionGrade.impacts.length > 0) {
@@ -133,14 +133,28 @@ export function renderSessionGrade(sessionGrade) {
     }).join('');
   }
 
+  // Three-stat grid replaces the crowded middot-separated meta line.
+  const tonnage = sessionGrade.tonnage > 0
+    ? Math.round(sessionGrade.tonnage).toLocaleString()
+    : '—';
+  const tonnageUnit = sessionGrade.tonnage > 0 ? store.unit : '';
+
   return `
-    <div class="coach-grade-section">
+    <div class="coach-grade-section" data-grade="${sessionGrade.grade}">
       <div class="coach-grade-letter" style="color:${color}">${sessionGrade.grade}</div>
-      <div class="coach-grade-meta">
-        <span>${sessionGrade.completionPct}% complete</span>
-        <span class="coach-grade-sep">&middot;</span>
-        <span>${driftStr}${trendIcon}</span>
-        ${sessionGrade.tonnage > 0 ? `<span class="coach-grade-sep">&middot;</span><span>${Math.round(sessionGrade.tonnage).toLocaleString()} ${store.unit} tonnage</span>` : ''}
+      <div class="coach-grade-stats">
+        <div class="coach-grade-stat">
+          <div class="coach-grade-stat-val">${sessionGrade.completionPct}<span class="coach-grade-stat-unit">%</span></div>
+          <div class="coach-grade-stat-label">Complete</div>
+        </div>
+        <div class="coach-grade-stat">
+          <div class="coach-grade-stat-val">${driftStr} ${trendIcon}</div>
+          <div class="coach-grade-stat-label">RPE drift</div>
+        </div>
+        <div class="coach-grade-stat">
+          <div class="coach-grade-stat-val">${tonnage}<span class="coach-grade-stat-unit">${tonnageUnit}</span></div>
+          <div class="coach-grade-stat-label">Tonnage</div>
+        </div>
       </div>
       ${impactHtml ? `<div class="coach-impacts">${impactHtml}</div>` : ''}
     </div>`;

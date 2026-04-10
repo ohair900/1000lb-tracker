@@ -138,4 +138,47 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
   $('workout-summary-backdrop').style.display = 'block';
   $('workout-summary-sheet').style.display = 'block';
   document.body.style.overflow = 'hidden';
+
+  // Celebrate A / A+ grades with a mini confetti burst in the grade section.
+  // Core Principle 7: celebration for wins, matter-of-fact for neutral.
+  if (sessionGrade && (sessionGrade.grade === 'A' || sessionGrade.grade === 'A+')) {
+    setTimeout(() => burstGradeConfetti(), 400);
+  }
+}
+
+/**
+ * Fire a small confetti burst inside the grade section when the lifter earns
+ * an A or A+. Pure visual flourish — no sound, no haptic interruption.
+ */
+function burstGradeConfetti() {
+  const section = document.querySelector('.coach-grade-section');
+  if (!section) return;
+  const rect = section.getBoundingClientRect();
+  if (rect.height === 0) return;
+
+  section.style.position = 'relative';
+  const colors = ['#43a047', '#ffd700', '#66bb6a', '#ffeb3b', '#81c784', '#fff176', '#ffffff'];
+  const count = 28;
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'grade-confetti';
+    const size = 5 + Math.random() * 4;
+    p.style.left = (45 + Math.random() * 10) + '%';
+    p.style.top = '22%';
+    p.style.width = size + 'px';
+    p.style.height = (size * (Math.random() > 0.5 ? 1 : 2.2)) + 'px';
+    p.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    p.style.borderRadius = Math.random() > 0.5 ? '50%' : '1px';
+    // Radial spread via CSS custom properties
+    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.3;
+    const velocity = 90 + Math.random() * 60;
+    p.style.setProperty('--dx', Math.cos(angle) * velocity + 'px');
+    p.style.setProperty('--dy', (Math.sin(angle) * velocity - 20) + 'px');
+    p.style.animationDuration = (1.1 + Math.random() * 0.6) + 's';
+    p.style.animationDelay = (Math.random() * 0.08) + 's';
+    section.appendChild(p);
+  }
+  setTimeout(() => {
+    section.querySelectorAll('.grade-confetti').forEach(p => p.remove());
+  }, 2200);
 }
