@@ -34,10 +34,43 @@
 .superset-label { font-size: 10px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 0 4px; display: flex; align-items: center; gap: 6px; }
 .template-tag-filter-btn { font-size: 11px; padding: 3px 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); cursor: pointer; }
 .template-tag-filter-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
-.workout-exercise.main-lift { border-left: 4px solid var(--text-dim); }
-.workout-exercise.main-lift.squat { border-left-color: var(--squat); }
-.workout-exercise.main-lift.bench { border-left-color: var(--bench); }
-.workout-exercise.main-lift.deadlift { border-left-color: var(--deadlift); }
+/* Main lift = sacred. Thick lift-colored rail + subtle ambient glow. */
+.workout-exercise.main-lift {
+  border-left: 4px solid var(--text-dim);
+  position: relative;
+}
+.workout-exercise.main-lift::before {
+  content: ''; position: absolute; inset: 0;
+  border-radius: var(--radius-lg);
+  pointer-events: none;
+  opacity: 0.4;
+  background: linear-gradient(90deg, currentColor 0%, transparent 30%);
+  mix-blend-mode: overlay;
+  display: none;
+}
+.workout-exercise.main-lift.squat { border-left-color: var(--squat); color: var(--squat); }
+.workout-exercise.main-lift.bench { border-left-color: var(--bench); color: var(--bench); }
+.workout-exercise.main-lift.deadlift { border-left-color: var(--deadlift); color: var(--deadlift); }
+.workout-exercise.main-lift .workout-exercise-name {
+  color: var(--text-strong);
+  letter-spacing: 0.01em;
+}
+
+/* BBB (supplemental) — muted dashed rail, visually secondary */
+.workout-exercise.bbb-section {
+  border-left: 3px dashed var(--text-muted);
+  background: rgba(255, 255, 255, 0.02);
+}
+.workout-exercise.bbb-section .workout-exercise-name {
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Accessories — no rail, slightly different shadow for separation */
+.workout-exercise:not(.main-lift):not(.bbb-section) {
+  border-left: 3px solid transparent;
+}
 .workout-exercise-name { font-size: var(--text-base); font-weight: 700; color: var(--text-strong); margin-bottom: 2px; -webkit-user-select: none; user-select: none; }
 .workout-exercise-meta { font-size: var(--text-xs); color: var(--text-dim); margin-bottom: var(--space-2); }
 .prev-perf {

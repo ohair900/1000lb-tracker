@@ -31,18 +31,30 @@
 }
 .score-line strong { color: var(--text-strong); }
 
-/* Plateau indicator */
+/* Plateau indicator — now a tappable button that opens plateau analysis */
 .plateau-icon {
-  display: inline-block; cursor: help; position: relative;
-  font-size: 0.75rem; margin-left: 4px; vertical-align: middle;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; position: relative;
+  font-size: 0.85rem; margin-left: 4px; vertical-align: middle;
+  min-width: 28px; min-height: 28px;
+  padding: 0 4px;
+  background: rgba(253, 216, 53, 0.12);
+  border: 1px solid rgba(253, 216, 53, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--yellow);
+  -webkit-tap-highlight-color: transparent;
+  transition: all var(--transition-fast);
+  animation: plateauPulse 2.4s ease-in-out infinite;
 }
-.plateau-tooltip {
-  display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
-  background: var(--surface2); color: var(--text); font-size: var(--text-xs);
-  padding: 4px 8px; border-radius: 6px; white-space: nowrap; z-index: 10;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3); font-weight: 400;
+.plateau-icon:hover, .plateau-icon:active {
+  background: rgba(253, 216, 53, 0.2);
+  border-color: rgba(253, 216, 53, 0.5);
+  transform: scale(1.05);
 }
-.plateau-icon:hover .plateau-tooltip { display: block; }
+@keyframes plateauPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(253, 216, 53, 0); }
+  50%      { box-shadow: 0 0 0 3px rgba(253, 216, 53, 0.15); }
+}
 
 /* Period comparison */
 .compare-grid {

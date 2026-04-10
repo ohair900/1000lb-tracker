@@ -25,7 +25,7 @@ import { getClassification, getOverallClassification } from '../formulas/standar
 import { calcFatigueByMuscle } from '../systems/fatigue.js';
 import { showFatigueDetail } from '../views/fatigue-sheet.js';
 import { renderBodyMap, initBodyMapEvents } from '../views/body-map.js';
-import { updatePlateauCards } from '../views/plateau-analysis.js';
+import { updatePlateauCards, showPlateauSheet } from '../views/plateau-analysis.js';
 import { calcStreak } from '../systems/streak.js';
 import { calcWeeklyRecap } from '../systems/weekly-recap.js';
 import { calcPriorWeekReview } from '../systems/weekly-coverage.js';
@@ -76,10 +76,20 @@ export function updateLiftCard(lift) {
     trendEl.className = 'card-trend ' + prog.direction;
     trendEl.style.display = '';
   } else { trendEl.style.display = 'none'; }
-  const platEl = ensureChild(card.querySelector('.card-label'), 'plateau-icon', 'span');
+  const platEl = ensureChild(card.querySelector('.card-label'), 'plateau-icon', 'button');
   if (best && detectPlateau(lift)) {
-    platEl.innerHTML = '\u26A0\uFE0F<span class="plateau-tooltip">Plateau detected: no e1RM gain in 4+ weeks</span>';
-    platEl.style.display = 'inline';
+    platEl.innerHTML = '\u26A0\uFE0F';
+    platEl.setAttribute('aria-label', `${LIFT_NAMES[lift]} plateau — tap for analysis`);
+    platEl.setAttribute('title', 'Plateau detected — tap for analysis');
+    platEl.dataset.lift = lift;
+    platEl.style.display = 'inline-flex';
+    if (!platEl._bound) {
+      platEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showPlateauSheet(platEl.dataset.lift);
+      });
+      platEl._bound = true;
+    }
   } else { platEl.style.display = 'none'; }
 }
 
