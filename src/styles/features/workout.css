@@ -92,9 +92,8 @@
 }
 .workout-exercise-name {
   font-family: var(--font-display);
-  font-size: 1.1rem; font-weight: 800; color: var(--text-strong);
+  font-size: var(--text-base); font-weight: 700; color: var(--text-strong);
   margin-bottom: 2px; -webkit-user-select: none; user-select: none;
-  letter-spacing: 0.015em;
 }
 .workout-exercise-meta { font-size: var(--text-xs); color: var(--text-dim); margin-bottom: var(--space-2); font-variant-numeric: tabular-nums; }
 .prev-perf {
@@ -103,31 +102,24 @@
 }
 .prev-perf-date { color: var(--text-muted); margin-left: 6px; }
 
-/* Set rows — entire row is the tap target (56pt min-height for thumb reach) */
+/* Set rows */
 .workout-set-row {
   display: flex; align-items: center; gap: var(--space-2);
-  min-height: 56px; padding: 10px 10px; border-radius: var(--radius-md);
-  cursor: pointer; transition: background var(--transition-fast), border-color var(--transition-fast);
+  min-height: 44px; padding: 6px 8px; border-radius: var(--radius-sm);
+  cursor: pointer; transition: background var(--transition-fast);
   border-bottom: 1px solid rgba(255,255,255,0.03);
-  -webkit-tap-highlight-color: transparent;
-  position: relative;
 }
 .workout-set-row:last-child { border-bottom: none; }
 .workout-set-row:hover { background: var(--surface2); }
-.workout-set-row:active { background: var(--surface2); transform: scale(0.995); }
 .workout-set-row.completed { background: var(--completed-bg); }
 .workout-set-check {
-  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
   border: 2px solid var(--border); display: flex; align-items: center;
-  justify-content: center; font-size: 0.95rem; color: transparent;
+  justify-content: center; font-size: 0.7rem; color: transparent;
   transition: all var(--transition-fast);
 }
 .workout-set-row.completed .workout-set-check {
   background: var(--green); border-color: var(--green); color: #fff;
-}
-/* Invisible tap-area expansion on the check circle so the row is forgiving */
-.workout-set-check::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
 }
 .workout-set-info {
   flex: 1; font-size: var(--text-sm); color: var(--text);
@@ -145,17 +137,14 @@
 
 /* Accessory set weight controls */
 .acc-set-weight-controls {
-  display: flex; gap: 6px; flex-shrink: 0; margin-left: auto;
+  display: flex; gap: 4px; flex-shrink: 0; margin-left: auto;
 }
 .acc-set-weight-btn {
-  width: 40px; height: 40px; border-radius: 50%;
+  width: 28px; height: 28px; border-radius: 50%;
   border: 1.5px solid var(--border); background: var(--surface2);
-  color: var(--text); font-size: 0.95rem; font-weight: 600; cursor: pointer;
+  color: var(--text); font-size: 0.85rem; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  -webkit-tap-highlight-color: transparent;
-  transition: all var(--transition-fast);
 }
-.acc-set-weight-btn:active { transform: scale(0.92); background: var(--surface); }
 .acc-progression-badge {
   display: inline-block; font-size: var(--text-2xs); font-weight: 700;
   padding: 2px 8px; border-radius: var(--radius-pill);
@@ -165,10 +154,10 @@
 
 /* Complete / Discard buttons */
 .workout-complete-btn {
-  width: 100%; padding: 16px; border: none; border-radius: var(--radius-lg);
+  width: 100%; padding: 14px; border: none; border-radius: var(--radius-lg);
   background: var(--green); color: #fff;
   font-family: var(--font-display);
-  font-size: 1.1rem; font-weight: 900;
+  font-size: var(--text-base); font-weight: 900;
   text-transform: uppercase; letter-spacing: 0.08em;
   cursor: pointer; transition: all var(--transition-base);
 }
@@ -245,15 +234,13 @@
 }
 .exercise-start-btn:hover { background: rgba(67,160,71,0.25); }
 .acc-time-adj-btn {
-  width: 40px; height: 40px; border: 1px solid var(--border);
-  background: transparent; color: var(--text-dim); font-size: 0.95rem;
+  width: 28px; height: 28px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-dim); font-size: 0.85rem;
   font-weight: 700; border-radius: 50%; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: all var(--transition-base);
-  -webkit-tap-highlight-color: transparent;
 }
 .acc-time-adj-btn:hover { border-color: var(--text-dim); color: var(--text); }
-.acc-time-adj-btn:active { transform: scale(0.92); }
 
 /* Weakpoint selector */
 .weakpoint-grid { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-3); }

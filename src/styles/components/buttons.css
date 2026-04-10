@@ -2,10 +2,10 @@
 
 /* Primary log button */
 .log-btn {
-  width: 100%; padding: 16px; border: none; border-radius: var(--radius-lg);
+  width: 100%; padding: 14px; border: none; border-radius: var(--radius-lg);
   background: var(--btn-primary-bg); color: var(--btn-primary-color);
   font-family: var(--font-display);
-  font-size: 1.05rem; font-weight: 900;
+  font-size: 1rem; font-weight: 900;
   text-transform: uppercase; letter-spacing: 0.08em;
   cursor: pointer; transition: all var(--transition-base);
 }
