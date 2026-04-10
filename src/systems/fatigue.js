@@ -53,6 +53,59 @@ function getAccDiscount(exerciseId) {
   return DEFAULT_ACC_DISCOUNT;
 }
 
+/**
+ * Compute the load for a single accessory set, correctly handling weighted,
+ * bodyweight, and time-based exercises.
+ *
+ * The base INOL formula (reps / (100 - %1RM)) doesn't work for:
+ *  - bodyweight exercises (weight = 0 → zero load bug)
+ *  - time-based exercises (seconds misinterpreted as reps)
+ *  - catalog-only exercises (pctOfTM not read correctly)
+ *
+ * This helper routes each progression type to an appropriate formula,
+ * producing comparable load values across all exercise types.
+ *
+ * @param {number} weightLbs - Weight used (may be 0 for BW, negative for assisted)
+ * @param {number} setVal - Reps for rep-based, seconds for time-based
+ * @param {string} exerciseId - Catalog or legacy ID
+ * @param {string} [mainLiftHint] - Which main lift's TM to reference for catalog pctOfTM
+ * @returns {number} Load value comparable to main-lift INOL
+ */
+function getAccessorySetLoad(weightLbs, setVal, exerciseId, mainLiftHint) {
+  if (!setVal || setVal <= 0) return 0;
+  const catalogEx = resolveExercise(exerciseId);
+  const legacyEx = ACCESSORY_DB[exerciseId];
+  const progType = catalogEx?.progressionType
+    || (legacyEx?.timeBased ? 'time'
+      : legacyEx?.pctOfTM === 0 ? 'bodyweight'
+        : 'compound');
+
+  // TIME-BASED: setVal is seconds. 60s ~= 1 INOL unit.
+  if (progType === 'time') {
+    const baseLoad = setVal / 60;
+    if (weightLbs > 0) return baseLoad * (1 + weightLbs / 150);
+    return baseLoad;
+  }
+
+  // BODYWEIGHT: treat as moderate-intensity (reps / 40 ≈ INOL at ~60% TM).
+  if (progType === 'bodyweight') {
+    const baseLoad = setVal / 40;
+    if (weightLbs < 0) return baseLoad * Math.max(0.5, 1 + weightLbs / 200); // assisted
+    if (weightLbs > 0) return baseLoad * (1 + weightLbs / 150); // weighted BW
+    return baseLoad;
+  }
+
+  // WEIGHT-BASED: use proper INOL with pctOfTM from catalog OR legacy
+  let pctOfTM = 0;
+  if (catalogEx?.pctOfTM && typeof catalogEx.pctOfTM === 'object') {
+    const lift = mainLiftHint || legacyEx?.mainLift || Object.keys(catalogEx.pctOfTM)[0];
+    pctOfTM = (lift && catalogEx.pctOfTM[lift]) || Object.values(catalogEx.pctOfTM)[0] || 0;
+  } else if (legacyEx?.pctOfTM) {
+    pctOfTM = legacyEx.pctOfTM;
+  }
+  return calcAccessoryINOL(weightLbs, setVal, pctOfTM);
+}
+
 // Eccentric load recovery multiplier (#10)
 // Looks at recent accessory exercises for a muscle group and returns
 // the worst-case eccentric multiplier from the last session's exercises.
@@ -180,12 +233,18 @@ function getMuscleSessionDays(mainEntries, accEntries, mg) {
     if (w && w[mg]) timestamps.push(e.timestamp);
   });
   accEntries.forEach(a => {
-    const ex = ACCESSORY_DB[a.exerciseId];
-    if (!ex) return;
-    const cw = ACCESSORY_CAT_WEIGHTS[ex.category];
+    const cw = resolveAccMuscleWeights(a.exerciseId);
     if (cw && cw[mg]) timestamps.push(a.timestamp);
   });
   return timestamps;
+}
+
+function resolveAccMuscleWeights(exerciseId) {
+  const catalogEx = resolveExercise(exerciseId);
+  if (catalogEx?.primaryMuscles) return catalogEx.primaryMuscles;
+  const ex = ACCESSORY_DB[exerciseId];
+  if (ex?.category) return ACCESSORY_CAT_WEIGHTS[ex.category];
+  return null;
 }
 
 function calcMuscleDensity(mainEntries, accEntries, mg) {
@@ -195,9 +254,7 @@ function calcMuscleDensity(mainEntries, accEntries, mg) {
     if (w && w[mg]) trainingDays.add(e.date);
   });
   accEntries.forEach(a => {
-    const ex = ACCESSORY_DB[a.exerciseId];
-    if (!ex) return;
-    const cw = ACCESSORY_CAT_WEIGHTS[ex.category];
+    const cw = resolveAccMuscleWeights(a.exerciseId);
     if (cw && cw[mg]) trainingDays.add(a.date);
   });
 
@@ -254,29 +311,34 @@ function buildDailyLoads(mainEntries, accEntries, muscleGroup, dayCount) {
 
   accEntries.forEach(a => {
     const ex = ACCESSORY_DB[a.exerciseId];
-    if (!ex) return;
+    const catalogEx = resolveExercise(a.exerciseId);
+    if (!ex && !catalogEx) return;
     const entryDate = new Date(a.date);
     entryDate.setHours(0, 0, 0, 0);
     const daysAgo = Math.round((todayStart - entryDate) / MS_PER_DAY);
     if (daysAgo < 0 || daysAgo >= dayCount) return;
     const idx = dayCount - 1 - daysAgo;
     const discount = getAccDiscount(a.exerciseId);
+    const mainLiftHint = ex?.mainLift || (catalogEx?.supportsLifts?.[0]);
+
+    // Resolve muscle weights from catalog primaryMuscles OR legacy category weights
+    let cw = null;
+    if (muscleGroup) {
+      if (catalogEx?.primaryMuscles) cw = catalogEx.primaryMuscles;
+      else if (ex?.category) cw = ACCESSORY_CAT_WEIGHTS[ex.category];
+      if (!cw || !cw[muscleGroup]) return;
+    }
+
+    const sets = a.setsCompleted || [];
+    const setSum = sets.reduce((s, setVal, i) => {
+      const w = (a.setWeights && a.setWeights[i]) || a.weight || 0;
+      return s + getAccessorySetLoad(w, setVal, a.exerciseId, mainLiftHint);
+    }, 0);
 
     if (muscleGroup) {
-      const cw = ACCESSORY_CAT_WEIGHTS[ex.category];
-      if (!cw || !cw[muscleGroup]) return;
-      const sets = a.setsCompleted || [];
-      const accLoad = sets.reduce((s, reps, i) => {
-        const w = (a.setWeights && a.setWeights[i]) || a.weight || 0;
-        return s + calcAccessoryINOL(w, reps, ex.pctOfTM);
-      }, 0) * cw[muscleGroup] * discount;
-      loads[idx] += accLoad;
+      loads[idx] += setSum * cw[muscleGroup] * discount;
     } else {
-      const sets = a.setsCompleted || [];
-      loads[idx] += sets.reduce((s, reps, i) => {
-        const w = (a.setWeights && a.setWeights[i]) || a.weight || 0;
-        return s + calcAccessoryINOL(w, reps, ex.pctOfTM);
-      }, 0) * discount;
+      loads[idx] += setSum * discount;
     }
   });
 
@@ -380,14 +442,18 @@ export function calcAccessoryLoad(accEntries, muscleGroup) {
   let load = 0;
   accEntries.forEach(a => {
     const ex = ACCESSORY_DB[a.exerciseId];
-    if (!ex) return;
-    const cw = ACCESSORY_CAT_WEIGHTS[ex.category];
+    const catalogEx = resolveExercise(a.exerciseId);
+    if (!ex && !catalogEx) return;
+    let cw = null;
+    if (catalogEx?.primaryMuscles) cw = catalogEx.primaryMuscles;
+    else if (ex?.category) cw = ACCESSORY_CAT_WEIGHTS[ex.category];
     if (!cw || !cw[muscleGroup]) return;
     const discount = getAccDiscount(a.exerciseId);
+    const mainLiftHint = ex?.mainLift || catalogEx?.supportsLifts?.[0];
     const sets = a.setsCompleted || [];
-    load += sets.reduce((s, reps, i) => {
+    load += sets.reduce((s, setVal, i) => {
       const w = (a.setWeights && a.setWeights[i]) || a.weight || 0;
-      return s + calcAccessoryINOL(w, reps, ex.pctOfTM);
+      return s + getAccessorySetLoad(w, setVal, a.exerciseId, mainLiftHint);
     }, 0) * cw[muscleGroup] * discount;
   });
   return load;
@@ -396,9 +462,13 @@ export function calcAccessoryLoad(accEntries, muscleGroup) {
 export function countAccessoryEntries(accEntries, muscleGroup) {
   return accEntries.filter(a => {
     const ex = ACCESSORY_DB[a.exerciseId];
-    if (!ex) return false;
-    const cw = ACCESSORY_CAT_WEIGHTS[ex.category];
-    return cw && cw[muscleGroup];
+    const catalogEx = resolveExercise(a.exerciseId);
+    if (catalogEx?.primaryMuscles) return !!catalogEx.primaryMuscles[muscleGroup];
+    if (ex?.category) {
+      const cw = ACCESSORY_CAT_WEIGHTS[ex.category];
+      return cw && !!cw[muscleGroup];
+    }
+    return false;
   }).length;
 }
 
@@ -476,8 +546,7 @@ export function calcFatigueByMuscle() {
       if (w && w[mg]) { count28++; if (e.timestamp > lastTs) lastTs = e.timestamp; }
     });
     acc28.forEach(a => {
-      const ex = ACCESSORY_DB[a.exerciseId];
-      const cw = ex ? ACCESSORY_CAT_WEIGHTS[ex.category] : null;
+      const cw = resolveAccMuscleWeights(a.exerciseId);
       if (cw && cw[mg]) { if (a.timestamp > lastTs) lastTs = a.timestamp; }
     });
     count28 += countAccessoryEntries(acc28, mg);
@@ -655,20 +724,22 @@ export function calcFatigueDetail(mg) {
   });
   acc7.forEach(a => {
     const ex = ACCESSORY_DB[a.exerciseId];
-    const catalogEx = !ex ? resolveExercise(a.exerciseId) : null;
+    const catalogEx = resolveExercise(a.exerciseId);
     if (!ex && !catalogEx) return;
-    const category = ex ? ex.category : (catalogEx.movementPattern || null);
-    const cw = ex ? ACCESSORY_CAT_WEIGHTS[ex.category] : (catalogEx ? catalogEx.primaryMuscles : null);
+    // Prefer catalog primaryMuscles (more accurate per-exercise weights)
+    let cw = null;
+    if (catalogEx?.primaryMuscles) cw = catalogEx.primaryMuscles;
+    else if (ex?.category) cw = ACCESSORY_CAT_WEIGHTS[ex.category];
     if (!cw || !cw[mg]) return;
     const sets = a.setsCompleted || [];
-    const pctOfTM = ex ? ex.pctOfTM : 0;
     const accDiscount = getAccDiscount(a.exerciseId);
-    const accLoad = sets.reduce((s, reps, i) => {
+    const mainLiftHint = ex?.mainLift || catalogEx?.supportsLifts?.[0];
+    const accLoad = sets.reduce((s, setVal, i) => {
       const w = (a.setWeights && a.setWeights[i]) || a.weight || 0;
-      return s + calcAccessoryINOL(w, reps, pctOfTM);
+      return s + getAccessorySetLoad(w, setVal, a.exerciseId, mainLiftHint);
     }, 0) * cw[mg] * accDiscount;
-    const name = ex ? ex.name : catalogEx.name;
-    const lift = ex ? ex.mainLift : (catalogEx.supportsLifts ? catalogEx.supportsLifts[0] : null);
+    const name = catalogEx?.name || ex?.name || a.name || a.exerciseId;
+    const lift = ex?.mainLift || catalogEx?.supportsLifts?.[0] || null;
     addContrib('acc-' + a.exerciseId, name, 'Acc', lift, cw[mg], accLoad, sets.length, a.timestamp);
   });
   const contribArr = Object.values(contribMap)
@@ -681,15 +752,19 @@ export function calcFatigueDetail(mg) {
     ...main28.map(e => ({ ts: e.timestamp, load: mainEntryLoad(e, mg) })),
     ...acc28.map(a => {
       const ex = ACCESSORY_DB[a.exerciseId];
-      const cw = ex ? ACCESSORY_CAT_WEIGHTS[ex.category] : null;
+      const catalogEx = resolveExercise(a.exerciseId);
+      let cw = null;
+      if (catalogEx?.primaryMuscles) cw = catalogEx.primaryMuscles;
+      else if (ex?.category) cw = ACCESSORY_CAT_WEIGHTS[ex.category];
       const mw = cw ? (cw[mg] || 0) : 0;
       const sets = a.setsCompleted || [];
       const disc = getAccDiscount(a.exerciseId);
+      const mainLiftHint = ex?.mainLift || catalogEx?.supportsLifts?.[0];
       return {
         ts: a.timestamp,
-        load: sets.reduce((s, r, i) => {
+        load: sets.reduce((s, setVal, i) => {
           const w = (a.setWeights && a.setWeights[i]) || a.weight || 0;
-          return s + calcAccessoryINOL(w, r, ex ? ex.pctOfTM : 0);
+          return s + getAccessorySetLoad(w, setVal, a.exerciseId, mainLiftHint);
         }, 0) * mw * disc,
       };
     }),
@@ -707,8 +782,7 @@ export function calcFatigueDetail(mg) {
     if (w && w[mg] && e.timestamp > lastTs) lastTs = e.timestamp;
   });
   acc28.forEach(a => {
-    const ex = ACCESSORY_DB[a.exerciseId];
-    const cw = ex ? ACCESSORY_CAT_WEIGHTS[ex.category] : null;
+    const cw = resolveAccMuscleWeights(a.exerciseId);
     if (cw && cw[mg] && a.timestamp > lastTs) lastTs = a.timestamp;
   });
   const hoursSince = lastTs > 0 ? (now - lastTs) / (1000 * 60 * 60) : null;
