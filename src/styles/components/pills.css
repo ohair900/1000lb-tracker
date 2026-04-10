@@ -25,14 +25,18 @@
 .lift-days-badge.days-yellow { background: #f9a825; }
 .lift-days-badge.days-red { background: var(--red, #e53935); }
 
-/* RPE pills */
+/* RPE pills — sized for sweaty mid-workout taps */
 .rpe-pill {
-  padding: 6px 10px; border: 1px solid var(--border);
+  min-width: 48px; min-height: 48px;
+  padding: 10px 14px; border: 1.5px solid var(--border);
   background: transparent; color: var(--text-dim);
-  font-size: 0.75rem; font-weight: 600; border-radius: 16px;
+  font-size: 0.9rem; font-weight: 700; border-radius: 16px;
   cursor: pointer; white-space: nowrap; transition: all var(--transition-base);
   flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
 }
+.rpe-pill:active { transform: scale(0.95); }
 .rpe-pill.active { border-color: var(--text-strong); color: var(--text-strong); background: var(--surface2); }
 
 /* Inline RPE slider row (workout overlay) */
@@ -187,5 +191,5 @@
 
 /* Responsive pills */
 @media (max-width: 360px) {
-  .rpe-pill { padding: 5px 8px; font-size: var(--text-sm); }
+  .rpe-pill { min-width: 42px; padding: 10px 10px; font-size: var(--text-sm); }
 }
