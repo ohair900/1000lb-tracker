@@ -30,6 +30,14 @@ import {
   checkAccessoryProgression,
   scoreAccessories,
 } from '../systems/workout-builder.js';
+import {
+  generateSessionPlan,
+  evaluateSetCompletion,
+  gradeSession,
+  applyAdjustments,
+  applyBBBAdjustment,
+} from '../systems/session-optimizer.js';
+import { renderCoachingCard, renderSetEvaluationChip, renderSessionGrade } from '../views/session-coach-ui.js';
 import { showToast } from '../ui/toast.js';
 import {
   startTimer,
@@ -147,6 +155,10 @@ function createWorkoutSession(mainLift) {
   }
   store.workoutSession = session;
   store.saveWorkoutSession();
+
+  // Session Optimizer: generate coaching plan
+  generateSessionPlan(mainLift, session);
+
   return session;
 }
 
@@ -218,6 +230,11 @@ export function renderWorkoutView() {
   $('workout-subtitle').textContent = store.workoutSession.date + weekLabel;
   let html = '';
 
+  // Session Optimizer coaching card
+  if (store._sessionOptimizer && store._sessionOptimizer.plan) {
+    html += renderCoachingCard(store._sessionOptimizer.plan);
+  }
+
   // Main lift section
   html += `<div class="workout-exercise main-lift ${lift}">`;
   html += `<div class="workout-exercise-name">${LIFT_NAMES[lift]}</div>`;
@@ -228,6 +245,7 @@ export function renderWorkoutView() {
   if (store.workoutSession.mainSets.length > 0) {
     html += `<div class="workout-exercise-meta">Program sets \u2014 tap to log</div>`;
     store.workoutSession.mainSets.forEach((s, i) => {
+      if (s._dropped) return; // Dropped by session optimizer
       const isAmrap = typeof s.reps === 'string' && s.reps.toString().includes('+');
       const repDisplay = s.reps;
       const plateStr = formatPlates(s.weight);
@@ -253,13 +271,15 @@ export function renderWorkoutView() {
   if (store.workoutSession.bbbSets && store.workoutSession.bbbSets.length > 0) {
     html += `<div class="workout-exercise bbb-section">`;
     html += `<div class="workout-exercise-name" style="color:var(--text-dim)">Supplemental (BBB)</div>`;
-    html += `<div class="workout-exercise-meta">5&times;10 at ${store.workoutSession.bbbSets[0].pct}%</div>`;
-    store.workoutSession.bbbSets.forEach((s, i) => {
+    const activeBBB = store.workoutSession.bbbSets.filter(s => !s._dropped);
+    html += `<div class="workout-exercise-meta">${activeBBB.length}&times;${store.workoutSession.bbbSets[0].reps} at ${store.workoutSession.bbbSets[0].pct}%</div>`;
+    activeBBB.forEach((s, i) => {
       const plateStr = formatPlates(s.weight);
-      html += `<div class="workout-set-row${s.completed ? ' completed' : ''}" data-type="bbb" data-idx="${i}">
+      const origIdx = store.workoutSession.bbbSets.indexOf(s);
+      html += `<div class="workout-set-row${s.completed ? ' completed' : ''}" data-type="bbb" data-idx="${origIdx}">
         <div class="workout-set-check">${s.completed ? '&#10003;' : ''}</div>
         <div class="workout-set-info">
-          Set ${s.num}: ${formatWeight(s.weight)} ${store.unit} &times; ${s.reps}
+          Set ${i + 1}: ${formatWeight(s.weight)} ${store.unit} &times; ${s.reps}
           <span style="color:var(--text-dim);font-size:var(--text-xs)"> (${s.pct}%)</span>
           ${plateStr ? `<div class="plate-display">${plateStr} /side</div>` : ''}
         </div>
@@ -508,14 +528,18 @@ export function completeWorkout() {
     mesoAdaptation = _deps.adaptRemainingWeeks?.(store.workoutSession.mainLift) ?? null;
   }
 
+  // Session Optimizer: grade the session
+  const sessionGrade = gradeSession(completedSession);
+
   store.workoutSession = null;
+  store._sessionOptimizer = null; // Clear ephemeral optimizer state
   store.saveWorkoutSession();
   closeWorkoutView();
   showToast('Workout complete!');
   if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
   _deps.updateWorkoutButton?.();
   setTimeout(() => {
-    _deps.showWorkoutSummary?.(completedSession, mesoAdaptation);
+    _deps.showWorkoutSummary?.(completedSession, mesoAdaptation, sessionGrade);
   }, 300);
 }
 
@@ -556,6 +580,33 @@ export function initWorkoutOverlay() {
 
   body.addEventListener('click', (e) => {
     if (!store.workoutSession) return;
+
+    // Session Optimizer: coaching card toggle
+    if (e.target.closest('[data-coach-toggle]')) {
+      const card = document.getElementById('coach-card');
+      if (card) card.classList.toggle('collapsed');
+      return;
+    }
+    // Session Optimizer: Apply mid-session adjustment
+    if (e.target.closest('[data-coach-apply]')) {
+      const evalIdx = parseInt(e.target.closest('[data-coach-apply]').dataset.coachApply);
+      const optimizer = store._sessionOptimizer;
+      if (optimizer && optimizer.evaluations) {
+        const evaluation = optimizer.evaluations.find(ev => ev.setIndex === evalIdx);
+        if (evaluation) {
+          applyAdjustments(evaluation);
+          renderWorkoutView();
+          showToast('Adjustments applied');
+        }
+      }
+      return;
+    }
+    // Session Optimizer: Dismiss coaching chip
+    if (e.target.closest('[data-coach-dismiss]')) {
+      const chip = e.target.closest('.coach-chip');
+      if (chip) chip.remove();
+      return;
+    }
 
     // Prevent set-input clicks from toggling the row
     if (e.target.closest('.workout-set-input')) return;
@@ -842,6 +893,24 @@ export function initWorkoutOverlay() {
             const infoEl = completedRow.querySelector('.workout-set-info');
             if (infoEl) {
               infoEl.innerHTML = infoEl.innerHTML.replace(/ @ RPE \d+/g, '').replace(/(×\s*\d+)/,  `$1 @ RPE ${rpeVal}`);
+            }
+          });
+          // Session Optimizer: evaluate after RPE is set (debounced on change)
+          slider.addEventListener('change', () => {
+            const rpeVal = parseInt(slider.value);
+            const reps = typeof set.reps === 'string' ? parseInt(set.reps) : set.reps;
+            const evaluation = evaluateSetCompletion(idx, rpeVal, reps, set.weight);
+            if (evaluation && evaluation.drift !== 'on-track') {
+              // Remove any existing chip for this set
+              const existingChip = document.querySelector(`.coach-chip[data-eval-idx="${idx}"]`);
+              if (existingChip) existingChip.remove();
+              // Insert coaching chip after RPE row
+              const chipHtml = renderSetEvaluationChip(evaluation);
+              if (chipHtml) {
+                const chipContainer = document.createElement('div');
+                chipContainer.innerHTML = chipHtml;
+                rpeRow.after(chipContainer.firstElementChild);
+              }
             }
           });
         }

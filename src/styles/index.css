@@ -37,6 +37,7 @@
 @import './features/accessory-detail.css';
 @import './features/plateau.css';
 @import './features/body-map.css';
+@import './features/coach.css';
 
 /* Utilities & Animations */
 @import './utilities.css';

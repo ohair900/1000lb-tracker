@@ -10,6 +10,7 @@ import { $ } from '../utils/helpers.js';
 import { LIFT_NAMES } from '../constants/lift-config.js';
 import { formatWeight } from '../formulas/units.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
+import { renderSessionGrade } from './session-coach-ui.js';
 
 // ---------------------------------------------------------------------------
 // Show workout summary
@@ -21,7 +22,7 @@ import { ACCESSORY_DB } from '../data/accessories.js';
  * @param {Object} session - The completed workout session
  * @param {Object|null} mesoAdaptation - Mesocycle adaptation result, if any
  */
-export function showWorkoutSummary(session, mesoAdaptation) {
+export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
   const duration = Date.now() - session.startTime;
   const mins = Math.floor(duration / 60000);
   const secs = Math.floor((duration % 60000) / 1000);
@@ -42,6 +43,11 @@ export function showWorkoutSummary(session, mesoAdaptation) {
   const completionColor = completionPct >= 80 ? 'var(--green)' : completionPct >= 50 ? 'var(--yellow)' : 'var(--red)';
 
   let html = '';
+
+  // Session Optimizer grade
+  if (sessionGrade) {
+    html += renderSessionGrade(sessionGrade);
+  }
 
   // Stat grid
   html += '<div class="summary-stat-grid">';

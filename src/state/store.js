@@ -112,6 +112,7 @@ class Store {
     // Ephemeral UI state — NOT persisted via the STORES registry.
     // Some values are seeded from individual localStorage keys on init().
     // -----------------------------------------------------------------------
+    this._sessionOptimizer = null; // Ephemeral coaching state — not persisted
     this.currentLift = 'squat';
     this.currentTab = 'log';
     this.currentRPE = null;
