@@ -211,10 +211,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       <div class="input-group">
         <label>Weight (<span class="unit-label">lbs</span>)</label>
         <input type="number" id="input-weight" placeholder="0" inputmode="decimal" min="0" step="any">
+        <div class="input-hint" id="weight-hint"></div>
       </div>
       <div class="input-group">
         <label>Reps</label>
         <input type="number" id="input-reps" placeholder="0" inputmode="numeric" min="1" step="1">
+        <div class="input-hint" id="reps-hint"></div>
       </div>
     </div>
     <div class="rpe-section">
@@ -232,13 +234,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         <button class="rpe-pill" data-rpe="10">10</button>
       </div>
     </div>
-    <div class="notes-section">
+    <div class="log-meta-row">
       <a class="notes-toggle" id="notes-toggle">+ Add note</a>
-      <input type="text" class="notes-input" id="input-notes" placeholder="How did it feel?" style="display:none">
+      <a class="tags-toggle" id="tags-toggle">+ Add tag</a>
     </div>
-    <div class="tag-pills" id="log-tags">
-      <span style="font-size:0.6rem;color:var(--text-dim);margin-right:2px">Tags:</span>
-    </div>
+    <input type="text" class="notes-input" id="input-notes" placeholder="How did it feel?" style="display:none">
+    <div class="tag-pills" id="log-tags" style="display:none"></div>
     <div class="e1rm-preview" id="e1rm-preview">Enter weight and reps</div>
     <button class="log-btn" id="log-btn" disabled>Log Set</button>
     <button class="repeat-btn" id="repeat-btn"></button>

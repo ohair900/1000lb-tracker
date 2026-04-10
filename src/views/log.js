@@ -54,7 +54,7 @@ export function updatePreview() {
 
 function renderTagPills() {
   const container = $('log-tags');
-  let html = '<span style="font-size:0.6rem;color:var(--text-dim);margin-right:2px">Tags:</span>';
+  let html = '';
   AVAILABLE_TAGS.forEach(t => {
     html += `<button class="tag-pill" data-tag="${t}">${t}</button>`;
   });
@@ -62,6 +62,20 @@ function renderTagPills() {
   container.querySelectorAll('.tag-pill').forEach(pill => {
     pill.addEventListener('click', () => pill.classList.toggle('active'));
   });
+}
+
+// Inline validation hints ------------------------------------------------
+
+function showInputHint(el, msg) {
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+
+function clearInputHint(el) {
+  if (!el) return;
+  el.textContent = '';
+  el.classList.remove('visible');
 }
 
 // ---------------------------------------------------------------------------
@@ -74,17 +88,29 @@ function renderTagPills() {
  */
 export function initLogTab() {
   const debouncedPreview = debounce(updatePreview, PREVIEW_DEBOUNCE_MS);
-  weightInput.addEventListener('input', debouncedPreview);
-  repsInput.addEventListener('input', debouncedPreview);
+  const weightHint = $('weight-hint');
+  const repsHint = $('reps-hint');
+  weightInput.addEventListener('input', () => { clearInputHint(weightHint); debouncedPreview(); });
+  repsInput.addEventListener('input', () => { clearInputHint(repsHint); debouncedPreview(); });
 
   // Log button
   logBtn.addEventListener('click', () => {
     const w = parseFloat(weightInput.value), r = parseInt(repsInput.value);
     if (!(w > 0 && r > 0)) {
-      if (!(w > 0)) { weightInput.classList.add('input-shake'); setTimeout(() => weightInput.classList.remove('input-shake'), SHAKE_DURATION_MS); }
-      if (!(r > 0)) { repsInput.classList.add('input-shake'); setTimeout(() => repsInput.classList.remove('input-shake'), SHAKE_DURATION_MS); }
+      if (!(w > 0)) {
+        weightInput.classList.add('input-shake');
+        showInputHint(weightHint, 'Enter a weight');
+        setTimeout(() => weightInput.classList.remove('input-shake'), SHAKE_DURATION_MS);
+      }
+      if (!(r > 0)) {
+        repsInput.classList.add('input-shake');
+        showInputHint(repsHint, 'Enter reps');
+        setTimeout(() => repsInput.classList.remove('input-shake'), SHAKE_DURATION_MS);
+      }
       return;
     }
+    clearInputHint(weightHint);
+    clearInputHint(repsHint);
     const notes = notesInput.value.trim();
     const activeTags = [...document.querySelectorAll('#log-tags .tag-pill.active')].map(t => t.dataset.tag);
     const { entry, isPR, isRepPR, milestone } = addEntry(store.currentLift, inputToLbs(w), r, store.currentRPE, notes, activeTags);
@@ -171,6 +197,14 @@ export function initLogTab() {
     notesInput.style.display = store.notesVisible ? '' : 'none';
     $('notes-toggle').textContent = store.notesVisible ? '- Hide note' : '+ Add note';
     if (store.notesVisible) notesInput.focus();
+  });
+
+  // Tags toggle — hidden by default, revealed on tap
+  $('tags-toggle').addEventListener('click', () => {
+    const tagsEl = $('log-tags');
+    const isVisible = tagsEl.style.display !== 'none';
+    tagsEl.style.display = isVisible ? 'none' : 'flex';
+    $('tags-toggle').textContent = isVisible ? '+ Add tag' : '- Hide tags';
   });
 
   // Enter key

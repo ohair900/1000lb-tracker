@@ -109,12 +109,16 @@
   background: var(--text); color: var(--bg); border-color: var(--text);
 }
 
-/* Tag pills */
+/* Tag pills — readable and tappable (only visible when user asks for them) */
 .tag-pill {
-  padding: 2px 8px; border-radius: var(--radius-pill); font-size: var(--text-2xs);
+  padding: 8px 14px; border-radius: var(--radius-pill);
+  font-size: var(--text-sm); font-weight: 600;
   background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border);
   cursor: pointer; transition: all var(--transition-base); user-select: none;
+  min-height: 36px;
+  -webkit-tap-highlight-color: transparent;
 }
+.tag-pill:active { transform: scale(0.96); }
 .tag-pill.active { background: var(--text); color: var(--bg); border-color: var(--text); }
 .tag-chip {
   display: inline-block; padding: 1px 6px; border-radius: var(--radius-pill);

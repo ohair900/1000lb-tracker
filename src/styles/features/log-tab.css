@@ -14,20 +14,47 @@
   -webkit-overflow-scrolling: touch; padding-bottom: 2px;
 }
 
-/* Notes */
-.notes-section { margin-bottom: 12px; }
-.notes-toggle {
-  font-size: 0.8rem; color: var(--text-dim); cursor: pointer;
-  text-decoration: none; display: inline-block; margin-bottom: 6px;
+/* Notes + Tags meta row (both hidden behind toggle to reduce log clutter) */
+.log-meta-row {
+  display: flex; gap: var(--space-4); align-items: center;
+  margin-bottom: 10px;
 }
-.notes-toggle:hover { color: var(--text-strong); }
+.notes-toggle, .tags-toggle {
+  font-size: 0.8rem; color: var(--text-dim); cursor: pointer;
+  text-decoration: none; display: inline-block;
+  padding: 6px 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--transition-fast);
+}
+.notes-toggle:hover, .tags-toggle:hover { color: var(--text-strong); }
+.notes-toggle:active, .tags-toggle:active { color: var(--text-strong); }
 .notes-input {
-  width: 100%; padding: 8px 12px; border: 2px solid var(--border);
+  width: 100%; padding: 10px 14px; border: 2px solid var(--border);
   border-radius: var(--radius-lg); background: var(--surface); color: var(--text-strong);
-  font-size: 0.9rem; outline: none; transition: border-color var(--transition-base);
+  font-size: 0.95rem; outline: none; transition: border-color var(--transition-base);
+  margin-bottom: 10px;
 }
 .notes-input:focus { border-color: var(--border-hover); }
 .notes-input::placeholder { color: var(--text-muted); }
+
+/* Inline input validation hints (Enter a weight / Enter reps) */
+.input-hint {
+  display: none;
+  font-size: 0.7rem;
+  color: var(--danger);
+  margin-top: 4px;
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.input-hint.visible {
+  display: block;
+  animation: hintFadeIn 0.2s ease;
+}
+@keyframes hintFadeIn {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 /* e1RM preview */
 .e1rm-preview {
@@ -40,5 +67,11 @@
 .e1rm-preview .value { font-size: var(--text-lg); font-weight: 700; color: var(--text-strong); }
 .pr-indicator { color: var(--gold); font-weight: 700; font-size: 0.85rem; }
 
-/* Tag pills in log tab */
-.tag-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+/* Tag pills in log tab — revealed on demand, sized for touch */
+.tag-pills {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin: 6px 0 10px;
+  padding: 10px; background: var(--surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
