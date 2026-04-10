@@ -11,12 +11,13 @@ import { $, escapeHTML, fmtNum, debounce } from '../utils/helpers.js';
 import { LIFTS, COLORS, LIFT_SHORT, LIFT_NAMES } from '../constants/lift-config.js';
 import { displayWeight, formatWeight, inputToLbs } from '../formulas/units.js';
 import { groupSessions } from '../systems/volume.js';
-import { deleteEntry, editEntry } from '../state/actions.js';
+import { deleteEntry, editEntry, addEntry } from '../state/actions.js';
 import { openModal, closeModal } from '../ui/modal.js';
 import { showToastWithUndo } from '../ui/toast.js';
 import { MS_PER_DAY, SAME_SESSION_MS } from '../constants/time.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
 import { resolveExercise } from '../data/exercise-compat.js';
+import { AVAILABLE_TAGS } from '../data/milestones.js';
 
 // ---------------------------------------------------------------------------
 // Module-level state
@@ -272,6 +273,14 @@ export function renderHistory() {
       </div>`;
     });
 
+    // Compute dominant lift for this session (for Add Set pre-fill)
+    let dominantLift = session.lifts[0] || 'deadlift';
+    if (session.entries.length > 0) {
+      const liftCounts = {};
+      session.entries.forEach(e => { liftCounts[e.lift] = (liftCounts[e.lift] || 0) + 1; });
+      dominantLift = Object.keys(liftCounts).reduce((a, b) => liftCounts[a] >= liftCounts[b] ? a : b);
+    }
+
     // Render accessory entries for this session
     if (session.accessories && session.accessories.length > 0) {
       if (session.entries.length > 0) {
@@ -303,6 +312,11 @@ export function renderHistory() {
           </div>
         </div>`;
       });
+    }
+
+    // + Add Set button (for correcting missing sets after the fact)
+    if (!selectionMode) {
+      html += `<button class="session-add-set-btn" data-add-to-session="${session.timestamp}" data-session-date="${session.date}" data-dominant-lift="${dominantLift}">+ Add Set</button>`;
     }
 
     html += '</div></div>';
@@ -372,6 +386,58 @@ function openEditModal(id) {
       <input type="text" class="notes-input" id="edit-notes" value="${escapeHTML(entry.notes || '')}" placeholder="How did it feel?" style="display:block">
     </div>
     <button class="modal-save-btn" id="edit-save">Save Changes</button>
+  `;
+  openModal('edit-modal');
+}
+
+// ---------------------------------------------------------------------------
+// Add Set to session modal
+// ---------------------------------------------------------------------------
+
+function openAddToSessionModal(sessionTs, sessionDate, dominantLift) {
+  const body = $('edit-body');
+  body.dataset.addToSessionTs = sessionTs;
+  body.dataset.addToSessionDate = sessionDate;
+  delete body.dataset.deleteId;
+  delete body.dataset.deleteAccId;
+
+  body.innerHTML = `
+    <div class="section-label" style="margin-bottom:8px">Add Set to Session</div>
+    <div class="lift-selector" id="add-lift-selector">
+      ${LIFTS.map(l =>
+        `<button class="lift-btn${dominantLift === l ? ' active' : ''}" data-lift="${l}">${LIFT_NAMES[l]}</button>`
+      ).join('')}
+    </div>
+    <div class="input-row">
+      <div class="input-group"><label>Weight (<span class="unit-label">${store.unit}</span>)</label>
+        <input type="number" id="add-weight" inputmode="decimal" step="any" placeholder="0">
+      </div>
+      <div class="input-group"><label>Reps</label>
+        <input type="number" id="add-reps" inputmode="numeric" min="1" step="1" placeholder="0">
+      </div>
+    </div>
+    <div class="rpe-section">
+      <label class="rpe-label">RPE <span class="optional">(optional)</span></label>
+      <div class="rpe-row" id="add-rpe-row">
+        <button class="rpe-pill active" data-rpe="">--</button>
+        ${[6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map(v =>
+          `<button class="rpe-pill" data-rpe="${v}">${v}</button>`
+        ).join('')}
+      </div>
+    </div>
+    <div class="input-group" style="margin-top:12px">
+      <label>Tags <span class="optional">(tap to toggle)</span></label>
+      <div class="rpe-row" id="add-tags" style="flex-wrap:wrap">
+        ${AVAILABLE_TAGS.map(t =>
+          `<button class="tag-pill" data-tag="${t}">${t}</button>`
+        ).join('')}
+      </div>
+    </div>
+    <div class="input-group" style="margin-top:12px">
+      <label>Notes</label>
+      <input type="text" class="notes-input" id="add-notes" placeholder="Optional notes" style="display:block">
+    </div>
+    <button class="modal-save-btn" id="add-set-save">Add Set</button>
   `;
   openModal('edit-modal');
 }
@@ -485,6 +551,18 @@ function handleHistoryClick(e) {
   if (edit) {
     if (edit.dataset.accId) { openAccessoryEditModal(edit.dataset.accId); }
     else { openEditModal(edit.dataset.id); }
+    return;
+  }
+
+  // + Add Set button inside session cards
+  const addBtn = e.target.closest('[data-add-to-session]');
+  if (addBtn) {
+    openAddToSessionModal(
+      parseInt(addBtn.dataset.addToSession),
+      addBtn.dataset.sessionDate,
+      addBtn.dataset.dominantLift
+    );
+    return;
   }
 }
 
@@ -776,6 +854,51 @@ export function initHistoryTab() {
       if (rpeBtn) {
         body.querySelectorAll('#edit-rpe-row .rpe-pill').forEach(b => b.classList.remove('active'));
         rpeBtn.classList.add('active');
+        return;
+      }
+      // Add Set modal: lift selector, RPE, tag toggles
+      const addLiftBtn = e.target.closest('#add-lift-selector .lift-btn');
+      if (addLiftBtn) {
+        body.querySelectorAll('#add-lift-selector .lift-btn').forEach(b => b.classList.remove('active'));
+        addLiftBtn.classList.add('active');
+        return;
+      }
+      const addRpeBtn = e.target.closest('#add-rpe-row .rpe-pill');
+      if (addRpeBtn) {
+        body.querySelectorAll('#add-rpe-row .rpe-pill').forEach(b => b.classList.remove('active'));
+        addRpeBtn.classList.add('active');
+        return;
+      }
+      const addTagBtn = e.target.closest('#add-tags .tag-pill');
+      if (addTagBtn) {
+        addTagBtn.classList.toggle('active');
+        return;
+      }
+      if (e.target.closest('#add-set-save')) {
+        const sessionTs = parseInt(body.dataset.addToSessionTs);
+        const sessionDate = body.dataset.addToSessionDate;
+        const activeLift = body.querySelector('#add-lift-selector .lift-btn.active')?.dataset.lift;
+        if (!activeLift) return;
+        const w = parseFloat($('add-weight').value);
+        const r = parseInt($('add-reps').value);
+        if (!(w > 0 && r > 0)) return;
+        const rpePill = body.querySelector('#add-rpe-row .rpe-pill.active');
+        const rpe = rpePill && rpePill.dataset.rpe ? parseFloat(rpePill.dataset.rpe) : null;
+        const notes = $('add-notes').value.trim();
+        const tags = [...body.querySelectorAll('#add-tags .tag-pill.active')].map(t => t.dataset.tag);
+
+        const result = addEntry(activeLift, inputToLbs(w), r, rpe, notes, tags);
+        if (result?.entry && sessionDate) {
+          result.entry.date = sessionDate;
+          result.entry.timestamp = sessionTs + 1;
+          store.saveEntries();
+        }
+        delete body.dataset.addToSessionTs;
+        delete body.dataset.addToSessionDate;
+        closeModal('edit-modal');
+        _deps.updateDashboard?.();
+        renderHistory();
+        showToastWithUndo('Set added');
         return;
       }
       if (e.target.closest('#edit-save')) {

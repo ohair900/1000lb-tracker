@@ -260,6 +260,27 @@
   font-size: 0.55rem;
 }
 
+/* + Add Set button inside session cards */
+.session-add-set-btn {
+  width: calc(100% - 16px);
+  margin: 8px;
+  padding: 10px;
+  background: var(--surface2);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.session-add-set-btn:hover,
+.session-add-set-btn:active {
+  border-color: var(--gold);
+  color: var(--text);
+  background: var(--surface);
+}
+
 /* Infinite scroll sentinel */
 .history-sentinel { height: 1px; }
 

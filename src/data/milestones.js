@@ -11,4 +11,4 @@ export const TOTAL_MILESTONE_THEMES = {
   2000: { emoji: '\uD83C\uDFC6', title: '2000 LB TOTAL', color: '#e53935', confettiColors: ['#e53935','#ef5350','#ef9a9a','#ffd700','#fff'] }
 };
 
-export const AVAILABLE_TAGS = ['belt','sleeves','wraps','competition','paused','tempo','deficit','block'];
+export const AVAILABLE_TAGS = ['belt','sleeves','wraps','competition','paused','tempo','deficit','block','BBB'];
