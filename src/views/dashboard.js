@@ -28,7 +28,7 @@ import { renderBodyMap, initBodyMapEvents } from '../views/body-map.js';
 import { updatePlateauCards, showPlateauSheet } from '../views/plateau-analysis.js';
 import { calcStreak } from '../systems/streak.js';
 import { calcWeeklyRecap } from '../systems/weekly-recap.js';
-import { calcPriorWeekReview } from '../systems/weekly-coverage.js';
+import { calcPriorWeekReview, calcWeeklyCoverage, calcAverageMuscleCoverage } from '../systems/weekly-coverage.js';
 import { calcWeeklyInsights } from '../systems/weekly-insights.js';
 import { calcWeeklyGrade } from '../systems/weekly-grade.js';
 import { openReviewSheet, closeReviewSheet } from '../ui/sheet.js';
@@ -36,6 +36,20 @@ import { enableSheetSwipeDismiss } from '../ui/sheet.js';
 import { checkBadges } from '../systems/badges.js';
 import { openModal } from '../ui/modal.js';
 import { shareMilestoneCard } from '../ui/share.js';
+
+// ---------------------------------------------------------------------------
+// Shared constants
+// ---------------------------------------------------------------------------
+
+/** Status color map for muscle coverage tables (used by both weekly sheets). */
+const MUSCLE_STATUS_COLORS = {
+  'Worked hard': 'var(--green)',
+  'On target':   'var(--green)',
+  'Light':       'var(--yellow)',
+  'Needs more':  'var(--yellow)',
+  'Recovering':  'var(--bench)',
+  'Skipped':     '#b55',
+};
 
 // ---------------------------------------------------------------------------
 // Dashboard card renderers
@@ -406,14 +420,6 @@ function showPriorWeekSheet(review, gradeResult, insights) {
   html += '</div>';
 
   // Muscle coverage with volume-based status
-  const statusColors = {
-    'Worked hard': 'var(--green)',
-    'On target': 'var(--green)',
-    'Light': 'var(--yellow)',
-    'Needs more': 'var(--yellow)',
-    'Recovering': 'var(--bench)',
-    'Skipped': '#b55',
-  };
   const fatigue = calcFatigueByMuscle();
   html += `<div style="margin:12px 0"><div class="section-label-lg">Muscle Coverage</div>`;
   MUSCLE_GROUPS.forEach(mg => {
@@ -426,7 +432,7 @@ function showPriorWeekSheet(review, gradeResult, insights) {
     if ((status === 'Light' || status === 'Needs more' || status === 'Skipped') && (fatigueStatus === 'red' || fatigueStatus === 'orange')) {
       status = 'Recovering';
     }
-    const statusColor = statusColors[status] || 'var(--text-dim)';
+    const statusColor = MUSCLE_STATUS_COLORS[status] || 'var(--text-dim)';
 
     // vs average column
     const vsAvg = data ? data.vsAvg : null;
@@ -520,6 +526,25 @@ function showRecapModal(recap) {
   const body = $('edit-body');
   let html = '';
 
+  // Current week start (Monday @ 00:00 local) — same pattern used by renderPriorWeekCard
+  const now = new Date();
+  const thisMonday = new Date(now.getTime() - ((now.getDay() + 6) % 7) * MS_PER_DAY);
+  thisMonday.setHours(0, 0, 0, 0);
+
+  // Current-week muscle coverage (skipped muscles will have displayStatus='red')
+  const avgCoverage = calcAverageMuscleCoverage();
+  const coverage = calcWeeklyCoverage(thisMonday, avgCoverage);
+  const fatigueByMuscle = calcFatigueByMuscle();
+
+  // Coverage % badge — how many of 10 muscle groups have been hit this week
+  const hitCount = MUSCLE_GROUPS.filter(mg => coverage[mg] && coverage[mg].sets > 0).length;
+  const totalCount = MUSCLE_GROUPS.length;
+  const coverageClass = hitCount >= 7 ? 'high' : hitCount >= 4 ? 'mid' : 'low';
+
+  html += `<div class="recap-coverage-header">
+    <span class="recap-coverage-badge ${coverageClass}">${hitCount}/${totalCount} muscles hit</span>
+  </div>`;
+
   // Top set
   if (recap.topSet) {
     html += `<div class="recap-top-set">
@@ -529,7 +554,11 @@ function showRecapModal(recap) {
     </div>`;
   }
 
-  // Stat grid
+  // Body map — skipped muscles render red via displayStatus='red'
+  html += `<div style="margin:12px 0"><div class="section-label-lg">Body Map</div>`;
+  html += `<div id="recap-modal-map">${renderBodyMap(coverage)}</div></div>`;
+
+  // Stat grid (existing 2x2)
   const volChangeStr = recap.volChange !== null ? `<div class="recap-stat-change ${recap.volChange >= 0 ? 'up' : 'down'}">${recap.volChange >= 0 ? '\u2191' : '\u2193'}${Math.abs(recap.volChange).toFixed(0)}%</div>` : '';
   const setsChangeStr = recap.setsChange !== null ? `<div class="recap-stat-change ${recap.setsChange >= 0 ? 'up' : 'down'}">${recap.setsChange >= 0 ? '\u2191' : '\u2193'}${Math.abs(recap.setsChange).toFixed(0)}%</div>` : '';
   html += `<div class="recap-stat-grid">
@@ -539,18 +568,64 @@ function showRecapModal(recap) {
     <div class="recap-stat"><div class="recap-stat-label">Fatigue (ACWR)</div><div class="recap-stat-value">${recap.fatigue?.acwr ? recap.fatigue.acwr.toFixed(2) : '\u2014'}</div></div>
   </div>`;
 
-  // Per-lift volume bars
-  const maxLiftVol = Math.max(...Object.values(recap.liftVolume), 1);
-  html += `<div style="margin-bottom:12px"><div class="section-label-lg">Volume by Lift</div>`;
+  // Lift Breakdown — per-lift rows (mirrors Week-in-Review sheet, minus prior-week delta)
+  const weekStartMs = thisMonday.getTime();
+  const weekEndMs = weekStartMs + 7 * MS_PER_DAY;
+  const weekEntries = store.entries.filter(e => e.timestamp >= weekStartMs && e.timestamp < weekEndMs);
+  html += `<div style="margin:12px 0"><div class="section-label-lg">Lift Breakdown</div>`;
   LIFTS.forEach(l => {
-    const vol = recap.liftVolume[l];
-    const pct = maxLiftVol > 0 ? (vol / maxLiftVol * 100) : 0;
-    html += `<div class="recap-lift-bar">
-      <span class="recap-lift-label" style="color:${COLORS[l]}">${LIFT_SHORT[l]}</span>
-      <div style="flex:1;background:var(--surface2);border-radius:3px;overflow:hidden;height:14px">
-        <div class="recap-lift-fill" style="width:${pct}%;background:${COLORS[l]};height:100%"></div>
-      </div>
-      <span class="recap-lift-vol">${fmtNum(displayWeight(vol))}</span>
+    const liftEntries = weekEntries.filter(e => e.lift === l);
+    const sets = liftEntries.length;
+    const volume = liftEntries.reduce((sum, e) => sum + e.weight * e.reps, 0);
+    const best = bestE1RM(l);
+    const avgIntensity = sets > 0 && best > 0
+      ? Math.round(liftEntries.reduce((sum, e) => sum + (e.weight / best * 100), 0) / sets)
+      : 0;
+    const prs = liftEntries.filter(e => e.isPR).length;
+    const color = COLORS[l];
+    const prBadge = prs > 0 ? ` <span style="color:var(--gold);font-size:0.65rem;font-weight:700">PR</span>` : '';
+    const intLabel = avgIntensity > 0 ? ` &middot; ${avgIntensity}%` : '';
+    if (sets === 0) {
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);opacity:0.45">
+        <span style="color:${color};font-weight:700;font-size:0.75rem;min-width:24px">${LIFT_SHORT[l]}</span>
+        <span style="flex:1;font-size:var(--text-sm);color:var(--text-dim)">No sets this week</span>
+      </div>`;
+    } else {
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span style="color:${color};font-weight:700;font-size:0.75rem;min-width:24px">${LIFT_SHORT[l]}</span>
+        <span style="flex:1;font-size:var(--text-sm);color:var(--text)">${sets} sets &middot; ${fmtNum(displayWeight(volume))} ${store.unit}${intLabel}${prBadge}</span>
+      </div>`;
+    }
+  });
+  html += '</div>';
+
+  // Muscle Coverage table — reuses .review-muscle-row grid
+  html += `<div style="margin:12px 0"><div class="section-label-lg">Muscle Coverage</div>`;
+  MUSCLE_GROUPS.forEach(mg => {
+    const data = coverage[mg];
+    const sets = data ? Math.round(data.sets) : 0;
+
+    // Same Recovering-override logic as the Week-in-Review sheet
+    const fatigueStatus = fatigueByMuscle && fatigueByMuscle[mg] ? fatigueByMuscle[mg].displayStatus : null;
+    let status = data ? data.status : 'Skipped';
+    if ((status === 'Light' || status === 'Needs more' || status === 'Skipped') && (fatigueStatus === 'red' || fatigueStatus === 'orange')) {
+      status = 'Recovering';
+    }
+    const statusColor = MUSCLE_STATUS_COLORS[status] || 'var(--text-dim)';
+
+    // vs average column
+    const vsAvg = data ? data.vsAvg : null;
+    let vsAvgStr;
+    if (vsAvg === null || vsAvg === undefined) { vsAvgStr = '<span style="color:var(--text-dim)">—</span>'; }
+    else if (vsAvg > 10) { vsAvgStr = `<span style="color:var(--green)">+${vsAvg}%</span>`; }
+    else if (vsAvg < -10) { vsAvgStr = `<span style="color:var(--red)">${vsAvg}%</span>`; }
+    else { vsAvgStr = `<span style="color:var(--text-dim)">${vsAvg > 0 ? '+' : ''}${vsAvg}%</span>`; }
+
+    html += `<div class="review-muscle-row">
+      <span class="review-muscle-name">${mg}</span>
+      <span class="review-muscle-sets">${sets}</span>
+      <span class="review-muscle-status" style="color:${statusColor}">${status}</span>
+      <span class="review-muscle-delta">${vsAvgStr}</span>
     </div>`;
   });
   html += '</div>';
@@ -575,6 +650,32 @@ function showRecapModal(recap) {
   $('edit-modal').querySelector('h3').textContent = 'Weekly Recap';
   body.innerHTML = html;
   openModal('edit-modal');
+
+  // Attach body map muscle-click to show contributing exercises inline
+  const mapContainer = document.getElementById('recap-modal-map')?.querySelector('.body-map-container');
+  if (mapContainer) {
+    initBodyMapEvents(mapContainer, (mg) => {
+      const data = coverage[mg];
+      if (!data) return;
+      let detailHtml = `<div style="padding:4px 0">
+        <button class="recap-modal-back-btn" style="background:none;border:none;color:var(--text-dim);font-size:var(--text-sm);cursor:pointer;padding:4px 0">&larr; Back</button>
+        <div style="text-align:center;margin:12px 0">
+          <div style="font-size:1.2rem;font-weight:700;color:var(--text-strong)">${mg}</div>
+          <div style="font-size:var(--text-sm);color:var(--text-dim)">${Math.round(data.sets)} sets this week</div>
+        </div>`;
+      if (data.exercises && data.exercises.length > 0) {
+        detailHtml += `<div class="section-label-lg">Contributing Exercises</div>`;
+        data.exercises.forEach(ex => {
+          detailHtml += `<div style="font-size:var(--text-sm);padding:4px 0;color:var(--text)">${ex}</div>`;
+        });
+      } else {
+        detailHtml += `<div style="font-size:var(--text-sm);color:var(--text-dim);text-align:center;padding:12px 0">No exercises hit this muscle yet this week</div>`;
+      }
+      detailHtml += `</div>`;
+      body.innerHTML = detailHtml;
+      body.querySelector('.recap-modal-back-btn').onclick = () => showRecapModal(recap);
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
