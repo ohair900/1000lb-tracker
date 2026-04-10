@@ -31,19 +31,9 @@ import { sharePRCard, shareOrDownloadCanvas } from '../ui/share.js';
 // Late-bound callbacks
 // ---------------------------------------------------------------------------
 
-let _updateDashboard = null;
-let _renderCycleBar = null;
-let _exportData = null;
-let _exportCSV = null;
-let _showMesoWeekDetail = null;
+let _deps = {};
 
-export function injectStatsDeps(deps) {
-  if (deps.updateDashboard) _updateDashboard = deps.updateDashboard;
-  if (deps.renderCycleBar) _renderCycleBar = deps.renderCycleBar;
-  if (deps.exportData) _exportData = deps.exportData;
-  if (deps.exportCSV) _exportCSV = deps.exportCSV;
-  if (deps.showMesoWeekDetail) _showMesoWeekDetail = deps.showMesoWeekDetail;
-}
+export function injectStatsDeps(deps) { Object.assign(_deps, deps); }
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -611,7 +601,7 @@ function attachStatsListeners() {
   // Mesocycle week detail clicks
   document.querySelectorAll('[data-meso-stat-week]').forEach(card => {
     card.addEventListener('click', () => {
-      if (_showMesoWeekDetail) _showMesoWeekDetail(parseInt(card.dataset.mesoStatWeek));
+      _deps.showMesoWeekDetail?.(parseInt(card.dataset.mesoStatWeek));
     });
   });
 
@@ -638,7 +628,7 @@ function attachStatsListeners() {
         cy.endDate = new Date().toISOString().split('T')[0];
         store.activeCycleId = null;
         store.saveCycles();
-        if (_renderCycleBar) _renderCycleBar();
+        _deps.renderCycleBar?.();
         renderStats();
         showToast('Cycle ended: ' + cy.name);
       }
@@ -727,7 +717,7 @@ function attachStatsListeners() {
       const val = parseFloat(inp.value);
       store.goals[lift] = val > 0 ? inputToLbs(val) : null;
       store.saveGoals();
-      if (_updateDashboard) _updateDashboard();
+      _deps.updateDashboard?.();
       renderStats();
     });
   });

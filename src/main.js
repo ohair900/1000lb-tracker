@@ -10,6 +10,10 @@
 // ===== 1. Constants & data =====
 import { UNIT_KEY } from './constants/storage-keys.js';
 import { LIFTS, LIFT_NAMES, COLORS } from './constants/lift-config.js';
+import {
+  LONG_PRESS_MS, SWIPE_THRESHOLD_PX, SWIPE_TIMEOUT_MS, SWIPE_RATIO,
+  TIMER_MIN_SECONDS, TIMER_MAX_SECONDS, RESIZE_DEBOUNCE_MS
+} from './constants/index.js';
 import { WEAK_POINT_OPTIONS } from './data/accessories.js';
 import { ACCESSORY_DB, EXERCISE_INFO } from './data/accessories.js';
 
@@ -74,7 +78,7 @@ import { initLogTab, injectLogDeps, updatePreview } from './views/log.js';
 import { initHistoryTab, injectHistoryDeps, renderHistory } from './views/history.js';
 import { initChartsTab, renderChart } from './views/charts.js';
 import { initStatsTab, injectStatsDeps, renderStats } from './views/stats.js';
-import { initSettingsListeners, injectSettingsDeps } from './views/settings.js';
+import { initSettingsListeners, setSettingsDeps } from './views/settings.js';
 import {
   initProgramSection,
   setProgramSectionDeps,
@@ -269,7 +273,7 @@ function initExercisePreview() {
     timer = setTimeout(function () {
       showExercisePreview(exId);
       timer = null;
-    }, 500);
+    }, LONG_PRESS_MS);
   }, { passive: true });
 
   document.addEventListener('touchmove', function () {
@@ -431,7 +435,7 @@ injectStatsDeps({
 });
 
 // 4m. Settings view deps
-injectSettingsDeps({
+setSettingsDeps({
   updateDashboard,
   renderHistory,
   renderChart,
@@ -539,7 +543,7 @@ document.querySelectorAll('#app .tabs .tab-btn').forEach(btn => {
     const dy = e.changedTouches[0].clientY - startY;
     const elapsed = Date.now() - startTime;
     startX = null;
-    if (Math.abs(dx) > 50 && elapsed < 300 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    if (Math.abs(dx) > SWIPE_THRESHOLD_PX && elapsed < SWIPE_TIMEOUT_MS && Math.abs(dx) > Math.abs(dy) * SWIPE_RATIO) {
       const idx = TAB_ORDER.indexOf(store.currentTab);
       if (dx < 0 && idx < TAB_ORDER.length - 1) switchToTab(TAB_ORDER[idx + 1], 'left');
       else if (dx > 0 && idx > 0) switchToTab(TAB_ORDER[idx - 1], 'right');
@@ -592,7 +596,7 @@ $('timer-presets').addEventListener('click', e => {
 });
 $('timer-custom')?.addEventListener('change', () => {
   const val = parseInt($('timer-custom').value);
-  if (val >= 10 && val <= 600) {
+  if (val >= TIMER_MIN_SECONDS && val <= TIMER_MAX_SECONDS) {
     $('timer-presets').querySelectorAll('.timer-preset').forEach(b => b.classList.remove('active'));
     startTimer(val);
   }
@@ -617,7 +621,7 @@ window.addEventListener('resize', () => {
   clearTimeout(_resizeTimer);
   _resizeTimer = setTimeout(() => {
     if (store.currentTab === 'charts') renderChart();
-  }, 250);
+  }, RESIZE_DEBOUNCE_MS);
 });
 
 // ----- Step 13: Auth listener (Firebase) — deferred, lazy SDK load -----

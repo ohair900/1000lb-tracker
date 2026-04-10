@@ -1,5 +1,24 @@
 /* ===== Bottom Sheets ===== */
 
+/* Shared base classes */
+.sheet-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  z-index: 250; will-change: opacity;
+}
+.sheet-panel {
+  position: fixed; bottom: 0; left: 0; right: 0; max-height: 85vh; z-index: 251;
+  border-radius: 16px 16px 0 0; background: var(--bg);
+  animation: slideUp 0.25s ease; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  overscroll-behavior-y: contain; will-change: transform;
+}
+.sheet-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--space-3) var(--space-4) 0;
+}
+.sheet-header h3 { font-size: var(--text-lg); font-weight: 700; color: var(--text-strong); }
+.sheet-body { padding: var(--space-3) var(--space-4) var(--space-5); }
+
 /* Shared sheet handle */
 .sheet-handle {
   width: 40px; height: 4px; border-radius: 2px; background: var(--text-dim);
@@ -8,17 +27,7 @@
 }
 
 /* Choice sheet */
-.choice-sheet-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 250;
-  animation: fadeIn 0.15s ease; will-change: opacity;
-}
-.choice-sheet {
-  position: fixed; bottom: 0; left: 0; right: 0; max-height: 85vh; z-index: 251;
-  border-radius: 16px 16px 0 0; background: var(--bg);
-  animation: slideUp 0.25s ease; overflow-y: auto; -webkit-overflow-scrolling: touch;
-  padding-bottom: env(safe-area-inset-bottom, 0);
-  overscroll-behavior-y: contain; will-change: transform;
-}
+.choice-sheet-backdrop { animation: fadeIn 0.15s ease; }
 .choice-sheet-handle { }
 .choice-sheet-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -28,17 +37,6 @@
 .choice-sheet-body { padding: var(--space-3) var(--space-4) var(--space-5); }
 
 /* Fatigue sheet */
-.fatigue-sheet-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 250;
-  will-change: opacity;
-}
-.fatigue-sheet {
-  position: fixed; bottom: 0; left: 0; right: 0; max-height: 85vh; z-index: 251;
-  border-radius: 16px 16px 0 0; background: var(--bg);
-  animation: slideUp 0.25s ease; overflow-y: auto; -webkit-overflow-scrolling: touch;
-  padding-bottom: env(safe-area-inset-bottom, 0);
-  overscroll-behavior-y: contain; will-change: transform;
-}
 .fatigue-sheet-handle { }
 .fatigue-sheet-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -46,19 +44,6 @@
 }
 .fatigue-sheet-header h3 { font-size: var(--text-lg); font-weight: 700; color: var(--text-strong); }
 .fatigue-sheet-body { padding: var(--space-3) var(--space-4) var(--space-5); }
-
-/* Workout summary sheet */
-.workout-summary-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 250;
-  will-change: opacity;
-}
-.workout-summary-sheet {
-  position: fixed; bottom: 0; left: 0; right: 0; max-height: 85vh; z-index: 251;
-  border-radius: 16px 16px 0 0; background: var(--bg);
-  animation: slideUp 0.25s ease; overflow-y: auto; -webkit-overflow-scrolling: touch;
-  padding-bottom: env(safe-area-inset-bottom, 0);
-  overscroll-behavior-y: contain; will-change: transform;
-}
 .summary-stat-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin-bottom: var(--space-3);
 }

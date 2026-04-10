@@ -26,34 +26,11 @@ import { renderExercisesTab, attachExercisesListeners, resetExercisesTabState } 
 // Late-bound callbacks
 // ---------------------------------------------------------------------------
 
-let _updateDashboard = null;
-let _renderHistory = null;
-let _renderChart = null;
-let _renderStats = null;
-let _renderCycleBar = null;
-let _renderProgramSection = null;
-let _updateWorkoutButton = null;
-let _dismissTimer = null;
-let _scheduleCloudSync = null;
-
-/**
- * Inject view-level dependencies.
- * @param {object} deps
- */
-export function injectSettingsDeps(deps) {
-  if (deps.updateDashboard) _updateDashboard = deps.updateDashboard;
-  if (deps.renderHistory) _renderHistory = deps.renderHistory;
-  if (deps.renderChart) _renderChart = deps.renderChart;
-  if (deps.renderStats) _renderStats = deps.renderStats;
-  if (deps.renderCycleBar) _renderCycleBar = deps.renderCycleBar;
-  if (deps.renderProgramSection) _renderProgramSection = deps.renderProgramSection;
-  if (deps.updateWorkoutButton) _updateWorkoutButton = deps.updateWorkoutButton;
-  if (deps.dismissTimer) _dismissTimer = deps.dismissTimer;
-  if (deps.scheduleCloudSync) _scheduleCloudSync = deps.scheduleCloudSync;
-}
+let _deps = {};
+export function setSettingsDeps(deps) { Object.assign(_deps, deps); }
 
 function scheduleCloudSync() {
-  if (_scheduleCloudSync) _scheduleCloudSync();
+  _deps.scheduleCloudSync?.();
 }
 
 // ---------------------------------------------------------------------------
@@ -259,13 +236,13 @@ function handleImport(ev) {
     // Re-init UI
     document.querySelectorAll('.unit-btn').forEach(b => b.classList.toggle('active', b.dataset.unit === store.unit));
     document.querySelectorAll('.unit-label').forEach(el => el.textContent = store.unit);
-    if (_updateDashboard) _updateDashboard();
-    if (_renderCycleBar) _renderCycleBar();
-    if (_renderProgramSection) _renderProgramSection();
-    if (_updateWorkoutButton) _updateWorkoutButton();
-    if (store.currentTab === 'history' && _renderHistory) _renderHistory();
-    if (store.currentTab === 'charts' && _renderChart) _renderChart();
-    if (store.currentTab === 'stats' && _renderStats) _renderStats();
+    _deps.updateDashboard?.();
+    _deps.renderCycleBar?.();
+    _deps.renderProgramSection?.();
+    _deps.updateWorkoutButton?.();
+    if (store.currentTab === 'history') _deps.renderHistory?.();
+    if (store.currentTab === 'charts') _deps.renderChart?.();
+    if (store.currentTab === 'stats') _deps.renderStats?.();
     closeModal('settings-modal');
     showToast('Data imported');
   } catch (err) {
@@ -317,7 +294,7 @@ export function attachSettingsListeners() {
       btn.classList.add('active');
       store.profile.gender = btn.dataset.gender;
       store.saveProfile();
-      if (_updateDashboard) _updateDashboard();
+      _deps.updateDashboard?.();
     });
   });
 
@@ -336,7 +313,7 @@ export function attachSettingsListeners() {
         timestamp: now.getTime()
       });
       store.saveProfile();
-      if (_updateDashboard) _updateDashboard();
+      _deps.updateDashboard?.();
       showToast('Bodyweight logged');
     });
   }
@@ -348,7 +325,7 @@ export function attachSettingsListeners() {
       const v = parseFloat(input.value);
       store.goals[lift] = v > 0 ? inputToLbs(v) : null;
       store.saveGoals();
-      if (_updateDashboard) _updateDashboard();
+      _deps.updateDashboard?.();
       // Re-render settings body so roadmap updates live (preserve active tab)
       const prevTab = _settingsTab;
       body.innerHTML = renderSettingsBody();
@@ -363,7 +340,7 @@ export function attachSettingsListeners() {
       store.dashboardWidgets[cb.dataset.widget] = cb.checked;
       localStorage.setItem(DASH_WIDGETS_KEY, JSON.stringify(store.dashboardWidgets));
       scheduleCloudSync();
-      if (_updateDashboard) _updateDashboard();
+      _deps.updateDashboard?.();
     });
   });
 
@@ -437,12 +414,12 @@ export function attachSettingsListeners() {
       showToast('Local data cleared (cloud clear failed — retry or sign out)');
     }
     closeModal('settings-modal');
-    if (_updateDashboard) _updateDashboard();
-    if (_renderCycleBar) _renderCycleBar();
-    if (_renderProgramSection) _renderProgramSection();
-    if (_updateWorkoutButton) _updateWorkoutButton();
+    _deps.updateDashboard?.();
+    _deps.renderCycleBar?.();
+    _deps.renderProgramSection?.();
+    _deps.updateWorkoutButton?.();
     $('repeat-btn').classList.remove('visible');
-    if (_dismissTimer) _dismissTimer();
+    _deps.dismissTimer?.();
     showToast('All data cleared');
   });
 }

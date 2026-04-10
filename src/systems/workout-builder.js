@@ -13,6 +13,7 @@ import { ACCESSORY_CAT_WEIGHTS, MUSCLE_GROUPS } from '../data/muscle-groups.js';
 import { EXERCISE_CATALOG, MOVEMENT_PATTERNS, PROGRESSION_MODELS } from '../data/exercise-catalog.js';
 import { resolveExercise, resolveCanonicalId, resolveAccessory, getExerciseHistory } from '../data/exercise-compat.js';
 import { MS_PER_DAY } from '../constants/time.js';
+import { SET_RAMP_PERCENTAGES } from '../constants/thresholds.js';
 import { roundToPlate } from '../formulas/plates.js';
 import { bestE1RM } from '../formulas/e1rm.js';
 import { calcFatigueByMuscle } from '../systems/fatigue.js';
@@ -47,14 +48,7 @@ export function selectAccessories(mainLift) {
 export function computeSetWeights(workingWeight, numSets) {
   if (workingWeight === 0) return Array(numSets).fill(0);
   if (workingWeight < 0) return Array(numSets).fill(roundToPlate(workingWeight));
-  const rampPcts = {
-    1: [1.00],
-    2: [0.85, 1.00],
-    3: [0.80, 0.90, 1.00],
-    4: [0.70, 0.80, 0.90, 1.00],
-    5: [0.65, 0.75, 0.85, 0.95, 1.00]
-  };
-  const pcts = rampPcts[numSets] || rampPcts[3];
+  const pcts = SET_RAMP_PERCENTAGES[numSets] || SET_RAMP_PERCENTAGES[3];
   return pcts.map(p => roundToPlate(workingWeight * p));
 }
 
@@ -178,11 +172,6 @@ export function getAccessoryWeight(exerciseId, mainLift) {
     }
   }
 
-  // Diagnostic: log when non-BW/non-time exercise gets 0 weight
-  if (catalogEx && catalogEx.progressionType !== 'bodyweight' && catalogEx.progressionType !== 'time') {
-    console.warn(`[getAccessoryWeight] ${exerciseId}: weight=0, no TM or e1RM found. TMs:`,
-      store.programConfig.trainingMaxes, 'mainLift:', mainLift, 'pctOfTM:', pctOfTM);
-  }
   return 0;
 }
 

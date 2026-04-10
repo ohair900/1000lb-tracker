@@ -125,8 +125,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div class="fatigue-header">Fatigue</div>
     <div class="fatigue-row" id="fatigue-row"></div>
   </div>
-  <div class="lift-detail-backdrop" id="lift-detail-backdrop" style="display:none"></div>
-  <div class="fatigue-sheet lift-detail-sheet" id="lift-detail-sheet" style="display:none">
+  <div class="sheet-backdrop lift-detail-backdrop" id="lift-detail-backdrop" style="display:none"></div>
+  <div class="sheet-panel fatigue-sheet lift-detail-sheet" id="lift-detail-sheet" style="display:none">
     <div class="sheet-handle fatigue-sheet-handle"></div>
     <div class="fatigue-sheet-header">
       <h3 id="lift-detail-title">Lift Detail</h3>
@@ -134,8 +134,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     </div>
     <div class="fatigue-sheet-body" id="lift-detail-body"></div>
   </div>
-  <div class="acc-detail-backdrop" id="acc-detail-backdrop" style="display:none"></div>
-  <div class="fatigue-sheet acc-detail-sheet" id="acc-detail-sheet" style="display:none">
+  <div class="sheet-backdrop acc-detail-backdrop" id="acc-detail-backdrop" style="display:none"></div>
+  <div class="sheet-panel fatigue-sheet acc-detail-sheet" id="acc-detail-sheet" style="display:none">
     <div class="sheet-handle fatigue-sheet-handle"></div>
     <div class="fatigue-sheet-header">
       <h3 id="acc-detail-title">Accessory Detail</h3>
@@ -143,8 +143,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     </div>
     <div class="fatigue-sheet-body" id="acc-detail-body"></div>
   </div>
-  <div class="fatigue-sheet-backdrop" id="fatigue-sheet-backdrop" style="display:none"></div>
-  <div class="fatigue-sheet" id="fatigue-sheet" style="display:none">
+  <div class="sheet-backdrop fatigue-sheet-backdrop" id="fatigue-sheet-backdrop" style="display:none"></div>
+  <div class="sheet-panel fatigue-sheet" id="fatigue-sheet" style="display:none">
     <div class="sheet-handle fatigue-sheet-handle"></div>
     <div class="fatigue-sheet-header">
       <h3 id="fatigue-sheet-title">Fatigue</h3>
@@ -152,8 +152,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     </div>
     <div class="fatigue-sheet-body" id="fatigue-sheet-body"></div>
   </div>
-  <div class="workout-summary-backdrop" id="workout-summary-backdrop" style="display:none"></div>
-  <div class="workout-summary-sheet" id="workout-summary-sheet" style="display:none">
+  <div class="sheet-backdrop workout-summary-backdrop" id="workout-summary-backdrop" style="display:none"></div>
+  <div class="sheet-panel workout-summary-sheet" id="workout-summary-sheet" style="display:none">
     <div class="sheet-handle fatigue-sheet-handle"></div>
     <div class="fatigue-sheet-header">
       <h3 id="workout-summary-title">Workout Summary</h3>
@@ -161,8 +161,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     </div>
     <div class="fatigue-sheet-body" id="workout-summary-body"></div>
   </div>
-  <div class="fatigue-sheet-backdrop" id="plateau-sheet-backdrop" style="display:none"></div>
-  <div class="fatigue-sheet" id="plateau-sheet" style="display:none">
+  <div class="sheet-backdrop fatigue-sheet-backdrop" id="plateau-sheet-backdrop" style="display:none"></div>
+  <div class="sheet-panel fatigue-sheet" id="plateau-sheet" style="display:none">
     <div class="sheet-handle fatigue-sheet-handle"></div>
     <div class="fatigue-sheet-header">
       <h3 id="plateau-sheet-title">Plateau Analysis</h3>
@@ -170,8 +170,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     </div>
     <div class="fatigue-sheet-body" id="plateau-sheet-body"></div>
   </div>
-  <div class="fatigue-sheet-backdrop" id="review-sheet-backdrop" style="display:none"></div>
-  <div class="fatigue-sheet" id="review-sheet" style="display:none">
+  <div class="sheet-backdrop fatigue-sheet-backdrop" id="review-sheet-backdrop" style="display:none"></div>
+  <div class="sheet-panel fatigue-sheet" id="review-sheet" style="display:none">
     <div class="sheet-handle fatigue-sheet-handle"></div>
     <div class="fatigue-sheet-header">
       <h3 id="review-sheet-title">Last Week Review</h3>
@@ -421,8 +421,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <input type="file" id="import-file" accept=".json" style="display:none">
 
   <!-- Workout Choice Sheet -->
-  <div class="choice-sheet-backdrop" id="choice-sheet-backdrop" style="display:none"></div>
-  <div class="choice-sheet" id="choice-sheet" style="display:none">
+  <div class="sheet-backdrop choice-sheet-backdrop" id="choice-sheet-backdrop" style="display:none"></div>
+  <div class="sheet-panel choice-sheet" id="choice-sheet" style="display:none">
     <div class="sheet-handle choice-sheet-handle"></div>
     <div class="choice-sheet-header">
       <h3 id="choice-sheet-title">Start Workout</h3>
@@ -448,16 +448,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   </div>
 
   <!-- Builder Swap Sheet -->
-  <div class="swap-sheet-backdrop" id="swap-sheet-backdrop" style="display:none"></div>
-  <div class="swap-sheet" id="swap-sheet" style="display:none">
+  <div class="sheet-backdrop swap-sheet-backdrop" id="swap-sheet-backdrop" style="display:none"></div>
+  <div class="sheet-panel swap-sheet" id="swap-sheet" style="display:none">
     <div class="sheet-handle"></div>
     <div class="sheet-header"><span id="swap-sheet-title">Swap Exercise</span></div>
     <div class="swap-sheet-body" id="swap-sheet-body"></div>
   </div>
 
   <!-- Leaderboard Detail Sheet -->
-  <div class="leaderboard-sheet-backdrop" id="leaderboard-sheet-backdrop" style="display:none"></div>
-  <div class="leaderboard-sheet" id="leaderboard-sheet" style="display:none">
+  <div class="sheet-backdrop leaderboard-sheet-backdrop" id="leaderboard-sheet-backdrop" style="display:none"></div>
+  <div class="sheet-panel leaderboard-sheet" id="leaderboard-sheet" style="display:none">
     <div class="sheet-handle leaderboard-sheet-handle"></div>
     <div class="fatigue-sheet-header">
       <h3 id="leaderboard-sheet-title">Lifter</h3>

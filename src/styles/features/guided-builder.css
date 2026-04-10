@@ -121,16 +121,14 @@
 .gap-body-map svg { max-height: 120px; }
 
 /* Swap sheet */
+/* swap-sheet-backdrop extends .sheet-backdrop */
 .swap-sheet-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
   z-index: 350; transition: opacity 0.2s ease;
 }
+/* swap-sheet extends .sheet-panel */
 .swap-sheet {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  background: var(--bg); border-radius: 16px 16px 0 0;
   z-index: 351; max-height: 60vh; overflow: hidden;
   display: flex; flex-direction: column;
-  animation: slideUp 0.25s ease;
 }
 .swap-sheet .sheet-handle {
   width: 40px; height: 4px; border-radius: 2px;

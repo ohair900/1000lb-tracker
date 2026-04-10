@@ -14,11 +14,9 @@ import { LBS_PER_KG } from '../constants/formulas.js';
 // Dependency injection
 // ---------------------------------------------------------------------------
 
-let _updateDashboard = null;
+let _deps = {};
 
-export function setWelcomeDeps(deps) {
-  if (deps.updateDashboard) _updateDashboard = deps.updateDashboard;
-}
+export function setWelcomeDeps(deps) { Object.assign(_deps, deps); }
 
 // ---------------------------------------------------------------------------
 // Show welcome screen
@@ -59,7 +57,7 @@ export function showWelcomeScreen() {
       store.goals.total = goalLbs;
       store.saveGoals();
     }
-    if (_updateDashboard) _updateDashboard();
+    _deps.updateDashboard?.();
   }
 
   function dismiss() {

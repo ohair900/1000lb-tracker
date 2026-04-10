@@ -5,6 +5,7 @@
 
 import store from '../state/store.js';
 import { $, debounce } from '../utils/helpers.js';
+import { PREVIEW_DEBOUNCE_MS, SHAKE_DURATION_MS } from '../constants/ui.js';
 import { weightInput, repsInput, notesInput, previewEl, logBtn } from '../ui/dom.js';
 import { LIFT_NAMES } from '../constants/lift-config.js';
 import { AVAILABLE_TAGS } from '../data/milestones.js';
@@ -19,35 +20,9 @@ import { showToast } from '../ui/toast.js';
 // Late-bound callbacks — set via inject()
 // ---------------------------------------------------------------------------
 
-let _updateDashboard = null;
-let _renderHistory = null;
-let _renderChart = null;
-let _renderProgramSection = null;
-let _updateWorkoutButton = null;
-let _getProgramWorkout = null;
-let _checkAutoProgression = null;
-let _applyProgression = null;
-let _startTimer = null;
-let _dismissTimer = null;
+let _deps = {};
 
-/**
- * Inject view-level dependencies to avoid circular imports.
- * Called once during app boot.
- *
- * @param {object} deps
- */
-export function injectLogDeps(deps) {
-  if (deps.updateDashboard) _updateDashboard = deps.updateDashboard;
-  if (deps.renderHistory) _renderHistory = deps.renderHistory;
-  if (deps.renderChart) _renderChart = deps.renderChart;
-  if (deps.renderProgramSection) _renderProgramSection = deps.renderProgramSection;
-  if (deps.updateWorkoutButton) _updateWorkoutButton = deps.updateWorkoutButton;
-  if (deps.getProgramWorkout) _getProgramWorkout = deps.getProgramWorkout;
-  if (deps.checkAutoProgression) _checkAutoProgression = deps.checkAutoProgression;
-  if (deps.applyProgression) _applyProgression = deps.applyProgression;
-  if (deps.startTimer) _startTimer = deps.startTimer;
-  if (deps.dismissTimer) _dismissTimer = deps.dismissTimer;
-}
+export function injectLogDeps(deps) { Object.assign(_deps, deps); }
 
 // ---------------------------------------------------------------------------
 // e1RM Preview
@@ -98,7 +73,7 @@ function renderTagPills() {
  * Call once after DOMContentLoaded.
  */
 export function initLogTab() {
-  const debouncedPreview = debounce(updatePreview, 150);
+  const debouncedPreview = debounce(updatePreview, PREVIEW_DEBOUNCE_MS);
   weightInput.addEventListener('input', debouncedPreview);
   repsInput.addEventListener('input', debouncedPreview);
 
@@ -106,8 +81,8 @@ export function initLogTab() {
   logBtn.addEventListener('click', () => {
     const w = parseFloat(weightInput.value), r = parseInt(repsInput.value);
     if (!(w > 0 && r > 0)) {
-      if (!(w > 0)) { weightInput.classList.add('input-shake'); setTimeout(() => weightInput.classList.remove('input-shake'), 300); }
-      if (!(r > 0)) { repsInput.classList.add('input-shake'); setTimeout(() => repsInput.classList.remove('input-shake'), 300); }
+      if (!(w > 0)) { weightInput.classList.add('input-shake'); setTimeout(() => weightInput.classList.remove('input-shake'), SHAKE_DURATION_MS); }
+      if (!(r > 0)) { repsInput.classList.add('input-shake'); setTimeout(() => repsInput.classList.remove('input-shake'), SHAKE_DURATION_MS); }
       return;
     }
     const notes = notesInput.value.trim();
@@ -115,9 +90,9 @@ export function initLogTab() {
     const { entry, isPR, isRepPR, milestone } = addEntry(store.currentLift, inputToLbs(w), r, store.currentRPE, notes, activeTags);
     weightInput.value = ''; repsInput.value = '';
     updatePreview();
-    if (_updateDashboard) _updateDashboard();
-    if (store.currentTab === 'history' && _renderHistory) _renderHistory();
-    if (store.currentTab === 'charts' && _renderChart) _renderChart();
+    _deps.updateDashboard?.();
+    if (store.currentTab === 'history') _deps.renderHistory?.();
+    if (store.currentTab === 'charts') _deps.renderChart?.();
 
     // Repeat last set button
     const rb = $('repeat-btn');
@@ -129,8 +104,8 @@ export function initLogTab() {
 
     // Auto-progression: detect AMRAP program set match
     let progApplied = false;
-    if (store.programConfig.activeProgram && store.programConfig.autoProgressEnabled && _getProgramWorkout) {
-      const workout = _getProgramWorkout(store.currentLift);
+    if (store.programConfig.activeProgram && store.programConfig.autoProgressEnabled && _deps.getProgramWorkout) {
+      const workout = _deps.getProgramWorkout(store.currentLift);
       if (workout) {
         const loggedWeight = inputToLbs(w);
         const lw = store.programConfig.liftWeeks?.[store.currentLift] || 1;
@@ -141,14 +116,14 @@ export function initLogTab() {
               store.programConfig.amrapResults[key] = r;
               store.programConfig.completedSets[key] = true;
               store.saveProgramConfig();
-              if (_renderProgramSection) _renderProgramSection();
+              _deps.renderProgramSection?.();
               // Session-type (SL5x5/SS) applies progression immediately
               // Amrap-type uses cycle-boundary progression instead
-              if (_checkAutoProgression) {
-                const result = _checkAutoProgression(store.currentLift);
+              if (_deps.checkAutoProgression) {
+                const result = _deps.checkAutoProgression(store.currentLift);
                 if (result) {
                   progApplied = true;
-                  if (_applyProgression) setTimeout(() => _applyProgression(result), 300);
+                  if (_deps.applyProgression) setTimeout(() => _deps.applyProgression(result), 300);
                 }
               }
             }
@@ -176,8 +151,8 @@ export function initLogTab() {
       btn.classList.add('active');
       store.currentLift = btn.dataset.lift;
       updatePreview();
-      if (_renderProgramSection) _renderProgramSection();
-      if (_updateWorkoutButton) _updateWorkoutButton();
+      _deps.renderProgramSection?.();
+      _deps.updateWorkoutButton?.();
     });
   });
 
@@ -208,9 +183,9 @@ export function initLogTab() {
     if (!store.lastLoggedSet) return;
     const { lift, weight, reps, rpe, notes } = store.lastLoggedSet;
     const { entry, isPR, isRepPR, milestone } = addEntry(lift, weight, reps, rpe, notes);
-    if (_updateDashboard) _updateDashboard();
-    if (store.currentTab === 'history' && _renderHistory) _renderHistory();
-    if (store.currentTab === 'charts' && _renderChart) _renderChart();
+    _deps.updateDashboard?.();
+    if (store.currentTab === 'history') _deps.renderHistory?.();
+    if (store.currentTab === 'charts') _deps.renderChart?.();
     if (isPR) {
       const shareData = { lift, weight: entry.weight, e1rm: entry.e1rm, date: entry.date };
       showToast(`NEW PR! ${LIFT_NAMES[lift]} e1RM: ${formatWeight(entry.e1rm)} ${store.unit}`, true, milestone, shareData);

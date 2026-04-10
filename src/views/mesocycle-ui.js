@@ -28,13 +28,9 @@ import { showToast } from '../ui/toast.js';
 // Dependency injection
 // ---------------------------------------------------------------------------
 
-let _renderWorkoutView = null;
-let _updateWorkoutButton = null;
+let _deps = {};
 
-export function setMesocycleUIDeps(deps) {
-  if (deps.renderWorkoutView) _renderWorkoutView = deps.renderWorkoutView;
-  if (deps.updateWorkoutButton) _updateWorkoutButton = deps.updateWorkoutButton;
-}
+export function setMesocycleUIDeps(deps) { Object.assign(_deps, deps); }
 
 // ---------------------------------------------------------------------------
 // Mesocycle generator modal
@@ -123,7 +119,7 @@ export function showMesocycleGenerator() {
         store.saveMesocycle();
         closeModal('edit-modal');
         showToast('Mesocycle generated: ' + meso.name);
-        if (_updateWorkoutButton) _updateWorkoutButton();
+        _deps.updateWorkoutButton?.();
       });
     }
   }
@@ -182,7 +178,7 @@ export function openMesocycleWorkout(lift) {
   store.saveWorkoutSession();
   $('workout-overlay').style.display = 'flex';
   document.body.style.overflow = 'hidden';
-  if (_renderWorkoutView) _renderWorkoutView();
+  _deps.renderWorkoutView?.();
 }
 
 // ---------------------------------------------------------------------------
@@ -201,7 +197,7 @@ export function abandonMesocycle() {
   store.activeMesocycle = null;
   store.saveMesocycle();
   showToast('Mesocycle abandoned');
-  if (_updateWorkoutButton) _updateWorkoutButton();
+  _deps.updateWorkoutButton?.();
 }
 
 // ---------------------------------------------------------------------------

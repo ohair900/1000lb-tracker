@@ -18,28 +18,9 @@ import { TIMER_KEY } from '../constants/storage-keys.js';
 // Dependency injection
 // ---------------------------------------------------------------------------
 
-/** @type {Function|null} */
-let _scheduleCloudSync = null;
+let _deps = {};
 
-/** @type {Function|null} */
-let _renderWorkoutView = null;
-
-/** @type {Function|null} */
-let _saveWorkoutSession = null;
-
-/**
- * Wire up callbacks that the timer module cannot import directly.
- *
- * @param {object} deps
- * @param {Function} [deps.scheduleCloudSync]
- * @param {Function} [deps.renderWorkoutView]
- * @param {Function} [deps.saveWorkoutSession]
- */
-export function setTimerDeps(deps) {
-  if (deps.scheduleCloudSync) _scheduleCloudSync = deps.scheduleCloudSync;
-  if (deps.renderWorkoutView) _renderWorkoutView = deps.renderWorkoutView;
-  if (deps.saveWorkoutSession) _saveWorkoutSession = deps.saveWorkoutSession;
-}
+export function setTimerDeps(deps) { Object.assign(_deps, deps); }
 
 // ---------------------------------------------------------------------------
 // Screen Wake Lock — keeps the screen on during timed exercises
@@ -158,7 +139,7 @@ export function startTimer(secs) {
   ensureAudioContext();
   store.timerDuration = secs || store.timerDuration;
   localStorage.setItem(TIMER_KEY, store.timerDuration.toString());
-  if (_scheduleCloudSync) _scheduleCloudSync();
+  _deps.scheduleCloudSync?.();
   store.timerRemaining = store.timerDuration;
   store.timerStartTime = Date.now();
   store.timerRunning = true;
@@ -204,8 +185,8 @@ function completeExerciseTimer() {
   playBeep();
   if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
   startTimer(store.timerDuration);
-  if (_saveWorkoutSession) _saveWorkoutSession();
-  if (_renderWorkoutView) _renderWorkoutView();
+  _deps.saveWorkoutSession?.();
+  _deps.renderWorkoutView?.();
 }
 
 /**
@@ -228,7 +209,7 @@ export function startExerciseTimer(accIdx, setIdx) {
     interval: null,
   };
 
-  if (_renderWorkoutView) _renderWorkoutView();
+  _deps.renderWorkoutView?.();
 
   store.exerciseTimer.interval = setInterval(() => {
     if (!store.exerciseTimer) return;
@@ -268,7 +249,7 @@ export function stopExerciseTimer() {
  */
 export function cancelExerciseTimer() {
   stopExerciseTimer();
-  if (_renderWorkoutView) _renderWorkoutView();
+  _deps.renderWorkoutView?.();
 }
 
 // ---------------------------------------------------------------------------

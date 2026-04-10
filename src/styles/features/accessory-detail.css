@@ -46,10 +46,7 @@
 }
 
 /* Detail sheet overrides */
-.acc-detail-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 250;
-  will-change: opacity;
-}
+/* acc-detail-backdrop uses .sheet-backdrop base class */
 .acc-detail-sheet {
   max-height: 85vh; background: var(--surface);
   box-shadow: 0 -4px 24px rgba(0,0,0,0.3);

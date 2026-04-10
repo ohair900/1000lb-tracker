@@ -19,24 +19,9 @@ import { PLATE_MILESTONES } from '../constants/lift-config.js';
 // Dependency injection — set by the boot / wiring layer
 // ---------------------------------------------------------------------------
 
-/** @type {Function|null} sharePRCard(lift, weight, e1rm, date) */
-let _sharePRCard = null;
+let _deps = {};
 
-/** @type {Function|null} Called after undo to refresh dashboard */
-let _onAfterUndo = null;
-
-/**
- * Wire up external dependencies that the toast module cannot import
- * directly without creating circular imports.
- *
- * @param {object} deps
- * @param {Function} deps.sharePRCard
- * @param {Function} deps.onAfterUndo - callback(type) after executeUndo runs
- */
-export function setToastDeps(deps) {
-  if (deps.sharePRCard) _sharePRCard = deps.sharePRCard;
-  if (deps.onAfterUndo) _onAfterUndo = deps.onAfterUndo;
-}
+export function setToastDeps(deps) { Object.assign(_deps, deps); }
 
 // ---------------------------------------------------------------------------
 // Undo helpers
@@ -71,7 +56,7 @@ export function executeUndo() {
 
   // The actual undo mutation is delegated to the wiring layer
   // because it needs rebuildPRs / entries manipulation.
-  if (_onAfterUndo) _onAfterUndo(type, data);
+  _deps.onAfterUndo?.(type, data);
 
   showToast('Undone');
 }
@@ -129,9 +114,7 @@ export function showToast(msg, isPR, milestone, shareData) {
     btn.className = 'toast-share';
     btn.textContent = 'Share PR Card';
     btn.addEventListener('click', () => {
-      if (_sharePRCard) {
-        _sharePRCard(shareData.lift, shareData.weight, shareData.e1rm, shareData.date);
-      }
+      _deps.sharePRCard?.(shareData.lift, shareData.weight, shareData.e1rm, shareData.date);
     });
     el.appendChild(btn);
   }

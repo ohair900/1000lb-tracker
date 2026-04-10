@@ -78,28 +78,12 @@ function getProgressionBadgeText(acc) {
 // Dependency injection
 // ---------------------------------------------------------------------------
 
-let _updateDashboard = null;
-let _addEntry = null;
-let _renderProgramSection = null;
-let _updateWorkoutButton = null;
-let _showWorkoutSummary = null;
-let _showWeakPointSetupModal = null;
-let _recordMesocyclePerformance = null;
-let _adaptRemainingWeeks = null;
+let _deps = {};
 
 /**
  * Inject dependencies to avoid circular imports.
  */
-export function setWorkoutOverlayDeps(deps) {
-  if (deps.updateDashboard) _updateDashboard = deps.updateDashboard;
-  if (deps.addEntry) _addEntry = deps.addEntry;
-  if (deps.renderProgramSection) _renderProgramSection = deps.renderProgramSection;
-  if (deps.updateWorkoutButton) _updateWorkoutButton = deps.updateWorkoutButton;
-  if (deps.showWorkoutSummary) _showWorkoutSummary = deps.showWorkoutSummary;
-  if (deps.showWeakPointSetupModal) _showWeakPointSetupModal = deps.showWeakPointSetupModal;
-  if (deps.recordMesocyclePerformance) _recordMesocyclePerformance = deps.recordMesocyclePerformance;
-  if (deps.adaptRemainingWeeks) _adaptRemainingWeeks = deps.adaptRemainingWeeks;
-}
+export function setWorkoutOverlayDeps(deps) { Object.assign(_deps, deps); }
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -192,14 +176,14 @@ function _completeMainSet(idx) {
     const amrapInput = document.querySelector(`[data-main-amrap="${idx}"]`);
     if (amrapInput && amrapInput.value) repsToLog = parseInt(amrapInput.value);
   }
-  const result = _addEntry ? _addEntry(store.workoutSession.mainLift, set.weight, repsToLog, null, '', []) : null;
+  const result = _deps.addEntry?.(store.workoutSession.mainLift, set.weight, repsToLog, null, '', []) ?? null;
   _lastMainEntryId = result ? result.entry.id : null;
   // Track entry for discard rollback
   if (result && result.entry) {
     if (!store.workoutSession.loggedEntryIds) store.workoutSession.loggedEntryIds = [];
     store.workoutSession.loggedEntryIds.push(result.entry.id);
   }
-  if (_updateDashboard) _updateDashboard();
+  _deps.updateDashboard?.();
   set.completed = true;
   set.rpe = null;
   set.entryId = _lastMainEntryId;
@@ -412,7 +396,7 @@ export function renderWorkoutView() {
 export function openWorkoutView(mainLift) {
   // Check if weak points configured
   if (!store.workoutConfig.weakPoints[mainLift]) {
-    if (_showWeakPointSetupModal) _showWeakPointSetupModal(mainLift);
+    _deps.showWeakPointSetupModal?.(mainLift);
     return;
   }
   // Resume or create session
@@ -452,7 +436,7 @@ export function closeWorkoutView() {
   stopExerciseTimer();
   $('workout-overlay').style.display = 'none';
   document.body.style.overflow = '';
-  if (_updateWorkoutButton) _updateWorkoutButton();
+  _deps.updateWorkoutButton?.();
 }
 
 // ---------------------------------------------------------------------------
@@ -520,8 +504,8 @@ export function completeWorkout() {
   let mesoAdaptation = null;
   const completedSession = store.workoutSession;
   if (store.workoutSession.source === 'mesocycle' && store.activeMesocycle && store.activeMesocycle.status === 'active') {
-    if (_recordMesocyclePerformance) _recordMesocyclePerformance(store.workoutSession);
-    if (_adaptRemainingWeeks) mesoAdaptation = _adaptRemainingWeeks(store.workoutSession.mainLift);
+    _deps.recordMesocyclePerformance?.(store.workoutSession);
+    mesoAdaptation = _deps.adaptRemainingWeeks?.(store.workoutSession.mainLift) ?? null;
   }
 
   store.workoutSession = null;
@@ -529,9 +513,9 @@ export function completeWorkout() {
   closeWorkoutView();
   showToast('Workout complete!');
   if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-  if (_updateWorkoutButton) _updateWorkoutButton();
+  _deps.updateWorkoutButton?.();
   setTimeout(() => {
-    if (_showWorkoutSummary) _showWorkoutSummary(completedSession, mesoAdaptation);
+    _deps.showWorkoutSummary?.(completedSession, mesoAdaptation);
   }, 300);
 }
 

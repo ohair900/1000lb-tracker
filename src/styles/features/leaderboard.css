@@ -73,28 +73,12 @@
 }
 
 /* Detail sheet */
-.leaderboard-sheet-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 250;
-}
+/* leaderboard-sheet-backdrop uses .sheet-backdrop base class */
 
+/* leaderboard-sheet extends .sheet-panel */
 .leaderboard-sheet {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  max-height: 85vh;
-  z-index: 251;
-  border-radius: 16px 16px 0 0;
-  background: var(--bg);
-  animation: slideUp 0.25s ease;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
   padding: 0 var(--space-4) var(--space-4);
   padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
-  overscroll-behavior-y: contain;
 }
 
 .lb-classification {

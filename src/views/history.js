@@ -4,7 +4,9 @@
  * sticky date separators, and delete confirmation.
  */
 
-import store, { HISTORY_PAGE_SIZE } from '../state/store.js';
+import store from '../state/store.js';
+import { HISTORY_PAGE_SIZE } from '../constants/thresholds.js';
+import { INFINITE_SCROLL_MARGIN_PX, LONG_PRESS_MS } from '../constants/ui.js';
 import { $, escapeHTML, fmtNum, debounce } from '../utils/helpers.js';
 import { LIFTS, COLORS, LIFT_SHORT, LIFT_NAMES } from '../constants/lift-config.js';
 import { displayWeight, formatWeight, inputToLbs } from '../formulas/units.js';
@@ -20,13 +22,11 @@ import { MS_PER_DAY } from '../constants/time.js';
 
 const expandedSessions = new Set();
 let _scrollObserver = null;
-let _updateDashboard = null;
+let _deps = {};
 let selectionMode = false;
 const selectedIds = new Set();
 
-export function injectHistoryDeps(deps) {
-  if (deps.updateDashboard) _updateDashboard = deps.updateDashboard;
-}
+export function injectHistoryDeps(deps) { Object.assign(_deps, deps); }
 
 // ---------------------------------------------------------------------------
 // Bulk select helpers
@@ -245,7 +245,7 @@ export function renderHistory() {
           store.historyPage++;
           renderHistory();
         }
-      }, { rootMargin: '300px' });
+      }, { rootMargin: `${INFINITE_SCROLL_MARGIN_PX}px` });
       _scrollObserver.observe(sentinel);
     }
   }
@@ -480,7 +480,7 @@ export function initHistoryTab() {
     if (e.target.closest('#bulk-delete')) {
       if (selectedIds.size === 0) return;
       selectedIds.forEach(id => deleteEntry(id));
-      if (_updateDashboard) _updateDashboard();
+      _deps.updateDashboard?.();
       showToastWithUndo(`${selectedIds.size} entries deleted`);
       exitSelectionMode();
       return;
@@ -516,7 +516,7 @@ export function initHistoryTab() {
           showBulkBar();
           // Prevent further swipe processing
           currentContainer = null;
-        }, 500);
+        }, LONG_PRESS_MS);
       }
     }, { passive: true });
 
@@ -604,7 +604,7 @@ export function initHistoryTab() {
         if (id) {
           deleteEntry(id);
           closeModal('edit-modal');
-          if (_updateDashboard) _updateDashboard();
+          _deps.updateDashboard?.();
           renderHistory();
           showToastWithUndo('Entry deleted');
         }
@@ -634,7 +634,7 @@ export function initHistoryTab() {
         if (!(w > 0 && r > 0)) return;
         editEntry(store.editingEntryId, lift, inputToLbs(w), r, rpe, notes);
         closeModal('edit-modal');
-        if (_updateDashboard) _updateDashboard();
+        _deps.updateDashboard?.();
         renderHistory();
         showToastWithUndo('Entry updated');
         return;

@@ -10,31 +10,15 @@
  */
 
 import { $ } from '../utils/helpers.js';
+import { SWIPE_DELETE_THRESHOLD_PX, SHAKE_DURATION_MS } from '../constants/index.js';
 
 // ---------------------------------------------------------------------------
 // Dependency injection
 // ---------------------------------------------------------------------------
 
-/** @type {Function|null} deleteEntry(id) */
-let _deleteEntry = null;
+let _deps = {};
 
-/** @type {Function|null} renderHistory() */
-let _renderHistory = null;
-
-/** @type {Function|null} showToastWithUndo(msg) */
-let _showToastWithUndo = null;
-
-/**
- * @param {object} deps
- * @param {Function} deps.deleteEntry
- * @param {Function} deps.renderHistory
- * @param {Function} deps.showToastWithUndo
- */
-export function setSwipeDeps(deps) {
-  if (deps.deleteEntry) _deleteEntry = deps.deleteEntry;
-  if (deps.renderHistory) _renderHistory = deps.renderHistory;
-  if (deps.showToastWithUndo) _showToastWithUndo = deps.showToastWithUndo;
-}
+export function setSwipeDeps(deps) { Object.assign(_deps, deps); }
 
 // ---------------------------------------------------------------------------
 // State
@@ -98,10 +82,10 @@ export function initSwipeToDelete() {
     const currentX = parseFloat(entry.style.transform.replace(/[^-\d.]/g, '')) || 0;
     currentContainer.classList.remove('swiping');
 
-    if (currentX <= -80) {
+    if (currentX <= -SWIPE_DELETE_THRESHOLD_PX) {
       // Swipe threshold met — delete
       recentSwipe = true;
-      setTimeout(() => { recentSwipe = false; }, 300);
+      setTimeout(() => { recentSwipe = false; }, SHAKE_DURATION_MS);
 
       const id = currentContainer.dataset.id;
       currentContainer.classList.add('removing');
@@ -111,9 +95,9 @@ export function initSwipeToDelete() {
       });
 
       setTimeout(() => {
-        if (_deleteEntry) _deleteEntry(id);
-        if (_renderHistory) _renderHistory();
-        if (_showToastWithUndo) _showToastWithUndo('Entry deleted');
+        _deps.deleteEntry?.(id);
+        _deps.renderHistory?.();
+        _deps.showToastWithUndo?.('Entry deleted');
       }, 350);
     } else {
       // Snap back

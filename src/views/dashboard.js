@@ -8,6 +8,10 @@ import store from '../state/store.js';
 import { $ } from '../utils/helpers.js';
 import { fmtNum, ensureChild } from '../utils/helpers.js';
 import { LIFTS, COLORS, LIFT_SHORT, LIFT_NAMES, PLATE_MILESTONES } from '../constants/lift-config.js';
+import {
+  STRENGTH_RATIO_BS_BALANCED, STRENGTH_RATIO_BS_WARNING,
+  STRENGTH_RATIO_DS_BALANCED, STRENGTH_RATIO_DS_WARNING
+} from '../constants/thresholds.js';
 import { MS_PER_DAY } from '../constants/time.js';
 import { DIRECTION_ARROWS, CONFETTI_COUNT, CELEBRATION_DISMISS_MS } from '../constants/ui.js';
 import { TOTAL_MILESTONES, TOTAL_MILESTONE_THEMES } from '../data/milestones.js';
@@ -118,9 +122,9 @@ export function updateStrengthRatios() {
   const dsRatio = dl / sq * 100;
   const bsEl = $('ratio-bs'), dsEl = $('ratio-ds');
   bsEl.textContent = Math.round(bsRatio) + '%';
-  bsEl.className = 'ratio-value ' + (bsRatio >= 55 && bsRatio <= 70 ? 'balanced' : bsRatio >= 50 && bsRatio <= 75 ? 'warning' : 'imbalanced');
+  bsEl.className = 'ratio-value ' + (bsRatio >= STRENGTH_RATIO_BS_BALANCED[0] && bsRatio <= STRENGTH_RATIO_BS_BALANCED[1] ? 'balanced' : bsRatio >= STRENGTH_RATIO_BS_WARNING[0] && bsRatio <= STRENGTH_RATIO_BS_WARNING[1] ? 'warning' : 'imbalanced');
   dsEl.textContent = Math.round(dsRatio) + '%';
-  dsEl.className = 'ratio-value ' + (dsRatio >= 110 && dsRatio <= 125 ? 'balanced' : dsRatio >= 100 && dsRatio <= 135 ? 'warning' : 'imbalanced');
+  dsEl.className = 'ratio-value ' + (dsRatio >= STRENGTH_RATIO_DS_BALANCED[0] && dsRatio <= STRENGTH_RATIO_DS_BALANCED[1] ? 'balanced' : dsRatio >= STRENGTH_RATIO_DS_WARNING[0] && dsRatio <= STRENGTH_RATIO_DS_WARNING[1] ? 'warning' : 'imbalanced');
 }
 
 // ---------------------------------------------------------------------------

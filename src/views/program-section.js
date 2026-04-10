@@ -30,24 +30,9 @@ import { showToast } from '../ui/toast.js';
 // Dependency injection
 // ---------------------------------------------------------------------------
 
-let _updatePreview = null;
-let _updateDashboard = null;
-let _addEntry = null;
-let _startTimer = null;
-let _triggerWeekCompleteCelebration = null;
-let _triggerLiftCompleteCelebration = null;
+let _deps = {};
 
-/**
- * Inject dependencies that would cause circular imports.
- */
-export function setProgramSectionDeps(deps) {
-  if (deps.updatePreview) _updatePreview = deps.updatePreview;
-  if (deps.updateDashboard) _updateDashboard = deps.updateDashboard;
-  if (deps.addEntry) _addEntry = deps.addEntry;
-  if (deps.startTimer) _startTimer = deps.startTimer;
-  if (deps.triggerWeekCompleteCelebration) _triggerWeekCompleteCelebration = deps.triggerWeekCompleteCelebration;
-  if (deps.triggerLiftCompleteCelebration) _triggerLiftCompleteCelebration = deps.triggerLiftCompleteCelebration;
-}
+export function setProgramSectionDeps(deps) { Object.assign(_deps, deps); }
 
 // ---------------------------------------------------------------------------
 // Render
@@ -191,7 +176,7 @@ export function renderProgramSection() {
         if (weightInput) weightInput.value = wDisplay;
         const repVal = typeof set.reps === 'string' ? parseInt(set.reps) : set.reps;
         if (repsInput) repsInput.value = repVal;
-        if (_updatePreview) _updatePreview();
+        _deps.updatePreview?.();
         // Mark completed
         store.programConfig.completedSets[`${currentLift}-${lw}-${idx}`] = true;
         // Check session-type auto-progression (SL5x5 / SS)
@@ -201,8 +186,8 @@ export function renderProgramSection() {
           if (result) {
             store.saveProgramConfig();
             renderProgramSection();
-            if (!wasComplete && isWeekComplete(currentLift) && _triggerWeekCompleteCelebration) _triggerWeekCompleteCelebration();
-            else if (!wasLiftComplete && isLiftComplete(currentLift) && _triggerLiftCompleteCelebration) _triggerLiftCompleteCelebration();
+            if (!wasComplete && isWeekComplete(currentLift)) _deps.triggerWeekCompleteCelebration?.();
+            else if (!wasLiftComplete && isLiftComplete(currentLift)) _deps.triggerLiftCompleteCelebration?.();
             setTimeout(() => applyProgression(result), 300);
             return;
           }
@@ -212,9 +197,9 @@ export function renderProgramSection() {
       renderProgramSection();
       // Check week/lift completion transitions
       if (!wasComplete && isWeekComplete(currentLift)) {
-        if (_triggerWeekCompleteCelebration) _triggerWeekCompleteCelebration();
+        _deps.triggerWeekCompleteCelebration?.();
       } else if (!wasLiftComplete && isLiftComplete(currentLift)) {
-        if (_triggerLiftCompleteCelebration) _triggerLiftCompleteCelebration();
+        _deps.triggerLiftCompleteCelebration?.();
       } else if (wasComplete && !isWeekComplete(currentLift)) {
         delete store.programConfig.completedWeeks[`${currentLift}-${lw}`];
         let streak = 0;

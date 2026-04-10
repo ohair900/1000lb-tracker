@@ -12,17 +12,6 @@
   flex-shrink: 0; background: var(--bg); display: flex; gap: var(--space-2);
   padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0));
 }
-.builder-footer .btn-primary {
-  flex: 1; padding: 14px; border: none; border-radius: var(--radius-lg);
-  background: var(--green); color: #fff; font-size: var(--text-base);
-  font-weight: 700; cursor: pointer;
-}
-.builder-footer .btn-secondary {
-  padding: 14px 20px; border: 2px solid var(--border); border-radius: var(--radius-lg);
-  background: transparent; color: var(--text); font-size: var(--text-base);
-  font-weight: 600; cursor: pointer;
-}
-
 /* Builder exercise rows */
 .builder-exercise {
   background: var(--surface); border-radius: var(--radius-lg);

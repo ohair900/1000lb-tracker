@@ -12,18 +12,9 @@ import { ACCENT_COLORS } from '../constants/ui.js';
 // Dependency injection — optional cloud-sync trigger
 // ---------------------------------------------------------------------------
 
-/** @type {Function|null} */
-let _scheduleCloudSync = null;
+let _deps = {};
 
-/**
- * Wire up optional callbacks.
- *
- * @param {object} deps
- * @param {Function} [deps.scheduleCloudSync]
- */
-export function setThemeDeps(deps) {
-  if (deps.scheduleCloudSync) _scheduleCloudSync = deps.scheduleCloudSync;
-}
+export function setThemeDeps(deps) { Object.assign(_deps, deps); }
 
 // ---------------------------------------------------------------------------
 // Accent color
@@ -42,5 +33,5 @@ export function applyAccentColor() {
   const b = parseInt(color.slice(5, 7), 16);
   document.documentElement.style.setProperty('--gold-bg', `rgba(${r},${g},${b},0.08)`);
 
-  if (_scheduleCloudSync) _scheduleCloudSync();
+  _deps.scheduleCloudSync?.();
 }

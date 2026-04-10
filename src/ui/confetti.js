@@ -12,7 +12,12 @@
 
 import { $ } from '../utils/helpers.js';
 import store from '../state/store.js';
-import { CONFETTI_COUNT, CELEBRATION_DISMISS_MS } from '../constants/ui.js';
+import {
+  CONFETTI_COUNT, CELEBRATION_DISMISS_MS,
+  CONFETTI_SIZE_MIN, CONFETTI_SIZE_RANGE,
+  CONFETTI_DURATION_BASE_S, CONFETTI_DURATION_RANGE_S, CONFETTI_DELAY_RANGE_S,
+  MINI_CONFETTI_COUNT, MINI_CONFETTI_CLEANUP_MS
+} from '../constants/ui.js';
 import { COLORS, LIFT_NAMES } from '../constants/lift-config.js';
 import { TOTAL_MILESTONE_THEMES } from '../data/milestones.js';
 import { formatWeight } from '../formulas/units.js';
@@ -22,26 +27,9 @@ import { bestE1RM } from '../formulas/e1rm.js';
 // Dependency injection
 // ---------------------------------------------------------------------------
 
-/** @type {Function|null} shareMilestoneCard(total, sq, bp, dl, msTheme) */
-let _shareMilestoneCard = null;
+let _deps = {};
 
-/** @type {Function|null} showToast(msg) */
-let _showToast = null;
-
-/** @type {Function|null} updateWeekStreak() */
-let _updateWeekStreak = null;
-
-/**
- * @param {object} deps
- * @param {Function} [deps.shareMilestoneCard]
- * @param {Function} [deps.showToast]
- * @param {Function} [deps.updateWeekStreak]
- */
-export function setConfettiDeps(deps) {
-  if (deps.shareMilestoneCard) _shareMilestoneCard = deps.shareMilestoneCard;
-  if (deps.showToast) _showToast = deps.showToast;
-  if (deps.updateWeekStreak) _updateWeekStreak = deps.updateWeekStreak;
-}
+export function setConfettiDeps(deps) { Object.assign(_deps, deps); }
 
 // ---------------------------------------------------------------------------
 // Full milestone celebration overlay
@@ -63,14 +51,14 @@ export function showCelebration(total, msTheme) {
   for (let i = 0; i < CONFETTI_COUNT; i++) {
     const p = document.createElement('div');
     p.className = 'confetti';
-    const size = 6 + Math.random() * 8;
+    const size = CONFETTI_SIZE_MIN + Math.random() * CONFETTI_SIZE_RANGE;
     p.style.left = Math.random() * 100 + '%';
     p.style.width = size + 'px';
     p.style.height = (Math.random() > 0.5 ? size : size * 2.5) + 'px';
     p.style.background = confettiColors[Math.floor(Math.random() * confettiColors.length)];
     p.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
-    p.style.animationDuration = (2 + Math.random() * 3) + 's';
-    p.style.animationDelay = (Math.random() * 2.5) + 's';
+    p.style.animationDuration = (CONFETTI_DURATION_BASE_S + Math.random() * CONFETTI_DURATION_RANGE_S) + 's';
+    p.style.animationDelay = (Math.random() * CONFETTI_DELAY_RANGE_S) + 's';
     overlay.appendChild(p);
   }
 
@@ -120,7 +108,7 @@ export function showCelebration(total, msTheme) {
 
   content.querySelector('.celebration-share-btn').addEventListener('click', () => {
     clearTimeout(autoDismiss);
-    if (_shareMilestoneCard) _shareMilestoneCard(total, sq, bp, dl, msTheme);
+    _deps.shareMilestoneCard?.(total, sq, bp, dl, msTheme);
   });
 }
 
@@ -150,7 +138,7 @@ export function triggerWeekCompleteCelebration() {
   section.style.position = 'relative';
   section.style.overflow = 'hidden';
   const colors = ['#4caf50', '#ffd700', '#66bb6a', '#ffeb3b', '#81c784', '#fff176'];
-  for (let i = 0; i < 25; i++) {
+  for (let i = 0; i < MINI_CONFETTI_COUNT; i++) {
     const particle = document.createElement('div');
     particle.className = 'mini-confetti';
     particle.style.left = Math.random() * 100 + '%';
@@ -164,14 +152,14 @@ export function triggerWeekCompleteCelebration() {
     section.querySelectorAll('.mini-confetti').forEach(p => p.remove());
     section.style.overflow = prevOverflow;
     section.style.position = prevPosition;
-  }, 3000);
+  }, MINI_CONFETTI_CLEANUP_MS);
 
   // Toast
   const lw = store.programConfig.liftWeeks?.[store.currentLift] || 1;
-  if (_showToast) _showToast('Week ' + lw + ' complete!');
+  _deps.showToast?.('Week ' + lw + ' complete!');
 
   // Streak
-  if (_updateWeekStreak) _updateWeekStreak(store.currentLift);
+  _deps.updateWeekStreak?.(store.currentLift);
 }
 
 /**
@@ -188,5 +176,5 @@ export function triggerLiftCompleteCelebration() {
   });
 
   // Toast
-  if (_showToast) _showToast(LIFT_NAMES[store.currentLift] + ' complete!');
+  _deps.showToast?.(LIFT_NAMES[store.currentLift] + ' complete!');
 }

@@ -22,9 +22,9 @@
 .welcome-barbell .plate {
   width: 14px; height: 36px; border-radius: 3px;
 }
-.welcome-barbell .plate.squat { background: #e53935; }
-.welcome-barbell .plate.bench { background: #1e88e5; }
-.welcome-barbell .plate.deadlift { background: #43a047; }
+.welcome-barbell .plate.squat { background: var(--squat); }
+.welcome-barbell .plate.bench { background: var(--bench); }
+.welcome-barbell .plate.deadlift { background: var(--deadlift); }
 .welcome-barbell .collar {
   width: 6px; height: 16px; background: var(--text-muted); border-radius: 2px;
 }

@@ -11,3 +11,21 @@ export const ACCENT_COLORS = {
   green: '#43a047',
   orange: '#ff9800'
 };
+
+export const SWIPE_THRESHOLD_PX = 50;
+export const SWIPE_TIMEOUT_MS = 300;
+export const SWIPE_RATIO = 1.5;
+export const LONG_PRESS_MS = 500;
+export const ANIMATION_SLIDE_MS = 200;
+export const RESIZE_DEBOUNCE_MS = 250;
+export const PREVIEW_DEBOUNCE_MS = 150;
+export const SHAKE_DURATION_MS = 300;
+export const INFINITE_SCROLL_MARGIN_PX = 300;
+
+export const CONFETTI_SIZE_MIN = 6;
+export const CONFETTI_SIZE_RANGE = 8;
+export const CONFETTI_DURATION_BASE_S = 2;
+export const CONFETTI_DURATION_RANGE_S = 3;
+export const CONFETTI_DELAY_RANGE_S = 2.5;
+export const MINI_CONFETTI_COUNT = 25;
+export const MINI_CONFETTI_CLEANUP_MS = 3000;

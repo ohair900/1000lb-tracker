@@ -17,34 +17,9 @@ import { closeChoiceSheet } from '../ui/sheet.js';
 // Dependency injection
 // ---------------------------------------------------------------------------
 
-let _openWorkoutView = null;
-let _openSmartRecommendation = null;
-let _openBuilder = null;
-let _showTemplateList = null;
-let _openMesocycleWorkout = null;
-let _showMesocycleGenerator = null;
-let _showProgramSetupModal = null;
-let _showWeakPointSetupModal = null;
-let _abandonMesocycle = null;
-let _renderProgramSection = null;
-let _updateWorkoutButton = null;
+let _deps = {};
 
-/**
- * Inject dependencies to avoid circular imports.
- */
-export function setChoiceSheetDeps(deps) {
-  if (deps.openWorkoutView) _openWorkoutView = deps.openWorkoutView;
-  if (deps.openSmartRecommendation) _openSmartRecommendation = deps.openSmartRecommendation;
-  if (deps.openBuilder) _openBuilder = deps.openBuilder;
-  if (deps.showTemplateList) _showTemplateList = deps.showTemplateList;
-  if (deps.openMesocycleWorkout) _openMesocycleWorkout = deps.openMesocycleWorkout;
-  if (deps.showMesocycleGenerator) _showMesocycleGenerator = deps.showMesocycleGenerator;
-  if (deps.showProgramSetupModal) _showProgramSetupModal = deps.showProgramSetupModal;
-  if (deps.showWeakPointSetupModal) _showWeakPointSetupModal = deps.showWeakPointSetupModal;
-  if (deps.abandonMesocycle) _abandonMesocycle = deps.abandonMesocycle;
-  if (deps.renderProgramSection) _renderProgramSection = deps.renderProgramSection;
-  if (deps.updateWorkoutButton) _updateWorkoutButton = deps.updateWorkoutButton;
-}
+export function setChoiceSheetDeps(deps) { Object.assign(_deps, deps); }
 
 // ---------------------------------------------------------------------------
 // Mesocycle timeline renderer
@@ -122,17 +97,17 @@ function showPlanSwitcher() {
     card.addEventListener('click', () => {
       const action = card.dataset.action;
       closeChoiceSheet();
-      if (action === 'setup-program') { if (_showProgramSetupModal) _showProgramSetupModal(); }
+      if (action === 'setup-program') { _deps.showProgramSetupModal?.(); }
       else if (action === 'mesogen') {
-        if (hasMeso && _abandonMesocycle) _abandonMesocycle();
-        if (_showMesocycleGenerator) _showMesocycleGenerator();
+        if (hasMeso) _deps.abandonMesocycle?.();
+        _deps.showMesocycleGenerator?.();
       }
       else if (action === 'disable-plan') {
-        if (hasMeso && _abandonMesocycle) _abandonMesocycle();
+        if (hasMeso) _deps.abandonMesocycle?.();
         store.programConfig.activeProgram = null;
         store.saveProgramConfig();
-        if (_renderProgramSection) _renderProgramSection();
-        if (_updateWorkoutButton) _updateWorkoutButton();
+        _deps.renderProgramSection?.();
+        _deps.updateWorkoutButton?.();
         showToast('Training plan removed');
       }
     });
@@ -151,7 +126,7 @@ export function renderChoiceSheetBody() {
   const lift = store.currentLift;
   // If resuming an active session for THIS lift, skip choice sheet
   if (store.workoutSession && !store.workoutSession.completed && store.workoutSession.mainLift === lift) {
-    if (_openWorkoutView) _openWorkoutView(lift);
+    _deps.openWorkoutView?.(lift);
     return;
   }
   const body = $('choice-sheet-body');
@@ -296,12 +271,12 @@ export function renderChoiceSheetBody() {
       closeChoiceSheet();
       if (action === 'quick') {
         if (!store.workoutConfig.weakPoints[store.currentLift]) {
-          if (_showWeakPointSetupModal) _showWeakPointSetupModal(store.currentLift);
+          _deps.showWeakPointSetupModal?.(store.currentLift);
           return;
         }
-        if (_openWorkoutView) _openWorkoutView(store.currentLift);
+        _deps.openWorkoutView?.(store.currentLift);
       }
-      else if (action === 'custom') { if (_openBuilder) _openBuilder(store.currentLift); }
+      else if (action === 'custom') { _deps.openBuilder?.(store.currentLift); }
       else if (action === 'repeat-last') {
         // Reconstruct exercises from last session's accessory log
         const lift = store.currentLift;
@@ -315,13 +290,13 @@ export function renderChoiceSheetBody() {
             weightMode: 'auto', weightValue: l.weight, equipment: l.equipment || 'barbell',
             repRange: l.repRange || [8, 12], order: i + 1, slotRole: 'accessory', reasons: [],
           }));
-          if (_openBuilder) _openBuilder(lift, exercises);
+          _deps.openBuilder?.(lift, exercises);
         }
       }
-      else if (action === 'templates') { if (_showTemplateList) _showTemplateList(); }
-      else if (action === 'mesocycle') { if (_openMesocycleWorkout) _openMesocycleWorkout(store.currentLift); }
-      else if (action === 'mesogen') { if (_showMesocycleGenerator) _showMesocycleGenerator(); }
-      else if (action === 'setup-program') { if (_showProgramSetupModal) _showProgramSetupModal(); }
+      else if (action === 'templates') { _deps.showTemplateList?.(); }
+      else if (action === 'mesocycle') { _deps.openMesocycleWorkout?.(store.currentLift); }
+      else if (action === 'mesogen') { _deps.showMesocycleGenerator?.(); }
+      else if (action === 'setup-program') { _deps.showProgramSetupModal?.(); }
     });
   });
 
@@ -330,7 +305,7 @@ export function renderChoiceSheetBody() {
     link.addEventListener('click', (e) => {
       e.stopPropagation();
       const action = link.dataset.action;
-      if (action === 'abandon-meso') { closeChoiceSheet(); if (_abandonMesocycle) _abandonMesocycle(); }
+      if (action === 'abandon-meso') { closeChoiceSheet(); _deps.abandonMesocycle?.(); }
       else if (action === 'switch-plan') { closeChoiceSheet(); showPlanSwitcher(); }
     });
   });
