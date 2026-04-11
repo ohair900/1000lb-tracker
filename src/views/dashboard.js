@@ -201,8 +201,8 @@ export function updateFatigueBar() {
     return;
   }
 
-  const frontGroups = ['Shoulders', 'Chest', 'Biceps', 'Core', 'Quads'];
-  const backGroups = ['Upper Back', 'Lower Back', 'Triceps', 'Glutes', 'Hams'];
+  const upperBody = ['Chest', 'Upper Back', 'Shoulders', 'Biceps', 'Triceps', 'Forearms'];
+  const lowerBody = ['Quads', 'Hams', 'Glutes', 'Calves', 'Lower Back', 'Core'];
 
   function buildCards(groups) {
     return groups.map(mg => {
@@ -228,10 +228,10 @@ export function updateFatigueBar() {
     `<span class="fatigue-cards-toggle-icon">&#9662;</span> Fatigue Details</div>`;
   // Collapsible content
   html += `<div class="fatigue-cards-content" id="fatigue-cards-content">`;
-  html += `<div class="fatigue-group-label">Front</div>`;
-  html += `<div class="fatigue-group-row">${buildCards(frontGroups)}</div>`;
-  html += `<div class="fatigue-group-label">Back</div>`;
-  html += `<div class="fatigue-group-row">${buildCards(backGroups)}</div>`;
+  html += `<div class="fatigue-group-label">Upper Body</div>`;
+  html += `<div class="fatigue-group-row">${buildCards(upperBody)}</div>`;
+  html += `<div class="fatigue-group-label">Lower Body</div>`;
+  html += `<div class="fatigue-group-row">${buildCards(lowerBody)}</div>`;
   html += `</div>`;
 
   $('fatigue-row').innerHTML = html;
@@ -539,7 +539,7 @@ function showRecapModal(recap) {
   // Coverage % badge — how many of 10 muscle groups have been hit this week
   const hitCount = MUSCLE_GROUPS.filter(mg => coverage[mg] && coverage[mg].sets > 0).length;
   const totalCount = MUSCLE_GROUPS.length;
-  const coverageClass = hitCount >= 7 ? 'high' : hitCount >= 4 ? 'mid' : 'low';
+  const coverageClass = hitCount >= 8 ? 'high' : hitCount >= 5 ? 'mid' : 'low';
 
   html += `<div class="recap-coverage-header">
     <span class="recap-coverage-badge ${coverageClass}">${hitCount}/${totalCount} muscles hit</span>

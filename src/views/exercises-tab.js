@@ -6,6 +6,7 @@
 import store from '../state/store.js';
 import { EXERCISE_CATALOG } from '../data/exercise-catalog.js';
 import { getAllExerciseIds, resolveAccessory } from '../data/exercise-compat.js';
+import { MUSCLE_GROUPS } from '../data/muscle-groups.js';
 
 // --- Ephemeral filter state ---
 let _liftFilter = 'all';
@@ -204,6 +205,17 @@ function renderAddForm() {
   html += `<div><label>Rep Max</label><input type="number" id="add-ex-repmax" value="12" min="1" max="50"></div>`;
   html += `<div><label>% TM</label><input type="number" id="add-ex-pct" value="" min="0" max="120" placeholder="\u2014"></div>`;
   html += `</div>`;
+  // Muscle percentage picker — lets custom exercises participate in fatigue / gap analysis
+  html += `<div style="margin-top:10px">`;
+  html += `<div style="font-size:0.65rem;font-weight:600;text-transform:uppercase;color:var(--text-dim);letter-spacing:0.04em;margin-bottom:6px">Target Muscles (%)</div>`;
+  html += `<div class="exercise-add-muscles" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px 8px">`;
+  for (const mg of MUSCLE_GROUPS) {
+    html += `<label style="display:flex;align-items:center;gap:6px;font-size:var(--text-xs);color:var(--text)">`
+      + `<span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${mg}</span>`
+      + `<input type="number" min="0" max="100" step="5" value="0" data-add-muscle="${mg}" style="width:44px;padding:3px 4px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:var(--text-xs);text-align:center">`
+      + `</label>`;
+  }
+  html += `</div></div>`;
   html += `<div class="exercise-add-form-actions">`;
   html += `<button class="exercise-add-cancel" id="add-ex-cancel">Cancel</button>`;
   html += `<button class="exercise-add-save" id="add-ex-save">Add Exercise</button>`;
@@ -383,6 +395,15 @@ export function attachExercisesListeners(container) {
       if (!name) { alert('Please enter an exercise name'); return; }
       if (!lift) { alert('Please select a lift'); return; }
 
+      // Build primaryMuscles map from the muscle % inputs so custom exercises
+      // participate in gap-analysis and fatigue calculations.
+      const primaryMuscles = {};
+      container.querySelectorAll('[data-add-muscle]').forEach(inp => {
+        const mg = inp.dataset.addMuscle;
+        const pct = parseFloat(inp.value) || 0;
+        if (pct > 0) primaryMuscles[mg] = pct / 100;
+      });
+
       const newEx = {
         id: `custom-${Date.now()}`,
         name,
@@ -393,6 +414,7 @@ export function attachExercisesListeners(container) {
         repRange: [repMin, repMax],
         equipment: equip || 'barbell',
         category: 'custom',
+        primaryMuscles,
       };
 
       store.customAccessories = [...(store.customAccessories || []), newEx];

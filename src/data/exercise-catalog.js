@@ -37,14 +37,14 @@ export const PROGRESSION_MODELS = {
 // ---------------------------------------------------------------------------
 
 export const PATTERN_DEFAULT_MUSCLES = {
-  'squat-pattern':   { Quads: 0.45, Hams: 0.10, Glutes: 0.25, Core: 0.10, 'Lower Back': 0.05, 'Upper Back': 0.05 },
-  'hip-hinge':       { Hams: 0.35, Glutes: 0.35, 'Lower Back': 0.20, Core: 0.10 },
+  'squat-pattern':   { Quads: 0.40, Hams: 0.10, Glutes: 0.25, Core: 0.10, Calves: 0.05, 'Lower Back': 0.05, 'Upper Back': 0.05 },
+  'hip-hinge':       { Hams: 0.35, Glutes: 0.32, 'Lower Back': 0.20, Core: 0.10, Calves: 0.03 },
   'horizontal-push': { Chest: 0.45, Shoulders: 0.25, Triceps: 0.25, Core: 0.05 },
-  'horizontal-pull': { 'Upper Back': 0.45, Biceps: 0.20, 'Lower Back': 0.15, Shoulders: 0.10, Core: 0.10 },
+  'horizontal-pull': { 'Upper Back': 0.45, Biceps: 0.20, 'Lower Back': 0.15, Shoulders: 0.10, Forearms: 0.05, Core: 0.05 },
   'vertical-push':   { Shoulders: 0.50, Triceps: 0.30, 'Upper Back': 0.10, Core: 0.10 },
-  'vertical-pull':   { 'Upper Back': 0.50, Biceps: 0.30, Core: 0.10, Shoulders: 0.10 },
+  'vertical-pull':   { 'Upper Back': 0.50, Biceps: 0.30, Forearms: 0.05, Core: 0.05, Shoulders: 0.10 },
   'core-stability':  { Core: 0.80, 'Lower Back': 0.10, Hams: 0.10 },
-  'grip-carry':      { Core: 0.40, 'Upper Back': 0.20, 'Lower Back': 0.20, Hams: 0.10, Glutes: 0.10 },
+  'grip-carry':      { Forearms: 0.40, Calves: 0.10, Core: 0.25, 'Upper Back': 0.15, 'Lower Back': 0.10 },
 };
 
 // ---------------------------------------------------------------------------
@@ -159,7 +159,7 @@ export const EXERCISE_CATALOG = {
   'calf-raise': {
     name: 'Calf Raises',
     movementPattern: 'squat-pattern',
-    primaryMuscles: { Quads: 0.30, Hams: 0.30, Glutes: 0.40 },
+    primaryMuscles: { Calves: 0.85, Glutes: 0.10, Core: 0.05 },
     progressionType: 'isolation',
     equipment: 'machine',
     repRange: [12, 20],
@@ -384,7 +384,7 @@ export const EXERCISE_CATALOG = {
   'barbell-row': {
     name: 'Barbell Row',
     movementPattern: 'horizontal-pull',
-    primaryMuscles: { 'Upper Back': 0.40, Biceps: 0.20, 'Lower Back': 0.15, Hams: 0.10, Core: 0.10, Shoulders: 0.05 },
+    primaryMuscles: { 'Upper Back': 0.40, Biceps: 0.20, 'Lower Back': 0.15, Forearms: 0.08, Hams: 0.05, Core: 0.07, Shoulders: 0.05 },
     progressionType: 'compound',
     equipment: 'barbell',
     repRange: [6, 10],
@@ -398,7 +398,7 @@ export const EXERCISE_CATALOG = {
   'dumbbell-row': {
     name: 'Dumbbell Row',
     movementPattern: 'horizontal-pull',
-    primaryMuscles: { 'Upper Back': 0.45, Biceps: 0.25, Shoulders: 0.10, Core: 0.10, 'Lower Back': 0.10 },
+    primaryMuscles: { 'Upper Back': 0.45, Biceps: 0.25, Shoulders: 0.10, Forearms: 0.06, Core: 0.09, 'Lower Back': 0.05 },
     progressionType: 'compound',
     equipment: 'dumbbell',
     repRange: [8, 12],
@@ -412,7 +412,7 @@ export const EXERCISE_CATALOG = {
   'pendlay-row': {
     name: 'Pendlay Row',
     movementPattern: 'horizontal-pull',
-    primaryMuscles: { 'Upper Back': 0.45, Biceps: 0.15, 'Lower Back': 0.20, Core: 0.10, Hams: 0.10 },
+    primaryMuscles: { 'Upper Back': 0.45, Biceps: 0.15, 'Lower Back': 0.20, Forearms: 0.06, Core: 0.09, Hams: 0.05 },
     progressionType: 'compound',
     equipment: 'barbell',
     repRange: [5, 8],
@@ -426,7 +426,7 @@ export const EXERCISE_CATALOG = {
   't-bar-row': {
     name: 'T-Bar Row',
     movementPattern: 'horizontal-pull',
-    primaryMuscles: { 'Upper Back': 0.45, Biceps: 0.15, 'Lower Back': 0.15, Core: 0.15, Shoulders: 0.10 },
+    primaryMuscles: { 'Upper Back': 0.45, Biceps: 0.15, 'Lower Back': 0.15, Core: 0.10, Forearms: 0.05, Shoulders: 0.10 },
     progressionType: 'compound',
     equipment: 'barbell',
     repRange: [8, 12],
@@ -440,7 +440,7 @@ export const EXERCISE_CATALOG = {
   'cable-row': {
     name: 'Cable Row',
     movementPattern: 'horizontal-pull',
-    primaryMuscles: { 'Upper Back': 0.45, Biceps: 0.25, Core: 0.15, Shoulders: 0.10, 'Lower Back': 0.05 },
+    primaryMuscles: { 'Upper Back': 0.45, Biceps: 0.25, Core: 0.10, Forearms: 0.05, Shoulders: 0.10, 'Lower Back': 0.05 },
     progressionType: 'compound',
     equipment: 'cable',
     repRange: [8, 12],
@@ -454,7 +454,7 @@ export const EXERCISE_CATALOG = {
   'seated-cable-row': {
     name: 'Seated Cable Row',
     movementPattern: 'horizontal-pull',
-    primaryMuscles: { 'Upper Back': 0.45, Biceps: 0.20, 'Lower Back': 0.15, Core: 0.10, Shoulders: 0.10 },
+    primaryMuscles: { 'Upper Back': 0.45, Biceps: 0.20, 'Lower Back': 0.15, Core: 0.05, Forearms: 0.05, Shoulders: 0.10 },
     progressionType: 'compound',
     equipment: 'cable',
     repRange: [10, 15],
@@ -496,7 +496,7 @@ export const EXERCISE_CATALOG = {
   'barbell-shrugs': {
     name: 'Barbell Shrugs',
     movementPattern: 'horizontal-pull',
-    primaryMuscles: { 'Upper Back': 0.60, Core: 0.20, Shoulders: 0.10, 'Lower Back': 0.10 },
+    primaryMuscles: { 'Upper Back': 0.60, Forearms: 0.10, Core: 0.10, Shoulders: 0.10, 'Lower Back': 0.10 },
     progressionType: 'isolation',
     equipment: 'barbell',
     repRange: [8, 12],
@@ -510,7 +510,7 @@ export const EXERCISE_CATALOG = {
   'dumbbell-shrugs': {
     name: 'Dumbbell Shrugs',
     movementPattern: 'horizontal-pull',
-    primaryMuscles: { 'Upper Back': 0.60, Shoulders: 0.15, Biceps: 0.15, Core: 0.10 },
+    primaryMuscles: { 'Upper Back': 0.60, Shoulders: 0.15, Biceps: 0.09, Forearms: 0.08, Core: 0.08 },
     progressionType: 'isolation',
     equipment: 'dumbbell',
     repRange: [10, 15],
@@ -560,7 +560,7 @@ export const EXERCISE_CATALOG = {
   'pullup': {
     name: 'Pull-ups',
     movementPattern: 'vertical-pull',
-    primaryMuscles: { 'Upper Back': 0.50, Biceps: 0.25, Core: 0.15, Shoulders: 0.10 },
+    primaryMuscles: { 'Upper Back': 0.50, Biceps: 0.25, Core: 0.10, Forearms: 0.05, Shoulders: 0.10 },
     progressionType: 'bodyweight',
     equipment: 'bodyweight',
     repRange: [6, 12],
@@ -574,7 +574,7 @@ export const EXERCISE_CATALOG = {
   'wide-pullup': {
     name: 'Wide-Grip Pull-ups',
     movementPattern: 'vertical-pull',
-    primaryMuscles: { 'Upper Back': 0.55, Biceps: 0.20, Core: 0.15, Shoulders: 0.10 },
+    primaryMuscles: { 'Upper Back': 0.55, Biceps: 0.20, Core: 0.11, Forearms: 0.04, Shoulders: 0.10 },
     progressionType: 'bodyweight',
     equipment: 'bodyweight',
     repRange: [6, 12],
@@ -588,7 +588,7 @@ export const EXERCISE_CATALOG = {
   'chinup': {
     name: 'Chin-ups',
     movementPattern: 'vertical-pull',
-    primaryMuscles: { 'Upper Back': 0.40, Biceps: 0.35, Core: 0.15, Shoulders: 0.10 },
+    primaryMuscles: { 'Upper Back': 0.40, Biceps: 0.35, Core: 0.10, Forearms: 0.05, Shoulders: 0.10 },
     progressionType: 'bodyweight',
     equipment: 'bodyweight',
     repRange: [6, 12],
@@ -602,7 +602,7 @@ export const EXERCISE_CATALOG = {
   'lat-pulldown': {
     name: 'Lat Pulldown',
     movementPattern: 'vertical-pull',
-    primaryMuscles: { 'Upper Back': 0.50, Biceps: 0.25, Shoulders: 0.10, Core: 0.15 },
+    primaryMuscles: { 'Upper Back': 0.50, Biceps: 0.25, Shoulders: 0.10, Core: 0.11, Forearms: 0.04 },
     progressionType: 'compound',
     equipment: 'cable',
     repRange: [8, 12],
@@ -700,7 +700,7 @@ export const EXERCISE_CATALOG = {
   'farmers-walk': {
     name: "Farmer's Walk",
     movementPattern: 'grip-carry',
-    primaryMuscles: { Core: 0.30, 'Upper Back': 0.25, 'Lower Back': 0.15, Hams: 0.10, Glutes: 0.10, Shoulders: 0.10 },
+    primaryMuscles: { Forearms: 0.20, Core: 0.20, 'Upper Back': 0.20, 'Lower Back': 0.12, Calves: 0.10, Hams: 0.08, Glutes: 0.05, Shoulders: 0.05 },
     progressionType: 'time',
     equipment: 'dumbbell',
     repRange: [30, 60],
@@ -716,7 +716,7 @@ export const EXERCISE_CATALOG = {
   'dead-hang': {
     name: 'Dead Hang',
     movementPattern: 'grip-carry',
-    primaryMuscles: { 'Upper Back': 0.30, Shoulders: 0.20, Core: 0.20, Biceps: 0.15, 'Lower Back': 0.15 },
+    primaryMuscles: { 'Upper Back': 0.30, Shoulders: 0.20, Forearms: 0.15, Core: 0.15, Biceps: 0.10, 'Lower Back': 0.10 },
     progressionType: 'time',
     equipment: 'bodyweight',
     repRange: [20, 60],
@@ -783,7 +783,7 @@ export const EXERCISE_CATALOG = {
   'barbell-curl': {
     name: 'Barbell Curl',
     movementPattern: 'vertical-pull',
-    primaryMuscles: { Biceps: 0.85, Shoulders: 0.10, Core: 0.05 },
+    primaryMuscles: { Biceps: 0.85, Forearms: 0.05, Shoulders: 0.05, Core: 0.05 },
     progressionType: 'isolation',
     equipment: 'barbell',
     repRange: [8, 12],
@@ -797,7 +797,7 @@ export const EXERCISE_CATALOG = {
   'hammer-curl': {
     name: 'Hammer Curl',
     movementPattern: 'vertical-pull',
-    primaryMuscles: { Biceps: 0.75, Shoulders: 0.15, Core: 0.10 },
+    primaryMuscles: { Biceps: 0.75, Forearms: 0.08, Shoulders: 0.10, Core: 0.07 },
     progressionType: 'isolation',
     equipment: 'dumbbell',
     repRange: [10, 15],
@@ -811,7 +811,7 @@ export const EXERCISE_CATALOG = {
   'preacher-curl': {
     name: 'Preacher Curl',
     movementPattern: 'vertical-pull',
-    primaryMuscles: { Biceps: 0.90, Shoulders: 0.05, Core: 0.05 },
+    primaryMuscles: { Biceps: 0.90, Forearms: 0.05, Shoulders: 0.02, Core: 0.03 },
     progressionType: 'isolation',
     equipment: 'dumbbell',
     repRange: [10, 15],
