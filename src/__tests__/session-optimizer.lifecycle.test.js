@@ -67,6 +67,7 @@ vi.mock('../systems/workout-builder.js', () => ({
 }));
 
 import { generateSessionPlan } from '../systems/session-optimizer.js';
+import { renderCoachingCard } from '../views/session-coach-ui.js';
 
 beforeEach(() => {
   mockStore.entries = [];
@@ -145,6 +146,39 @@ describe('Session Optimizer — lifecycle', () => {
       mockStore._sessionOptimizer.plan.lift === mockStore.workoutSession.mainLift;
 
     expect(shouldRender).toBe(true);
+  });
+
+  it('renders an empty-state card when insights is empty (coach never silent)', () => {
+    // All-green upstream state — no fatigue, no gaps, no plateau, no comeback.
+    mockFatigueLift.current = { status: 'green' };
+    mockFatigueByMuscle.current = {};
+    mockGapReport.current = [];
+
+    const session = buildSession('bench');
+    const plan = generateSessionPlan('bench', session);
+    expect(plan.insights).toEqual([]);
+
+    const html = renderCoachingCard(plan);
+    expect(html).not.toBe('');
+    expect(html).toMatch(/Bench notes/);
+    expect(html).toMatch(/nothing to flag/i);
+    expect(html).toMatch(/coach-note-empty/);
+  });
+
+  it('renders a full-intensity card (no empty class) when there are real insights', () => {
+    // Red fatigue on chest → triggers a fatigue insight.
+    mockFatigueLift.current = { status: 'red' };
+    mockFatigueByMuscle.current = {
+      Chest: { displayStatus: 'red' },
+    };
+
+    const session = buildSession('bench');
+    const plan = generateSessionPlan('bench', session);
+    expect(plan.insights.length).toBeGreaterThan(0);
+
+    const html = renderCoachingCard(plan);
+    expect(html).toMatch(/Bench notes/);
+    expect(html).not.toMatch(/coach-note-empty/);
   });
 });
 

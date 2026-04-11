@@ -29,11 +29,27 @@ import { LIFT_NAMES } from '../constants/lift-config.js';
 export function renderCoachingCard(plan) {
   if (!plan) return '';
   const rows = buildCoachRows(plan);
-  if (rows.length === 0) return '';
-
-  const rowsHtml = rows.map(renderCoachRow).join('');
   const liftName = LIFT_NAMES[plan.lift] || '';
   const label = liftName ? `${liftName} notes` : 'Notes';
+
+  // Empty state — coach has nothing salient to flag. Still render a muted
+  // "on track" row so the user knows the coach is running and healthy,
+  // instead of silently disappearing.
+  if (rows.length === 0) {
+    return `
+    <section class="coach-note coach-note-empty" id="coach-card" data-lift="${plan.lift}">
+      <header class="coach-note-head">
+        <span class="coach-note-label">${label}</span>
+      </header>
+      <ul class="coach-note-list">
+        <li class="coach-row" data-priority="low">
+          <p class="coach-row-text">On track \u2014 nothing to flag today.</p>
+        </li>
+      </ul>
+    </section>`;
+  }
+
+  const rowsHtml = rows.map(renderCoachRow).join('');
 
   return `
     <section class="coach-note" id="coach-card" data-lift="${plan.lift}">

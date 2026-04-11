@@ -91,6 +91,18 @@
   color: var(--text-dim);
 }
 
+/* Empty state — rendered when the plan has no salient rows. Muted so it
+   doesn't compete visually with a day that has real coaching content, but
+   still visible so the user knows the coach is running. */
+.coach-note-empty {
+  opacity: 0.65;
+}
+
+.coach-note-empty .coach-row-text {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
 /* ---------------------------------------------------------------------------
    Mid-session coaching chip
    --------------------------------------------------------------------------- */
