@@ -13,6 +13,23 @@ export default defineConfig({
     open: '/index.src.html',
   },
   test: {
+    environment: 'happy-dom',
     include: ['src/__tests__/**/*.test.js'],
+    exclude: ['node_modules', 'dist', 'assets'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'json-summary'],
+      exclude: [
+        'node_modules/**',
+        'dist/**',
+        'assets/**',
+        'src/__tests__/**',
+        '**/*.config.js',
+        'src/firebase/**',
+        'src/main.js',
+        'tests.js',
+        'sw.js',
+      ],
+    },
   },
 });
