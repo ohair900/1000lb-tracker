@@ -254,9 +254,11 @@ export function renderWorkoutView() {
   $('workout-subtitle').textContent = store.workoutSession.date + weekLabel;
   let html = '';
 
-  // Session Optimizer coaching card
-  if (store._sessionOptimizer && store._sessionOptimizer.plan) {
-    html += renderCoachingCard(store._sessionOptimizer.plan);
+  // Session Optimizer coaching card — only render when the plan belongs to
+  // the current workout (defensive against stale state from prior sessions).
+  const optimizer = store._sessionOptimizer;
+  if (optimizer && optimizer.plan && optimizer.plan.lift === store.workoutSession.mainLift) {
+    html += renderCoachingCard(optimizer.plan);
   }
 
   // Main lift section
@@ -482,6 +484,9 @@ export async function openWorkoutView(mainLift) {
           tone: 'danger',
         });
         if (!ok) return;
+        // User confirmed switch — drop prior plan before rebuild so no stale
+        // optimizer state is reachable between discard and createWorkoutSession.
+        store._sessionOptimizer = null;
       }
     }
     createWorkoutSession(mainLift);
@@ -1126,6 +1131,7 @@ export function initWorkoutOverlay() {
       store.saveProgramConfig();
     }
     store.workoutSession = null;
+    store._sessionOptimizer = null; // keep lifecycle symmetric with completeWorkout
     store.saveWorkoutSession();
     closeWorkoutView();
     _deps.updateDashboard?.();

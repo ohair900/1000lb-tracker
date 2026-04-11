@@ -9,6 +9,7 @@
 
 import { formatWeight } from '../formulas/units.js';
 import store from '../state/store.js';
+import { LIFT_NAMES } from '../constants/lift-config.js';
 
 // ---------------------------------------------------------------------------
 // Pre-session coaching note
@@ -31,11 +32,13 @@ export function renderCoachingCard(plan) {
   if (rows.length === 0) return '';
 
   const rowsHtml = rows.map(renderCoachRow).join('');
+  const liftName = LIFT_NAMES[plan.lift] || '';
+  const label = liftName ? `${liftName} notes` : 'Notes';
 
   return `
-    <section class="coach-note" id="coach-card">
+    <section class="coach-note" id="coach-card" data-lift="${plan.lift}">
       <header class="coach-note-head">
-        <span class="coach-note-label">Notes</span>
+        <span class="coach-note-label">${label}</span>
       </header>
       <ul class="coach-note-list">
         ${rowsHtml}
