@@ -163,6 +163,39 @@ export function triggerWeekCompleteCelebration() {
 }
 
 /**
+ * Fire a small top-of-viewport confetti burst for a goal-milestone hit.
+ * Colored by lift (red/blue/green). Non-blocking, self-cleans after ~2.5s.
+ *
+ * @param {string} lift - 'squat' | 'bench' | 'deadlift'
+ */
+export function burstMilestoneConfetti(lift) {
+  const liftColor = COLORS[lift] || '#ffd700';
+  const colors = [liftColor, '#ffd700', '#ffffff', liftColor, '#fff176'];
+  const container = document.createElement('div');
+  container.className = 'milestone-confetti-layer';
+  container.style.cssText = 'position:fixed;left:0;right:0;top:0;height:100vh;pointer-events:none;z-index:9998;overflow:hidden';
+  document.body.appendChild(container);
+
+  const count = 30;
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti';
+    const size = 6 + Math.random() * 6;
+    p.style.position = 'absolute';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.top = '-20px';
+    p.style.width = size + 'px';
+    p.style.height = (Math.random() > 0.5 ? size : size * 2.2) + 'px';
+    p.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    p.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    p.style.animationDuration = (1.6 + Math.random() * 1.0) + 's';
+    p.style.animationDelay = (Math.random() * 0.2) + 's';
+    container.appendChild(p);
+  }
+  setTimeout(() => container.remove(), 2800);
+}
+
+/**
  * Trigger the lift-complete celebration:
  *   - Checkmark cascade animation
  *   - Toast message

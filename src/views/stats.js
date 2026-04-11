@@ -121,12 +121,8 @@ export function buildGoalsHTML(total) {
     html += `</div>`;
   });
 
-  // Inline milestone roadmap
-  const roadmapLifts = LIFTS.filter(lift => {
-    const cur = bestE1RM(lift);
-    const goal = store.goals[lift];
-    return goal && cur && cur < goal;
-  });
+  // Inline milestone roadmap (persistent, locked at goal-set time)
+  const roadmapLifts = LIFTS.filter(lift => !!calcMilestoneRoadmap(lift));
   if (roadmapLifts.length > 0) {
     html += `<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
       <div style="font-size:var(--text-xs);color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Milestone Roadmap</div>`;
@@ -140,12 +136,20 @@ export function buildGoalsHTML(total) {
       rm.milestones.forEach(ms => {
         const dotColor = ms.achieved ? COLORS[lift] : 'var(--border)';
         const textColor = ms.achieved ? 'var(--text)' : 'var(--text-dim)';
-        const estLabel = ms.estDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        const rightLabel = ms.achieved
+          ? ms.achievedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : ms.estDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        const targetStyle = ms.achieved
+          ? 'text-decoration:line-through;opacity:0.7'
+          : '';
+        const checkmark = ms.achieved
+          ? '<span style="margin-left:6px;color:' + COLORS[lift] + '">&#10003;</span>'
+          : '';
         html += `<div style="position:relative;padding:3px 0 6px 12px;font-size:var(--text-sm);color:${textColor}">
           <div style="position:absolute;left:-3px;top:6px;width:8px;height:8px;border-radius:50%;background:${dotColor};border:2px solid var(--surface)"></div>
           <div style="display:flex;justify-content:space-between;align-items:baseline">
-            <span><strong>${formatWeight(ms.target)} ${store.unit}</strong> <span style="font-size:var(--text-xs)">${ms.label}</span></span>
-            <span style="font-size:var(--text-xs);color:var(--text-dim)">${ms.achieved ? 'Done' : estLabel}</span>
+            <span><strong style="${targetStyle}">${formatWeight(ms.target)} ${store.unit}</strong> <span style="font-size:var(--text-xs)">${ms.label}</span>${checkmark}</span>
+            <span style="font-size:var(--text-xs);color:var(--text-dim)">${rightLabel}</span>
           </div>
         </div>`;
       });

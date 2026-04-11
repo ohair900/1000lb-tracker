@@ -30,6 +30,7 @@ export const REASON_TAG_COUNTS_KEY = 'sbd-tracker-reason-tag-counts';
 export const ACCESSORY_OVERRIDES_KEY = 'sbd-tracker-acc-overrides';
 export const CUSTOM_ACCESSORIES_KEY = 'sbd-tracker-custom-accessories';
 export const DISABLED_ACCESSORIES_KEY = 'sbd-tracker-disabled-accessories';
+export const GOAL_MILESTONES_KEY = 'sbd-tracker-goal-milestones';
 
 export const ALL_DATA_KEYS = [
   STORAGE_KEY, PROFILE_KEY, GOALS_KEY, PRS_KEY, VERSION_KEY, CYCLES_KEY,
@@ -38,4 +39,5 @@ export const ALL_DATA_KEYS = [
   WORKOUT_SESSION_KEY, CUSTOM_TEMPLATES_KEY, MESOCYCLE_KEY, MESOCYCLE_HISTORY_KEY,
   TIMER_KEY, STATS_COLLAPSED_KEY, LEADERBOARD_KEY, DELETED_IDS_KEY,
   ACCESSORY_OVERRIDES_KEY, CUSTOM_ACCESSORIES_KEY, DISABLED_ACCESSORIES_KEY,
+  GOAL_MILESTONES_KEY,
 ];

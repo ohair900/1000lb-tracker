@@ -80,43 +80,127 @@ export function calcGoalProjection(lift) {
 }
 
 /**
- * Build a 4-milestone roadmap from the current e1RM to the goal.
+ * Lock in a 4-milestone set for a lift based on the current e1RM and goal.
+ * Called when a goal is first set or changed. Always regenerates all 4 milestones
+ * — previously achieved ones are NOT preserved (per user preference).
  *
  * Milestones 1-3 are evenly spaced between current and goal (rounded to
- * nearest 5 lbs).  Milestone 4 is the goal itself.
+ * nearest 5 lbs). Milestone 4 is the goal itself.
+ *
+ * @param {string} lift - 'squat' | 'bench' | 'deadlift'
+ */
+export function lockMilestones(lift) {
+  if (lift === 'total') return;
+  if (!store.goalMilestones) store.goalMilestones = { squat: null, bench: null, deadlift: null };
+
+  const goal = store.goals[lift];
+  if (!goal) {
+    store.goalMilestones[lift] = null;
+    store.saveGoalMilestones();
+    return;
+  }
+  const cur = bestE1RM(lift);
+  if (!cur || cur >= goal) {
+    // No point creating milestones if user already at/past goal or has no data
+    store.goalMilestones[lift] = null;
+    store.saveGoalMilestones();
+    return;
+  }
+
+  const gap = goal - cur;
+  const milestones = [];
+  for (let i = 1; i <= 4; i++) {
+    const target = i === 4 ? goal : Math.round((cur + gap * (i / 4)) / 5) * 5;
+    milestones.push({
+      target,
+      label: i === 4 ? 'Goal' : `Milestone ${i}`,
+      achievedAt: null,
+      achievedEntryId: null,
+    });
+  }
+  store.goalMilestones[lift] = {
+    goal,
+    startE1RM: cur,
+    createdAt: Date.now(),
+    milestones,
+  };
+  store.saveGoalMilestones();
+}
+
+/**
+ * Check if a new e1RM crosses any previously-unachieved milestones for a lift.
+ * Marks newly-achieved milestones with timestamp + entry ID and returns them
+ * so the caller can trigger celebration (toast + confetti).
+ *
+ * @param {string} lift - 'squat' | 'bench' | 'deadlift'
+ * @param {number} newE1RM - The e1RM from the just-logged entry
+ * @param {string} entryId - The entry ID that triggered this check
+ * @returns {Array} Newly-achieved milestone objects (with lift field added)
+ */
+export function checkMilestonesAchieved(lift, newE1RM, entryId) {
+  if (lift === 'total') return [];
+  const data = store.goalMilestones && store.goalMilestones[lift];
+  if (!data || !data.milestones) return [];
+
+  const hit = [];
+  data.milestones.forEach(ms => {
+    if (!ms.achievedAt && newE1RM >= ms.target) {
+      ms.achievedAt = Date.now();
+      ms.achievedEntryId = entryId;
+      hit.push({ ...ms, lift });
+    }
+  });
+  if (hit.length > 0) store.saveGoalMilestones();
+  return hit;
+}
+
+/**
+ * Build the milestone roadmap for a lift, reading from persistent store.
+ * Returns null if:
+ *  - No goal set, OR
+ *  - No locked milestones exist, OR
+ *  - All milestones (including the Goal) have been achieved
  *
  * @param {string} lift - 'squat' | 'bench' | 'deadlift'
  * @returns {Object|null} Roadmap with `lift`, `milestones` array, and `projection`.
  */
 export function calcMilestoneRoadmap(lift) {
+  if (lift === 'total') return null;
+  const data = store.goalMilestones && store.goalMilestones[lift];
+  if (!data || !data.milestones || data.milestones.length === 0) return null;
+
+  // Hide once all milestones (including Goal) are achieved
+  const allAchieved = data.milestones.every(ms => ms.achievedAt);
+  if (allAchieved) return null;
+
+  // Use the current projection for estDate on unachieved milestones
   const proj = calcGoalProjection(lift);
-  if (!proj) return null;
+  const cur = bestE1RM(lift) || data.startE1RM;
+  const goal = data.goal;
+  const gap = goal - cur;
 
-  const cur = proj.currentE1RM;
-  const goal = proj.goal;
-  const gap = proj.gap;
-  const milestones = [];
-
-  // Break into 4 milestones
-  for (let i = 1; i <= 4; i++) {
-    let target;
-    if (i === 4) {
-      target = goal;
-    } else {
-      target = Math.round((cur + gap * (i / 4)) / 5) * 5;
+  const milestones = data.milestones.map(ms => {
+    const achieved = !!ms.achievedAt;
+    const achievedDate = achieved ? new Date(ms.achievedAt) : null;
+    let weeksAway = 0;
+    let estDate = new Date();
+    if (!achieved && proj && gap > 0) {
+      const pctOfGap = Math.max(0, (ms.target - cur) / gap);
+      weeksAway = Math.round(proj.weeksNeeded * pctOfGap);
+      estDate = new Date();
+      estDate.setDate(estDate.getDate() + weeksAway * 7);
+    } else if (achieved) {
+      estDate = achievedDate;
     }
-    const pctOfGap = (target - cur) / gap;
-    const weeksAway = Math.round(proj.weeksNeeded * pctOfGap);
-    const estDate = new Date();
-    estDate.setDate(estDate.getDate() + weeksAway * 7);
-    milestones.push({
-      target,
-      label: i === 4 ? 'Goal' : `Milestone ${i}`,
+    return {
+      target: ms.target,
+      label: ms.label,
       weeksAway,
       estDate,
-      achieved: cur >= target,
-    });
-  }
+      achieved,
+      achievedDate,
+    };
+  });
 
   return { lift, milestones, projection: proj };
 }

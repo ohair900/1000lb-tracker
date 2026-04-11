@@ -15,6 +15,7 @@ import { formatPlates } from '../formulas/plates.js';
 import { checkPR } from '../systems/pr-tracking.js';
 import { addEntry } from '../state/actions.js';
 import { showToast } from '../ui/toast.js';
+import { burstMilestoneConfetti } from '../ui/confetti.js';
 
 // ---------------------------------------------------------------------------
 // Late-bound callbacks — set via inject()
@@ -113,7 +114,7 @@ export function initLogTab() {
     clearInputHint(repsHint);
     const notes = notesInput.value.trim();
     const activeTags = [...document.querySelectorAll('#log-tags .tag-pill.active')].map(t => t.dataset.tag);
-    const { entry, isPR, isRepPR, milestone } = addEntry(store.currentLift, inputToLbs(w), r, store.currentRPE, notes, activeTags);
+    const { entry, isPR, isRepPR, milestone, hitMilestones } = addEntry(store.currentLift, inputToLbs(w), r, store.currentRPE, notes, activeTags);
     weightInput.value = ''; repsInput.value = '';
     updatePreview();
     _deps.updateDashboard?.();
@@ -164,8 +165,23 @@ export function initLogTab() {
       showToast(`NEW PR! ${name} e1RM: ${formatWeight(entry.e1rm)} ${store.unit}`, true, milestone, shareData);
     } else if (isRepPR) {
       showToast(`${r}-Rep PR! ${LIFT_NAMES[store.currentLift]} ${w} ${store.unit}`);
-    } else if (!progApplied) {
+    } else if (!progApplied && (!hitMilestones || hitMilestones.length === 0)) {
       showToast('Set logged');
+    }
+
+    // Goal milestone celebration — toast + inline confetti burst per hit milestone
+    if (hitMilestones && hitMilestones.length > 0) {
+      hitMilestones.forEach((ms, i) => {
+        setTimeout(() => {
+          const isGoal = ms.label === 'Goal';
+          const emoji = isGoal ? '\uD83C\uDFC6' : '\uD83C\uDFAF';
+          const msg = isGoal
+            ? `${emoji} GOAL REACHED! ${LIFT_NAMES[ms.lift]} ${formatWeight(ms.target)} ${store.unit}`
+            : `${emoji} ${ms.label}: ${LIFT_NAMES[ms.lift]} ${formatWeight(ms.target)} ${store.unit}`;
+          showToast(msg);
+          burstMilestoneConfetti(ms.lift);
+        }, i * 1500);
+      });
     }
     weightInput.focus();
   });

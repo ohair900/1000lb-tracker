@@ -15,6 +15,7 @@ import { bestE1RM, getTotal } from '../formulas/e1rm.js';
 import { displayWeight, formatWeight, inputToLbs } from '../formulas/units.js';
 import { getWeightClass } from '../formulas/standards.js';
 import { rebuildPRs } from '../systems/pr-tracking.js';
+import { lockMilestones } from '../systems/goals.js';
 import { showToast } from '../ui/toast.js';
 import { openModal, closeModal } from '../ui/modal.js';
 import { applyAccentColor } from '../ui/theme.js';
@@ -325,6 +326,8 @@ export function attachSettingsListeners() {
       const v = parseFloat(input.value);
       store.goals[lift] = v > 0 ? inputToLbs(v) : null;
       store.saveGoals();
+      // Lock or regenerate per-lift milestones (skip 'total' which uses its own system)
+      if (lift !== 'total') lockMilestones(lift);
       _deps.updateDashboard?.();
       // Re-render settings body so roadmap updates live (preserve active tab)
       const prevTab = _settingsTab;

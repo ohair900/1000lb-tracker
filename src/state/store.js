@@ -49,6 +49,7 @@ import {
   ACCESSORY_OVERRIDES_KEY,
   CUSTOM_ACCESSORIES_KEY,
   DISABLED_ACCESSORIES_KEY,
+  GOAL_MILESTONES_KEY,
 } from '../constants/storage-keys.js';
 
 import { CURRENT_VERSION } from '../constants/time.js';
@@ -107,6 +108,9 @@ class Store {
     this.accessoryOverrides = {};   // { [exerciseId]: { sets?, repRange?, pctOfTM? } }
     this.customAccessories = [];    // [{ id, name, mainLift, weakPoints, pctOfTM, sets, repRange, equipment, category }]
     this.disabledAccessories = [];  // [exerciseId, ...]
+    // Persistent per-lift milestone tracking tied to goals.
+    // Shape: { squat: { goal, startE1RM, createdAt, milestones: [{ target, label, achievedAt, achievedEntryId }] } | null, ... }
+    this.goalMilestones = { squat: null, bench: null, deadlift: null };
 
     // -----------------------------------------------------------------------
     // Ephemeral UI state — NOT persisted via the STORES registry.
@@ -304,6 +308,12 @@ class Store {
         set: (v) => { this.disabledAccessories = v; },
         default: [],
       },
+      goalMilestones: {
+        key: GOAL_MILESTONES_KEY,
+        get: () => this.goalMilestones,
+        set: (v) => { this.goalMilestones = v || { squat: null, bench: null, deadlift: null }; },
+        default: { squat: null, bench: null, deadlift: null },
+      },
     };
 
     // -----------------------------------------------------------------------
@@ -344,7 +354,7 @@ class Store {
   /** Stores needed for first paint (dashboard, program section, log tab). */
   static ESSENTIAL_STORES = [
     'entries', 'profile', 'goals', 'prs', 'programs', 'workoutConfig', 'workoutSession', 'mesocycle',
-    'cycles', 'deletedEntryIds', 'leaderboard',
+    'cycles', 'deletedEntryIds', 'leaderboard', 'goalMilestones',
   ];
   /** Stores that can be loaded after first paint. */
   static DEFERRED_STORES = [
@@ -458,6 +468,7 @@ class Store {
   saveEntries()        { this.save('entries'); }
   saveProfile()        { this.save('profile'); }
   saveGoals()          { this.save('goals'); }
+  saveGoalMilestones() { this.save('goalMilestones'); }
   savePRs()            { this.save('prs'); }
   saveCycles()         { this.save('cycles'); }
   saveProgramConfig()  { this.saveNow('programs'); this._backupCompletedSets(); }

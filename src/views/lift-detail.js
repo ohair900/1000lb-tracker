@@ -115,18 +115,22 @@ export function showLiftDetail(lift) {
     html += `<div class="ld-section" style="--i:${sectionIdx++}">`;
     html += `<div class="ld-goal-label">${pct.toFixed(0)}% of ${formatWeight(goal)} ${store.unit} goal</div>`;
     html += `<div class="ld-goal-bar"><div class="ld-goal-fill" style="width:${pct}%"></div></div>`;
-    // Milestone roadmap (same as stats tab)
+    // Milestone roadmap (persistent, locked at goal-set time)
     const rm = calcMilestoneRoadmap(lift);
     if (rm) {
       html += `<div class="ld-roadmap">`;
       rm.milestones.forEach(ms => {
         const dotColor = ms.achieved ? COLORS[lift] : 'var(--border)';
         const textColor = ms.achieved ? 'var(--text)' : 'var(--text-dim)';
-        const estLabel = ms.estDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        const rightLabel = ms.achieved
+          ? ms.achievedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : '~' + ms.estDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        const targetStyle = ms.achieved ? 'text-decoration:line-through;opacity:0.7' : '';
+        const checkmark = ms.achieved ? ' <span style="color:' + COLORS[lift] + '">&#10003;</span>' : '';
         html += `<div class="ld-roadmap-item" style="color:${textColor}">`;
         html += `<span class="ld-roadmap-dot" style="background:${dotColor}"></span>`;
-        html += `<span><strong>${formatWeight(ms.target)}</strong> ${ms.label}</span>`;
-        html += `<span class="ld-roadmap-est">${ms.achieved ? 'Done' : '~' + estLabel}</span>`;
+        html += `<span><strong style="${targetStyle}">${formatWeight(ms.target)}</strong> ${ms.label}${checkmark}</span>`;
+        html += `<span class="ld-roadmap-est">${rightLabel}</span>`;
         html += `</div>`;
       });
       html += `</div>`;

@@ -39,6 +39,7 @@ import {
 } from '../systems/session-optimizer.js';
 import { renderCoachingCard, renderSetEvaluationChip, renderSessionGrade } from '../views/session-coach-ui.js';
 import { showToast } from '../ui/toast.js';
+import { burstMilestoneConfetti } from '../ui/confetti.js';
 import { confirmSheet } from '../ui/confirm-sheet.js';
 import {
   startTimer,
@@ -195,6 +196,20 @@ function _completeMainSet(idx) {
   if (result && result.entry) {
     if (!store.workoutSession.loggedEntryIds) store.workoutSession.loggedEntryIds = [];
     store.workoutSession.loggedEntryIds.push(result.entry.id);
+  }
+  // Goal milestone celebration — toast + inline confetti per hit milestone
+  if (result && result.hitMilestones && result.hitMilestones.length > 0) {
+    result.hitMilestones.forEach((ms, i) => {
+      setTimeout(() => {
+        const isGoal = ms.label === 'Goal';
+        const emoji = isGoal ? '\uD83C\uDFC6' : '\uD83C\uDFAF';
+        const msg = isGoal
+          ? `${emoji} GOAL REACHED! ${LIFT_NAMES[ms.lift]} ${formatWeight(ms.target)} ${store.unit}`
+          : `${emoji} ${ms.label}: ${LIFT_NAMES[ms.lift]} ${formatWeight(ms.target)} ${store.unit}`;
+        showToast(msg);
+        burstMilestoneConfetti(ms.lift);
+      }, 500 + i * 1500);
+    });
   }
   _deps.updateDashboard?.();
   set.completed = true;

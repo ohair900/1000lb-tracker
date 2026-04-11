@@ -33,6 +33,7 @@ import { formatWeight, inputToLbs } from './formulas/units.js';
 
 // ===== 4. Systems =====
 import { rebuildPRs, checkPR, checkRepPR, getMilestone } from './systems/pr-tracking.js';
+import { checkMilestonesAchieved, lockMilestones } from './systems/goals.js';
 import {
   getProgramWorkout,
   updateWeekStreak,
@@ -315,6 +316,7 @@ injectActions({
   checkPR,
   checkRepPR,
   getMilestone,
+  checkMilestonesAchieved,
 });
 
 // 4b. Store hooks — cloud sync on every local save
@@ -507,7 +509,17 @@ setWelcomeDeps({
 
 // Defer PR rebuild to after first paint (heavy O(n log n) sort)
 const _ric = window.requestIdleCallback || ((cb) => setTimeout(cb, 1));
-_ric(() => { try { rebuildPRs(); } catch {} });
+_ric(() => {
+  try { rebuildPRs(); } catch {}
+  // Migrate: auto-generate goalMilestones for users with existing goals
+  try {
+    ['squat', 'bench', 'deadlift'].forEach(lift => {
+      if (store.goals[lift] && !store.goalMilestones?.[lift]) {
+        lockMilestones(lift);
+      }
+    });
+  } catch {}
+});
 initDOMRefs();
 
 // ----- Step 7: Apply accent color -----

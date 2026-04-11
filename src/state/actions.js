@@ -25,30 +25,9 @@ import { generateId } from '../utils/helpers.js';
 // Late-bound dependencies (set via inject())
 // ---------------------------------------------------------------------------
 
-let _calcE1RM    = null;
-let _rebuildPRs  = null;
-let _checkPR     = null;
-let _checkRepPR  = null;
-let _getMilestone = null;
+let _deps = {};
 
-/**
- * Provide formula / system functions that this module needs.
- * Call once during app boot, after all modules are imported.
- *
- * @param {Object} deps
- * @param {Function} deps.calcE1RM
- * @param {Function} deps.rebuildPRs
- * @param {Function} deps.checkPR
- * @param {Function} deps.checkRepPR
- * @param {Function} deps.getMilestone
- */
-export function inject(deps) {
-  _calcE1RM    = deps.calcE1RM;
-  _rebuildPRs  = deps.rebuildPRs;
-  _checkPR     = deps.checkPR;
-  _checkRepPR  = deps.checkRepPR;
-  _getMilestone = deps.getMilestone;
-}
+export function inject(deps) { Object.assign(_deps, deps); }
 
 // ---------------------------------------------------------------------------
 // Add / Edit / Delete
@@ -66,11 +45,11 @@ export function inject(deps) {
  * @returns {{ entry: Object, isPR: boolean, isRepPR: boolean, milestone: string|null }}
  */
 export function addEntry(lift, weight, reps, rpe, notes, tags) {
-  const e1rm = Math.round(_calcE1RM(weight, reps) * 10) / 10;
+  const e1rm = Math.round(_deps.calcE1RM(weight, reps) * 10) / 10;
   const now = new Date();
-  const isPR = _checkPR(lift, e1rm);
-  const isRepPR = _checkRepPR(lift, weight, reps);
-  const milestone = isPR ? _getMilestone(lift, e1rm) : null;
+  const isPR = _deps.checkPR(lift, e1rm);
+  const isRepPR = _deps.checkRepPR(lift, weight, reps);
+  const milestone = isPR ? _deps.getMilestone(lift, e1rm) : null;
 
   const entry = {
     id: generateId(),
@@ -105,7 +84,12 @@ export function addEntry(lift, weight, reps, rpe, notes, tags) {
   store.saveEntries();
   store.lastLoggedSet = { lift, weight, reps, rpe, notes };
 
-  return { entry, isPR, isRepPR, milestone };
+  // Check goal milestones crossed by this entry's e1RM
+  const hitMilestones = _deps.checkMilestonesAchieved
+    ? _deps.checkMilestonesAchieved(lift, e1rm, entry.id)
+    : [];
+
+  return { entry, isPR, isRepPR, milestone, hitMilestones };
 }
 
 /**
@@ -128,12 +112,12 @@ export function editEntry(id, lift, weight, reps, rpe, notes) {
   e.lift = lift;
   e.weight = weight;
   e.reps = reps;
-  e.e1rm = Math.round(_calcE1RM(weight, reps) * 10) / 10;
+  e.e1rm = Math.round(_deps.calcE1RM(weight, reps) * 10) / 10;
   e.rpe = rpe;
   e.notes = notes || '';
   e.updatedAt = Date.now();
 
-  _rebuildPRs();
+  _deps.rebuildPRs();
 }
 
 /**
@@ -155,7 +139,7 @@ export function deleteEntry(id) {
   const wasPR = entry?.isPR;
   store.entries = store.entries.filter((e) => e.id !== id);
 
-  if (wasPR) _rebuildPRs();
+  if (wasPR) _deps.rebuildPRs();
   else store.saveEntries();
 }
 
@@ -197,16 +181,16 @@ export function executeUndo() {
 
   if (type === 'delete') {
     store.entries.push(data.entry);
-    _rebuildPRs();
+    _deps.rebuildPRs();
   } else if (type === 'edit') {
     const e = store.entries.find((x) => x.id === data.id);
     if (e) {
       Object.assign(e, data.previous);
-      _rebuildPRs();
+      _deps.rebuildPRs();
     }
   } else if (type === 'add') {
     store.entries = store.entries.filter((e) => e.id !== data.id);
-    _rebuildPRs();
+    _deps.rebuildPRs();
   }
 
   return { type, data };
