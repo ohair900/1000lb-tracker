@@ -118,34 +118,52 @@ describe('Session Optimizer — lifecycle', () => {
     expect(mockStore._sessionOptimizer.plan.lift).toBe('bench');
   });
 
-  it('render guard: a mismatched plan.lift vs session.mainLift is caught', () => {
-    // This simulates the render-time guard inside workout-overlay.js. The
-    // actual guard lives there, but we assert its invariant by constructing
-    // the mismatched state and checking the guard condition.
+  it('regenerates the plan when a stale plan from another lift is present', () => {
+    // Simulate the situation renderWorkoutView catches: current session is
+    // bench, but _sessionOptimizer still carries the previous lift's plan.
     mockStore.workoutSession = buildSession('bench');
     mockStore._sessionOptimizer = {
       plan: { lift: 'squat', insights: [] },
       evaluations: [],
     };
 
-    const shouldRender =
-      mockStore._sessionOptimizer &&
-      mockStore._sessionOptimizer.plan &&
-      mockStore._sessionOptimizer.plan.lift === mockStore.workoutSession.mainLift;
+    const isStale =
+      !mockStore._sessionOptimizer.plan ||
+      mockStore._sessionOptimizer.plan.lift !== mockStore.workoutSession.mainLift;
+    expect(isStale).toBe(true);
 
-    expect(shouldRender).toBe(false);
+    // The renderWorkoutView ensure-fresh block calls generateSessionPlan,
+    // which replaces the stored plan cleanly.
+    generateSessionPlan('bench', mockStore.workoutSession);
+    expect(mockStore._sessionOptimizer.plan.lift).toBe('bench');
   });
 
-  it('render guard: a matching plan.lift renders normally', () => {
+  it('regenerates the plan when _sessionOptimizer is null at render time', () => {
+    // Simulate the situation where the first-open attempt failed silently
+    // and left _sessionOptimizer null. The renderWorkoutView ensure-fresh
+    // block must still produce a plan for the current session.
+    mockStore.workoutSession = buildSession('bench');
+    mockStore._sessionOptimizer = null;
+
+    expect(mockStore._sessionOptimizer).toBeNull();
+
+    generateSessionPlan('bench', mockStore.workoutSession);
+    expect(mockStore._sessionOptimizer).not.toBeNull();
+    expect(mockStore._sessionOptimizer.plan.lift).toBe('bench');
+  });
+
+  it('leaves a matching plan untouched if regen is unnecessary', () => {
+    // When the stored plan already matches, we still want generateSessionPlan
+    // to be callable and produce a fresh plan with the same lift — this is
+    // the "regen is idempotent from the user's perspective" invariant.
     mockStore.workoutSession = buildSession('bench');
     generateSessionPlan('bench', mockStore.workoutSession);
+    const firstPlan = mockStore._sessionOptimizer.plan;
+    expect(firstPlan.lift).toBe('bench');
 
-    const shouldRender =
-      mockStore._sessionOptimizer &&
-      mockStore._sessionOptimizer.plan &&
-      mockStore._sessionOptimizer.plan.lift === mockStore.workoutSession.mainLift;
-
-    expect(shouldRender).toBe(true);
+    // Regen again — plan.lift is still 'bench'.
+    generateSessionPlan('bench', mockStore.workoutSession);
+    expect(mockStore._sessionOptimizer.plan.lift).toBe('bench');
   });
 
   it('renders an empty-state card when insights is empty (coach never silent)', () => {

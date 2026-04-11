@@ -254,10 +254,20 @@ export function renderWorkoutView() {
   $('workout-subtitle').textContent = store.workoutSession.date + weekLabel;
   let html = '';
 
-  // Session Optimizer coaching card — only render when the plan belongs to
-  // the current workout (defensive against stale state from prior sessions).
-  const optimizer = store._sessionOptimizer;
-  if (optimizer && optimizer.plan && optimizer.plan.lift === store.workoutSession.mainLift) {
+  // Session Optimizer coaching card — ensure the stored plan belongs to
+  // this session. If it's missing or belongs to a prior lift (stale from a
+  // discarded workout, or skipped due to an upstream error during create),
+  // regenerate it in place. Regen is synchronous and idempotent.
+  let optimizer = store._sessionOptimizer;
+  if (!optimizer || !optimizer.plan || optimizer.plan.lift !== store.workoutSession.mainLift) {
+    try {
+      generateSessionPlan(store.workoutSession.mainLift, store.workoutSession);
+      optimizer = store._sessionOptimizer;
+    } catch (err) {
+      console.warn('Session optimizer plan generation failed:', err);
+    }
+  }
+  if (optimizer && optimizer.plan) {
     html += renderCoachingCard(optimizer.plan);
   }
 
