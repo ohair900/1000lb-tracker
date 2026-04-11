@@ -14,6 +14,7 @@ import { ACCESSORY_DB } from '../data/accessories.js';
 import { EXERCISE_CATALOG, PROGRESSION_MODELS } from '../data/exercise-catalog.js';
 import { resolveExercise, resolveCanonicalId, getExerciseHistory } from '../data/exercise-compat.js';
 import { PROGRAM_TEMPLATES } from '../data/programs.js';
+import { SUPPLEMENTAL_TIERS } from '../constants/program-tiers.js';
 import { formatWeight, displayWeight } from '../formulas/units.js';
 import { formatPlates, roundToPlate } from '../formulas/plates.js';
 import {
@@ -35,7 +36,8 @@ import {
   evaluateSetCompletion,
   gradeSession,
   applyAdjustments,
-  applyBBBAdjustment,
+  applySupplementalAdjustment,
+  applyAccessorySwap,
 } from '../systems/session-optimizer.js';
 import { renderCoachingCard, renderSetEvaluationChip, renderSessionGrade } from '../views/session-coach-ui.js';
 import { showToast } from '../ui/toast.js';
@@ -117,10 +119,13 @@ function createWorkoutSession(mainLift) {
   const now = new Date();
   const workout = getProgramWorkout(mainLift, findFirstIncompleteWeek(mainLift));
 
-  // Check if program has BBB supplemental sets — reduce accessories accordingly
-  const hasBBB = workout ? workout.sets.some(s => s.tier === 'BBB') : false;
-  const accCount = hasBBB ? 3 : 5;
-  const accessories = hasBBB ? selectSmartAccessories(mainLift, accCount) : selectAccessories(mainLift);
+  // Programs that prescribe supplemental volume (BBB, T2, etc.) leave less
+  // room for accessories — cut the default accessory count.
+  const hasSupplemental = workout
+    ? workout.sets.some(s => SUPPLEMENTAL_TIERS.includes(s.tier))
+    : false;
+  const accCount = hasSupplemental ? 3 : 5;
+  const accessories = hasSupplemental ? selectSmartAccessories(mainLift, accCount) : selectAccessories(mainLift);
 
   const session = {
     id: now.getTime().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -129,6 +134,8 @@ function createWorkoutSession(mainLift) {
     date: now.toISOString().split('T')[0],
     startTime: now.getTime(),
     mainSets: [],
+    // `bbbSets` is the historical field name but holds ALL supplemental tiers
+    // (BBB, T2, etc.) — preserved for back-compat with in-flight sessions.
     bbbSets: [],
     accessories: accessories.map(ex => ({
       exerciseId: ex.id,
@@ -142,17 +149,18 @@ function createWorkoutSession(mainLift) {
     })),
     completed: false
   };
-  // Clone program sets if active, separating BBB supplemental
+  // Clone program sets if active, peeling all supplemental tiers out of mainSets.
   if (workout) {
-    const mainOnly = workout.sets.filter(s => s.tier !== 'BBB');
-    const bbbOnly = workout.sets.filter(s => s.tier === 'BBB');
+    const mainOnly = workout.sets.filter(s => !SUPPLEMENTAL_TIERS.includes(s.tier));
+    const suppOnly = workout.sets.filter(s => SUPPLEMENTAL_TIERS.includes(s.tier));
     session.mainSets = mainOnly.map(s => ({
       num: s.num, weight: s.weight, reps: s.reps, pct: s.pct,
       tier: s.tier, day: s.day, completed: s.completed
     }));
-    session.bbbSets = bbbOnly.map((s, i) => ({
+    session.bbbSets = suppOnly.map((s, i) => ({
       num: i + 1, weight: s.weight, reps: s.reps, pct: s.pct,
-      tier: 'BBB', completed: false
+      tier: s.tier,            // preserve original tier ('T2' or 'BBB')
+      completed: false
     }));
   }
   store.workoutSession = session;
@@ -283,10 +291,13 @@ export function renderWorkoutView() {
   }
   html += `</div>`;
 
-  // BBB supplemental section (between main lifts and accessories)
+  // Supplemental section (between main lifts and accessories). Holds T2 or
+  // BBB tier sets depending on which program is active.
   if (store.workoutSession.bbbSets && store.workoutSession.bbbSets.length > 0) {
+    const suppTier = store.workoutSession.bbbSets[0].tier || 'BBB';
+    const suppLabel = suppTier === 'BBB' ? 'Boring But Big' : `Supplemental (${suppTier})`;
     html += `<div class="workout-exercise bbb-section">`;
-    html += `<div class="workout-exercise-name" style="color:var(--text-dim)">Supplemental (BBB)</div>`;
+    html += `<div class="workout-exercise-name" style="color:var(--text-dim)">${suppLabel}</div>`;
     const activeBBB = store.workoutSession.bbbSets.filter(s => !s._dropped);
     html += `<div class="workout-exercise-meta">${activeBBB.length}&times;${store.workoutSession.bbbSets[0].reps} at ${store.workoutSession.bbbSets[0].pct}%</div>`;
     activeBBB.forEach((s, i) => {
@@ -629,6 +640,40 @@ export function initWorkoutOverlay() {
           applyAdjustments(evaluation);
           renderWorkoutView();
           showToast('Adjustments applied');
+        }
+      }
+      return;
+    }
+    // Session Optimizer: Accept pre-session supplemental (BBB/T2) reduction
+    if (e.target.closest('[data-coach-accept-supp]')) {
+      const optimizer = store._sessionOptimizer;
+      const plan = optimizer && optimizer.plan;
+      if (plan && plan.supplementalAdjustment && !plan.supplementalAdjustment._accepted) {
+        applySupplementalAdjustment(plan.supplementalAdjustment);
+        plan.supplementalAdjustment._accepted = true;
+        // Mark the corresponding insight row so the re-render shows it as applied
+        (plan.insights || []).forEach(ins => {
+          if (ins.type === 'volume') ins._accepted = true;
+        });
+        renderWorkoutView();
+      }
+      return;
+    }
+    // Session Optimizer: Accept pre-session accessory swap
+    const acceptSwapBtn = e.target.closest('[data-coach-accept-swap]');
+    if (acceptSwapBtn) {
+      const idx = parseInt(acceptSwapBtn.dataset.coachAcceptSwap, 10);
+      const optimizer = store._sessionOptimizer;
+      const plan = optimizer && optimizer.plan;
+      if (plan && Array.isArray(plan.accessorySwaps) && plan.accessorySwaps[idx]) {
+        const swap = plan.accessorySwaps[idx];
+        if (!swap._accepted) {
+          applyAccessorySwap(swap);
+          swap._accepted = true;
+          (plan.insights || []).forEach(ins => {
+            if (ins.type === 'gap' && ins.swapIndex === idx) ins._accepted = true;
+          });
+          renderWorkoutView();
         }
       }
       return;

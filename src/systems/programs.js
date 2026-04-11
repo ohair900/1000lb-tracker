@@ -10,6 +10,7 @@ import { PROGRAM_TEMPLATES } from '../data/programs.js';
 import { LIFTS, LIFT_NAMES } from '../constants/lift-config.js';
 import { roundToPlate } from '../formulas/plates.js';
 import { formatWeight } from '../formulas/units.js';
+import { SUPPLEMENTAL_TIERS } from '../constants/program-tiers.js';
 
 // ---------------------------------------------------------------------------
 // Per-lift week helper
@@ -131,9 +132,9 @@ export function findFirstIncompleteWeek(lift) {
   return lw;
 }
 
-/** Filter to only primary working sets (exclude BBB supplemental). */
+/** Filter to only primary working sets (exclude BBB / T2 / other supplemental). */
 function _primarySets(workout) {
-  return workout.sets.filter(s => s.tier !== 'BBB');
+  return workout.sets.filter(s => !SUPPLEMENTAL_TIERS.includes(s.tier));
 }
 
 // ---------------------------------------------------------------------------

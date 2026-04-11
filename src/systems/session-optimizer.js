@@ -31,6 +31,8 @@ import { getGapReport } from './gap-analysis.js';
 import { checkComeback } from './comeback.js';
 import { getCalibratedRecovery } from './recovery-calibration.js';
 import { MAIN_LIFT_WEIGHTS } from '../data/muscle-groups.js';
+import { EXERCISE_CATALOG } from '../data/exercise-catalog.js';
+import { resolveExercise } from '../data/exercise-compat.js';
 import { roundToPlate } from '../formulas/plates.js';
 
 // ---------------------------------------------------------------------------
@@ -61,7 +63,7 @@ export function generateSessionPlan(lift, session) {
   const insights = [];
   const adjustments = [];
   const accessorySwaps = [];
-  let bbbAdjustment = null;
+  let supplementalAdjustment = null;
 
   // --- Fatigue analysis ---
   const liftStatus = cache.fatigueLift ? cache.fatigueLift.status : 'green';
@@ -87,19 +89,17 @@ export function generateSessionPlan(lift, session) {
   if (liftStatus === 'red' || worstDisplay === 'red') {
     insights.push({
       priority: 1, type: 'fatigue', icon: 'fatigue',
-      text: `High fatigue${worstMuscle ? ` (${worstMuscle})` : ''} — consider a lighter session`,
+      text: `${worstMuscle || LIFT_NAMES[lift]} is hot — keep today light.`,
     });
   } else if (liftStatus === 'yellow' || worstDisplay === 'orange') {
-    const recPct = worstMuscle && muscleFatigue[worstMuscle]
-      ? muscleFatigue[worstMuscle].displayLabel : '';
     insights.push({
       priority: 2, type: 'fatigue', icon: 'fatigue',
-      text: `${worstMuscle || 'Lift'} fatigue (${worstDisplay}${recPct ? ', ' + recPct : ''})`,
+      text: `${worstMuscle || LIFT_NAMES[lift]} is warm — watch RPE closely.`,
     });
   } else if (worstDisplay === 'yellow') {
     insights.push({
       priority: 4, type: 'fatigue', icon: 'fatigue',
-      text: `Moderate fatigue — monitor RPE closely`,
+      text: `Moderate fatigue — don't chase PRs today.`,
     });
   }
 
@@ -110,11 +110,12 @@ export function generateSessionPlan(lift, session) {
     const reductionPct = days > 28 ? 40 : 30;
     comebackProtocol = {
       reductionPct,
-      message: `${days} days off — starting at ${100 - reductionPct}% of previous loads`,
+      message: `Back from ${days} days off — starting at ${100 - reductionPct}%.`,
     };
     insights.push({
       priority: 1, type: 'comeback', icon: 'comeback',
       text: comebackProtocol.message,
+      actionable: true,
     });
   }
 
@@ -126,66 +127,100 @@ export function generateSessionPlan(lift, session) {
     if (topIssue) {
       insights.push({
         priority: 2, type: 'plateau', icon: 'plateau',
-        text: `${LIFT_NAMES[lift]} plateau — ${topIssue.label || topIssue.type}`,
+        text: `${LIFT_NAMES[lift]} e1RM flat — watch RPE today.`,
       });
     }
   }
 
-  // --- Gap analysis → accessory swaps ---
+  // --- Gap analysis → accessory swaps + deferred FYI insights ---
   if (cache.gapReport && cache.gapReport.length > 0) {
-    const highGaps = cache.gapReport.filter(g => g.severity === 'high').slice(0, 2);
-    highGaps.forEach(gap => {
-      if (gap.suggestedExercise) {
+    // Deferred (cross-region) gaps render as passive insights only.
+    cache.gapReport
+      .filter(g => g.type === 'deferred-gap')
+      .slice(0, 1)  // at most one FYI — don't crowd the note
+      .forEach(gap => {
+        insights.push({
+          priority: 4, type: 'gap', icon: 'gap',
+          text: gap.message,
+        });
+      });
+
+    // Actionable gaps — top 2 high/medium severity in-region items.
+    const actionableGaps = cache.gapReport
+      .filter(g => (g.severity === 'high' || g.severity === 'medium') && g.suggestedExercise)
+      .slice(0, 2);
+
+    actionableGaps.forEach(gap => {
+      // Recent-stimulus dampening: if the target muscle is already at orange
+      // or red fatigue, don't add more volume — emit a soft insight instead.
+      const mgFatigue = muscleFatigue && muscleFatigue[gap.muscleGroup];
+      const ds = mgFatigue && mgFatigue.displayStatus;
+      if (ds === 'red' || ds === 'orange') {
         insights.push({
           priority: 3, type: 'gap', icon: 'gap',
-          text: `${gap.message} — ${gap.suggestedExercise.name} recommended`,
+          text: `${gap.muscleGroup} fatigue is elevated — skipping added volume today.`,
         });
-        accessorySwaps.push({
-          suggestedId: gap.suggestedExercise.id || null,
-          suggestedName: gap.suggestedExercise.name,
-          reason: gap.message,
-          muscleGroup: gap.muscleGroup,
-        });
+        return;
       }
+
+      // Coach-voice copy: action-first, reason-trailing.
+      const shortReason = gap.message.replace(`${gap.muscleGroup}: `, '').trim();
+      insights.push({
+        priority: 3, type: 'gap', icon: 'gap',
+        text: `Swap in ${gap.suggestedExercise.name} — ${gap.muscleGroup.toLowerCase()} is ${shortReason}.`,
+        actionable: true,
+        swapIndex: accessorySwaps.length,
+      });
+      accessorySwaps.push({
+        suggestedId: gap.suggestedExercise.id || null,
+        suggestedName: gap.suggestedExercise.name,
+        reason: gap.message,
+        muscleGroup: gap.muscleGroup,
+      });
     });
   }
 
-  // --- BBB / supplemental volume adjustment ---
+  // --- Supplemental volume adjustment (BBB, T2, etc.) ---
   if (session.bbbSets && session.bbbSets.length > 0) {
-    const originalBBBCount = session.bbbSets.length;
-    let newBBBCount = originalBBBCount;
+    const originalCount = session.bbbSets.length;
+    const suppTier = session.bbbSets[0].tier || 'BBB';
+    let newCount = originalCount;
 
     if (liftStatus === 'red' || worstDisplay === 'red') {
-      newBBBCount = Math.max(2, originalBBBCount - 3);
+      newCount = Math.max(2, originalCount - 3);
     } else if (worstDisplay === 'orange') {
-      newBBBCount = Math.max(3, originalBBBCount - 2);
+      newCount = Math.max(3, originalCount - 2);
     } else if (liftStatus === 'yellow' || worstDisplay === 'yellow') {
-      newBBBCount = Math.max(4, originalBBBCount - 1);
+      newCount = Math.max(4, originalCount - 1);
     }
 
     if (comebackProtocol) {
-      newBBBCount = Math.min(newBBBCount, 3);
+      newCount = Math.min(newCount, 3);
     }
 
-    if (newBBBCount < originalBBBCount) {
-      bbbAdjustment = {
-        from: originalBBBCount,
-        to: newBBBCount,
-        reason: liftStatus === 'red' || worstDisplay === 'red'
-          ? 'High fatigue — reduced supplemental volume'
-          : comebackProtocol
-            ? 'Returning from break — reduced supplemental volume'
-            : 'Moderate fatigue — reduced supplemental volume',
+    if (newCount < originalCount) {
+      const reasonClause = liftStatus === 'red' || worstDisplay === 'red'
+        ? `${worstMuscle || 'ACWR'} is red`
+        : comebackProtocol
+          ? 'you\u2019re back from a break'
+          : `${worstMuscle || 'fatigue'} is warm`;
+
+      supplementalAdjustment = {
+        from: originalCount,
+        to: newCount,
+        tier: suppTier,
+        reason: `Drop ${suppTier} to ${newCount} sets. ${reasonClause}.`,
       };
       adjustments.push({
-        type: 'bbb',
-        from: `${originalBBBCount}x${session.bbbSets[0].reps}`,
-        to: `${newBBBCount}x${session.bbbSets[0].reps}`,
-        reason: bbbAdjustment.reason,
+        type: 'supplemental',
+        from: `${originalCount}x${session.bbbSets[0].reps}`,
+        to: `${newCount}x${session.bbbSets[0].reps}`,
+        reason: supplementalAdjustment.reason,
       });
       insights.push({
         priority: 2, type: 'volume', icon: 'volume',
-        text: `BBB ${originalBBBCount}x → ${newBBBCount}x (${bbbAdjustment.reason.toLowerCase()})`,
+        text: supplementalAdjustment.reason,
+        actionable: true,
       });
     }
   }
@@ -232,7 +267,7 @@ export function generateSessionPlan(lift, session) {
     adjustments,
     accessorySwaps,
     setTargets,
-    bbbAdjustment,
+    supplementalAdjustment,
     comebackProtocol,
     cache,
   };
@@ -427,7 +462,7 @@ export function gradeSession(session) {
   const mainTotal = session.mainSets.length;
   const bbbCompleted = session.bbbSets ? session.bbbSets.filter(s => s.completed).length : 0;
   const bbbTotal = session.bbbSets
-    ? (plan && plan.bbbAdjustment ? plan.bbbAdjustment.to : session.bbbSets.length)
+    ? (plan && plan.supplementalAdjustment ? plan.supplementalAdjustment.to : session.bbbSets.length)
     : 0;
   const accCompleted = session.accessories.reduce((s, a) => s + a.setsCompleted.length, 0);
   const accTotal = session.accessories.reduce((s, a) => s + a.targetSets, 0);
@@ -586,18 +621,72 @@ export function applyAdjustments(evaluation) {
 }
 
 /**
- * Apply BBB set reduction from the pre-session plan.
+ * Apply supplemental set reduction (BBB, T2, etc.) from the pre-session plan.
+ * Called when the athlete taps "Accept" on the supplemental coach row.
  *
- * @param {Object} bbbAdjustment - { from, to, reason }
+ * @param {Object} adjustment - { from, to, tier, reason }
  */
-export function applyBBBAdjustment(bbbAdjustment) {
-  if (!store.workoutSession || !bbbAdjustment) return;
-  const bbb = store.workoutSession.bbbSets;
-  if (!bbb || bbb.length <= bbbAdjustment.to) return;
+export function applySupplementalAdjustment(adjustment) {
+  if (!store.workoutSession || !adjustment) return;
+  const supp = store.workoutSession.bbbSets;
+  if (!supp || supp.length <= adjustment.to) return;
 
-  // Mark excess BBB sets as dropped
-  for (let i = bbbAdjustment.to; i < bbb.length; i++) {
-    bbb[i]._dropped = true;
+  // Mark excess supplemental sets as dropped (undisplayed in the workout view)
+  for (let i = adjustment.to; i < supp.length; i++) {
+    supp[i]._dropped = true;
   }
+  store.saveWorkoutSession();
+}
+
+/**
+ * Swap an accessory slot for a coach-recommended exercise. Called when the
+ * athlete taps "Accept" on a swap row in the coaching card.
+ *
+ * Strategy: find the lowest-priority accessory currently in the workout that
+ * targets a *different* muscle group than the suggestion (avoid double-dipping
+ * on the same muscle), and replace it. If none match that rule, replace the
+ * last accessory in the list.
+ *
+ * @param {Object} swap - { suggestedId, suggestedName, reason, muscleGroup }
+ */
+export function applyAccessorySwap(swap) {
+  if (!store.workoutSession || !swap || !swap.suggestedId) return;
+
+  const suggested = resolveExercise(swap.suggestedId) || EXERCISE_CATALOG[swap.suggestedId];
+  if (!suggested) return;
+
+  const accessories = store.workoutSession.accessories;
+  if (!accessories || accessories.length === 0) return;
+
+  // Skip if the suggestion is already loaded.
+  if (accessories.some(a => a.exerciseId === swap.suggestedId)) return;
+
+  // Pick a replacement slot: prefer an accessory whose primary muscle differs
+  // from the swap's target (so we're not doubling up on one muscle).
+  let replaceIdx = accessories.length - 1;
+  for (let i = accessories.length - 1; i >= 0; i--) {
+    const acc = accessories[i];
+    const accEx = resolveExercise(acc.exerciseId);
+    if (!accEx || !accEx.primaryMuscles) continue;
+    const overlapsTarget = (accEx.primaryMuscles[swap.muscleGroup] || 0) >= 0.20;
+    if (!overlapsTarget) { replaceIdx = i; break; }
+  }
+
+  const targetSets = suggested.sets || 3;
+  const workingWeight = getAccessoryWeight(swap.suggestedId, store.workoutSession.mainLift);
+  const previousId = accessories[replaceIdx].exerciseId;
+
+  accessories[replaceIdx] = {
+    exerciseId: swap.suggestedId,
+    name: suggested.name,
+    setWeights: computeSetWeights(workingWeight, targetSets),
+    targetSets,
+    repRange: suggested.repRange || [8, 12],
+    equipment: suggested.equipment || 'barbell',
+    setsCompleted: [],
+    progressed: false,
+    _swappedFrom: previousId,
+  };
+
   store.saveWorkoutSession();
 }

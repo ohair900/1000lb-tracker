@@ -61,6 +61,22 @@ export const SYNERGIST_MAP = {
 };
 export const SYNERGIST_RECOVERY_PENALTY = 0.12; // 12% slower recovery per red synergist
 
+// Muscle region — used by the coach to keep day-appropriate recommendations.
+// Core is region-neutral (allowable on any day). Lower-body muscles should
+// never be recommended on an upper-body day and vice versa.
+export const MUSCLE_REGION = {
+  Quads: 'lower', Hams: 'lower', Glutes: 'lower', Calves: 'lower',
+  'Lower Back': 'lower',
+  Chest: 'upper', Shoulders: 'upper', Triceps: 'upper',
+  Biceps: 'upper', 'Upper Back': 'upper', Forearms: 'upper',
+  Core: 'core',
+};
+
+// Which region each main lift belongs to. Deadlift is lower-body dominant
+// even though it pulls heavily on the upper back — accessories for the back
+// still support deadlift via supportsLifts, so they're not filtered out.
+export const LIFT_REGION = { squat: 'lower', deadlift: 'lower', bench: 'upper' };
+
 // Push/pull classification per muscle group (used by gap analysis for ratio tracking)
 export const MUSCLE_PUSH_PULL = {
   Quads:       'push',
