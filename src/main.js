@@ -34,6 +34,7 @@ import { formatWeight, inputToLbs } from './formulas/units.js';
 // ===== 4. Systems =====
 import { rebuildPRs, checkPR, checkRepPR, getMilestone } from './systems/pr-tracking.js';
 import { checkMilestonesAchieved, lockMilestones } from './systems/goals.js';
+import { migrateAccessoryIds } from './systems/accessory-migration.js';
 import {
   getProgramWorkout,
   updateWeekStreak,
@@ -519,6 +520,23 @@ _ric(() => {
       }
     });
   } catch {}
+  // Migrate: rewrite legacy accessory exerciseIds to canonical form.
+  // Delayed inside setTimeout to guarantee the store's own deferred-store
+  // load (accessoryLog, customTemplates, etc.) has finished first —
+  // deferred stores are scheduled via requestIdleCallback inside store.init(),
+  // and we can't rely on idle-callback ordering alone.
+  setTimeout(() => {
+    try {
+      const result = migrateAccessoryIds();
+      if (result.migrated > 0) {
+        // eslint-disable-next-line no-console
+        console.log(`[accessory-migration] rewrote ${result.migrated} ID references`, result.breakdown);
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[accessory-migration] failed', err);
+    }
+  }, 1500);
 });
 initDOMRefs();
 

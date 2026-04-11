@@ -31,6 +31,7 @@ export const ACCESSORY_OVERRIDES_KEY = 'sbd-tracker-acc-overrides';
 export const CUSTOM_ACCESSORIES_KEY = 'sbd-tracker-custom-accessories';
 export const DISABLED_ACCESSORIES_KEY = 'sbd-tracker-disabled-accessories';
 export const GOAL_MILESTONES_KEY = 'sbd-tracker-goal-milestones';
+export const ACCESSORY_MIGRATION_KEY = 'sbd-tracker-accessory-migration-version';
 
 export const ALL_DATA_KEYS = [
   STORAGE_KEY, PROFILE_KEY, GOALS_KEY, PRS_KEY, VERSION_KEY, CYCLES_KEY,
