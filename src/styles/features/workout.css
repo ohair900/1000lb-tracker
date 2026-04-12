@@ -319,3 +319,18 @@
 .workout-exercise-pick:hover { background: var(--surface2); }
 .pick-name { font-size: var(--text-sm); color: var(--text); font-weight: 500; }
 .pick-meta { font-size: var(--text-xs); color: var(--text-dim); }
+
+/* Rep-tier rotation badges */
+.acc-tier-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.acc-tier-badge.heavy    { background: var(--red);   color: #fff; }
+.acc-tier-badge.moderate { background: var(--gold);  color: #000; }
+.acc-tier-badge.light    { background: var(--green); color: #fff; }

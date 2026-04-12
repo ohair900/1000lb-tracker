@@ -17,6 +17,63 @@ import { SET_RAMP_PERCENTAGES, SET_RAMP_MODERATE, SET_RAMP_FATIGUED } from '../c
 import { roundToPlate } from '../formulas/plates.js';
 import { bestE1RM } from '../formulas/e1rm.js';
 import { calcFatigueByMuscle, calcFatigueLift } from '../systems/fatigue.js';
+import { ROTATION_EXCLUDED, REP_TIERS } from '../constants/rotation.js';
+
+// ---------------------------------------------------------------------------
+// Rep-tier rotation (auto-periodized accessories)
+// ---------------------------------------------------------------------------
+
+/**
+ * Determine the next rep tier for an exercise by inspecting its most recent
+ * session in the accessory log. Cycles: heavy → moderate → light → heavy.
+ *
+ * @param {string} exerciseId
+ * @returns {'heavy' | 'moderate' | 'light' | null} null if exercise is excluded from rotation
+ */
+export function getNextTier(exerciseId) {
+  if (ROTATION_EXCLUDED.has(exerciseId)) return null;
+
+  const history = getExerciseHistory(exerciseId, store.accessoryLog);
+  if (history.length === 0) return 'moderate';
+
+  const last = history[0];
+  const avgReps = last.setsCompleted && last.setsCompleted.length > 0
+    ? last.setsCompleted.reduce((s, r) => s + r, 0) / last.setsCompleted.length
+    : 10;
+
+  if (avgReps <= 6) return 'moderate';
+  if (avgReps <= 12) return 'light';
+  return 'heavy';
+}
+
+/**
+ * Estimate the right working weight for a given rep tier using Epley e1RM
+ * from the exercise's last performance.
+ *
+ * @param {string} exerciseId
+ * @param {string} tier - 'heavy' | 'moderate' | 'light'
+ * @param {string} mainLift
+ * @returns {number} Working weight rounded to plates
+ */
+export function getWeightForTier(exerciseId, tier, mainLift) {
+  const history = getExerciseHistory(exerciseId, store.accessoryLog);
+  if (history.length === 0) return getAccessoryWeight(exerciseId, mainLift);
+
+  const last = history[0];
+  const lastWeight = last.setWeights
+    ? last.setWeights[last.setWeights.length - 1]
+    : (last.weight || 0);
+  const lastReps = last.setsCompleted && last.setsCompleted.length > 0
+    ? last.setsCompleted.reduce((s, r) => s + r, 0) / last.setsCompleted.length
+    : 10;
+
+  if (lastWeight === 0) return 0; // bodyweight exercise
+
+  const e1rm = lastWeight * (1 + lastReps / 30);
+  const tierInfo = REP_TIERS[tier];
+  const targetReps = (tierInfo.repRange[0] + tierInfo.repRange[1]) / 2;
+  return roundToPlate(e1rm / (1 + targetReps / 30));
+}
 
 // ---------------------------------------------------------------------------
 // Accessory selection (simple wrapper)

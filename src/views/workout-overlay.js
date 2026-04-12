@@ -30,7 +30,10 @@ import {
   getAccessoryWeight,
   checkAccessoryProgression,
   scoreAccessories,
+  getNextTier,
+  getWeightForTier,
 } from '../systems/workout-builder.js';
+import { REP_TIERS } from '../constants/rotation.js';
 import {
   generateSessionPlan,
   evaluateSetCompletion,
@@ -137,16 +140,24 @@ function createWorkoutSession(mainLift) {
     // `bbbSets` is the historical field name but holds ALL supplemental tiers
     // (BBB, T2, etc.) — preserved for back-compat with in-flight sessions.
     bbbSets: [],
-    accessories: accessories.map(ex => ({
-      exerciseId: ex.id,
-      name: ex.name,
-      setWeights: computeSetWeights(getAccessoryWeight(ex.id, mainLift), ex.sets),
-      targetSets: ex.sets,
-      repRange: ex.repRange,
-      equipment: ex.equipment,
-      setsCompleted: [],
-      progressed: checkAccessoryProgression(ex.id, mainLift)
-    })),
+    accessories: accessories.map(ex => {
+      const tier = getNextTier(ex.id);
+      const tierInfo = tier ? REP_TIERS[tier] : null;
+      const repRange = tierInfo ? tierInfo.repRange : ex.repRange;
+      const sets = tierInfo ? tierInfo.sets : (ex.sets || 3);
+      const weight = tier ? getWeightForTier(ex.id, tier, mainLift) : getAccessoryWeight(ex.id, mainLift);
+      return {
+        exerciseId: ex.id,
+        name: ex.name,
+        setWeights: computeSetWeights(weight, sets),
+        targetSets: sets,
+        repRange,
+        equipment: ex.equipment,
+        setsCompleted: [],
+        progressed: checkAccessoryProgression(ex.id, mainLift),
+        _tier: tier,
+      };
+    }),
     completed: false
   };
   // Clone program sets if active, peeling all supplemental tiers out of mainSets.
@@ -384,7 +395,10 @@ export function renderWorkoutView() {
     const isTimeBased = catalogEx ? !!catalogEx.timeBased : !!(ex && ex.timeBased);
     const targetReps = acc.repRange[1];
     html += `<div class="workout-exercise">`;
-    html += `<div class="workout-exercise-name" data-exid="${acc.exerciseId}" data-acc-toggle="${ai}">${acc.name}${acc.progressed ? `<span class="acc-progression-badge">${getProgressionBadgeText(acc)}</span>` : ''}</div>`;
+    const tierBadge = acc._tier && REP_TIERS[acc._tier]
+      ? `<span class="acc-tier-badge ${acc._tier}">${REP_TIERS[acc._tier].label}</span>`
+      : '';
+    html += `<div class="workout-exercise-name" data-exid="${acc.exerciseId}" data-acc-toggle="${ai}">${acc.name}${tierBadge}${acc.progressed ? `<span class="acc-progression-badge">${getProgressionBadgeText(acc)}</span>` : ''}</div>`;
     html += `<div class="acc-action-bar" id="acc-action-bar-${ai}" style="display:none">
       <button class="acc-swap-btn" data-acc-swap="${ai}">&#8644; Swap</button>
       <button class="acc-remove-btn" data-acc-remove="${ai}">&times; Remove</button>
