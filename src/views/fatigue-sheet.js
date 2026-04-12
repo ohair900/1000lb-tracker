@@ -22,10 +22,17 @@ import { getCalibrationInfo } from '../systems/recovery-calibration.js';
 
 function relativeDay(ts) {
   if (!ts) return '';
-  const days = Math.floor((Date.now() - ts) / 86400000);
+  // Use midnight-to-midnight calendar-day diff, not raw timestamp diff.
+  // Raw diff fails near midnight: a Friday 8 PM entry viewed Saturday 2 AM
+  // would be 6 hours → 0 → "Today" instead of "Yesterday".
+  const now = new Date();
+  const then = new Date(ts);
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const thenMidnight = new Date(then.getFullYear(), then.getMonth(), then.getDate());
+  const days = Math.round((todayMidnight - thenMidnight) / 86400000);
   if (days === 0) return 'Today';
   if (days === 1) return 'Yesterday';
-  if (days < 7) return new Date(ts).toLocaleDateString('en', { weekday: 'short' });
+  if (days < 7) return then.toLocaleDateString('en', { weekday: 'short' });
   return `${days}d ago`;
 }
 
@@ -98,7 +105,10 @@ export function showFatigueDetail(mg) {
   if (recoveryPct !== null) {
     const pct = Math.round(recoveryPct * 100);
     const hrsAgo = detail.hoursSince !== null ? Math.round(detail.hoursSince) : null;
-    const lastStr = hrsAgo !== null ? (hrsAgo < 24 ? `${hrsAgo}h ago` : `${Math.round(hrsAgo / 24)}d ago`) : 'N/A';
+    // Use calendar-day based label for day-level display to avoid timezone drift
+    const lastStr = hrsAgo !== null
+      ? (hrsAgo < 24 ? `${hrsAgo}h ago` : relativeDay(detail.lastTs))
+      : 'N/A';
     html += `<div class="fatigue-detail-banner ${displayStatus}">` +
       `<span style="font-size:var(--text-2xl);font-weight:800">${pct}%</span>` +
       `<span style="font-size:var(--text-sm);opacity:0.8">recovered</span>` +

@@ -571,6 +571,9 @@ export function closeWorkoutView() {
 export function completeWorkout() {
   if (!store.workoutSession) return;
   const now = new Date();
+  // Update the session date to completion time, not creation time. The user
+  // may have opened the workout the night before and trained the next day.
+  store.workoutSession.date = now.toISOString().split('T')[0];
   // Save each accessory's results to log
   // #18: Track source and template in accessory log
   const sessionSource = store.workoutSession.source || 'quick';
@@ -831,7 +834,10 @@ export function initWorkoutOverlay() {
         if (lastPerf) {
           const w = lastPerf.weight === 0 ? 'BW' : formatWeight(lastPerf.weight) + ' ' + store.unit;
           const reps = lastPerf.setsCompleted.join('/');
-          const days = Math.round((Date.now() - new Date(lastPerf.date).getTime()) / 86400000);
+          const perfDate = new Date(lastPerf.date + 'T12:00:00');
+          const todayMid = new Date(); todayMid.setHours(0,0,0,0);
+          const perfMid = new Date(perfDate.getFullYear(), perfDate.getMonth(), perfDate.getDate());
+          const days = Math.round((todayMid - perfMid) / 86400000);
           const ago = days === 0 ? 'today' : days === 1 ? 'yesterday' : days + 'd ago';
           perfHtml = `<span class="acc-swap-alt-perf">${w} &times; ${reps} &bull; ${ago}</span>`;
         } else {

@@ -34,6 +34,11 @@ import {
 } from '../data/muscle-groups.js';
 import { calcINOL, calcAccessoryINOL } from '../formulas/inol.js';
 
+// Minimum main-lift muscle weight to count toward a muscle group's fatigue.
+// Contributions below this (e.g. bench → Upper Back at 0.05) are passive
+// stabilization noise, not meaningful load. See plan for the full table.
+const FATIGUE_WEIGHT_FLOOR = 0.07;
+
 // Variable accessory INOL discount by exercise type (#7)
 // Close-variations are nearly as fatiguing as main lifts; isolation is mostly local
 const ACC_INOL_DISCOUNT = {
@@ -302,7 +307,7 @@ function buildDailyLoads(mainEntries, accEntries, muscleGroup, dayCount) {
     const idx = dayCount - 1 - daysAgo; // chronological: 0 = oldest
     if (muscleGroup) {
       const w = MAIN_LIFT_WEIGHTS[e.lift];
-      if (!w || !w[muscleGroup]) return;
+      if (!w || !w[muscleGroup] || w[muscleGroup] < FATIGUE_WEIGHT_FLOOR) return;
       loads[idx] += calcINOL(e.weight, e.reps, e.e1rm) * w[muscleGroup];
     } else {
       loads[idx] += calcINOL(e.weight, e.reps, e.e1rm);
@@ -427,7 +432,7 @@ function classifyACWR(acuteEWMA, chronicEWMA, densityMult) {
 
 function mainEntryLoad(e, mg) {
   const w = MAIN_LIFT_WEIGHTS[e.lift];
-  if (!w || !w[mg]) return 0;
+  if (!w || !w[mg] || w[mg] < FATIGUE_WEIGHT_FLOOR) return 0;
   return calcINOL(e.weight, e.reps, e.e1rm) * w[mg];
 }
 
@@ -543,7 +548,7 @@ export function calcFatigueByMuscle() {
     let lastTs = 0;
     main28.forEach(e => {
       const w = MAIN_LIFT_WEIGHTS[e.lift];
-      if (w && w[mg]) { count28++; if (e.timestamp > lastTs) lastTs = e.timestamp; }
+      if (w && w[mg] && w[mg] >= FATIGUE_WEIGHT_FLOOR) { count28++; if (e.timestamp > lastTs) lastTs = e.timestamp; }
     });
     acc28.forEach(a => {
       const cw = resolveAccMuscleWeights(a.exerciseId);
@@ -684,11 +689,11 @@ export function calcFatigueDetail(mg) {
   const acc7 = allAcc.filter(a => (now - a.timestamp) <= 7 * day);
   const acc28 = allAcc.filter(a => (now - a.timestamp) <= 28 * day);
 
-  // Count data points
+  // Count data points (only above the fatigue weight floor)
   let count28 = 0;
   main28.forEach(e => {
     const w = MAIN_LIFT_WEIGHTS[e.lift];
-    if (w && w[mg]) count28++;
+    if (w && w[mg] && w[mg] >= FATIGUE_WEIGHT_FLOOR) count28++;
   });
   count28 += countAccessoryEntries(acc28, mg);
   if (count28 < 3) return null;
@@ -718,7 +723,7 @@ export function calcFatigueDetail(mg) {
 
   main7.forEach(e => {
     const w = MAIN_LIFT_WEIGHTS[e.lift];
-    if (!w || !w[mg]) return;
+    if (!w || !w[mg] || w[mg] < FATIGUE_WEIGHT_FLOOR) return;
     const l = calcINOL(e.weight, e.reps, e.e1rm) * w[mg];
     addContrib('main-' + e.lift, LIFT_NAMES[e.lift], 'Main', e.lift, w[mg], l, 1, e.timestamp);
   });
