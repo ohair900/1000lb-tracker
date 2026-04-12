@@ -40,8 +40,8 @@ body{font-family:'Figtree',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-seri
 .tab-btn{flex:1;padding:8px 0;border:none;background:transparent;color:var(--text-dim);font-size:var(--text-sm);font-weight:600;cursor:pointer}
 .tab-btn.active{color:var(--text-strong);border-bottom:2px solid var(--text-strong)}
 </style>
-  <script type="module" crossorigin src="/assets/index.src-BWvYZ9jE.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-CCmwN8Xk.css">
+  <script type="module" crossorigin src="/assets/index.src-CiRy_vIE.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-uLDPZnao.css">
 </head>
 <body>
 <div id="app">
@@ -183,6 +183,15 @@ body{font-family:'Figtree',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-seri
       <button class="modal-close" id="review-sheet-close">&times;</button>
     </div>
     <div class="fatigue-sheet-body" id="review-sheet-body"></div>
+  </div>
+  <div class="sheet-backdrop fatigue-sheet-backdrop" id="recap-sheet-backdrop" style="display:none"></div>
+  <div class="sheet-panel fatigue-sheet" id="recap-sheet" style="display:none">
+    <div class="sheet-handle fatigue-sheet-handle"></div>
+    <div class="fatigue-sheet-header">
+      <h3 id="recap-sheet-title">This Week</h3>
+      <button class="modal-close" id="recap-sheet-close">&times;</button>
+    </div>
+    <div class="fatigue-sheet-body" id="recap-sheet-body"></div>
   </div>
   <div class="streak-bar" id="streak-bar" style="display:none">
     <span class="streak-icon" id="streak-icon"></span>

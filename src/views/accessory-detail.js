@@ -31,7 +31,7 @@ export function showAccessoryDetail(exerciseId) {
   let sectionIdx = 0;
 
   // --- Hero banner ---
-  html += `<div class="ld-section ld-banner ${detail.mainLift}" style="--i:${sectionIdx++}">`;
+  html += `<div class="sheet-section ld-banner ${detail.mainLift}" style="--i:${sectionIdx++}">`;
   html += `<div class="ld-banner-e1rm">${isBodyweight ? 'Bodyweight' : formatWeight(detail.lastWeight) + ' <span class="ld-banner-unit">' + store.unit + '</span>'}</div>`;
   html += `<div class="ld-banner-label">${detail.name}</div>`;
   html += `<div class="ld-banner-meta">`;
@@ -46,8 +46,8 @@ export function showAccessoryDetail(exerciseId) {
   html += `</div>`;
 
   // --- Stats grid ---
-  html += `<div class="ld-section ld-progress" style="--i:${sectionIdx++}">`;
-  html += `<div class="ld-section-title">Overview</div>`;
+  html += `<div class="sheet-section ld-progress" style="--i:${sectionIdx++}">`;
+  html += `<div class="sheet-section-title">Overview</div>`;
   html += `<div class="ld-progress-grid">`;
   if (!isBodyweight) {
     html += `<div class="ld-progress-item"><div class="ld-progress-label">Best Weight</div><div class="ld-progress-value">${formatWeight(detail.bestWeight)} ${store.unit}</div></div>`;
@@ -59,7 +59,7 @@ export function showAccessoryDetail(exerciseId) {
 
   // --- Progression status ---
   if (!isBodyweight && db) {
-    html += `<div class="ld-section" style="--i:${sectionIdx++}">`;
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
     if (detail.readyToProgress) {
       const nextWeight = getAccessoryWeight(exerciseId, detail.mainLift);
       html += `<div class="acc-progression-card ready">`;
@@ -92,8 +92,8 @@ export function showAccessoryDetail(exerciseId) {
     const lineStr = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
     const areaStr = `${points[0].x.toFixed(1)},${svgH - padY} ${lineStr} ${points[points.length - 1].x.toFixed(1)},${svgH - padY}`;
 
-    html += `<div class="ld-section" style="--i:${sectionIdx++}">`;
-    html += `<div class="ld-section-title">Weight Trend</div>`;
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
+    html += `<div class="sheet-section-title">Weight Trend</div>`;
     html += `<div class="ld-sparkline-wrap">`;
     html += `<svg class="ld-sparkline" viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="none">`;
     html += `<defs><linearGradient id="acc-grad" x1="0" y1="0" x2="0" y2="1">`;
@@ -116,8 +116,8 @@ export function showAccessoryDetail(exerciseId) {
 
   // --- Recent sessions ---
   if (detail.sessions.length > 0) {
-    html += `<div class="ld-section" style="--i:${sectionIdx++}">`;
-    html += `<div class="ld-section-title">Recent Sessions</div>`;
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
+    html += `<div class="sheet-section-title">Recent Sessions</div>`;
     html += `<div class="ld-sessions">`;
     detail.sessions.slice(0, 8).forEach((s, idx) => {
       const w = isBodyweight ? 'BW' : formatWeight(s.weight) + ' ' + store.unit;

@@ -53,7 +53,7 @@ export function showLiftDetail(lift) {
   let sectionIdx = 0;
 
   // --- 1. Hero banner (compact, includes all-time best) ---
-  html += `<div class="ld-section ld-banner ${lift}" style="--i:${sectionIdx++}">`;
+  html += `<div class="sheet-section ld-banner ${lift}" style="--i:${sectionIdx++}">`;
   html += `<div class="ld-banner-e1rm">${best ? formatWeight(best) : '\u2014'} <span class="ld-banner-unit">${store.unit}</span></div>`;
   html += `<div class="ld-banner-label">Estimated 1RM</div>`;
   html += `<div class="ld-banner-meta">`;
@@ -96,7 +96,7 @@ export function showLiftDetail(lift) {
     const thisMonth = new Date().toISOString().slice(0, 7);
     const monthSessions = new Set(liftEntries.filter(e => e.date.startsWith(thisMonth)).map(e => e.date)).size;
 
-    html += `<div class="ld-section ld-progress" style="--i:${sectionIdx++}">`;
+    html += `<div class="sheet-section ld-progress" style="--i:${sectionIdx++}">`;
     html += `<div class="ld-progress-grid">`;
     html += `<div class="ld-progress-item"><div class="ld-progress-label">Last vs Prev</div><div class="ld-progress-value">${formatWeight(lastE1rm)} vs ${formatWeight(prevE1rm)}</div><div class="ld-progress-delta ${deltaClass}">${deltaSign}${formatWeight(Math.abs(delta))}</div></div>`;
     if (oldBest) {
@@ -112,7 +112,7 @@ export function showLiftDetail(lift) {
   // --- 3. Goal bar + Milestone Roadmap ---
   if (goal && best) {
     const pct = Math.min(100, best / goal * 100);
-    html += `<div class="ld-section" style="--i:${sectionIdx++}">`;
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
     html += `<div class="ld-goal-label">${pct.toFixed(0)}% of ${formatWeight(goal)} ${store.unit} goal</div>`;
     html += `<div class="ld-goal-bar"><div class="ld-goal-fill" style="width:${pct}%"></div></div>`;
     // Milestone roadmap (persistent, locked at goal-set time)
@@ -163,8 +163,8 @@ export function showLiftDetail(lift) {
       const lineStr = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
       const areaStr = `${points[0].x.toFixed(1)},${svgH - padY} ${lineStr} ${points[points.length - 1].x.toFixed(1)},${svgH - padY}`;
 
-      html += `<div class="ld-section" style="--i:${sectionIdx++}">`;
-      html += `<div class="ld-section-title">Trend</div>`;
+      html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
+      html += `<div class="sheet-section-title">Trend</div>`;
       html += `<svg class="ld-sparkline" viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="none">`;
       html += `<defs><linearGradient id="ld-grad-${lift}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity="0.35"/><stop offset="100%" stop-color="${color}" stop-opacity="0.03"/></linearGradient></defs>`;
       html += `<polygon points="${areaStr}" fill="url(#ld-grad-${lift})"/>`;
@@ -190,8 +190,8 @@ export function showLiftDetail(lift) {
       if (sessions.length >= 3) break;
     }
 
-    html += `<div class="ld-section" style="--i:${sectionIdx++}">`;
-    html += `<div class="ld-section-title">Recent</div>`;
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
+    html += `<div class="sheet-section-title">Recent</div>`;
     sessions.forEach(s => {
       html += `<div class="ld-compact-session">`;
       html += `<span class="ld-compact-date">${s.date.slice(5)}</span>`;

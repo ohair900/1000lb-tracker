@@ -31,10 +31,9 @@ import { calcWeeklyRecap } from '../systems/weekly-recap.js';
 import { calcPriorWeekReview, calcWeeklyCoverage, calcAverageMuscleCoverage } from '../systems/weekly-coverage.js';
 import { calcWeeklyInsights } from '../systems/weekly-insights.js';
 import { calcWeeklyGrade } from '../systems/weekly-grade.js';
-import { openReviewSheet, closeReviewSheet } from '../ui/sheet.js';
+import { openReviewSheet, closeReviewSheet, openRecapSheet, closeRecapSheet } from '../ui/sheet.js';
 import { enableSheetSwipeDismiss } from '../ui/sheet.js';
 import { checkBadges } from '../systems/badges.js';
-import { openModal } from '../ui/modal.js';
 import { shareMilestoneCard } from '../ui/share.js';
 
 // ---------------------------------------------------------------------------
@@ -309,6 +308,7 @@ export function updatePRStreakBar() {
 // ---------------------------------------------------------------------------
 
 let _reviewSheetSwipeInit = false;
+let _recapSheetSwipeInit = false;
 
 export function renderPriorWeekCard() {
   const el = $('prior-week-card');
@@ -374,36 +374,37 @@ function showPriorWeekSheet(review, gradeResult, insights) {
   const body = $('review-sheet-body');
   let html = '';
   let _fullHtml = ''; // saved for back navigation
+  let sectionIdx = 0;
 
   // Grade header
   if (gradeResult && !gradeResult.insufficient && gradeResult.grade) {
     const gradeColor = gradeResult.grade.startsWith('A') || gradeResult.grade.startsWith('B') ? 'var(--green)'
       : gradeResult.grade.startsWith('C') ? 'var(--yellow)' : 'var(--red)';
-    html += `<div style="text-align:center;margin-bottom:12px">
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}"><div style="text-align:center;margin-bottom:12px">
       <span style="font-size:1.8rem;font-weight:800;color:${gradeColor}">${gradeResult.grade}</span>
       <span style="font-size:var(--text-sm);color:var(--text-dim);margin-left:8px">${gradeResult.label} &middot; ${gradeResult.score}/100</span>
-    </div>`;
+    </div></div>`;
   }
 
   // Body map
-  html += `<div id="review-sheet-map">${renderBodyMap(review.coverage)}</div>`;
+  html += `<div class="sheet-section" style="--i:${sectionIdx++}"><div id="review-sheet-map">${renderBodyMap(review.coverage)}</div></div>`;
 
   // Week-over-week comparison
   if (review.prior) {
     const p = review.prior;
     const setsChange = p.totalSets > 0 ? Math.round((review.totalSets - p.totalSets) / p.totalSets * 100) : null;
     const volChange = p.totalVolume > 0 ? Math.round((review.totalVolume - p.totalVolume) / p.totalVolume * 100) : null;
-    html += `<div style="margin:12px 0"><div class="section-label-lg">vs Prior Week</div>`;
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}"><div style="margin:12px 0"><div class="section-label-lg">vs Prior Week</div>`;
     html += `<div class="review-compare-grid">`;
     html += _compareRow('Sets', review.totalSets, p.totalSets, setsChange);
     html += _compareRow('Volume', fmtNum(displayWeight(review.totalVolume)) + ' ' + store.unit, fmtNum(displayWeight(p.totalVolume)) + ' ' + store.unit, volChange);
     html += _compareRow('Intensity', review.avgIntensity + '%', p.avgIntensity + '%', review.avgIntensity - p.avgIntensity);
     html += _compareRow('Days', review.trainingDays, p.days, null);
-    html += `</div></div>`;
+    html += `</div></div></div>`;
   }
 
   // Per-lift breakdown with prior week comparison
-  html += `<div style="margin:12px 0"><div class="section-label-lg">Lift Breakdown</div>`;
+  html += `<div class="sheet-section" style="--i:${sectionIdx++}"><div style="margin:12px 0"><div class="section-label-lg">Lift Breakdown</div>`;
   LIFTS.forEach(l => {
     const s = review.liftStats[l];
     const color = COLORS[l];
@@ -417,11 +418,11 @@ function showPriorWeekSheet(review, gradeResult, insights) {
       <span style="flex:1;font-size:var(--text-sm);color:var(--text)">${s.sets} sets${deltaStr} &middot; ${fmtNum(displayWeight(s.volume))} ${store.unit}${intLabel}${prBadge}</span>
     </div>`;
   });
-  html += '</div>';
+  html += '</div></div>';
 
   // Muscle coverage with volume-based status
   const fatigue = calcFatigueByMuscle();
-  html += `<div style="margin:12px 0"><div class="section-label-lg">Muscle Coverage</div>`;
+  html += `<div class="sheet-section" style="--i:${sectionIdx++}"><div style="margin:12px 0"><div class="section-label-lg">Muscle Coverage</div>`;
   MUSCLE_GROUPS.forEach(mg => {
     const data = review.coverage[mg];
     const sets = data ? Math.round(data.sets) : 0;
@@ -449,27 +450,27 @@ function showPriorWeekSheet(review, gradeResult, insights) {
       <span class="review-muscle-delta">${vsAvgStr}</span>
     </div>`;
   });
-  html += '</div>';
+  html += '</div></div>';
 
   // PRs
   if (review.prs.length > 0) {
-    html += `<div style="margin:12px 0"><div class="section-label-lg">PRs Last Week</div>`;
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}"><div style="margin:12px 0"><div class="section-label-lg">PRs Last Week</div>`;
     review.prs.forEach(e => {
       html += `<div class="recap-pr-item"><span style="color:${COLORS[e.lift]}">${LIFT_NAMES[e.lift]}</span> ${formatWeight(e.weight)} ${store.unit} &times; ${e.reps} = ${formatWeight(e.e1rm)} e1RM</div>`;
     });
-    html += '</div>';
+    html += '</div></div>';
   }
 
   // Insights (all, with detail text)
   if (insights && insights.allInsights.length > 0) {
-    html += `<div style="margin:12px 0;border-top:1px solid var(--border);padding-top:12px"><div class="section-label-lg">Insights</div>`;
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}"><div style="margin:12px 0;border-top:1px solid var(--border);padding-top:12px"><div class="section-label-lg">Insights</div>`;
     insights.allInsights.forEach(c => {
       html += `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px">
         <span class="insight-chip" style="background:${c.color};flex-shrink:0">${c.label}</span>
         <span style="font-size:var(--text-xs);color:var(--text-dim);padding-top:2px">${c.detail}</span>
       </div>`;
     });
-    html += '</div>';
+    html += '</div></div>';
   }
 
   body.innerHTML = html;
@@ -519,12 +520,13 @@ export function renderRecapCard() {
   el.innerHTML = `<div class="recap-card-header">This Week</div>` +
     `<div class="recap-card-preview">${preview}</div>` +
     `<div class="recap-card-days">${recap.trainingDays} training day${recap.trainingDays !== 1 ? 's' : ''}</div>`;
-  el.onclick = () => showRecapModal(recap);
+  el.onclick = () => showRecapSheet(recap);
 }
 
-function showRecapModal(recap) {
-  const body = $('edit-body');
+function showRecapSheet(recap) {
+  const body = $('recap-sheet-body');
   let html = '';
+  let sectionIdx = 0;
 
   // Current week start (Monday @ 00:00 local) — same pattern used by renderPriorWeekCard
   const now = new Date();
@@ -541,38 +543,38 @@ function showRecapModal(recap) {
   const totalCount = MUSCLE_GROUPS.length;
   const coverageClass = hitCount >= 8 ? 'high' : hitCount >= 5 ? 'mid' : 'low';
 
-  html += `<div class="recap-coverage-header">
+  html += `<div class="sheet-section" style="--i:${sectionIdx++}"><div class="recap-coverage-header">
     <span class="recap-coverage-badge ${coverageClass}">${hitCount}/${totalCount} muscles hit</span>
-  </div>`;
+  </div></div>`;
 
   // Top set
   if (recap.topSet) {
-    html += `<div class="recap-top-set">
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}"><div class="recap-top-set">
       <div class="recap-top-set-label">Top Set</div>
       <div class="recap-top-set-value">${LIFT_NAMES[recap.topSet.lift]} ${formatWeight(recap.topSet.weight)} ${store.unit} &times; ${recap.topSet.reps}
         <span style="color:var(--text-dim);font-size:0.8rem">= ${formatWeight(recap.topSet.e1rm)} e1RM</span></div>
-    </div>`;
+    </div></div>`;
   }
 
   // Body map — skipped muscles render red via displayStatus='red'
-  html += `<div style="margin:12px 0"><div class="section-label-lg">Body Map</div>`;
-  html += `<div id="recap-modal-map">${renderBodyMap(coverage)}</div></div>`;
+  html += `<div class="sheet-section" style="--i:${sectionIdx++}"><div style="margin:12px 0"><div class="section-label-lg">Body Map</div>`;
+  html += `<div id="recap-sheet-map">${renderBodyMap(coverage)}</div></div></div>`;
 
   // Stat grid (existing 2x2)
   const volChangeStr = recap.volChange !== null ? `<div class="recap-stat-change ${recap.volChange >= 0 ? 'up' : 'down'}">${recap.volChange >= 0 ? '\u2191' : '\u2193'}${Math.abs(recap.volChange).toFixed(0)}%</div>` : '';
   const setsChangeStr = recap.setsChange !== null ? `<div class="recap-stat-change ${recap.setsChange >= 0 ? 'up' : 'down'}">${recap.setsChange >= 0 ? '\u2191' : '\u2193'}${Math.abs(recap.setsChange).toFixed(0)}%</div>` : '';
-  html += `<div class="recap-stat-grid">
+  html += `<div class="sheet-section" style="--i:${sectionIdx++}"><div class="recap-stat-grid">
     <div class="recap-stat"><div class="recap-stat-label">Sets</div><div class="recap-stat-value">${recap.sets}</div>${setsChangeStr}</div>
     <div class="recap-stat"><div class="recap-stat-label">Volume</div><div class="recap-stat-value">${fmtNum(displayWeight(recap.volume))}</div>${volChangeStr}</div>
     <div class="recap-stat"><div class="recap-stat-label">Training Days</div><div class="recap-stat-value">${recap.trainingDays}</div></div>
     <div class="recap-stat"><div class="recap-stat-label">Fatigue (ACWR)</div><div class="recap-stat-value">${recap.fatigue?.acwr ? recap.fatigue.acwr.toFixed(2) : '\u2014'}</div></div>
-  </div>`;
+  </div></div>`;
 
   // Lift Breakdown — per-lift rows (mirrors Week-in-Review sheet, minus prior-week delta)
   const weekStartMs = thisMonday.getTime();
   const weekEndMs = weekStartMs + 7 * MS_PER_DAY;
   const weekEntries = store.entries.filter(e => e.timestamp >= weekStartMs && e.timestamp < weekEndMs);
-  html += `<div style="margin:12px 0"><div class="section-label-lg">Lift Breakdown</div>`;
+  html += `<div class="sheet-section" style="--i:${sectionIdx++}"><div style="margin:12px 0"><div class="section-label-lg">Lift Breakdown</div>`;
   LIFTS.forEach(l => {
     const liftEntries = weekEntries.filter(e => e.lift === l);
     const sets = liftEntries.length;
@@ -597,10 +599,10 @@ function showRecapModal(recap) {
       </div>`;
     }
   });
-  html += '</div>';
+  html += '</div></div>';
 
   // Muscle Coverage table — reuses .review-muscle-row grid
-  html += `<div style="margin:12px 0"><div class="section-label-lg">Muscle Coverage</div>`;
+  html += `<div class="sheet-section" style="--i:${sectionIdx++}"><div style="margin:12px 0"><div class="section-label-lg">Muscle Coverage</div>`;
   MUSCLE_GROUPS.forEach(mg => {
     const data = coverage[mg];
     const sets = data ? Math.round(data.sets) : 0;
@@ -628,39 +630,48 @@ function showRecapModal(recap) {
       <span class="review-muscle-delta">${vsAvgStr}</span>
     </div>`;
   });
-  html += '</div>';
+  html += '</div></div>';
 
   // PRs
   if (recap.prsThisWeek.length > 0) {
-    html += `<div style="margin-bottom:12px"><div class="section-label-lg">PRs This Week</div>`;
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}"><div style="margin-bottom:12px"><div class="section-label-lg">PRs This Week</div>`;
     recap.prsThisWeek.forEach(e => {
       html += `<div class="recap-pr-item"><span style="color:${COLORS[e.lift]}">${LIFT_NAMES[e.lift]}</span> ${formatWeight(e.weight)} ${store.unit} &times; ${e.reps} = ${formatWeight(e.e1rm)} e1RM</div>`;
     });
-    html += '</div>';
+    html += '</div></div>';
   }
 
   // Streak
   if (recap.streak && recap.streak.current > 0) {
-    html += `<div style="font-size:0.8rem;color:var(--text-dim);padding:8px 0;border-top:1px solid var(--border)">
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}"><div style="font-size:0.8rem;color:var(--text-dim);padding:8px 0;border-top:1px solid var(--border)">
       ${recap.streak.current >= 7 ? '\uD83D\uDD25' : recap.streak.current >= 3 ? '\u26A1' : '\uD83C\uDFCB\uFE0F'}
       <strong style="color:var(--text)">${recap.streak.current} day streak</strong> &middot; Best: ${recap.streak.longest}d &middot; ${recap.streak.weeksActive}/4 weeks active
-    </div>`;
+    </div></div>`;
   }
 
   const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const weekStartLabel = `${thisMonday.getDate()} ${MONTH_NAMES[thisMonday.getMonth()]} ${thisMonday.getFullYear()}`;
-  $('edit-modal').querySelector('h3').textContent = `This Week \u00b7 ${weekStartLabel}`;
+  $('recap-sheet-title').textContent = `This Week \u00b7 ${weekStartLabel}`;
   body.innerHTML = html;
-  openModal('edit-modal');
+
+  // Init swipe dismiss once
+  if (!_recapSheetSwipeInit) {
+    _recapSheetSwipeInit = true;
+    enableSheetSwipeDismiss('recap-sheet', 'recap-sheet-backdrop', closeRecapSheet);
+    $('recap-sheet-close').onclick = closeRecapSheet;
+    $('recap-sheet-backdrop').onclick = closeRecapSheet;
+  }
+
+  openRecapSheet();
 
   // Attach body map muscle-click to show contributing exercises inline
-  const mapContainer = document.getElementById('recap-modal-map')?.querySelector('.body-map-container');
+  const mapContainer = document.getElementById('recap-sheet-map')?.querySelector('.body-map-container');
   if (mapContainer) {
     initBodyMapEvents(mapContainer, (mg) => {
       const data = coverage[mg];
       if (!data) return;
       let detailHtml = `<div style="padding:4px 0">
-        <button class="recap-modal-back-btn" style="background:none;border:none;color:var(--text-dim);font-size:var(--text-sm);cursor:pointer;padding:4px 0">&larr; Back</button>
+        <button class="recap-sheet-back-btn" style="background:none;border:none;color:var(--text-dim);font-size:var(--text-sm);cursor:pointer;padding:4px 0">&larr; Back</button>
         <div style="text-align:center;margin:12px 0">
           <div style="font-size:1.2rem;font-weight:700;color:var(--text-strong)">${mg}</div>
           <div style="font-size:var(--text-sm);color:var(--text-dim)">${Math.round(data.sets)} sets this week</div>
@@ -675,7 +686,7 @@ function showRecapModal(recap) {
       }
       detailHtml += `</div>`;
       body.innerHTML = detailHtml;
-      body.querySelector('.recap-modal-back-btn').onclick = () => showRecapModal(recap);
+      body.querySelector('.recap-sheet-back-btn').onclick = () => showRecapSheet(recap);
     });
   }
 }

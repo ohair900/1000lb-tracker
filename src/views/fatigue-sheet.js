@@ -100,6 +100,7 @@ export function showFatigueDetail(mg) {
   else if (recoveryPct !== null && recoveryPct < 0.9) displayStatus = 'lime';
   else displayStatus = 'green';
   const displayColor = `var(--${displayStatus})`;
+  let sectionIdx = 0;
 
   // 1. Recovery hero — leads with recovery % to match dashboard cards
   if (recoveryPct !== null) {
@@ -109,6 +110,7 @@ export function showFatigueDetail(mg) {
     const lastStr = hrsAgo !== null
       ? (hrsAgo < 24 ? `${hrsAgo}h ago` : relativeDay(detail.lastTs))
       : 'N/A';
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
     html += `<div class="fatigue-detail-banner ${displayStatus}">` +
       `<span style="font-size:var(--text-2xl);font-weight:800">${pct}%</span>` +
       `<span style="font-size:var(--text-sm);opacity:0.8">recovered</span>` +
@@ -116,20 +118,25 @@ export function showFatigueDetail(mg) {
       `</div>`;
     html += `<div class="fatigue-recovery-track"><div class="fatigue-recovery-fill ${displayStatus}" style="width:${pct}%"></div></div>`;
     html += `<div class="fatigue-recovery-meta"><span>Est. ready: ${rec.readyLabel}</span><span>Base recovery: ~${Math.round(rec.baseHours)}h</span></div>`;
+    html += `</div>`;
   }
 
   // 2. Recovery advice
   const advice = getRecoveryAdvice(detail);
+  html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
   html += `<div class="fatigue-advice ${displayStatus}">${advice}</div>`;
+  html += `</div>`;
 
   // 3. Stat grid
   const statusColor = `var(--${detail.status})`;
+  html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
   html += `<div class="recap-stat-grid">` +
     `<div class="recap-stat"><div class="recap-stat-label">7-Day Load</div><div class="recap-stat-value">${detail.load7.toFixed(1)}</div></div>` +
     `<div class="recap-stat"><div class="recap-stat-label">Weekly Avg</div><div class="recap-stat-value">${detail.weeklyAvg28.toFixed(1)}</div></div>` +
     `<div class="recap-stat"><div class="recap-stat-label">ACWR</div><div class="recap-stat-value" style="color:${statusColor}">${detail.acwr !== null ? detail.acwr.toFixed(2) : '\u2014'}</div></div>` +
     `<div class="recap-stat"><div class="recap-stat-label">Sessions (28d)</div><div class="recap-stat-value">${detail.count28}</div></div>` +
     `</div>`;
+  html += `</div>`;
 
   // Calibration confidence
   const calInfo = getCalibrationInfo(mg);
@@ -137,14 +144,17 @@ export function showFatigueDetail(mg) {
     const confLabel = calInfo.confidence >= 0.7
       ? 'Personalized to your training'
       : `Learning your patterns (${Math.max(0, 24 - calInfo.sampleCount)} more sessions needed)`;
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
     html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:12px;display:flex;align-items:center;gap:6px">` +
       `<span>Your recovery: ~${calInfo.hours}h</span>` +
       `<span style="opacity:0.5">&middot;</span>` +
       `<span>${confLabel}</span>` +
       `</div>`;
+    html += `</div>`;
   }
 
   // 4. Weekly tonnage trend
+  html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
   const maxTrend = Math.max(...detail.weeklyTrend, 1);
   html += `<div class="section-label-lg">Weekly Load Trend</div>`;
   html += `<div class="fatigue-trend-chart">`;
@@ -155,10 +165,12 @@ export function showFatigueDetail(mg) {
   });
   html += `</div>`;
   html += `<div class="fatigue-trend-labels"><span>W1</span><span>W2</span><span>W3</span><span>W4</span></div>`;
+  html += `</div>`;
 
   // 6. Contributing exercises (top 5, simplified)
   const topContribs = detail.contributors.slice(0, 5);
   if (topContribs.length > 0) {
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
     const maxContrib = Math.max(...topContribs.map(c => c.load7), 1);
     html += `<div class="section-label-lg">Contributing Exercises</div>`;
     topContribs.forEach(c => {
@@ -172,6 +184,7 @@ export function showFatigueDetail(mg) {
         `<div class="fatigue-contributor-bar"><div class="fatigue-contributor-bar-fill" style="width:${pctBar}%;background:${barColor}"></div></div>` +
         `</div>`;
     });
+    html += `</div>`;
   }
 
   $('fatigue-sheet-body').innerHTML = html;

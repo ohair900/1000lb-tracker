@@ -72,6 +72,18 @@ export function closeReviewSheet() {
 }
 
 // ---------------------------------------------------------------------------
+// Recap sheet (this week)
+// ---------------------------------------------------------------------------
+
+export function openRecapSheet() {
+  openSheet('recap-sheet', 'recap-sheet-backdrop');
+}
+
+export function closeRecapSheet() {
+  closeSheet('recap-sheet', 'recap-sheet-backdrop');
+}
+
+// ---------------------------------------------------------------------------
 // Choice sheet (workout picker)
 // ---------------------------------------------------------------------------
 

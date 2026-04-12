@@ -44,13 +44,17 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
   const completionColor = completionPct >= 80 ? 'var(--green)' : completionPct >= 50 ? 'var(--yellow)' : 'var(--red)';
 
   let html = '';
+  let sectionIdx = 0;
 
   // Session Optimizer grade
   if (sessionGrade) {
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
     html += renderSessionGrade(sessionGrade);
+    html += `</div>`;
   }
 
   // Stat grid
+  html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
   html += '<div class="summary-stat-grid">';
   html += `<div class="summary-stat"><div class="summary-stat-label">Duration</div><div class="summary-stat-value">${durationStr}</div></div>`;
   html += `<div class="summary-stat"><div class="summary-stat-label">Completion</div><div class="summary-stat-value" style="color:${completionColor}">${completionPct}%</div></div>`;
@@ -60,9 +64,11 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
 
   // Completion bar
   html += `<div class="summary-completion-bar"><div class="fill" style="width:${completionPct}%;background:${completionColor}"></div></div>`;
+  html += `</div>`;
 
   // Main lift sets detail
   if (mainTotal > 0) {
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
     html += `<div class="section-label-lg" style="margin:12px 0 6px">${LIFT_NAMES[session.mainLift] || session.mainLift} Sets</div>`;
     session.mainSets.forEach(s => {
       const cls = s.completed ? 'completed' : 'missed';
@@ -73,10 +79,12 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
         <span style="font-weight:700;color:${s.completed ? 'var(--green)' : 'var(--red)'}">${status}</span>
       </div>`;
     });
+    html += `</div>`;
   }
 
   // Accessories detail
   if (session.accessories.length > 0) {
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
     html += '<div class="section-label-lg" style="margin:12px 0 6px">Accessories</div>';
     session.accessories.forEach(acc => {
       const done = acc.setsCompleted.length;
@@ -99,6 +107,7 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
         <span class="summary-acc-detail" style="color:${color}">${weightStr}${done}/${target} sets \u00b7 ${repDetail}</span>
       </div>`;
     });
+    html += `</div>`;
   }
 
   // Mesocycle data
@@ -109,6 +118,7 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
       const week = meso.weeks[weekIdx];
       const perf = week ? week.performance[session.mainLift] : null;
       if (week && perf) {
+        html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
         html += '<div class="section-label-lg" style="margin:12px 0 6px">Mesocycle</div>';
         html += `<div class="summary-set-row ${perf.actualRPE <= week.targetRPE ? 'completed' : 'missed'}">
           <span>RPE Target / Actual</span><span style="font-weight:700">${week.targetRPE} / ${perf.actualRPE}</span>
@@ -129,6 +139,7 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
             html += `<div style="margin-top:8px;font-size:var(--text-xs);color:var(--text-dim)">Next: ${nextWeek.label} (${nextWeek.phase}) \u00b7 RPE ${nextWeek.targetRPE}</div>`;
           }
         }
+        html += `</div>`;
       }
     }
   }

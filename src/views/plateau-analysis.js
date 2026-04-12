@@ -100,7 +100,16 @@ export function showPlateauSheet(lift) {
   if (!d) return;
 
   $('plateau-sheet-title').textContent = `${LIFT_NAMES[lift]} Plateau Analysis`;
-  $('plateau-sheet-body').innerHTML = renderDiagnosisBlock(d, true);
+  let html = '';
+  let sectionIdx = 0;
+  html += `<div class="sheet-section" style="--i:${sectionIdx++}">${renderDiagnosisBlock(d, false)}</div>`;
+  if (d.analysisData) {
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">${renderIntensityChart(d.analysisData)}</div>`;
+  }
+  if (d.causes.length > 1) {
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">${renderSecondaryCauses(d.causes)}</div>`;
+  }
+  $('plateau-sheet-body').innerHTML = html;
 
   openSheet('plateau-sheet', 'plateau-sheet-backdrop');
 
@@ -180,7 +189,7 @@ function renderIntensityChart(data) {
   const bins = data.intensityBins;
   const max = Math.max(1, ...Object.values(bins));
 
-  let html = `<div class="ld-section-title">Intensity Distribution (8 wks)</div>`;
+  let html = `<div class="sheet-section-title">Intensity Distribution (8 wks)</div>`;
   html += `<div class="pb-intensity-chart">`;
   Object.entries(bins).forEach(([range, count]) => {
     const pct = (count / max) * 100;

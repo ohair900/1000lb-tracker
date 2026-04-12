@@ -48,3 +48,13 @@
   100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
 }
 @keyframes celebrationFadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* Staggered section fade-in — reusable across all detail sheets */
+@keyframes sheetSectionEnter {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.sheet-section {
+  animation: sheetSectionEnter 0.35s ease both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
