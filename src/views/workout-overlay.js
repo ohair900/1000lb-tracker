@@ -166,8 +166,16 @@ function createWorkoutSession(mainLift) {
   store.workoutSession = session;
   store.saveWorkoutSession();
 
-  // Session Optimizer: generate coaching plan
-  generateSessionPlan(mainLift, session);
+  // Session Optimizer: generate coaching plan. Wrap so an error here never
+  // blocks the workout overlay from opening — renderWorkoutView will retry
+  // generation and fall back to a visible error card if it fails again.
+  store._sessionOptimizer = null;
+  try {
+    generateSessionPlan(mainLift, session);
+  } catch (err) {
+    console.error('[coach] generateSessionPlan failed in createWorkoutSession for ' + mainLift + ':', err);
+    store._sessionOptimizer = null;
+  }
 
   return session;
 }
@@ -254,21 +262,40 @@ export function renderWorkoutView() {
   $('workout-subtitle').textContent = store.workoutSession.date + weekLabel;
   let html = '';
 
-  // Session Optimizer coaching card — ensure the stored plan belongs to
-  // this session. If it's missing or belongs to a prior lift (stale from a
-  // discarded workout, or skipped due to an upstream error during create),
-  // regenerate it in place. Regen is synchronous and idempotent.
+  // Session Optimizer coaching card — ensure the stored plan belongs to this
+  // session. If it's missing or belongs to a prior lift, regenerate it in
+  // place. On any error we MUST clear the stale plan so a cross-lift plan
+  // (e.g. squat notes leaking into a bench workout) can never be rendered.
   let optimizer = store._sessionOptimizer;
-  if (!optimizer || !optimizer.plan || optimizer.plan.lift !== store.workoutSession.mainLift) {
+  const sessionLift = store.workoutSession.mainLift;
+  const stale = !optimizer || !optimizer.plan || optimizer.plan.lift !== sessionLift;
+  if (stale) {
+    // First, drop the stale plan so nothing from the previous session can
+    // fall through the error path. If regen succeeds it overwrites this.
+    store._sessionOptimizer = null;
+    optimizer = null;
     try {
-      generateSessionPlan(store.workoutSession.mainLift, store.workoutSession);
+      generateSessionPlan(sessionLift, store.workoutSession);
       optimizer = store._sessionOptimizer;
     } catch (err) {
-      console.warn('Session optimizer plan generation failed:', err);
+      // Surface prominently so we can see this in production dev tools.
+      console.error('[coach] generateSessionPlan failed for ' + sessionLift + ':', err);
+      store._sessionOptimizer = null;
+      optimizer = null;
     }
   }
-  if (optimizer && optimizer.plan) {
+  // Only render if we actually have a plan for the CURRENT lift. Otherwise
+  // render a minimal error-state card so the user doesn't see a silent void
+  // (and we can tell from a screenshot that the plan-gen pipeline failed).
+  if (optimizer && optimizer.plan && optimizer.plan.lift === sessionLift) {
     html += renderCoachingCard(optimizer.plan);
+  } else {
+    html += `<section class="coach-note coach-note-empty" id="coach-card" data-lift="${sessionLift}">
+      <header class="coach-note-head"><span class="coach-note-label">${LIFT_NAMES[sessionLift]} notes</span></header>
+      <ul class="coach-note-list">
+        <li class="coach-row" data-priority="low"><p class="coach-row-text">Coach couldn't read this session. Check the console for details.</p></li>
+      </ul>
+    </section>`;
   }
 
   // Main lift section
