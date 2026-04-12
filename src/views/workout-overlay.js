@@ -104,6 +104,91 @@ export function setWorkoutOverlayDeps(deps) { Object.assign(_deps, deps); }
 // Helpers
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Exercise picker (inline browser)
+// ---------------------------------------------------------------------------
+
+function _renderMusclePills(ex) {
+  const muscles = ex.primaryMuscles || {};
+  return Object.entries(muscles)
+    .filter(([, w]) => w >= 0.20)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([mg]) => `<span class="muscle-pill">${mg}</span>`)
+    .join('');
+}
+
+function _renderExercisePicker(tab, query) {
+  const mainLift = store.workoutSession.mainLift;
+  const usedIds = new Set(store.workoutSession.accessories.map(a => a.exerciseId));
+  const equip = store.equipmentProfile || {};
+  const list = document.getElementById('workout-ex-list');
+  if (!list) return;
+
+  let html = '';
+
+  if (tab === 'suggested') {
+    // Top 12 scored exercises, grouped by movement pattern
+    const scored = scoreAccessories(mainLift)
+      .filter(ex => !usedIds.has(ex.id) && ex.equipAvailable !== false);
+    const filtered = query
+      ? scored.filter(ex => ex.name.toLowerCase().includes(query.toLowerCase()))
+      : scored;
+    const picks = filtered.slice(0, 12);
+
+    if (picks.length === 0) {
+      html = '<div style="padding:16px;text-align:center;color:var(--text-dim);font-size:var(--text-sm)">No exercises found</div>';
+    } else {
+      const groups = {};
+      picks.forEach(ex => {
+        const p = ex.movementPattern || 'other';
+        if (!groups[p]) groups[p] = [];
+        groups[p].push(ex);
+      });
+      for (const [pattern, exercises] of Object.entries(groups)) {
+        const info = MOVEMENT_PATTERNS[pattern] || { label: pattern, pushPull: 'neutral' };
+        html += `<div class="pattern-group-header">${info.label}</div>`;
+        for (const ex of exercises) {
+          html += `<div class="exercise-browser-item" data-pick-exercise="${ex.id}">
+            <div><div class="exercise-browser-item-name">${ex.name}</div><div class="muscle-pills">${_renderMusclePills(ex)}</div></div>
+            <span class="exercise-browser-item-equip">${ex.equipment}</span>
+          </div>`;
+        }
+      }
+    }
+  } else {
+    // Full catalog, grouped by movement pattern, search-filtered
+    const groups = {};
+    for (const [id, ex] of Object.entries(EXERCISE_CATALOG)) {
+      if (query && !ex.name.toLowerCase().includes(query.toLowerCase())) continue;
+      const p = ex.movementPattern || 'other';
+      if (!groups[p]) groups[p] = [];
+      groups[p].push({ id, ...ex });
+    }
+
+    if (Object.keys(groups).length === 0) {
+      html = '<div style="padding:16px;text-align:center;color:var(--text-dim);font-size:var(--text-sm)">No exercises found</div>';
+    } else {
+      for (const [pattern, exercises] of Object.entries(groups).sort()) {
+        const info = MOVEMENT_PATTERNS[pattern] || { label: pattern, pushPull: 'neutral' };
+        html += `<div class="pattern-group-header">${info.label}</div>`;
+        for (const ex of exercises) {
+          const added = usedIds.has(ex.id);
+          const available = equip[ex.equipment] !== false;
+          html += `<div class="exercise-browser-item${added ? ' added' : ''}${!available ? ' unavailable' : ''}" data-pick-exercise="${ex.id}">
+            <div><div class="exercise-browser-item-name">${ex.name}</div><div class="muscle-pills">${_renderMusclePills(ex)}</div></div>
+            <span class="exercise-browser-item-equip">${ex.equipment}</span>
+          </div>`;
+        }
+      }
+    }
+  }
+
+  list.innerHTML = html;
+}
+
+// ---------------------------------------------------------------------------
+
 function getLastMainPerformance(lift) {
   const recent = store.entries.filter(e => e.lift === lift).sort((a, b) => b.timestamp - a.timestamp)[0];
   if (!recent) return null;
@@ -501,7 +586,14 @@ export function renderWorkoutView() {
 
   // Add Exercise button
   html += `<button class="workout-add-exercise-btn" id="workout-add-exercise">+ Add Exercise</button>`;
-  html += `<div id="workout-exercise-picker" style="display:none"></div>`;
+  html += `<div id="workout-exercise-picker" class="workout-ex-picker" style="display:none">
+    <input type="text" class="exercise-browser-search" placeholder="Search exercises..." id="workout-ex-search">
+    <div class="browser-tabs">
+      <button class="browser-tab active" data-wk-tab="suggested">Suggested</button>
+      <button class="browser-tab" data-wk-tab="all">All Exercises</button>
+    </div>
+    <div class="workout-exercise-picker-list" id="workout-ex-list"></div>
+  </div>`;
 
   body.innerHTML = html;
   updateCompleteButton();
@@ -695,6 +787,19 @@ export function updateWorkoutButton() {
  */
 export function initWorkoutOverlay() {
   const body = $('workout-body');
+
+  // Exercise picker search — debounced input filter
+  let _searchTimer = null;
+  body.addEventListener('input', (e) => {
+    if (e.target.id === 'workout-ex-search') {
+      clearTimeout(_searchTimer);
+      _searchTimer = setTimeout(() => {
+        const activeTab = document.querySelector('[data-wk-tab].active');
+        const tab = activeTab ? activeTab.dataset.wkTab : 'suggested';
+        _renderExercisePicker(tab, e.target.value);
+      }, 150);
+    }
+  });
 
   body.addEventListener('click', (e) => {
     if (!store.workoutSession) return;
@@ -952,35 +1057,28 @@ export function initWorkoutOverlay() {
       return;
     }
 
-    // Add Exercise — show picker
+    // Add Exercise — toggle the full exercise browser
     if (e.target.closest('#workout-add-exercise')) {
       const picker = document.getElementById('workout-exercise-picker');
       if (picker.style.display !== 'none') {
         picker.style.display = 'none';
         return;
       }
-      const mainLift = store.workoutSession.mainLift;
-      const usedIds = new Set(store.workoutSession.accessories.map(a => a.exerciseId));
-      const scored = scoreAccessories(mainLift).filter(ex => !usedIds.has(ex.id) && ex.equipAvailable !== false);
-      const picks = scored.slice(0, 8);
-      if (picks.length === 0) {
-        showToast('No more exercises available');
-        return;
-      }
-      let pickerHtml = '<div class="workout-exercise-picker-list">';
-      picks.forEach(ex => {
-        const weight = getAccessoryWeight(ex.id, mainLift);
-        const weightStr = (ex.progressionType === 'bodyweight') ? 'BW'
-          : (ex.progressionType === 'time') ? 'Timed'
-          : weight > 0 ? `${formatWeight(weight)} ${store.unit}` : '—';
-        pickerHtml += `<div class="workout-exercise-pick" data-pick-exercise="${ex.id}">
-          <span class="pick-name">${ex.name}</span>
-          <span class="pick-meta">${ex.equipment} &bull; ${ex.sets}x${ex.repRange[1]} &bull; ${weightStr}</span>
-        </div>`;
-      });
-      pickerHtml += '</div>';
-      picker.innerHTML = pickerHtml;
+      _renderExercisePicker('suggested', '');
       picker.style.display = '';
+      // Focus the search input for immediate typing
+      const searchInput = document.getElementById('workout-ex-search');
+      if (searchInput) setTimeout(() => searchInput.focus(), 50);
+      return;
+    }
+
+    // Exercise picker — tab switching
+    const tabBtn = e.target.closest('[data-wk-tab]');
+    if (tabBtn) {
+      const tab = tabBtn.dataset.wkTab;
+      document.querySelectorAll('[data-wk-tab]').forEach(b => b.classList.toggle('active', b.dataset.wkTab === tab));
+      const query = (document.getElementById('workout-ex-search') || {}).value || '';
+      _renderExercisePicker(tab, query);
       return;
     }
 
@@ -991,18 +1089,27 @@ export function initWorkoutOverlay() {
       const mainLift = store.workoutSession.mainLift;
       const catalogEx = EXERCISE_CATALOG[exId];
       if (!catalogEx) return;
-      const weight = getAccessoryWeight(exId, mainLift);
-      const sets = catalogEx.sets || 3;
-      const progressed = checkAccessoryProgression(exId, mainLift);
+      // Already in session? Skip.
+      if (store.workoutSession.accessories.some(a => a.exerciseId === exId)) {
+        showToast('Already in your workout');
+        return;
+      }
+      // Apply tier rotation (same as createWorkoutSession)
+      const tier = getNextTier(exId);
+      const tierInfo = tier ? REP_TIERS[tier] : null;
+      const repRange = tierInfo ? tierInfo.repRange : (catalogEx.repRange ? [...catalogEx.repRange] : [8, 12]);
+      const sets = tierInfo ? tierInfo.sets : (catalogEx.sets || 3);
+      const weight = tier ? getWeightForTier(exId, tier, mainLift) : getAccessoryWeight(exId, mainLift);
       store.workoutSession.accessories.push({
         exerciseId: exId,
         name: catalogEx.name,
         setWeights: computeSetWeights(weight, sets),
         targetSets: sets,
-        repRange: catalogEx.repRange ? [...catalogEx.repRange] : [8, 12],
+        repRange,
         equipment: catalogEx.equipment,
         setsCompleted: [],
-        progressed: !!progressed,
+        progressed: !!checkAccessoryProgression(exId, mainLift),
+        _tier: tier,
       });
       store.saveWorkoutSession();
       renderWorkoutView();
