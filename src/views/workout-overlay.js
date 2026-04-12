@@ -267,6 +267,7 @@ export function renderWorkoutView() {
   // place. On any error we MUST clear the stale plan so a cross-lift plan
   // (e.g. squat notes leaking into a bench workout) can never be rendered.
   let optimizer = store._sessionOptimizer;
+  let coachError = null;
   const sessionLift = store.workoutSession.mainLift;
   const stale = !optimizer || !optimizer.plan || optimizer.plan.lift !== sessionLift;
   if (stale) {
@@ -278,22 +279,37 @@ export function renderWorkoutView() {
       generateSessionPlan(sessionLift, store.workoutSession);
       optimizer = store._sessionOptimizer;
     } catch (err) {
-      // Surface prominently so we can see this in production dev tools.
+      // Capture for both console AND inline display so mobile users can
+      // screenshot the error without needing devtools.
       console.error('[coach] generateSessionPlan failed for ' + sessionLift + ':', err);
+      coachError = err;
       store._sessionOptimizer = null;
       optimizer = null;
     }
   }
   // Only render if we actually have a plan for the CURRENT lift. Otherwise
-  // render a minimal error-state card so the user doesn't see a silent void
-  // (and we can tell from a screenshot that the plan-gen pipeline failed).
+  // render a minimal error-state card with the actual error text so the user
+  // doesn't need devtools to diagnose the failure.
   if (optimizer && optimizer.plan && optimizer.plan.lift === sessionLift) {
     html += renderCoachingCard(optimizer.plan);
   } else {
+    const errMsg = coachError
+      ? String(coachError && coachError.message ? coachError.message : coachError)
+      : 'Plan was missing after regen — unknown cause';
+    const errStack = coachError && coachError.stack
+      ? String(coachError.stack).split('\n').slice(0, 4).join('\n')
+      : '';
+    // Escape angle brackets so the error text doesn't break the HTML
+    const escape = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     html += `<section class="coach-note coach-note-empty" id="coach-card" data-lift="${sessionLift}">
       <header class="coach-note-head"><span class="coach-note-label">${LIFT_NAMES[sessionLift]} notes</span></header>
       <ul class="coach-note-list">
-        <li class="coach-row" data-priority="low"><p class="coach-row-text">Coach couldn't read this session. Check the console for details.</p></li>
+        <li class="coach-row" data-priority="high">
+          <p class="coach-row-text"><strong>Coach error:</strong> ${escape(errMsg)}</p>
+        </li>
+        ${errStack ? `<li class="coach-row" data-priority="low">
+          <p class="coach-row-text" style="font-family:var(--font-mono);font-size:0.65rem;white-space:pre-wrap;word-break:break-all;">${escape(errStack)}</p>
+        </li>` : ''}
       </ul>
     </section>`;
   }
