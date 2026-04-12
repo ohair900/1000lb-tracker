@@ -120,7 +120,17 @@ export function showAccessoryDetail(exerciseId) {
     html += `<div class="sheet-section-title">Recent Sessions</div>`;
     html += `<div class="ld-sessions">`;
     detail.sessions.slice(0, 8).forEach((s, idx) => {
-      const w = isBodyweight ? 'BW' : formatWeight(s.weight) + ' ' + store.unit;
+      let w;
+      if (isBodyweight) {
+        w = 'BW';
+      } else if (s.setWeights && s.setWeights.length > 1) {
+        const unique = new Set(s.setWeights);
+        w = unique.size === 1
+          ? `${s.setWeights.length}&times;${formatWeight(s.setWeights[0])} ${store.unit}`
+          : s.setWeights.map(v => formatWeight(v)).join('/') + ' ' + store.unit;
+      } else {
+        w = formatWeight(s.weight) + ' ' + store.unit;
+      }
       const reps = s.setsCompleted.join('/');
       const completedAll = s.setsCompleted.length >= s.targetSets;
       html += `<div class="ld-session">`;

@@ -292,9 +292,14 @@ export function renderHistory() {
         const isTimeBased = !!((legacyEx && legacyEx.timeBased) || (catalogEx && catalogEx.progressionType === 'time'));
         const setsStr = a.setsCompleted.join('/') + (isTimeBased ? 's' : '');
         const hasWeight = a.setWeights && a.setWeights.some(w => w > 0);
-        const weightDisplay = hasWeight
-          ? `${formatWeight(a.setWeights[0])} ${store.unit} &times; `
-          : '';
+        let weightDisplay = '';
+        if (hasWeight) {
+          const unique = new Set(a.setWeights);
+          const weightStr = unique.size === 1
+            ? `${a.setWeights.length}&times;${formatWeight(a.setWeights[0])} ${store.unit}`
+            : a.setWeights.map(v => formatWeight(v)).join('/') + ' ' + store.unit;
+          weightDisplay = `${weightStr} &times; `;
+        }
         const mainLiftColor = a.mainLift ? COLORS[a.mainLift] : 'var(--text-dim)';
         html += `<div class="swipe-container" data-acc-id="${a.id}">
           <div class="swipe-edit-bg"><span class="swipe-edit-label">Edit</span></div>
