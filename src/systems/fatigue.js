@@ -34,10 +34,15 @@ import {
 } from '../data/muscle-groups.js';
 import { calcINOL, calcAccessoryINOL } from '../formulas/inol.js';
 
-// Minimum main-lift muscle weight to count toward a muscle group's fatigue.
-// Contributions below this (e.g. bench → Upper Back at 0.05) are passive
-// stabilization noise, not meaningful load. See plan for the full table.
-const FATIGUE_WEIGHT_FLOOR = 0.07;
+// Minimum muscle weight to count toward a muscle group's fatigue and recovery.
+// Below 15%, involvement is stabilization (bracing, scap retraction, grip),
+// not meaningful load that would make the muscle sore. Audited against all
+// 51 catalog exercises: zero false negatives (no exercise loses a muscle it
+// genuinely makes sore), zero false positives (no stabilizer-only
+// involvement counts). Key exclusions: squat→Core 0.07, DL→Core 0.08,
+// incline bench→Core 0.10, OHP→Core 0.10. Key inclusions: squat→Hams 0.17,
+// DL→Upper Back 0.15, front squat→Core 0.15.
+const FATIGUE_WEIGHT_FLOOR = 0.15;
 
 // Variable accessory INOL discount by exercise type (#7)
 // Close-variations are nearly as fatiguing as main lifts; isolation is mostly local
