@@ -115,10 +115,12 @@ function priorityClass(p) {
 
 function renderCoachRow(row) {
   const acceptedCls = row.accepted ? ' accepted' : '';
+  // "Add" for exercise additions, "Accept" for everything else (BBB reduction, etc.)
+  const label = row.action && row.action.kind === 'swap' ? 'Add' : 'Accept';
   const buttonHtml = row.action
     ? (row.accepted
-        ? `<span class="coach-row-applied">Applied</span>`
-        : `<button class="coach-row-accept" ${row.action.attr}>Accept</button>`)
+        ? `<span class="coach-row-applied">Added</span>`
+        : `<button class="coach-row-accept" ${row.action.attr}>${label}</button>`)
     : '';
 
   return `

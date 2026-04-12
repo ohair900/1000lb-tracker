@@ -37,7 +37,7 @@ import {
   gradeSession,
   applyAdjustments,
   applySupplementalAdjustment,
-  applyAccessorySwap,
+  applyCoachAddition,
 } from '../systems/session-optimizer.js';
 import { renderCoachingCard, renderSetEvaluationChip, renderSessionGrade } from '../views/session-coach-ui.js';
 import { showToast } from '../ui/toast.js';
@@ -717,7 +717,7 @@ export function initWorkoutOverlay() {
       }
       return;
     }
-    // Session Optimizer: Accept pre-session accessory swap
+    // Session Optimizer: Accept pre-session coach addition (add exercise)
     const acceptSwapBtn = e.target.closest('[data-coach-accept-swap]');
     if (acceptSwapBtn) {
       const idx = parseInt(acceptSwapBtn.dataset.coachAcceptSwap, 10);
@@ -726,12 +726,17 @@ export function initWorkoutOverlay() {
       if (plan && Array.isArray(plan.accessorySwaps) && plan.accessorySwaps[idx]) {
         const swap = plan.accessorySwaps[idx];
         if (!swap._accepted) {
-          applyAccessorySwap(swap);
+          const result = applyCoachAddition(swap);
           swap._accepted = true;
           (plan.insights || []).forEach(ins => {
             if (ins.type === 'gap' && ins.swapIndex === idx) ins._accepted = true;
           });
           renderWorkoutView();
+          if (result === 'added') {
+            showToast(`${swap.suggestedName} added`);
+          } else if (result === 'already-present') {
+            showToast('Already in your workout');
+          }
         }
       }
       return;

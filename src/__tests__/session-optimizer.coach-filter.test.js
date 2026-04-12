@@ -59,7 +59,7 @@ vi.mock('../systems/workout-builder.js', () => ({
   checkAccessoryProgression: () => false,
 }));
 
-import { generateSessionPlan } from '../systems/session-optimizer.js';
+import { generateSessionPlan, applyCoachAddition } from '../systems/session-optimizer.js';
 
 beforeEach(() => {
   mockStore.entries = [];
@@ -184,6 +184,102 @@ describe('generateSessionPlan — calf-on-bench never surfaces as swap', () => {
       i.type === 'gap' && /fatigue is elevated/i.test(i.text)
     );
     expect(softInsight).toBeDefined();
+  });
+});
+
+describe('generateSessionPlan — coverage filter (don\'t recommend what\'s already there)', () => {
+  it('skips a gap whose target muscle is already covered by session accessories', () => {
+    mockGapReport.current = [{
+      type: 'volume', muscleGroup: 'Upper Back', severity: 'high',
+      message: 'Upper Back: 0/10 sets',
+      suggestedExercise: { id: 'barbell-row', name: 'Barbell Row', equipment: 'barbell' },
+    }];
+
+    const session = buildBenchSession();
+    // Session already has barbell-row loaded
+    session.accessories = [{
+      exerciseId: 'barbell-row', name: 'Barbell Row',
+      setWeights: [135, 135, 135], targetSets: 3, repRange: [8, 12],
+      equipment: 'barbell', setsCompleted: [],
+    }];
+
+    const plan = generateSessionPlan('bench', session);
+    expect(plan.accessorySwaps).toHaveLength(0);
+    const actionable = plan.insights.filter(i => i.type === 'gap' && i.actionable);
+    expect(actionable).toHaveLength(0);
+  });
+
+  it('skips a ratio gap when session already has an upper-body pull accessory', () => {
+    mockGapReport.current = [{
+      type: 'ratio', muscleGroup: null, severity: 'high',
+      message: 'Push:Pull 6:0',
+      suggestedExercise: { id: 'barbell-row', name: 'Barbell Row', equipment: 'barbell' },
+    }];
+
+    const session = buildBenchSession();
+    // Session has a horizontal-pull accessory (resolveExercise('barbell-row')
+    // returns an object with movementPattern='horizontal-pull')
+    session.accessories = [{
+      exerciseId: 'barbell-row', name: 'Barbell Row',
+      setWeights: [135, 135, 135], targetSets: 3, repRange: [8, 12],
+      equipment: 'barbell', setsCompleted: [],
+    }];
+
+    const plan = generateSessionPlan('bench', session);
+    expect(plan.accessorySwaps).toHaveLength(0);
+  });
+
+  it('shows a gap recommendation when the muscle is NOT covered by session accessories', () => {
+    mockGapReport.current = [{
+      type: 'volume', muscleGroup: 'Biceps', severity: 'high',
+      message: 'Biceps: 0/4 sets',
+      suggestedExercise: { id: 'preacher-curl', name: 'Preacher Curl', equipment: 'dumbbell' },
+    }];
+
+    const session = buildBenchSession();
+    session.accessories = []; // no accessories at all
+
+    const plan = generateSessionPlan('bench', session);
+    expect(plan.accessorySwaps).toHaveLength(1);
+    expect(plan.accessorySwaps[0].suggestedId).toBe('preacher-curl');
+    const actionable = plan.insights.find(i => i.type === 'gap' && i.actionable);
+    expect(actionable).toBeDefined();
+    expect(actionable.text).toMatch(/Add/); // "Add Preacher Curl" not "Swap in"
+  });
+});
+
+describe('applyCoachAddition', () => {
+  it('appends the exercise to accessories and returns "added"', () => {
+    mockStore.workoutSession = {
+      mainLift: 'bench',
+      accessories: [],
+    };
+    const result = applyCoachAddition({
+      suggestedId: 'barbell-row', suggestedName: 'Barbell Row',
+      reason: 'Push:Pull 6:0', muscleGroup: 'Upper Back',
+    });
+    expect(result).toBe('added');
+    expect(mockStore.workoutSession.accessories).toHaveLength(1);
+    expect(mockStore.workoutSession.accessories[0].exerciseId).toBe('barbell-row');
+    expect(mockStore.workoutSession.accessories[0]._coachAdded).toBe(true);
+  });
+
+  it('returns "already-present" when the exercise is already loaded', () => {
+    mockStore.workoutSession = {
+      mainLift: 'bench',
+      accessories: [{
+        exerciseId: 'barbell-row', name: 'Barbell Row',
+        setWeights: [135], targetSets: 1, repRange: [8, 12],
+        equipment: 'barbell', setsCompleted: [],
+      }],
+    };
+    const result = applyCoachAddition({
+      suggestedId: 'barbell-row', suggestedName: 'Barbell Row',
+      reason: 'Push:Pull 6:0', muscleGroup: 'Upper Back',
+    });
+    expect(result).toBe('already-present');
+    // Did not duplicate
+    expect(mockStore.workoutSession.accessories).toHaveLength(1);
   });
 });
 

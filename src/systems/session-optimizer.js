@@ -145,15 +145,37 @@ export function generateSessionPlan(lift, session) {
         });
       });
 
-    // Actionable gaps — top 2 high/medium severity in-region items.
+    // Build coverage sets from today's accessories so we don't recommend
+    // something the day's plan already covers.
+    const coveredMuscles = new Set();
+    let coveredUpperPull = false;
+    (session.accessories || []).forEach(acc => {
+      const ex = resolveExercise(acc.exerciseId);
+      if (!ex) return;
+      if (ex.primaryMuscles) {
+        Object.entries(ex.primaryMuscles).forEach(([mg, w]) => {
+          if (w >= 0.20) coveredMuscles.add(mg);
+        });
+      }
+      if (ex.movementPattern === 'horizontal-pull' || ex.movementPattern === 'vertical-pull') {
+        coveredUpperPull = true;
+      }
+    });
+
+    // Actionable gaps — top 2 high/medium severity, in-region, AND not
+    // already addressed by today's prescribed accessories.
     const actionableGaps = cache.gapReport
       .filter(g => (g.severity === 'high' || g.severity === 'medium') && g.suggestedExercise)
+      .filter(g => {
+        if (g.muscleGroup && coveredMuscles.has(g.muscleGroup)) return false;
+        if (g.type === 'ratio' && coveredUpperPull) return false;
+        if ((session.accessories || []).some(a => a.exerciseId === g.suggestedExercise.id)) return false;
+        return true;
+      })
       .slice(0, 2);
 
     actionableGaps.forEach(gap => {
       // Recent-stimulus dampening only applies to muscle-specific gaps.
-      // Push:pull ratio gaps have muscleGroup = null, so skip the fatigue
-      // check for them entirely.
       if (gap.muscleGroup) {
         const mgFatigue = muscleFatigue && muscleFatigue[gap.muscleGroup];
         const ds = mgFatigue && mgFatigue.displayStatus;
@@ -166,16 +188,16 @@ export function generateSessionPlan(lift, session) {
         }
       }
 
-      // Coach-voice copy: action-first, reason-trailing. Ratio gaps (push:pull)
-      // have no muscleGroup so they need a different template.
+      // Coach recommends ADDING an exercise to fill the gap — the workout
+      // grows to be complete rather than shuffling existing accessories.
       let text;
       if (gap.muscleGroup) {
         const shortReason = gap.message.replace(`${gap.muscleGroup}: `, '').trim();
-        text = `Swap in ${gap.suggestedExercise.name} — ${gap.muscleGroup.toLowerCase()} is ${shortReason}.`;
+        text = `Add ${gap.suggestedExercise.name} — ${gap.muscleGroup.toLowerCase()} is ${shortReason}.`;
       } else if (gap.type === 'ratio') {
-        text = `Add a pull — ${gap.suggestedExercise.name}. ${gap.message}.`;
+        text = `Add ${gap.suggestedExercise.name} — more pulling needed (${gap.message}).`;
       } else {
-        text = `Swap in ${gap.suggestedExercise.name}. ${gap.message}.`;
+        text = `Add ${gap.suggestedExercise.name}. ${gap.message}.`;
       }
 
       insights.push({
@@ -188,8 +210,6 @@ export function generateSessionPlan(lift, session) {
         suggestedId: gap.suggestedExercise.id || null,
         suggestedName: gap.suggestedExercise.name,
         reason: gap.message,
-        // Ratio gaps target upper back as the default pull muscle so
-        // applyAccessorySwap has a non-null muscleGroup to work with.
         muscleGroup: gap.muscleGroup || 'Upper Back',
       });
     });
@@ -654,44 +674,29 @@ export function applySupplementalAdjustment(adjustment) {
 }
 
 /**
- * Swap an accessory slot for a coach-recommended exercise. Called when the
- * athlete taps "Accept" on a swap row in the coaching card.
- *
- * Strategy: find the lowest-priority accessory currently in the workout that
- * targets a *different* muscle group than the suggestion (avoid double-dipping
- * on the same muscle), and replace it. If none match that rule, replace the
- * last accessory in the list.
+ * Add a coach-recommended exercise to the workout. Called when the athlete
+ * taps "Add" on a coach gap row. Appends to the accessories list rather
+ * than replacing an existing exercise — the workout grows to be complete.
  *
  * @param {Object} swap - { suggestedId, suggestedName, reason, muscleGroup }
+ * @returns {'added' | 'already-present' | 'no-session'}
  */
-export function applyAccessorySwap(swap) {
-  if (!store.workoutSession || !swap || !swap.suggestedId) return;
+export function applyCoachAddition(swap) {
+  if (!store.workoutSession || !swap || !swap.suggestedId) return 'no-session';
 
   const suggested = resolveExercise(swap.suggestedId) || EXERCISE_CATALOG[swap.suggestedId];
-  if (!suggested) return;
+  if (!suggested) return 'no-session';
 
   const accessories = store.workoutSession.accessories;
-  if (!accessories || accessories.length === 0) return;
+  if (!accessories) return 'no-session';
 
-  // Skip if the suggestion is already loaded.
-  if (accessories.some(a => a.exerciseId === swap.suggestedId)) return;
-
-  // Pick a replacement slot: prefer an accessory whose primary muscle differs
-  // from the swap's target (so we're not doubling up on one muscle).
-  let replaceIdx = accessories.length - 1;
-  for (let i = accessories.length - 1; i >= 0; i--) {
-    const acc = accessories[i];
-    const accEx = resolveExercise(acc.exerciseId);
-    if (!accEx || !accEx.primaryMuscles) continue;
-    const overlapsTarget = (accEx.primaryMuscles[swap.muscleGroup] || 0) >= 0.20;
-    if (!overlapsTarget) { replaceIdx = i; break; }
-  }
+  // Don't add if it's already in the workout
+  if (accessories.some(a => a.exerciseId === swap.suggestedId)) return 'already-present';
 
   const targetSets = suggested.sets || 3;
   const workingWeight = getAccessoryWeight(swap.suggestedId, store.workoutSession.mainLift);
-  const previousId = accessories[replaceIdx].exerciseId;
 
-  accessories[replaceIdx] = {
+  accessories.push({
     exerciseId: swap.suggestedId,
     name: suggested.name,
     setWeights: computeSetWeights(workingWeight, targetSets),
@@ -700,8 +705,9 @@ export function applyAccessorySwap(swap) {
     equipment: suggested.equipment || 'barbell',
     setsCompleted: [],
     progressed: false,
-    _swappedFrom: previousId,
-  };
+    _coachAdded: true,
+  });
 
   store.saveWorkoutSession();
+  return 'added';
 }
