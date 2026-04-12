@@ -552,7 +552,7 @@ export function calcFatigueByMuscle() {
     });
     acc28.forEach(a => {
       const cw = resolveAccMuscleWeights(a.exerciseId);
-      if (cw && cw[mg]) { if (a.timestamp > lastTs) lastTs = a.timestamp; }
+      if (cw && cw[mg] && cw[mg] >= FATIGUE_WEIGHT_FLOOR) { if (a.timestamp > lastTs) lastTs = a.timestamp; }
     });
     count28 += countAccessoryEntries(acc28, mg);
 
@@ -780,15 +780,17 @@ export function calcFatigueDetail(mg) {
     weeklyTrend[3 - bucket] += item.load;
   });
 
-  // Last session
+  // Last session — only count exercises above the fatigue weight floor so
+  // stabilizer-level involvement (e.g. bench → Upper Back at 0.05) doesn't
+  // reset the recovery clock for that muscle group.
   let lastTs = 0;
   main28.forEach(e => {
     const w = MAIN_LIFT_WEIGHTS[e.lift];
-    if (w && w[mg] && e.timestamp > lastTs) lastTs = e.timestamp;
+    if (w && w[mg] && w[mg] >= FATIGUE_WEIGHT_FLOOR && e.timestamp > lastTs) lastTs = e.timestamp;
   });
   acc28.forEach(a => {
     const cw = resolveAccMuscleWeights(a.exerciseId);
-    if (cw && cw[mg] && a.timestamp > lastTs) lastTs = a.timestamp;
+    if (cw && cw[mg] && cw[mg] >= FATIGUE_WEIGHT_FLOOR && a.timestamp > lastTs) lastTs = a.timestamp;
   });
   const hoursSince = lastTs > 0 ? (now - lastTs) / (1000 * 60 * 60) : null;
 
@@ -797,7 +799,7 @@ export function calcFatigueDetail(mg) {
 
   const intensityEntries = main7.filter(e => {
     const w = MAIN_LIFT_WEIGHTS[e.lift];
-    return w && w[mg] && e.e1rm > 0;
+    return w && w[mg] && w[mg] >= FATIGUE_WEIGHT_FLOOR && e.e1rm > 0;
   });
   let intensityMult = 1.0;
   if (intensityEntries.length > 0) {

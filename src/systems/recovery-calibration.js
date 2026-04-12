@@ -135,8 +135,10 @@ export function getCalibratedRecovery(mg) {
   if (!cal || !cal[mg] || cal[mg].confidence === 0) return defaultHours;
 
   const { hours: calibratedHours, confidence } = cal[mg];
+  // Safety clamp on read — protects against corrupted stored values
+  const clamped = Math.max(12, Math.min(168, calibratedHours || defaultHours));
   // Gradual blend: at confidence 0 → pure default, at 1.0 → pure calibrated
-  return Math.round((1 - confidence) * defaultHours + confidence * calibratedHours);
+  return Math.round((1 - confidence) * defaultHours + confidence * clamped);
 }
 
 /**
