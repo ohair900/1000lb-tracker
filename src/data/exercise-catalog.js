@@ -8,9 +8,12 @@
 // Movement patterns (8 categories)
 // ---------------------------------------------------------------------------
 
+// pushPull classifies each pattern for UPPER-BODY push:pull balance only.
+// Lower-body patterns (squat-pattern, hip-hinge) are 'neutral' because they
+// don't participate in anterior/posterior shoulder balance accounting.
 export const MOVEMENT_PATTERNS = {
-  'squat-pattern':   { label: 'Squat Pattern',   pushPull: 'push' },
-  'hip-hinge':       { label: 'Hip Hinge',       pushPull: 'push' },
+  'squat-pattern':   { label: 'Squat Pattern',   pushPull: 'neutral' },
+  'hip-hinge':       { label: 'Hip Hinge',       pushPull: 'neutral' },
   'horizontal-push': { label: 'Horizontal Push',  pushPull: 'push' },
   'horizontal-pull': { label: 'Horizontal Pull',  pushPull: 'pull' },
   'vertical-push':   { label: 'Vertical Push',    pushPull: 'push' },

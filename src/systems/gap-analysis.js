@@ -102,9 +102,26 @@ export function analyzeWeeklyVolume() {
 // Layer 2: Weekly push:pull ratio
 // ---------------------------------------------------------------------------
 
+// Push:pull balance is an UPPER-BODY concept for preventing anterior/posterior
+// shoulder imbalances. Lower-body movements (squat/deadlift/lunges/hip thrusts/
+// calves) don't belong in the accounting — including them inflates "push" with
+// leg volume and causes bogus "push-heavy" warnings on people who row plenty.
+const UPPER_PUSH_PATTERNS = new Set(['horizontal-push', 'vertical-push']);
+const UPPER_PULL_PATTERNS = new Set(['horizontal-pull', 'vertical-pull']);
+const LEGACY_UPPER_PUSH_CATS = new Set(['press-variation', 'chest-accessory', 'tricep', 'shoulder']);
+const LEGACY_UPPER_PULL_CATS = new Set(['back']);
+
 /**
- * Compute push vs pull set counts over the last 7 days.
- * Uses MOVEMENT_PATTERNS pushPull classification.
+ * Compute UPPER-BODY push vs pull set counts over the last 7 days.
+ *
+ * Main lifts: only bench counts (horizontal push). Squat and deadlift are
+ * lower-body and excluded entirely.
+ *
+ * Accessories: only horizontal/vertical push and pull patterns count. Squat-
+ * pattern, hip-hinge, core-stability, and grip-carry are excluded.
+ *
+ * Target: 1:1 to 1:1.5 push:pull (slight pull bias). Warnings fire at >=1.5
+ * push-heavy or <=0.67 pull-heavy.
  *
  * @returns {{ pushSets: number, pullSets: number, ratio: number, target: number, status: 'balanced'|'push-heavy'|'pull-heavy' }}
  */
@@ -114,16 +131,15 @@ export function analyzePushPullRatio() {
   let pushSets = 0;
   let pullSets = 0;
 
-  // Count main lift contribution
+  // Main lift contribution — upper-body only. Bench is a horizontal push.
+  // Squat and deadlift don't participate in upper push:pull balance.
   const recentEntries = store.entries.filter(e => e.timestamp >= weekAgo);
   for (const entry of recentEntries) {
-    // Squat and deadlift are primarily push (quad-driven), bench is push
-    if (entry.lift === 'squat') pushSets += 1;
-    else if (entry.lift === 'bench') pushSets += 1;
-    else if (entry.lift === 'deadlift') pushSets += 0.5; // DL is mixed push/pull
+    if (entry.lift === 'bench') pushSets += 1;
+    // squat and deadlift excluded — they're lower-body lifts
   }
 
-  // Count accessory contribution
+  // Accessory contribution — upper-body push/pull patterns only.
   const recentAccessories = store.accessoryLog.filter(l => l.timestamp >= weekAgo);
   for (const log of recentAccessories) {
     const setsCompleted = log.setsCompleted ? log.setsCompleted.length : 0;
@@ -131,38 +147,35 @@ export function analyzePushPullRatio() {
 
     const catalogEx = resolveExercise(log.exerciseId);
     if (catalogEx) {
-      const pattern = MOVEMENT_PATTERNS[catalogEx.movementPattern];
-      if (pattern) {
-        if (pattern.pushPull === 'push') pushSets += setsCompleted;
-        else if (pattern.pushPull === 'pull') pullSets += setsCompleted;
-        // 'neutral' doesn't count toward either
-      }
+      const mp = catalogEx.movementPattern;
+      if (UPPER_PUSH_PATTERNS.has(mp)) pushSets += setsCompleted;
+      else if (UPPER_PULL_PATTERNS.has(mp)) pullSets += setsCompleted;
+      // squat-pattern, hip-hinge, core-stability, grip-carry don't count
       continue;
     }
 
-    // Fallback: legacy category classification
+    // Fallback: legacy category classification (upper-only)
     const legacyEx = ACCESSORY_DB[log.exerciseId];
     if (legacyEx) {
       const cat = legacyEx.category;
-      const isPull = ['back'].includes(cat);
-      const isPush = ['press-variation', 'chest-accessory', 'tricep', 'shoulder',
-                       'squat-variation', 'quad-compound', 'quad-isolation'].includes(cat);
-      if (isPull) pullSets += setsCompleted;
-      else if (isPush) pushSets += setsCompleted;
+      if (LEGACY_UPPER_PULL_CATS.has(cat)) pullSets += setsCompleted;
+      else if (LEGACY_UPPER_PUSH_CATS.has(cat)) pushSets += setsCompleted;
+      // squat-variation, quad-*, dl-variation, posterior, core, grip excluded
     }
   }
 
   const ratio = pullSets > 0 ? pushSets / pullSets : (pushSets > 0 ? Infinity : 1);
   let status = 'balanced';
-  // Target: push:pull should be 1:1 to 1:1.5 (ratio 0.67-1.0)
-  if (ratio > 2) status = 'push-heavy';
-  else if (ratio < 0.5) status = 'pull-heavy';
+  // Target: 1:1 to 1:1.5 push:pull (slight pull bias is ideal for shoulder health).
+  // Flag push-heavy at ratio >= 1.5; pull-heavy at <= 0.67.
+  if (ratio >= 1.5) status = 'push-heavy';
+  else if (ratio <= 0.67) status = 'pull-heavy';
 
   return {
     pushSets: Math.round(pushSets),
     pullSets: Math.round(pullSets),
     ratio: Math.round(ratio * 100) / 100,
-    target: 1.0, // Target push:pull ratio (1:1)
+    target: 1.0, // Target push:pull ratio (1:1 to 1:1.5)
     status,
   };
 }

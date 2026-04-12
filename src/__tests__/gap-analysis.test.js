@@ -118,24 +118,84 @@ describe('analyzePushPullRatio', () => {
     expect(result.pullSets).toBe(0);
   });
 
-  it('counts squat toward pushSets', () => {
+  it('does NOT count squat toward pushSets (push:pull is upper-body only)', () => {
     mockStore.entries = Array.from({ length: 5 }, () =>
       buildEntry({ lift: 'squat', weight: 225, reps: 5, daysAgo: 2 })
     );
     const result = analyzePushPullRatio();
-    expect(result.pushSets).toBeGreaterThan(0);
+    expect(result.pushSets).toBe(0);
+    expect(result.pullSets).toBe(0);
   });
 
-  it('counts rows (back accessories) toward pullSets', () => {
+  it('does NOT count deadlift toward pushSets (push:pull is upper-body only)', () => {
+    mockStore.entries = Array.from({ length: 5 }, () =>
+      buildEntry({ lift: 'deadlift', weight: 315, reps: 5, daysAgo: 2 })
+    );
+    const result = analyzePushPullRatio();
+    expect(result.pushSets).toBe(0);
+    expect(result.pullSets).toBe(0);
+  });
+
+  it('counts bench toward pushSets (horizontal push)', () => {
+    mockStore.entries = Array.from({ length: 5 }, () =>
+      buildEntry({ lift: 'bench', weight: 185, reps: 5, daysAgo: 2 })
+    );
+    const result = analyzePushPullRatio();
+    expect(result.pushSets).toBeGreaterThan(0);
+    expect(result.pullSets).toBe(0);
+  });
+
+  it('counts rows (horizontal-pull) toward pullSets', () => {
     mockStore.accessoryLog = [
       buildAccessoryLog({
-        exerciseId: 'barbell-row', // horizontal-pull pattern
+        exerciseId: 'barbell-row',
         setsCompleted: [8, 8, 8],
         daysAgo: 2,
       }),
     ];
     const result = analyzePushPullRatio();
     expect(result.pullSets).toBeGreaterThan(0);
+    expect(result.pushSets).toBe(0);
+  });
+
+  it('does NOT count squat-pattern accessories toward pushSets', () => {
+    // Lunges, split squats, calf raises — all lower body, not push
+    mockStore.accessoryLog = [
+      buildAccessoryLog({ exerciseId: 'lunges', setsCompleted: [10, 10, 10], daysAgo: 2 }),
+      buildAccessoryLog({ exerciseId: 'calf-raise', setsCompleted: [15, 15, 15], daysAgo: 2 }),
+    ];
+    const result = analyzePushPullRatio();
+    expect(result.pushSets).toBe(0);
+    expect(result.pullSets).toBe(0);
+  });
+
+  it('does NOT count hip-hinge accessories toward pushSets', () => {
+    mockStore.accessoryLog = [
+      buildAccessoryLog({ exerciseId: 'rdl', setsCompleted: [8, 8, 8], daysAgo: 2 }),
+    ];
+    const result = analyzePushPullRatio();
+    expect(result.pushSets).toBe(0);
+    expect(result.pullSets).toBe(0);
+  });
+
+  it('flags push-heavy at ratio >= 1.5, not the old 2.0 threshold', () => {
+    // 6 push sets vs 4 pull sets → ratio 1.5 → push-heavy
+    mockStore.accessoryLog = [
+      buildAccessoryLog({ exerciseId: 'incline-bench', setsCompleted: [8, 8, 8, 8, 8, 8], daysAgo: 2 }),
+      buildAccessoryLog({ exerciseId: 'barbell-row', setsCompleted: [8, 8, 8, 8], daysAgo: 2 }),
+    ];
+    const result = analyzePushPullRatio();
+    expect(result.ratio).toBeCloseTo(1.5, 1);
+    expect(result.status).toBe('push-heavy');
+  });
+
+  it('stays balanced for 1:1 push:pull volume', () => {
+    mockStore.accessoryLog = [
+      buildAccessoryLog({ exerciseId: 'incline-bench', setsCompleted: [8, 8, 8], daysAgo: 2 }),
+      buildAccessoryLog({ exerciseId: 'barbell-row', setsCompleted: [8, 8, 8], daysAgo: 2 }),
+    ];
+    const result = analyzePushPullRatio();
+    expect(result.status).toBe('balanced');
   });
 
   it('returns a valid status field', () => {
