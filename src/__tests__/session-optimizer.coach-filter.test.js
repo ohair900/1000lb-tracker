@@ -124,6 +124,40 @@ describe('generateSessionPlan — calf-on-bench never surfaces as swap', () => {
     expect(actionable.swapIndex).toBe(0);
   });
 
+  it('handles a push:pull ratio gap (muscleGroup: null) without throwing', () => {
+    // Regression for the "Cannot read properties of null (reading 'toLowerCase')"
+    // crash on bench day — ratio gaps have muscleGroup: null and were hitting
+    // the muscle-specific copy path that called .toLowerCase() on null.
+    mockGapReport.current = [
+      {
+        type: 'ratio',
+        muscleGroup: null,
+        severity: 'high',
+        message: 'Push:Pull 6:0',
+        suggestedExercise: {
+          id: 'barbell-row',
+          name: 'Barbell Row',
+          equipment: 'barbell',
+        },
+      },
+    ];
+
+    const session = buildBenchSession();
+    // Must not throw — the coach must handle the null muscleGroup gracefully.
+    const plan = generateSessionPlan('bench', session);
+    expect(plan).toBeDefined();
+    expect(plan.lift).toBe('bench');
+    // The ratio gap should still produce an actionable insight with a
+    // reasonable message (not one containing "null" or "undefined").
+    const ratioInsight = plan.insights.find(i => i.type === 'gap' && i.actionable);
+    expect(ratioInsight).toBeDefined();
+    expect(ratioInsight.text).not.toMatch(/null|undefined/);
+    expect(plan.accessorySwaps).toHaveLength(1);
+    // The swap record should have a non-null muscleGroup so applyAccessorySwap
+    // can work without blowing up.
+    expect(plan.accessorySwaps[0].muscleGroup).toBeTruthy();
+  });
+
   it('suppresses swap + emits soft insight when target muscle is already red', () => {
     mockFatigueByMuscle.current = {
       Chest: { displayStatus: 'red', status: 'red' },

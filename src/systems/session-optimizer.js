@@ -151,23 +151,36 @@ export function generateSessionPlan(lift, session) {
       .slice(0, 2);
 
     actionableGaps.forEach(gap => {
-      // Recent-stimulus dampening: if the target muscle is already at orange
-      // or red fatigue, don't add more volume — emit a soft insight instead.
-      const mgFatigue = muscleFatigue && muscleFatigue[gap.muscleGroup];
-      const ds = mgFatigue && mgFatigue.displayStatus;
-      if (ds === 'red' || ds === 'orange') {
-        insights.push({
-          priority: 3, type: 'gap', icon: 'gap',
-          text: `${gap.muscleGroup} fatigue is elevated — skipping added volume today.`,
-        });
-        return;
+      // Recent-stimulus dampening only applies to muscle-specific gaps.
+      // Push:pull ratio gaps have muscleGroup = null, so skip the fatigue
+      // check for them entirely.
+      if (gap.muscleGroup) {
+        const mgFatigue = muscleFatigue && muscleFatigue[gap.muscleGroup];
+        const ds = mgFatigue && mgFatigue.displayStatus;
+        if (ds === 'red' || ds === 'orange') {
+          insights.push({
+            priority: 3, type: 'gap', icon: 'gap',
+            text: `${gap.muscleGroup} fatigue is elevated — skipping added volume today.`,
+          });
+          return;
+        }
       }
 
-      // Coach-voice copy: action-first, reason-trailing.
-      const shortReason = gap.message.replace(`${gap.muscleGroup}: `, '').trim();
+      // Coach-voice copy: action-first, reason-trailing. Ratio gaps (push:pull)
+      // have no muscleGroup so they need a different template.
+      let text;
+      if (gap.muscleGroup) {
+        const shortReason = gap.message.replace(`${gap.muscleGroup}: `, '').trim();
+        text = `Swap in ${gap.suggestedExercise.name} — ${gap.muscleGroup.toLowerCase()} is ${shortReason}.`;
+      } else if (gap.type === 'ratio') {
+        text = `Add a pull — ${gap.suggestedExercise.name}. ${gap.message}.`;
+      } else {
+        text = `Swap in ${gap.suggestedExercise.name}. ${gap.message}.`;
+      }
+
       insights.push({
         priority: 3, type: 'gap', icon: 'gap',
-        text: `Swap in ${gap.suggestedExercise.name} — ${gap.muscleGroup.toLowerCase()} is ${shortReason}.`,
+        text,
         actionable: true,
         swapIndex: accessorySwaps.length,
       });
@@ -175,7 +188,9 @@ export function generateSessionPlan(lift, session) {
         suggestedId: gap.suggestedExercise.id || null,
         suggestedName: gap.suggestedExercise.name,
         reason: gap.message,
-        muscleGroup: gap.muscleGroup,
+        // Ratio gaps target upper back as the default pull muscle so
+        // applyAccessorySwap has a non-null muscleGroup to work with.
+        muscleGroup: gap.muscleGroup || 'Upper Back',
       });
     });
   }
