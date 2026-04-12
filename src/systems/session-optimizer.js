@@ -49,6 +49,10 @@ import { roundToPlate } from '../formulas/plates.js';
  * @param {Object} session - The session object from createWorkoutSession
  * @returns {Object} SessionPlan
  */
+// Plural muscle group names need "are", singular ones need "is".
+const PLURAL_MUSCLES = new Set(['Quads', 'Hams', 'Glutes', 'Shoulders', 'Triceps', 'Biceps', 'Forearms', 'Calves']);
+const isAre = (name) => PLURAL_MUSCLES.has(name) ? 'are' : 'is';
+
 export function generateSessionPlan(lift, session) {
   // Cache expensive calculations once per session
   const cache = {
@@ -89,12 +93,12 @@ export function generateSessionPlan(lift, session) {
   if (liftStatus === 'red' || worstDisplay === 'red') {
     insights.push({
       priority: 1, type: 'fatigue', icon: 'fatigue',
-      text: `${worstMuscle || LIFT_NAMES[lift]} is hot — keep today light.`,
+      text: `${worstMuscle || LIFT_NAMES[lift]} ${isAre(worstMuscle)} hot — keep today light.`,
     });
   } else if (liftStatus === 'yellow' || worstDisplay === 'orange') {
     insights.push({
       priority: 2, type: 'fatigue', icon: 'fatigue',
-      text: `${worstMuscle || LIFT_NAMES[lift]} is warm — watch RPE closely.`,
+      text: `${worstMuscle || LIFT_NAMES[lift]} ${isAre(worstMuscle)} warm — watch RPE closely.`,
     });
   } else if (worstDisplay === 'yellow') {
     insights.push({
@@ -182,7 +186,7 @@ export function generateSessionPlan(lift, session) {
         if (ds === 'red' || ds === 'orange') {
           insights.push({
             priority: 3, type: 'gap', icon: 'gap',
-            text: `${gap.muscleGroup} fatigue is elevated — skipping added volume today.`,
+            text: `${gap.muscleGroup} fatigue ${isAre(gap.muscleGroup)} elevated — skipping added volume today.`,
           });
           return;
         }
@@ -193,7 +197,7 @@ export function generateSessionPlan(lift, session) {
       let text;
       if (gap.muscleGroup) {
         const shortReason = gap.message.replace(`${gap.muscleGroup}: `, '').trim();
-        text = `Add ${gap.suggestedExercise.name} — ${gap.muscleGroup.toLowerCase()} is ${shortReason}.`;
+        text = `Add ${gap.suggestedExercise.name} — ${gap.muscleGroup.toLowerCase()} ${isAre(gap.muscleGroup)} ${shortReason}.`;
       } else if (gap.type === 'ratio') {
         text = `Add ${gap.suggestedExercise.name} — more pulling needed (${gap.message}).`;
       } else {
@@ -235,10 +239,10 @@ export function generateSessionPlan(lift, session) {
 
     if (newCount < originalCount) {
       const reasonClause = liftStatus === 'red' || worstDisplay === 'red'
-        ? `${worstMuscle || 'ACWR'} is red`
+        ? `${worstMuscle || 'ACWR'} ${isAre(worstMuscle)} red`
         : comebackProtocol
           ? 'you\u2019re back from a break'
-          : `${worstMuscle || 'fatigue'} is warm`;
+          : `${worstMuscle || 'fatigue'} ${isAre(worstMuscle)} warm`;
 
       supplementalAdjustment = {
         from: originalCount,
