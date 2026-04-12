@@ -464,7 +464,21 @@ function renderStatsAccessoryProgress() {
     html += `<div class="acc-progress-group-header" style="color:${COLORS[lift]}">${GROUP_LABELS[lift]} Accessories</div>`;
     html += `<div class="acc-progress-list">`;
     for (const s of exercises) {
-      const w = s.bestWeight === 0 ? 'BW' : formatWeight(s.lastWeight) + ' ' + store.unit;
+      let w;
+      let repsLine = '';
+      if (s.bestWeight === 0) {
+        w = 'BW';
+      } else if (s.lastSetWeights && s.lastSetWeights.length > 1) {
+        const unique = new Set(s.lastSetWeights);
+        w = unique.size === 1
+          ? `${s.lastSetWeights.length}&times;${formatWeight(s.lastSetWeights[0])} ${store.unit}`
+          : s.lastSetWeights.map(v => formatWeight(v)).join('/') + ' ' + store.unit;
+      } else {
+        w = formatWeight(s.lastWeight) + ' ' + store.unit;
+      }
+      if (s.lastSetsCompleted && s.lastSetsCompleted.length > 0) {
+        repsLine = `<div class="acc-progress-reps">&times; ${s.lastSetsCompleted.join('/')} reps</div>`;
+      }
       const arrow = TREND_ARROWS[s.trend];
       html += `<div class="acc-progress-row" data-exercise-id="${s.exerciseId}">
         <div class="acc-progress-dot ${s.mainLift}"></div>
@@ -473,7 +487,7 @@ function renderStatsAccessoryProgress() {
           <div class="acc-progress-meta">${s.sessionCount} session${s.sessionCount !== 1 ? 's' : ''} &bull; ${s.equipment} &bull; ${s.lastDate}</div>
         </div>
         <div class="acc-progress-right">
-          <div class="acc-progress-weight">${w}</div>
+          <div class="acc-progress-weight">${w}</div>${repsLine}
           <div class="acc-progress-trend ${s.trend}">${arrow}</div>
         </div></div>`;
     }

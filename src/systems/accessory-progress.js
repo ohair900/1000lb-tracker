@@ -42,6 +42,8 @@ export function getAccessorySummaries() {
       s.lastTimestamp = entry.timestamp;
       s.lastDate = entry.date;
       s.lastWeight = entry.weight;
+      s.lastSetWeights = entry.setWeights || [];
+      s.lastSetsCompleted = entry.setsCompleted || [];
     }
     if (entry.weight > s.bestWeight) s.bestWeight = entry.weight;
     s.weights.push({ date: entry.date, weight: entry.weight, timestamp: entry.timestamp });
