@@ -66,9 +66,12 @@ describe('calcWeeklyCoverage', () => {
   });
 
   it('attributes squat entries to Quads/Glutes/Hams via MAIN_LIFT_WEIGHTS', () => {
+    // Use daysAgo: 0 — today is always within the current week regardless of
+    // the UTC weekday (avoids a Monday-UTC flake where daysAgo: 2+ falls into
+    // last week because getMonday() returns today).
     mockStore.entries = [
-      buildEntry({ lift: 'squat', weight: 225, reps: 5, daysAgo: 2 }),
-      buildEntry({ lift: 'squat', weight: 225, reps: 5, daysAgo: 3 }),
+      buildEntry({ lift: 'squat', weight: 225, reps: 5, daysAgo: 0 }),
+      buildEntry({ lift: 'squat', weight: 225, reps: 5, daysAgo: 0 }),
     ];
     const coverage = calcWeeklyCoverage(getMonday(), null);
     expect(coverage.Quads.volume).toBeGreaterThan(0);
@@ -79,7 +82,7 @@ describe('calcWeeklyCoverage', () => {
   });
 
   it('attributes bench entries to Chest/Shoulders/Triceps', () => {
-    mockStore.entries = [buildEntry({ lift: 'bench', weight: 185, reps: 5, daysAgo: 1 })];
+    mockStore.entries = [buildEntry({ lift: 'bench', weight: 185, reps: 5, daysAgo: 0 })];
     const coverage = calcWeeklyCoverage(getMonday(), null);
     expect(coverage.Chest.volume).toBeGreaterThan(0);
     expect(coverage.Shoulders.volume).toBeGreaterThan(0);
@@ -93,7 +96,7 @@ describe('calcWeeklyCoverage', () => {
         exerciseId: 'calf-raise',
         weight: 200,
         setsCompleted: [15, 15, 15],
-        daysAgo: 2,
+        daysAgo: 0,
       }),
     ];
     const coverage = calcWeeklyCoverage(getMonday(), null);
@@ -111,13 +114,13 @@ describe('calcWeeklyCoverage', () => {
   });
 
   it('returns vsAvg null when no avgVolume is provided', () => {
-    mockStore.entries = [buildEntry({ lift: 'squat', weight: 225, reps: 5, daysAgo: 1 })];
+    mockStore.entries = [buildEntry({ lift: 'squat', weight: 225, reps: 5, daysAgo: 0 })];
     const coverage = calcWeeklyCoverage(getMonday(), null);
     expect(coverage.Quads.vsAvg).toBeNull();
   });
 
   it('computes vsAvg percentage when avgVolume is provided', () => {
-    mockStore.entries = [buildEntry({ lift: 'squat', weight: 225, reps: 5, daysAgo: 1 })];
+    mockStore.entries = [buildEntry({ lift: 'squat', weight: 225, reps: 5, daysAgo: 0 })];
     const avgVolume = {};
     MUSCLE_GROUPS.forEach(mg => { avgVolume[mg] = 500; }); // baseline
     const coverage = calcWeeklyCoverage(getMonday(), avgVolume);
