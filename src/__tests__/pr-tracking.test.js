@@ -225,4 +225,54 @@ describe('getRepPRs', () => {
     expect(repPRs.bench[5].weight).toBe(185);
     expect(repPRs.deadlift[5].weight).toBe(315);
   });
+
+  describe('implicit lower-rep fill', () => {
+    it('fills lower rep slots from a heavier higher-rep set', () => {
+      mockStore.entries = [
+        buildEntry({ lift: 'squat', weight: 350, reps: 5, daysAgo: 1 }),
+      ];
+      const prs = getRepPRs();
+      expect(prs.squat[5].weight).toBe(350);
+      expect(prs.squat[3].weight).toBe(350);
+      expect(prs.squat[2].weight).toBe(350);
+      expect(prs.squat[1].weight).toBe(350);
+      // 8 and 10 are higher than the entry's reps — should remain empty
+      expect(prs.squat[8]).toBeUndefined();
+      expect(prs.squat[10]).toBeUndefined();
+    });
+
+    it('does NOT overwrite a higher-rep slot from a lower-rep heavy set', () => {
+      mockStore.entries = [
+        buildEntry({ lift: 'squat', weight: 350, reps: 5, daysAgo: 2 }),
+        buildEntry({ lift: 'squat', weight: 370, reps: 1, daysAgo: 1 }),
+      ];
+      const prs = getRepPRs();
+      expect(prs.squat[1].weight).toBe(370); // 1RM stays at 370
+      expect(prs.squat[5].weight).toBe(350); // 5RM stays at 350 (370x1 doesn't backfill upward)
+    });
+
+    it('keeps an already-higher lower-rep slot when backfilling from a heavier-rep set', () => {
+      mockStore.entries = [
+        buildEntry({ lift: 'squat', weight: 370, reps: 1, daysAgo: 2 }),
+        buildEntry({ lift: 'squat', weight: 350, reps: 5, daysAgo: 1 }),
+      ];
+      const prs = getRepPRs();
+      expect(prs.squat[1].weight).toBe(370); // 1RM stays at 370 (350 < 370)
+      expect(prs.squat[2].weight).toBe(350); // backfilled from 350x5
+      expect(prs.squat[3].weight).toBe(350);
+      expect(prs.squat[5].weight).toBe(350);
+    });
+
+    it('handles AMRAP-style "5+" rep strings as 5 reps', () => {
+      mockStore.entries = [
+        buildEntry({ lift: 'bench', weight: 225, reps: '5+', daysAgo: 1 }),
+      ];
+      const prs = getRepPRs();
+      // parseInt('5+') === 5, so slots 1-5 fill at 225
+      expect(prs.bench[5].weight).toBe(225);
+      expect(prs.bench[3].weight).toBe(225);
+      expect(prs.bench[1].weight).toBe(225);
+      expect(prs.bench[8]).toBeUndefined();
+    });
+  });
 });

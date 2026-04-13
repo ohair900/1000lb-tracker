@@ -9,7 +9,7 @@
  */
 
 import store from '../state/store.js';
-import { PLATE_MILESTONES } from '../constants/lift-config.js';
+import { PLATE_MILESTONES, REP_RANGES } from '../constants/lift-config.js';
 
 /**
  * Rebuild the entire PR list from scratch by scanning all entries
@@ -93,10 +93,18 @@ export function getRepPRs() {
   const sorted = [...store.entries].sort((a, b) => a.timestamp - b.timestamp);
   sorted.forEach(e => {
     if (!repBest[e.lift]) return;
-    const r = e.reps;
-    if (!repBest[e.lift][r] || e.weight > repBest[e.lift][r].weight) {
-      repBest[e.lift][r] = { weight: e.weight, date: e.date, entryId: e.id };
-    }
+    // Entries can have AMRAP-style "5+" rep strings — coerce to int.
+    const reps = parseInt(e.reps, 10);
+    if (!Number.isFinite(reps) || reps < 1) return;
+    // A set of `reps` at `weight` implicitly proves the lifter can do every
+    // smaller rep count at that weight. Backfill all REP_RANGES slots <= reps,
+    // but only if the entry weight beats whatever's currently in that slot.
+    REP_RANGES.forEach(r => {
+      if (r > reps) return;
+      if (!repBest[e.lift][r] || e.weight > repBest[e.lift][r].weight) {
+        repBest[e.lift][r] = { weight: e.weight, date: e.date, entryId: e.id };
+      }
+    });
   });
   return repBest;
 }
