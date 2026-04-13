@@ -719,7 +719,10 @@ export const EXERCISE_CATALOG = {
   'dead-hang': {
     name: 'Dead Hang',
     movementPattern: 'grip-carry',
-    primaryMuscles: { 'Upper Back': 0.30, Shoulders: 0.20, Forearms: 0.15, Core: 0.15, Biceps: 0.10, 'Lower Back': 0.10 },
+    // Grip is the actual training target and the limiting factor — forearms
+    // give out first. Lats engage isometrically for packed-shoulder position
+    // but they're secondary, not the adaptation target.
+    primaryMuscles: { Forearms: 0.50, 'Upper Back': 0.25, Shoulders: 0.15, Core: 0.10 },
     progressionType: 'time',
     equipment: 'bodyweight',
     repRange: [20, 60],
