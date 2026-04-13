@@ -11,7 +11,7 @@ import { LIFTS, LIFT_NAMES } from '../constants/lift-config.js';
 import { WEIGHT_INCREMENT_KG, WEIGHT_INCREMENT_LBS } from '../constants/thresholds.js';
 import { LBS_PER_KG } from '../constants/formulas.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
-import { EXERCISE_CATALOG, PROGRESSION_MODELS } from '../data/exercise-catalog.js';
+import { EXERCISE_CATALOG, MOVEMENT_PATTERNS, PROGRESSION_MODELS } from '../data/exercise-catalog.js';
 import { resolveExercise, resolveCanonicalId, getExerciseHistory } from '../data/exercise-compat.js';
 import { PROGRAM_TEMPLATES } from '../data/programs.js';
 import { SUPPLEMENTAL_TIERS } from '../constants/program-tiers.js';
