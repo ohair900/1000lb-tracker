@@ -52,6 +52,9 @@ import {
   startExerciseTimer,
   stopExerciseTimer,
   cancelExerciseTimer,
+  requestWakeLock,
+  releaseWakeLock,
+  setWakeLockNeeded,
 } from '../ui/timer.js';
 
 // ---------------------------------------------------------------------------
@@ -653,6 +656,9 @@ export async function openWorkoutView(mainLift) {
   $('workout-overlay').style.display = 'flex';
   $('workout-overlay').dataset.lift = mainLift;
   document.body.style.overflow = 'hidden';
+  // Keep the screen on for the duration of the workout
+  setWakeLockNeeded(true);
+  requestWakeLock();
   renderWorkoutView();
 }
 
@@ -661,6 +667,8 @@ export async function openWorkoutView(mainLift) {
  */
 export function closeWorkoutView() {
   stopExerciseTimer();
+  setWakeLockNeeded(false);
+  releaseWakeLock();
   $('workout-overlay').style.display = 'none';
   document.body.style.overflow = '';
   _deps.updateWorkoutButton?.();

@@ -186,6 +186,16 @@
 }
 .timer-display.warning { color: var(--yellow); }
 .timer-display.done { color: var(--red); }
+
+/* Visual alert when the rest timer hits zero — pulses the timer container
+   so silent-mode users still see the alarm even if audio doesn't play. */
+@keyframes timerFlashPulse {
+  0%, 100% { background: var(--surface); box-shadow: none; }
+  20%, 60% { background: var(--red); box-shadow: 0 0 24px var(--red); }
+}
+.timer-container.timer-flash {
+  animation: timerFlashPulse 0.5s ease-in-out 3;
+}
 .timer-presets { display: flex; gap: 3px; }
 .timer-custom-input {
   width: 36px; padding: 3px 2px; border: 1.5px solid var(--border); border-radius: 6px;

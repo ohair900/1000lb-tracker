@@ -117,6 +117,7 @@ class Store {
     // Some values are seeded from individual localStorage keys on init().
     // -----------------------------------------------------------------------
     this._sessionOptimizer = null; // Ephemeral coaching state — not persisted
+    this._deferredLoaded = false;  // Flips true once DEFERRED_STORES finish loading
     this.currentLift = 'squat';
     this.currentTab = 'log';
     this.currentRPE = null;
@@ -370,6 +371,14 @@ class Store {
     const _ric = window.requestIdleCallback || ((cb) => setTimeout(cb, 1));
     _ric(() => {
       Store.DEFERRED_STORES.forEach((name) => { if (this.STORES[name]) this._loadStore(name); });
+      // Mark deferred stores as ready so views can opt into rendering content
+      // that depends on them (e.g. fatigue body map).
+      this._deferredLoaded = true;
+      // Notify subscribers (e.g. dashboard) so they can re-render with the
+      // newly-loaded data. Prevents the body map "stale guy" flash.
+      if (typeof this.onDeferredLoad === 'function') {
+        try { this.onDeferredLoad(); } catch { /* best-effort */ }
+      }
     });
 
     // Ensure bodyweightHistory always exists

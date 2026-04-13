@@ -1,4 +1,13 @@
 /* ===== CSS Custom Properties ===== */
+
+/* Pin the type scale: iOS Safari defaults text-size-adjust to 'auto' which
+   bumps font sizes when a phone rotates landscape (the wider column triggers
+   the heuristic). Forcing 100% keeps text the same size in either orientation. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 :root {
   --bg: #121212;
   --surface: #1e1e1e;

@@ -40,10 +40,16 @@ body{font-family:'Figtree',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-seri
 .tab-btn{flex:1;padding:8px 0;border:none;background:transparent;color:var(--text-dim);font-size:var(--text-sm);font-weight:600;cursor:pointer}
 .tab-btn.active{color:var(--text-strong);border-bottom:2px solid var(--text-strong)}
 </style>
-  <script type="module" crossorigin src="/assets/index.src-OiaSC3hx.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-BYleOgjr.css">
+  <script type="module" crossorigin src="/assets/index.src-Cn4x6Zut.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-NnrMarHq.css">
 </head>
 <body>
+<!-- Silent audio keepalive — primed by first user click in main.js so the
+     iOS audio session stays open and timer beeps fire from setInterval
+     callbacks instead of being silently dropped. -->
+<audio id="audio-keepalive" loop playsinline muted preload="auto">
+  <source src="data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//sQxAADwAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV/+xDEAA/wAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV"/>
+</audio>
 <div id="app">
   <div class="header">
     <div class="header-brand">

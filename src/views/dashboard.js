@@ -177,7 +177,10 @@ export function updateScoreLine() {
 
 export function updateFatigueBar() {
   const el = $('fatigue-bar');
-  const byMuscle = calcFatigueByMuscle();
+  // Wait for deferred stores (accessoryLog) before computing fatigue. On cold
+  // start before they load, render a blank body map (no colors). The
+  // store.onDeferredLoad hook will re-call this once data is ready.
+  const byMuscle = store._deferredLoaded ? calcFatigueByMuscle() : null;
 
   // Always show the body map, even with no data (muscles appear dim)
   el.style.display = 'block';

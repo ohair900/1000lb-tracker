@@ -323,6 +323,22 @@ injectActions({
 // 4b. Store hooks — cloud sync on every local save
 store.onAfterFlush = scheduleCloudSync;
 store.onStorageFull = (msg) => showToast(msg);
+// Re-render the dashboard once deferred stores (accessoryLog, etc.) finish
+// loading — prevents the body-map "stale guy flash" on cold start.
+store.onDeferredLoad = () => {
+  try { updateDashboard(); } catch { /* best-effort */ }
+};
+
+// Prime the silent <audio> keepalive on first user gesture so iOS keeps
+// the audio session open. Web Audio beeps from setInterval callbacks are
+// silently dropped if the session was suspended by backgrounding.
+let _audioPrimed = false;
+document.addEventListener('click', () => {
+  if (_audioPrimed) return;
+  _audioPrimed = true;
+  const a = document.getElementById('audio-keepalive');
+  if (a) a.play().catch(() => {});
+}, { once: false, capture: true });
 
 // 4c. Sync callbacks — refresh UI after cloud merge
 setOnSyncComplete(() => {

@@ -28,14 +28,30 @@ export function setTimerDeps(deps) { Object.assign(_deps, deps); }
 
 let _wakeLock = null;
 
-async function requestWakeLock() {
+export async function requestWakeLock() {
   try {
-    if (navigator.wakeLock) _wakeLock = await navigator.wakeLock.request('screen');
+    if (navigator.wakeLock && !_wakeLock) {
+      _wakeLock = await navigator.wakeLock.request('screen');
+      // iOS releases the lock when the page hides; clear our reference so
+      // re-acquire on visibilitychange works.
+      _wakeLock.addEventListener('release', () => { _wakeLock = null; });
+    }
   } catch { /* best-effort */ }
 }
 
-function releaseWakeLock() {
+export function releaseWakeLock() {
   if (_wakeLock) { _wakeLock.release().catch(() => {}); _wakeLock = null; }
+}
+
+// Re-acquire the lock when the page becomes visible again, but only if a
+// workout is open. The workout-overlay registers itself by setting a flag.
+export let _wakeLockNeeded = false;
+export function setWakeLockNeeded(needed) { _wakeLockNeeded = needed; }
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && _wakeLockNeeded) requestWakeLock();
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -152,12 +168,22 @@ export function startTimer(secs) {
     updateTimerDisplay();
     if (store.timerRemaining <= 0) {
       stopTimer();
-      playBeep();
-      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      // Each alert independent — silent-mode iOS won't get audio but still vibrates + flashes
+      try { playBeep(); } catch { /* ignore */ }
+      try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch { /* ignore */ }
+      try { _flashTimerAlert(); } catch { /* ignore */ }
       $('timer-display').textContent = 'DONE';
       $('timer-display').className = 'timer-display done';
     }
   }, 1000);
+}
+
+// Flash the timer display briefly so silent-mode users see the alert.
+function _flashTimerAlert() {
+  const container = $('timer-container');
+  if (!container) return;
+  container.classList.add('timer-flash');
+  setTimeout(() => container.classList.remove('timer-flash'), 1500);
 }
 
 /**
@@ -182,8 +208,9 @@ function completeExerciseTimer() {
   const acc = store.workoutSession.accessories[accIdx];
   acc.setsCompleted.push(duration);
   stopExerciseTimer();
-  playBeep();
-  if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+  // Each alert independent so a silent-mode failure on one doesn't kill the others
+  try { playBeep(); } catch { /* ignore */ }
+  try { if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]); } catch { /* ignore */ }
   startTimer(store.timerDuration);
   _deps.saveWorkoutSession?.();
   _deps.renderWorkoutView?.();
@@ -241,7 +268,10 @@ export function stopExerciseTimer() {
     clearInterval(store.exerciseTimer.interval);
   }
   store.exerciseTimer = null;
-  releaseWakeLock();
+  // Only release the wake lock if the workout overlay no longer needs it
+  // (i.e. workout closed/completed). The workout itself maintains the lock
+  // via setWakeLockNeeded(true) for the entire session.
+  if (!_wakeLockNeeded) releaseWakeLock();
 }
 
 /**
