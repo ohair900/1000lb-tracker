@@ -156,7 +156,13 @@ class Store {
     this.calendarMonth = new Date();
     this.chartPoints = [];
     this.leaderboardData = [];
-    this.leaderboardFilter = 'total';
+    this.leaderboardFilter = 'total';     // legacy — Strength tab sort field
+    this.leaderboardTab = 'strength';      // 'strength' | 'streaks' | 'improved' | 'hall'
+    this.leaderboardCrewId = null;         // null = global, else crew id for scoped view
+    this.leaderboardWeightClass = null;    // null = all, else IPF class string (e.g. '83')
+    this.leaderboardActiveOnly = false;    // true = filter to lifters active in last 7d
+    this.leaderboardImprovedRange = 30;    // 30 or 90 days
+    this.userCrews = [];                   // [{ id, name, inviteCode, ownerUid, memberUids }]
 
     // Unit / accent — persisted individually (not via STORES)
     this.unit = 'lbs';

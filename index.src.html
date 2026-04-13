@@ -331,14 +331,45 @@ body{font-family:'Figtree',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-seri
 
   <!-- Ranks Tab (Leaderboard) -->
   <div class="tab-panel" id="tab-ranks">
-    <div class="leaderboard-filter-pills" id="leaderboard-filter-pills">
-      <button class="filter-pill active" data-lb-filter="total">Total</button>
-      <button class="filter-pill" data-lb-filter="squat">SQ</button>
-      <button class="filter-pill" data-lb-filter="bench">BP</button>
-      <button class="filter-pill" data-lb-filter="deadlift">DL</button>
+    <!-- Crew chip strip (shown only if user has crews) -->
+    <div class="lb-crew-strip" id="lb-crew-strip" style="display:none">
+      <div class="lb-crew-chips" id="lb-crew-chips"></div>
+      <div class="lb-crew-actions">
+        <button class="lb-crew-action-btn" id="lb-crew-create-btn">+ Create</button>
+        <button class="lb-crew-action-btn" id="lb-crew-join-btn">Join</button>
+      </div>
     </div>
+    <!-- Board tabs -->
+    <div class="lb-tab-strip" id="lb-tab-strip">
+      <button class="lb-tab active" data-lb-tab="strength">Strength</button>
+      <button class="lb-tab" data-lb-tab="streaks">Streaks</button>
+      <button class="lb-tab" data-lb-tab="improved">Improved</button>
+      <button class="lb-tab" data-lb-tab="hall">Hall of Fame</button>
+    </div>
+    <!-- Per-tab controls (sort, filters) — populated by leaderboard.js -->
+    <div class="lb-controls" id="lb-controls"></div>
     <div id="leaderboard-list">
       <div class="empty-state" style="color:var(--text-dim);text-align:center;padding:32px 0">Sign in to view the leaderboard.</div>
+    </div>
+  </div>
+
+  <!-- Crew create/join modals -->
+  <div class="modal" id="crew-create-modal" style="display:none">
+    <div class="modal-content">
+      <div class="modal-header"><h3>Create Crew</h3><button class="modal-close" id="crew-create-close">&times;</button></div>
+      <div class="modal-body">
+        <input type="text" id="crew-create-name" placeholder="Crew name" maxlength="40" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-size:var(--text-base);box-sizing:border-box;margin-bottom:12px">
+        <button id="crew-create-submit" style="width:100%;padding:12px;border:none;border-radius:var(--radius-md);background:var(--green);color:#fff;font-weight:700;cursor:pointer">Create</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal" id="crew-join-modal" style="display:none">
+    <div class="modal-content">
+      <div class="modal-header"><h3>Join Crew</h3><button class="modal-close" id="crew-join-close">&times;</button></div>
+      <div class="modal-body">
+        <input type="text" id="crew-join-code" placeholder="Invite code (e.g. ABCD2345)" maxlength="12" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-size:var(--text-base);box-sizing:border-box;margin-bottom:12px;text-transform:uppercase;font-family:var(--font-mono)">
+        <button id="crew-join-submit" style="width:100%;padding:12px;border:none;border-radius:var(--radius-md);background:var(--green);color:#fff;font-weight:700;cursor:pointer">Join</button>
+      </div>
     </div>
   </div>
 

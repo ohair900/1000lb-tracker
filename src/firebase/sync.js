@@ -26,6 +26,12 @@ import {
 import { currentUser } from './auth.js';
 import { bestE1RM } from '../formulas/e1rm.js';
 import { getClassification, getOverallClassification } from '../formulas/standards.js';
+import { calcWilks, calcDOTS } from '../formulas/scoring.js';
+import { LBS_PER_KG } from '../constants/formulas.js';
+import { IPF_CLASSES } from '../constants/lift-config.js';
+import { calcStreak } from '../systems/streak.js';
+import { TOTAL_MILESTONES } from '../data/milestones.js';
+import { MS_PER_DAY } from '../constants/time.js';
 
 import {
   UNIT_KEY,
@@ -490,6 +496,43 @@ async function updateLeaderboard(s, b, d) {
     overall: getOverallClassification(),
   };
 
+  // Bodyweight, gender, weight class
+  const bodyweight = store.profile?.bodyweight || null;
+  const gender = store.profile?.gender || null;
+  const bwKg = bodyweight ? Math.round((bodyweight / LBS_PER_KG) * 10) / 10 : null;
+  const totalKg = total / LBS_PER_KG;
+  const weightClass = (bwKg && gender && IPF_CLASSES[gender])
+    ? _resolveWeightClass(bwKg, IPF_CLASSES[gender])
+    : null;
+
+  // Wilks / DOTS — null if missing bodyweight/gender
+  const wilks = (bwKg && gender) ? Math.round((calcWilks(totalKg, bwKg, gender) || 0) * 10) / 10 : null;
+  const dots = (bwKg && gender) ? Math.round((calcDOTS(totalKg, bwKg, gender) || 0) * 10) / 10 : null;
+
+  // Streaks
+  const streak = calcStreak();
+  const currentStreak = streak?.current || 0;
+  const longestStreak = streak?.longest || 0;
+
+  // Most-improved: total at 30 days ago (best e1RM per lift using only entries
+  // logged on or before 30 days ago).
+  const totalAt30dAgo = _bestTotalAtCutoff(Date.now() - 30 * MS_PER_DAY);
+
+  // 7-day tonnage (for future weekly volume contests)
+  const sevenDaysAgo = Date.now() - 7 * MS_PER_DAY;
+  const volume7d = store.entries
+    .filter(e => e.timestamp >= sevenDaysAgo)
+    .reduce((sum, e) => sum + e.weight * e.reps, 0);
+
+  // Hall of Fame: first time the user crossed each total milestone.
+  // Build by sorting entries chronologically and tracking running PR per lift.
+  const milestones = _computeTotalMilestones();
+
+  // Last training timestamp (for "active in last 7d" filter)
+  const lastTrainedAt = store.entries.length > 0
+    ? Math.max(...store.entries.map(e => e.timestamp))
+    : null;
+
   const leaderboardDoc = {
     displayName: currentUser.displayName?.split(' ')[0] || 'Lifter',
     squat: s,
@@ -498,10 +541,65 @@ async function updateLeaderboard(s, b, d) {
     total,
     classifications,
     bestByLift,
+    bodyweight,
+    gender,
+    weightClass,
+    wilks,
+    dots,
+    currentStreak,
+    longestStreak,
+    totalAt30dAgo,
+    volume7d,
+    milestones,
+    lastTrainedAt,
     lastUpdated: serverTimestamp(),
   };
 
   await setDoc(doc(db, 'leaderboard', currentUser.uid), leaderboardDoc);
+}
+
+// Resolve which IPF class bucket a bodyweight (kg) falls into.
+function _resolveWeightClass(bwKg, classes) {
+  const maxClass = classes[classes.length - 1];
+  if (bwKg > maxClass) return maxClass + '+';
+  for (const limit of classes) {
+    if (bwKg <= limit) return String(limit);
+  }
+  return null;
+}
+
+// Best e1RM per lift counting only entries logged on or before cutoffMs.
+// Returns the total of those bests, or 0 if no entries qualify.
+function _bestTotalAtCutoff(cutoffMs) {
+  const bestPer = { squat: 0, bench: 0, deadlift: 0 };
+  for (const e of store.entries) {
+    if (e.timestamp > cutoffMs) continue;
+    if (bestPer[e.lift] === undefined) continue;
+    if (e.e1rm > bestPer[e.lift]) bestPer[e.lift] = e.e1rm;
+  }
+  const t = bestPer.squat + bestPer.bench + bestPer.deadlift;
+  return t > 0 ? Math.round(t) : 0;
+}
+
+// Walk entries chronologically, tracking running e1RM per lift, and emit
+// the first date the running total crossed each TOTAL_MILESTONES threshold.
+function _computeTotalMilestones() {
+  const sorted = [...store.entries].sort((a, b) => a.timestamp - b.timestamp);
+  const bestPer = { squat: 0, bench: 0, deadlift: 0 };
+  const hit = new Set();
+  const out = [];
+  for (const e of sorted) {
+    if (bestPer[e.lift] === undefined) continue;
+    if (e.e1rm > bestPer[e.lift]) bestPer[e.lift] = e.e1rm;
+    const running = bestPer.squat + bestPer.bench + bestPer.deadlift;
+    for (const m of TOTAL_MILESTONES) {
+      if (running >= m && !hit.has(m)) {
+        hit.add(m);
+        out.push({ total: m, achievedAt: e.date });
+      }
+    }
+  }
+  return out;
 }
 
 /**
@@ -581,4 +679,144 @@ export async function handleFirstSignIn() {
     syncState.status = 'error';
     notifyStatusChange();
   }
+}
+
+// ===== Crews (invite-only groups) =====
+
+// Cache crew docs to avoid refetching on every Ranks tab open.
+let _crewCache = { ts: 0, byId: {} };
+const CREW_CACHE_MS = 5 * 60 * 1000;
+
+const CREW_LIMIT_PER_USER = 5;
+const CREW_LIMIT_PER_CREW = 20;
+
+function _genInviteCode() {
+  // 8-char alphanumeric, no I/O/0/1 to avoid confusion
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+/**
+ * Create a new crew with the current user as owner + sole member.
+ * @param {string} name
+ * @returns {Promise<{ id: string, name: string, inviteCode: string }>}
+ */
+export async function createCrew(name) {
+  if (!currentUser || !db) throw new Error('Not signed in');
+  const userCrews = (store.userCrews || []);
+  if (userCrews.length >= CREW_LIMIT_PER_USER) {
+    throw new Error(`Max ${CREW_LIMIT_PER_USER} crews per user`);
+  }
+
+  const inviteCode = _genInviteCode();
+  const crewId = `crew_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+  const crewDoc = {
+    name: String(name).slice(0, 40).trim() || 'Crew',
+    inviteCode,
+    ownerUid: currentUser.uid,
+    memberUids: [currentUser.uid],
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  await setDoc(doc(db, 'crews', crewId), crewDoc);
+
+  // Update local user list
+  store.userCrews = [...userCrews, { id: crewId, ...crewDoc, createdAt: Date.now(), updatedAt: Date.now() }];
+  _crewCache.byId[crewId] = store.userCrews[store.userCrews.length - 1];
+  return { id: crewId, name: crewDoc.name, inviteCode };
+}
+
+/**
+ * Join a crew by invite code. Looks up the code in /crews and adds the
+ * current user to memberUids if there's room.
+ * @param {string} code
+ * @returns {Promise<{ id: string, name: string }>}
+ */
+export async function joinCrew(code) {
+  if (!currentUser || !db) throw new Error('Not signed in');
+  const cleanCode = String(code).toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
+  if (cleanCode.length !== 8) throw new Error('Invalid invite code');
+
+  const userCrews = (store.userCrews || []);
+  if (userCrews.length >= CREW_LIMIT_PER_USER) {
+    throw new Error(`Max ${CREW_LIMIT_PER_USER} crews per user`);
+  }
+
+  // Look up crew by inviteCode
+  const q = query(collection(db, 'crews'));
+  const snap = await getDocs(q);
+  let match = null;
+  snap.forEach(d => {
+    const data = d.data();
+    if (data.inviteCode === cleanCode) match = { id: d.id, ...data };
+  });
+  if (!match) throw new Error('Invite code not found');
+
+  if (match.memberUids.includes(currentUser.uid)) {
+    throw new Error('Already a member of this crew');
+  }
+  if (match.memberUids.length >= CREW_LIMIT_PER_CREW) {
+    throw new Error(`Crew is full (max ${CREW_LIMIT_PER_CREW})`);
+  }
+
+  // Add user to crew
+  const updated = {
+    ...match,
+    memberUids: [...match.memberUids, currentUser.uid],
+    updatedAt: serverTimestamp(),
+  };
+  await setDoc(doc(db, 'crews', match.id), updated);
+
+  store.userCrews = [...userCrews, { ...updated, updatedAt: Date.now() }];
+  _crewCache.byId[match.id] = store.userCrews[store.userCrews.length - 1];
+  return { id: match.id, name: match.name };
+}
+
+/**
+ * Leave a crew. Removes the current user from memberUids. If the user was the
+ * last member, deletes the crew doc entirely.
+ */
+export async function leaveCrew(crewId) {
+  if (!currentUser || !db) throw new Error('Not signed in');
+  const ref = doc(db, 'crews', crewId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error('Crew not found');
+  const data = snap.data();
+  const remaining = data.memberUids.filter(u => u !== currentUser.uid);
+  if (remaining.length === 0) {
+    await deleteDoc(ref);
+  } else {
+    // If owner left, hand ownership to the next remaining member
+    const ownerUid = data.ownerUid === currentUser.uid ? remaining[0] : data.ownerUid;
+    await setDoc(ref, { ...data, memberUids: remaining, ownerUid, updatedAt: serverTimestamp() });
+  }
+  store.userCrews = (store.userCrews || []).filter(c => c.id !== crewId);
+  delete _crewCache.byId[crewId];
+}
+
+/**
+ * Fetch all crews the current user is a member of. Uses 5-minute cache.
+ * @returns {Promise<Array<{ id, name, inviteCode, ownerUid, memberUids }>>}
+ */
+export async function fetchUserCrews() {
+  if (!currentUser || !db) return [];
+  if (Date.now() - _crewCache.ts < CREW_CACHE_MS && Object.keys(_crewCache.byId).length > 0) {
+    return Object.values(_crewCache.byId);
+  }
+  // Scan all crews and filter by membership. Acceptable for small N.
+  // Could optimize later with a per-user crewIds index.
+  const snap = await getDocs(query(collection(db, 'crews')));
+  const mine = [];
+  snap.forEach(d => {
+    const data = d.data();
+    if (data.memberUids && data.memberUids.includes(currentUser.uid)) {
+      mine.push({ id: d.id, ...data });
+    }
+  });
+  _crewCache.ts = Date.now();
+  _crewCache.byId = Object.fromEntries(mine.map(c => [c.id, c]));
+  store.userCrews = mine;
+  return mine;
 }
