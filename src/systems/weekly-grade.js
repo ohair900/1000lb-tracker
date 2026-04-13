@@ -99,12 +99,17 @@ export function calcWeeklyGrade(options = {}) {
              pillars: {}, bonuses: {}, bonusPoints: 0, isDeload: false };
   }
 
-  // Detect deload week
-  const isDeload = detectDeload();
+  // Past weeks are frozen at end-of-Sunday — no current state should leak
+  // into their grade. Compliance reads the CURRENT program week and
+  // completedSets, so it's only meaningful for the current week.
+  const isPastWeek = Date.now() >= weekEndMs;
+
+  // Detect deload week (uses weekStart so past weeks resolve correctly)
+  const isDeload = detectDeload(weekStart);
 
   // Calculate each pillar
   const hasProg = !!store.programConfig.activeProgram;
-  const compliance = hasProg ? calcCompliance(weekEntries) : null;
+  const compliance = (hasProg && !isPastWeek) ? calcCompliance(weekEntries) : null;
   const coverage = calcCoverage(weekEntries, weekAccessories, isDeload);
   const intensity = calcIntensity(weekEntries, hasProg, isDeload);
   const consistency = calcConsistency(uniqueDays.size, weekStart);
@@ -323,7 +328,14 @@ function calcIntensity(weekEntries, hasProg, isDeload) {
 
 function calcConsistency(trainingDays, weekStart) {
   const now = new Date();
-  const daysElapsed = Math.max(1, Math.ceil((now - weekStart) / MS_PER_DAY));
+  const weekEndMs = weekStart.getTime() + 7 * MS_PER_DAY;
+  // For a past week (weekEnd already passed), the full 7 days are elapsed —
+  // freezes last week's consistency score so Monday onward doesn't degrade
+  // it. For the current week, count days since week start so partial weeks
+  // aren't graded as if they were complete.
+  const daysElapsed = now.getTime() >= weekEndMs
+    ? 7
+    : Math.max(1, Math.ceil((now - weekStart) / MS_PER_DAY));
   const targetRate = 3 / 7; // 3 sessions per week
   const currentRate = trainingDays / daysElapsed;
   const ratio = Math.min(1, currentRate / targetRate);
@@ -372,11 +384,22 @@ function calcBonuses(weekEntries, weekAccessories) {
 // Deload detection
 // ---------------------------------------------------------------------------
 
-function detectDeload() {
-  // Check mesocycle
-  if (store.activeMesocycle && store.activeMesocycle.status === 'active') {
-    const week = store.activeMesocycle.weeks[store.activeMesocycle.currentWeek - 1];
-    if (week && week.phase && week.phase.toLowerCase().includes('deload')) return true;
+function detectDeload(weekStart) {
+  if (!store.activeMesocycle || store.activeMesocycle.status !== 'active') return false;
+  const meso = store.activeMesocycle;
+  // Resolve which mesocycle week corresponds to weekStart (so past weeks
+  // get their actual deload status, not whatever the current week is).
+  if (weekStart && meso.startDate) {
+    const startMs = new Date(meso.startDate).getTime();
+    if (!isNaN(startMs)) {
+      const weekIdx = Math.floor((weekStart.getTime() - startMs) / (7 * MS_PER_DAY));
+      const week = meso.weeks?.[weekIdx];
+      if (week && week.phase && week.phase.toLowerCase().includes('deload')) return true;
+      return false;
+    }
   }
+  // Fallback to current week if we can't resolve from weekStart
+  const week = meso.weeks?.[meso.currentWeek - 1];
+  if (week && week.phase && week.phase.toLowerCase().includes('deload')) return true;
   return false;
 }
