@@ -25,6 +25,8 @@ import {
   estimateWorkoutDuration,
 } from '../systems/gap-analysis.js';
 import { MAIN_LIFT_WEIGHTS } from '../data/muscle-groups.js';
+import { calcFatigueByMuscle } from '../systems/fatigue.js';
+import { MS_PER_DAY } from '../constants/time.js';
 import { checkGuardrails } from '../systems/workout-guardrails.js';
 import { showToast } from '../ui/toast.js';
 import { displayWeight } from '../formulas/units.js';
@@ -36,6 +38,8 @@ import { displayWeight } from '../formulas/units.js';
 let _builderMainLift = null;
 let _gapPanelOpen = false;
 let _builderDirty = false;
+// Slots whose "Why this exercise?" body is currently expanded.
+const _openWhyIdx = new Set();
 
 /** Mark builder as dirty and persist draft for crash recovery (#8, #9). */
 function _markDirty() {
@@ -69,6 +73,71 @@ function _patternForExercise(ex) {
   if (ex.movementPattern) return ex.movementPattern;
   const catalogEx = resolveExercise(ex.exerciseId);
   return (catalogEx && catalogEx.movementPattern) || null;
+}
+
+// Top-weighted primary muscle for an exercise.
+function _primaryMuscleFor(ex) {
+  if (ex.type === 'main') {
+    const w = MAIN_LIFT_WEIGHTS[ex.exerciseId];
+    if (!w) return null;
+    return Object.entries(w).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  }
+  const catalogEx = resolveExercise(ex.exerciseId);
+  if (!catalogEx || !catalogEx.primaryMuscles) return null;
+  return Object.entries(catalogEx.primaryMuscles).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+}
+
+// Build a once-per-render map: canonicalId → days since last logged set.
+function _buildDaysSinceMap() {
+  const map = {};
+  const now = Date.now();
+  for (const log of store.accessoryLog) {
+    const id = resolveCanonicalId(log.exerciseId);
+    const days = Math.floor((now - log.timestamp) / MS_PER_DAY);
+    if (map[id] === undefined || days < map[id]) map[id] = days;
+  }
+  return map;
+}
+
+/**
+ * Return a fresh reason list for a slot, blending the original recommendation
+ * reasons with current-state coaching signals (fatigue, recency, weekly gaps).
+ * Always available — the inline preview line still self-expires after 3 displays
+ * but the Why dot exposes this full list on demand.
+ */
+function _currentReasonsForSlot(ex, ctx) {
+  const reasons = [...(ex.reasons || [])];
+  const muscle = _primaryMuscleFor(ex);
+  if (!muscle) return reasons;
+
+  // Fatigue context
+  const f = ctx.fatigueByMuscle && ctx.fatigueByMuscle[muscle];
+  if (f && (f.status === 'red' || f.status === 'orange')) {
+    reasons.unshift(`Addresses ${f.status} ${muscle.toLowerCase()} fatigue`);
+  }
+
+  // Recency context
+  const canonId = resolveCanonicalId(ex.exerciseId);
+  const days = ctx.daysSince[canonId];
+  if (days !== undefined && days >= 14) {
+    reasons.unshift(`You haven't done this in ${days} days`);
+  } else if (days === undefined && ex.type !== 'main') {
+    reasons.push('Never tried — fresh stimulus');
+  }
+
+  // Weekly volume context
+  const v = ctx.weeklyVolume && ctx.weeklyVolume[muscle];
+  if (v && v.status === 'under') {
+    reasons.push(`Covers under-trained ${muscle.toLowerCase()} (${v.sets}/${v.target.min} this week)`);
+  }
+
+  // Dedupe while preserving order
+  const seen = new Set();
+  return reasons.filter(r => {
+    const k = r.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k); return true;
+  });
 }
 
 /** Render the summary bar HTML from a precomputed summary object. */
@@ -151,12 +220,19 @@ function _calcBuilderSummary(mainLift) {
 /**
  * Render one slot row (main lift OR accessory) using the unified .builder-slot
  * grid. Inline styles intentionally avoided — every visual is a CSS class.
+ *
+ * @param {object} ex   the slot
+ * @param {number} i    slot index
+ * @param {object} [ctx] coaching context shared across all slots in this render
+ *                       (fatigueByMuscle, weeklyVolume, daysSince map)
  */
-function _slotRowHTML(ex, i) {
+function _slotRowHTML(ex, i, ctx) {
+  ctx = ctx || { fatigueByMuscle: {}, weeklyVolume: {}, daysSince: {} };
   const isMain = ex.type === 'main';
   const role = ex.slotRole || (isMain ? 'main' : 'accessory');
   const catalogEx = resolveExercise(ex.exerciseId);
   const pattern = _patternForExercise(ex);
+  const primaryMuscle = _primaryMuscleFor(ex);
 
   // Stripe data attributes (lift accent for main, pattern color otherwise).
   const stripeAttrs = isMain
@@ -168,13 +244,29 @@ function _slotRowHTML(ex, i) {
     ? ''
     : `<span class="slot-weight">${formatBWWeight(ex.weightValue, catalogEx)}</span>`;
 
-  // Reason tag — first 3 displays per exercise (existing behavior preserved).
+  // Inline reason preview — first 3 displays per exercise (existing behavior).
   let reasonHtml = '';
   if (!isMain && ex.reasons && ex.reasons.length > 0) {
     const canonId = resolveCanonicalId(ex.exerciseId);
     const count = store.reasonTagCounts[canonId] || 0;
     if (count < 3) reasonHtml = `<div class="slot-reason">${escapeHTML(ex.reasons[0])}</div>`;
   }
+
+  // Persistent "Why this?" info dot — accessories only.
+  const evolvingReasons = isMain ? [] : _currentReasonsForSlot(ex, ctx);
+  const whyExpanded = _openWhyIdx.has(i);
+  const whyDot = isMain || evolvingReasons.length === 0 ? '' :
+    `<button class="slot-why${whyExpanded ? ' open' : ''}" data-why="${i}" aria-label="Why this exercise?" title="Why this exercise?">i</button>`;
+  const whyBody = whyExpanded && evolvingReasons.length > 0
+    ? `<div class="slot-why-body">${evolvingReasons.map(r => `<div>&bull; ${escapeHTML(r)}</div>`).join('')}</div>`
+    : '';
+
+  // Fatigue dot — accessories only, only if primary muscle is red/orange.
+  const fStatus = primaryMuscle && ctx.fatigueByMuscle && ctx.fatigueByMuscle[primaryMuscle]
+    ? ctx.fatigueByMuscle[primaryMuscle].status : null;
+  const fatigueDot = (!isMain && (fStatus === 'red' || fStatus === 'orange'))
+    ? `<span class="slot-fatigue-dot" data-status="${fStatus}" data-muscle="${primaryMuscle}" title="${primaryMuscle} fatigue: ${fStatus}"></span>`
+    : '';
 
   // Action buttons — fixed 5-column grid; missing slots use placeholders so
   // the trailing × always sits in the same pixel.
@@ -209,10 +301,11 @@ function _slotRowHTML(ex, i) {
     <div class="builder-slot-body">
       <div class="builder-slot-head">
         <span class="slot-role-tag">${role}</span>
-        <span class="slot-name">${escapeHTML(ex.name)}</span>${weightDisplay}
+        <span class="slot-name">${escapeHTML(ex.name)}</span>${fatigueDot}${weightDisplay}${whyDot}
       </div>
       <div class="builder-slot-meta">${ex.equipment} &bull; ${ex.sets}x${repsDisplay}</div>
       ${reasonHtml}
+      ${whyBody}
     </div>
     <div class="builder-slot-controls">
       <input type="number" value="${ex.sets}" min="1" max="10" data-field="sets" data-idx="${i}" inputmode="numeric" title="Sets">
@@ -237,6 +330,7 @@ export function openBuilder(mainLift, preloadExercises) {
   _builderMainLift = mainLift;
   _gapPanelOpen = false;
   _builderDirty = false;
+  _openWhyIdx.clear();
 
   // Helper that actually mounts the overlay once draft handling has resolved.
   const mount = (initialExercises) => {
@@ -368,6 +462,14 @@ export function renderBuilder(mainLift) {
 
   let html = '';
 
+  // Coaching context — computed once per render and shared across all slots
+  // so the fatigue/weekly/recency lookups don't run N times.
+  const ctx = {
+    fatigueByMuscle: calcFatigueByMuscle() || {},
+    weeklyVolume: analyzeWeeklyVolume() || {},
+    daysSince: _buildDaysSinceMap(),
+  };
+
   // --- Exercise slot list ---
   store.builderExercises.forEach((ex, i) => {
     // Superset grouping — open/close a wrapper container around grouped rows.
@@ -388,7 +490,7 @@ export function renderBuilder(mainLift) {
         <div class="superset-rows">`;
     }
 
-    html += _slotRowHTML(ex, i);
+    html += _slotRowHTML(ex, i, ctx);
 
     if (isGroupEnd) html += `</div></div>`;
   });
@@ -1119,6 +1221,25 @@ export function initBuilderOverlay() {
       store.builderExercises.splice(parseInt(removeBtn.dataset.remove), 1);
       _markDirty();
       renderBuilder(mainLift);
+      return;
+    }
+
+    // "Why this exercise?" info dot — toggle the inline reason list.
+    const whyBtn = e.target.closest('[data-why]');
+    if (whyBtn) {
+      const idx = parseInt(whyBtn.dataset.why);
+      if (_openWhyIdx.has(idx)) _openWhyIdx.delete(idx);
+      else _openWhyIdx.add(idx);
+      renderBuilder(mainLift);
+      return;
+    }
+
+    // Fatigue dot — surface the muscle + status as a toast.
+    const fatigueDot = e.target.closest('.slot-fatigue-dot');
+    if (fatigueDot) {
+      const m = fatigueDot.dataset.muscle;
+      const s = fatigueDot.dataset.status;
+      showToast(`${m}: ${s} fatigue`);
       return;
     }
 
