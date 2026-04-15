@@ -140,6 +140,75 @@ function _currentReasonsForSlot(ex, ctx) {
   });
 }
 
+/**
+ * Render the coverage gap panel as a list of one-tap insert actions.
+ * Only renders muscles whose status is `under` (with a known suggested
+ * exercise) and a push/pull imbalance row when the ratio is off. Whole
+ * block is hidden when nothing is actionable.
+ */
+function _renderGapPanelHTML(mainLift) {
+  const gapReport = getGapReport(mainLift);
+  const pushPull = analyzePushPullRatio();
+  const volume = analyzeWeeklyVolume();
+
+  // Build muscle action rows — under-trained muscles with a recommendation.
+  const ORDER = ['Quads', 'Chest', 'Glutes', 'Hams', 'Upper Back',
+                 'Shoulders', 'Triceps', 'Core', 'Biceps', 'Lower Back'];
+  const actionRows = [];
+  for (const mg of ORDER) {
+    const v = volume[mg];
+    if (!v || v.status !== 'under') continue;
+    const gap = gapReport.find(g => g.muscleGroup === mg && g.type === 'volume');
+    if (!gap || !gap.suggestedExercise) continue;
+    const deficit = Math.max(1, Math.ceil(v.target.min - v.sets));
+    actionRows.push({
+      muscle: mg,
+      deficit,
+      sets: v.sets,
+      targetMin: v.target.min,
+      ex: gap.suggestedExercise,
+    });
+  }
+
+  // Push/pull imbalance — actionable when push-heavy (suggest a pull).
+  const showPushPull = pushPull.status === 'push-heavy' || pushPull.status === 'pull-heavy';
+
+  if (actionRows.length === 0 && !showPushPull) {
+    return ''; // Nothing to surface — hide panel entirely.
+  }
+
+  const totalCount = actionRows.length + (showPushPull ? 1 : 0);
+  let html = `<button class="gap-panel-toggle${_gapPanelOpen ? ' open' : ''}" id="gap-panel-toggle">
+    <span>Coverage Gaps (${totalCount})</span>
+    <span class="arrow">&#9660;</span>
+  </button>`;
+  html += `<div class="gap-panel${_gapPanelOpen ? ' open' : ''}" id="gap-panel">`;
+
+  for (const row of actionRows) {
+    html += `<button class="gap-action-row" data-gap-add="${row.ex.id}">
+      <span class="gap-action-need">Need ${row.deficit} ${row.deficit === 1 ? 'set' : 'sets'} ${row.muscle.toLowerCase()}</span>
+      <span class="gap-action-suggest">+ ${escapeHTML(row.ex.name)}</span>
+    </button>`;
+  }
+
+  if (showPushPull) {
+    if (pushPull.status === 'push-heavy') {
+      html += `<button class="gap-action-row" data-gap-add-pull="1">
+        <span class="gap-action-need">Push-heavy (${pushPull.pushSets}:${pushPull.pullSets}) — add a pull</span>
+        <span class="gap-action-suggest">+ Pull</span>
+      </button>`;
+    } else {
+      html += `<button class="gap-action-row" data-gap-add-push="1">
+        <span class="gap-action-need">Pull-heavy (${pushPull.pushSets}:${pushPull.pullSets}) — add a push</span>
+        <span class="gap-action-suggest">+ Push</span>
+      </button>`;
+    }
+  }
+
+  html += `</div>`;
+  return html;
+}
+
 /** Render the summary bar HTML from a precomputed summary object. */
 function _renderBuilderSummary(mainLift) {
   const s = _calcBuilderSummary(mainLift);
@@ -512,37 +581,11 @@ export function renderBuilder(mainLift) {
     html += `</div>`;
   }
 
-  // --- Collapsible gap panel ---
-  const gapReport = getGapReport(mainLift);
-  const pushPull = analyzePushPullRatio();
-  const volume = analyzeWeeklyVolume();
-
-  html += `<button class="gap-panel-toggle${_gapPanelOpen ? ' open' : ''}" id="gap-panel-toggle">
-    <span>Coverage Analysis (${gapReport.length} gaps)</span>
-    <span class="arrow">&#9660;</span>
-  </button>`;
-  html += `<div class="gap-panel${_gapPanelOpen ? ' open' : ''}" id="gap-panel">`;
-
-  // Muscle group rows
-  for (const mg of ['Quads', 'Chest', 'Glutes', 'Hams', 'Upper Back', 'Shoulders', 'Triceps', 'Core', 'Biceps', 'Lower Back']) {
-    const v = volume[mg];
-    if (!v) continue;
-    const statusClass = v.status === 'under' ? 'under' : 'optimal';
-    const gap = gapReport.find(g => g.muscleGroup === mg && g.type === 'volume');
-    html += `<div class="gap-row">
-      <span class="gap-row-label">${mg}</span>
-      <span class="gap-row-value ${statusClass}">${v.sets}/${v.target.min}</span>
-      ${gap && gap.suggestedExercise ? `<button class="gap-row-btn" data-gap-add="${gap.suggestedExercise.id}">+ ${gap.suggestedExercise.name}</button>` : ''}
-    </div>`;
-  }
-
-  // Push:pull ratio
-  html += `<div class="gap-ratio">
-    <span>Push:Pull</span>
-    <span class="gap-ratio-value ${pushPull.status === 'balanced' ? 'balanced' : 'imbalanced'}">${pushPull.pushSets}:${pushPull.pullSets}</span>
-    ${pushPull.status === 'push-heavy' ? `<button class="gap-row-btn" data-gap-add-pull="1">+ Pull</button>` : ''}
-  </div>`;
-  html += `</div>`; // end gap-panel
+  // --- Coverage gaps (directive) ---
+  // Only render rows that imply an action: under-trained muscles or push/pull
+  // imbalance. Each row is itself the tap target — no separate "+ Add" button
+  // hanging at the end. Hide the panel entirely when nothing's actionable.
+  html += _renderGapPanelHTML(mainLift);
 
   // --- Exercise browser ---
   html += `<div class="exercise-browser" id="builder-browser" hidden>`;
@@ -1293,13 +1336,23 @@ export function initBuilderOverlay() {
       return;
     }
 
-    // Gap panel add pull
+    // Gap panel add pull (push-heavy)
     if (e.target.closest('[data-gap-add-pull]')) {
       const pullEx = Object.entries(EXERCISE_CATALOG).find(([, ex]) => {
         const p = MOVEMENT_PATTERNS[ex.movementPattern];
         return p && p.pushPull === 'pull' && ex.supportsLifts.includes(mainLift) && (store.equipmentProfile || {})[ex.equipment] !== false;
       });
       if (pullEx) addExerciseFromCatalog(pullEx[0]);
+      return;
+    }
+
+    // Gap panel add push (pull-heavy)
+    if (e.target.closest('[data-gap-add-push]')) {
+      const pushEx = Object.entries(EXERCISE_CATALOG).find(([, ex]) => {
+        const p = MOVEMENT_PATTERNS[ex.movementPattern];
+        return p && p.pushPull === 'push' && ex.supportsLifts.includes(mainLift) && (store.equipmentProfile || {})[ex.equipment] !== false;
+      });
+      if (pushEx) addExerciseFromCatalog(pushEx[0]);
       return;
     }
 
