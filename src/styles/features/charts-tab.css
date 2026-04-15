@@ -53,6 +53,49 @@
   width: 100%; display: block;
   transition: opacity 0.3s ease-out;
 }
+
+/* Volume histogram: horizontal pan affordance */
+.chart-container.chart-pannable canvas {
+  cursor: grab;
+  touch-action: pan-y;       /* let the page scroll vertically, but we own horizontal */
+}
+.chart-container.chart-pannable canvas:active {
+  cursor: grabbing;
+}
+.chart-container.chart-pannable::before,
+.chart-container.chart-pannable::after {
+  content: '';
+  position: absolute;
+  top: var(--space-4); bottom: var(--space-4);
+  width: 18px;
+  pointer-events: none;
+  z-index: 4;
+}
+.chart-container.chart-pannable::before {
+  left: var(--space-4);
+  background: linear-gradient(to right, var(--surface), transparent);
+}
+.chart-container.chart-pannable::after {
+  right: var(--space-4);
+  background: linear-gradient(to left, var(--surface), transparent);
+}
+
+/* "← Today" reset chip, floats top-right of the chart when panned back */
+.chart-today-chip {
+  position: absolute;
+  top: 8px; right: 10px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 11;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+.chart-today-chip:active { transform: scale(0.96); }
 .chart-tooltip {
   position: absolute; background: var(--surface2);
   border: 1px solid var(--border); border-radius: 8px;

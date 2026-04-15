@@ -43,6 +43,19 @@ function syncChartUI() {
       b.classList.toggle('active', b.dataset.metric === (store.heatmapMetric || 'volume'))
     );
   }
+
+  // "← Today" chip: only when we're panned back on the volume chart
+  const todayChip = document.getElementById('chart-today-chip');
+  if (todayChip) {
+    todayChip.style.display =
+      store.chartType === 'volume' && (store.chartOffset || 0) > 0 ? '' : 'none';
+  }
+
+  // Edge-fade affordance on the container to hint "more exists off-screen"
+  const chartContainer = canvas.parentElement;
+  if (chartContainer) {
+    chartContainer.classList.toggle('chart-pannable', store.chartType === 'volume');
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -269,38 +282,155 @@ function renderE1RMChart(w, h) {
 // Volume Chart — rounded bars, depth effect
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Volume Histogram — time-bucketed, slidable timeline
+// ---------------------------------------------------------------------------
+
+// Map chartDateRange to a fixed window width in days.
+// Range pill values are literal day counts ("30"/"90"/"180"/"365") or "all"
+// (which still uses a 365-day window — pan to see further back).
+function _windowDays(range) {
+  if (range === 'all') return 365;
+  const n = parseInt(range, 10);
+  return Number.isFinite(n) && n > 0 ? n : 30;
+}
+
+// Pick bucket granularity for a window size
+function _bucketForWindow(windowDays) {
+  if (windowDays <= 35) return { size: 'day', stepDays: 1 };
+  if (windowDays <= 200) return { size: 'week', stepDays: 7 };
+  return { size: 'month', stepDays: 30 }; // approximate — actual step by calendar month
+}
+
+function _startOfDay(d) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+function _startOfWeek(d) { // Monday
+  const x = _startOfDay(d);
+  const dow = x.getDay(); // 0=Sun
+  const shift = (dow + 6) % 7; // Monday=0
+  x.setDate(x.getDate() - shift);
+  return x;
+}
+function _startOfMonth(d) {
+  const x = _startOfDay(d);
+  x.setDate(1);
+  return x;
+}
+
+function _bucketKey(date, size) {
+  if (size === 'day')   return date.toISOString().slice(0, 10);
+  if (size === 'week')  return _startOfWeek(date).toISOString().slice(0, 10);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function _bucketLabel(date, size) {
+  if (size === 'day')   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (size === 'week')  return 'Week of ' + _startOfWeek(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+function _enumerate(windowStart, windowEnd, bucket) {
+  const out = [];
+  let cursor;
+  if (bucket.size === 'day')   cursor = _startOfDay(windowStart);
+  else if (bucket.size === 'week') cursor = _startOfWeek(windowStart);
+  else                              cursor = _startOfMonth(windowStart);
+  const end = new Date(windowEnd);
+  while (cursor <= end) {
+    out.push(new Date(cursor));
+    if (bucket.size === 'day')  cursor.setDate(cursor.getDate() + 1);
+    else if (bucket.size === 'week') cursor.setDate(cursor.getDate() + 7);
+    else                              cursor.setMonth(cursor.getMonth() + 1);
+  }
+  return out;
+}
+
+// Earliest training entry timestamp, or now if no entries
+function _earliestEntryMs() {
+  let min = Infinity;
+  for (const e of store.entries) if (e.timestamp < min) min = e.timestamp;
+  return min === Infinity ? Date.now() : min;
+}
+
+// Max pan offset (days) so you can still see at least one real data point
+function _maxOffsetDays() {
+  const span = (Date.now() - _earliestEntryMs()) / MS_PER_DAY;
+  const windowD = _windowDays(store.chartDateRange);
+  return Math.max(0, Math.ceil(span - windowD / 2));
+}
+
+// Active bucket state — used by the pan gesture in initCharts
+let _activeBucket = null;
+// Flag set by the pointer pan handler so the mouse-hover tooltip doesn't
+// fight the pan gesture when dragging with a mouse (mousemove + pointermove
+// both fire for the same pointer).
+let _isPanning = false;
+
 function renderVolumeChart(w, h) {
   if (store.entries.length === 0) { drawEmpty(w, h, 'No data yet'); return; }
-  const { pad, cw, ch, dateCutoff } = chartSetup(w, h, 55);
+  const { pad, cw, ch } = chartSetup(w, h, 55);
   const lifts = (store.chartFilter === 'all' || store.chartFilter === 'total') ? LIFTS : [store.chartFilter];
 
-  const byDate = {};
+  // --- Window + bucket selection -------------------------------------------
+  const today = _startOfDay(new Date());
+  const windowDays = _windowDays(store.chartDateRange);
+  const offsetDays = Math.max(0, store.chartOffset || 0);
+  const windowEnd = new Date(today.getTime() - offsetDays * MS_PER_DAY);
+  const windowStart = new Date(windowEnd.getTime() - windowDays * MS_PER_DAY);
+  const bucket = _bucketForWindow(windowDays);
+  const buckets = _enumerate(windowStart, windowEnd, bucket);
+  _activeBucket = bucket;
+
+  // --- Aggregate entries into buckets --------------------------------------
+  const byKey = {};
+  buckets.forEach(b => { byKey[_bucketKey(b, bucket.size)] = { squat: 0, bench: 0, deadlift: 0 }; });
   store.entries.forEach(e => {
     if (store.chartFilter !== 'all' && store.chartFilter !== 'total' && e.lift !== store.chartFilter) return;
-    if (dateCutoff && e.date < dateCutoff) return;
-    if (!byDate[e.date]) byDate[e.date] = { squat: 0, bench: 0, deadlift: 0 };
-    byDate[e.date][e.lift] += e.weight * e.reps;
+    const d = new Date(e.date + 'T12:00:00');
+    if (d < windowStart || d > windowEnd) return;
+    const k = _bucketKey(d, bucket.size);
+    if (byKey[k]) byKey[k][e.lift] += e.weight * e.reps;
   });
 
-  const dates = Object.keys(byDate).sort();
-  if (dates.length === 0) { drawEmpty(w, h, 'No data for this filter'); return; }
-  const totals = dates.map(d => lifts.reduce((s, l) => s + (byDate[d][l] || 0), 0));
-  const maxVol = Math.max(...totals.map(v => displayWeight(v)));
-  const minVal = 0, maxVal = Math.ceil(maxVol * 1.1);
+  // --- Axis scaling --------------------------------------------------------
+  const totals = buckets.map(b => {
+    const data = byKey[_bucketKey(b, bucket.size)];
+    return lifts.reduce((s, l) => s + (data[l] || 0), 0);
+  });
+  const maxDisp = Math.max(...totals.map(v => displayWeight(v)), 1);
+  const minVal = 0, maxVal = Math.ceil(maxDisp * 1.1);
 
-  drawAxes(w, h, pad, dates, minVal, maxVal);
+  // Draw axes using bucket labels. drawAxes wants a string[] of date labels.
+  const axisLabels = buckets.map(b => _bucketKey(b, 'day'));
+  drawAxes(w, h, pad, axisLabels, minVal, maxVal);
 
-  const barW = Math.max(4, Math.min(30, (cw / dates.length) * 0.7));
+  // --- Bars ----------------------------------------------------------------
+  const barPitch = cw / buckets.length;
+  const barW = Math.max(2, Math.min(30, barPitch * 0.7));
   const barR = Math.min(3, barW / 4);
 
-  dates.forEach((date, i) => {
-    const x = pad.left + (dates.length === 1 ? cw / 2 : (i / (dates.length - 1)) * cw) - barW / 2;
+  buckets.forEach((b, i) => {
+    const key = _bucketKey(b, bucket.size);
+    const data = byKey[key];
+    const total = lifts.reduce((s, l) => s + (data[l] || 0), 0);
+    const x = pad.left + i * barPitch + (barPitch - barW) / 2;
+
+    if (total === 0) {
+      // Empty-bucket stub — 2px baseline grey so the timeline is continuous
+      ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      ctx.fillRect(x, pad.top + ch - 2, barW, 2);
+      return;
+    }
+
     let yBottom = pad.top + ch;
-    const nonZero = lifts.filter(l => (byDate[date][l] || 0) > 0);
+    const nonZero = lifts.filter(l => (data[l] || 0) > 0);
     const topLift = nonZero[nonZero.length - 1];
 
     lifts.forEach(lift => {
-      const vol = byDate[date][lift] || 0;
+      const vol = data[lift] || 0;
       if (vol <= 0) return;
       const dispVol = displayWeight(vol);
       const barH = (dispVol / (maxVal - minVal)) * ch;
@@ -318,10 +448,20 @@ function renderVolumeChart(w, h) {
       ctx.fillStyle = 'rgba(255,255,255,0.07)';
       ctx.fillRect(x, yBottom - barH, 1.5, barH);
 
-      store.chartPoints.push({ x: x + barW / 2, y: yBottom - barH / 2, date, value: vol, lift, color: COLORS[lift] });
+      store.chartPoints.push({
+        x: x + barW / 2,
+        y: yBottom - barH / 2,
+        date: key,
+        value: vol,
+        lift,
+        color: COLORS[lift],
+        tooltipExtra: _bucketLabel(b, bucket.size),
+      });
       yBottom -= barH;
     });
   });
+
+  // --- "← Today" chip visibility is managed in syncChartUI ----------------
 }
 
 // ---------------------------------------------------------------------------
@@ -822,14 +962,32 @@ function updateChartSummary() {
       }
     }
   } else if (store.chartType === 'volume') {
-    let filtered = store.entries.filter(e => !dateCutoff || e.date >= dateCutoff);
+    // Volume summary reflects the VISIBLE panned window, not just chartDateRange.
+    const today = _startOfDay(new Date());
+    const windowDays = _windowDays(store.chartDateRange);
+    const offsetDays = Math.max(0, store.chartOffset || 0);
+    const windowEnd = new Date(today.getTime() - offsetDays * MS_PER_DAY);
+    const windowStart = new Date(windowEnd.getTime() - windowDays * MS_PER_DAY);
+    const inWindow = e => {
+      const d = new Date(e.date + 'T12:00:00');
+      return d >= windowStart && d <= windowEnd;
+    };
+    let filtered = store.entries.filter(inWindow);
     if (store.chartFilter !== 'all' && store.chartFilter !== 'total') {
       filtered = filtered.filter(e => e.lift === store.chartFilter);
     }
     const totalVol = filtered.reduce((s, e) => s + e.weight * e.reps, 0);
+    // Label reflects the panned window: "Apr 12 – May 12" when offset > 0,
+    // otherwise the range name the user picked ("last 30d" / "all time" / ...).
+    const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const windowLabel = offsetDays > 0
+      ? `${fmt(windowStart)} – ${fmt(windowEnd)}`
+      : rangeLabel;
     if (totalVol > 0) {
       html = `<span class="summary-value">${fmtNum(displayWeight(totalVol))} ${store.unit}</span>`;
-      html += ` <span class="summary-label">total volume &middot; ${rangeLabel}</span>`;
+      html += ` <span class="summary-label">total volume &middot; ${windowLabel}</span>`;
+    } else {
+      html = `<span class="summary-label">no volume in ${windowLabel}</span>`;
     }
   } else if (store.chartType === 'bodyweight') {
     const bwh = (store.profile.bodyweightHistory || []).slice().sort((a, b) => a.timestamp - b.timestamp);
@@ -859,6 +1017,9 @@ function updateChartSummary() {
 // ---------------------------------------------------------------------------
 
 function handleChartHover(e) {
+  // Suppress hover while the volume chart is being panned — otherwise the
+  // tooltip redraws on every mouse micro-movement during a drag.
+  if (_isPanning) return;
   const crosshair = document.getElementById('chart-crosshair');
   if (store.chartPoints.length === 0) return;
   const rect = canvas.getBoundingClientRect();
@@ -904,6 +1065,9 @@ function handleChartHover(e) {
 
     if (store.chartType === 'heatmap' && closest.tooltipExtra) {
       tooltip.innerHTML = `<span style="color:${closest.color};font-weight:600">${closest.lift}</span><br><span style="font-size:0.85rem;font-weight:700;color:#fff">${fmtNum(displayWeight(closest.value))} ${store.unit}</span><br><span style="color:#aaa;font-size:0.7rem">${closest.tooltipExtra}</span><br><span style="color:#888;font-size:0.65rem">${dateLabel}</span>`;
+    } else if (store.chartType === 'volume' && closest.tooltipExtra) {
+      // Volume bars: show the bucket label (e.g. "Week of Apr 7" / "April 2026")
+      tooltip.innerHTML = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${closest.color};margin-right:4px;vertical-align:middle"></span><span style="color:${closest.color};font-weight:600">${name}</span>${deltaHtml}<br><span style="font-size:0.85rem;font-weight:700;color:#fff">${valDisplay}</span><br><span style="color:#888;font-size:0.65rem">${closest.tooltipExtra}</span>`;
     } else {
       tooltip.innerHTML = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${closest.color};margin-right:4px;vertical-align:middle"></span><span style="color:${closest.color};font-weight:600">${name}</span>${deltaHtml}<br><span style="font-size:0.85rem;font-weight:700;color:#fff">${valDisplay}</span><br><span style="color:#888;font-size:0.65rem">${dateLabel}</span>`;
     }
@@ -1000,17 +1164,20 @@ export function initChartsTab() {
     renderChart();
   });
 
-  // Chart date range pills
+  // Chart date range pills — switching range rescales the pan window, so
+  // reset the offset to avoid stranding the user in an empty slice of time.
   $('chart-date-range').addEventListener('click', e => {
     const pill = e.target.closest('.range-pill');
     if (!pill) return;
     store.chartDateRange = pill.dataset.range;
+    store.chartOffset = 0;
     renderChart();
   });
 
-  // Chart type selector
+  // Chart type selector — leaving volume clears any pan state.
   document.querySelectorAll('.chart-type-btn').forEach(btn => {
     btn.addEventListener('click', () => {
+      if (btn.dataset.type !== 'volume') store.chartOffset = 0;
       store.chartType = btn.dataset.type;
       renderChart();
     });
@@ -1022,6 +1189,75 @@ export function initChartsTab() {
     if (!btn) return;
     store.chartFilter = btn.dataset.filter;
     renderChart();
+  });
+
+  // --- Volume histogram pan (swipe horizontally to scroll through time) ---
+  // "← Today" chip: resets pan offset to 0. Absolutely positioned in the
+  // chart container; visibility managed by syncChartUI() below.
+  const container = canvas.parentElement;
+  const todayChip = document.createElement('button');
+  todayChip.id = 'chart-today-chip';
+  todayChip.className = 'chart-today-chip';
+  todayChip.type = 'button';
+  todayChip.textContent = '← Today';
+  todayChip.style.display = 'none';
+  todayChip.addEventListener('click', () => {
+    store.chartOffset = 0;
+    renderChart();
+  });
+  container.appendChild(todayChip);
+
+  // Pan gesture — pointer events so mouse + finger both work.
+  let panState = null;
+  canvas.addEventListener('pointerdown', e => {
+    if (store.chartType !== 'volume') return;
+    panState = {
+      startX: e.clientX,
+      baseOffset: store.chartOffset || 0,
+      moved: false,
+      pointerId: e.pointerId,
+    };
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* fine on unsupported */ }
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!panState) return;
+    const dx = e.clientX - panState.startX;
+    if (!panState.moved && Math.abs(dx) < 5) return;
+
+    if (!panState.moved) {
+      panState.moved = true;
+      _isPanning = true;
+      // Suppress tooltip/crosshair during a pan.
+      tooltip.style.opacity = '0';
+      const ch = document.getElementById('chart-crosshair');
+      if (ch) ch.style.opacity = '0';
+    }
+
+    const stepDays = (_activeBucket && _activeBucket.stepDays) || 1;
+    // chartSetup uses pad.left=55, pad.right=16 for volume bars.
+    const plotW = Math.max(1, canvas.clientWidth - 55 - 16);
+    const bucketCount = Math.max(1, Math.round(_windowDays(store.chartDateRange) / stepDays));
+    const barPitch = plotW / bucketCount;
+    // Drag right → go back in time (offset increases).
+    const bucketsDragged = Math.round(-dx / barPitch);
+    const proposed = panState.baseOffset + bucketsDragged * stepDays;
+    const next = Math.max(0, Math.min(_maxOffsetDays(), proposed));
+    if (next !== store.chartOffset) {
+      store.chartOffset = next;
+      renderChart();
+    }
+  });
+  const endPan = () => {
+    panState = null;
+    // Release the pan flag on the next tick so the trailing mousemove from the
+    // same gesture (which would repaint the tooltip at the release point) is
+    // still suppressed.
+    setTimeout(() => { _isPanning = false; }, 0);
+  };
+  canvas.addEventListener('pointerup', endPan);
+  canvas.addEventListener('pointercancel', endPan);
+  canvas.addEventListener('pointerleave', e => {
+    if (panState && panState.pointerId === e.pointerId) endPan();
   });
 
   // Chart tooltip

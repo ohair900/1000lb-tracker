@@ -124,6 +124,7 @@ class Store {
     this.chartFilter = 'all';
     this.chartType = 'e1rm';
     this.chartDateRange = 'all';
+    this.chartOffset = 0;              // pan offset in days (volume histogram only)
     this.heatmapMetric = 'volume';
     this.historyFilter = 'all';
     this.historyFrom = '';
