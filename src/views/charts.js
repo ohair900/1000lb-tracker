@@ -44,17 +44,17 @@ function syncChartUI() {
     );
   }
 
-  // "← Today" chip: only when we're panned back on the volume chart
+  // "← Today" chip: shown when panned back on a chart type that supports panning
+  const isPannable = store.chartType === 'volume' || store.chartType === 'heatmap';
   const todayChip = document.getElementById('chart-today-chip');
   if (todayChip) {
-    todayChip.style.display =
-      store.chartType === 'volume' && (store.chartOffset || 0) > 0 ? '' : 'none';
+    todayChip.style.display = isPannable && (store.chartOffset || 0) > 0 ? '' : 'none';
   }
 
   // Edge-fade affordance on the container to hint "more exists off-screen"
   const chartContainer = canvas.parentElement;
   if (chartContainer) {
-    chartContainer.classList.toggle('chart-pannable', store.chartType === 'volume');
+    chartContainer.classList.toggle('chart-pannable', isPannable);
   }
 }
 
@@ -355,15 +355,23 @@ function _earliestEntryMs() {
   return min === Infinity ? Date.now() : min;
 }
 
-// Max pan offset (days) so you can still see at least one real data point
+// Max pan offset (days) so you can still see at least one real data point.
+// Volume uses the range-pill window width; the heatmap always shows ~1 year
+// regardless of chartDateRange, so we size the clamp to that.
 function _maxOffsetDays() {
   const span = (Date.now() - _earliestEntryMs()) / MS_PER_DAY;
-  const windowD = _windowDays(store.chartDateRange);
-  return Math.max(0, Math.ceil(span - windowD / 2));
+  const visibleDays = store.chartType === 'heatmap'
+    ? 52 * 7
+    : _windowDays(store.chartDateRange);
+  return Math.max(0, Math.ceil(span - visibleDays / 2));
 }
 
 // Active bucket state — used by the pan gesture in initCharts
 let _activeBucket = null;
+// Geometry captured at render time for whichever chart is active, so the
+// pan handler can convert pixel-drag → days without re-doing the layout.
+// { stepDays, pitchPx, plotLeft } where pitchPx is the width of one bar/column.
+let _panGeom = null;
 // Flag set by the pointer pan handler so the mouse-hover tooltip doesn't
 // fight the pan gesture when dragging with a mouse (mousemove + pointermove
 // both fire for the same pointer).
@@ -411,6 +419,9 @@ function renderVolumeChart(w, h) {
   const barPitch = cw / buckets.length;
   const barW = Math.max(2, Math.min(30, barPitch * 0.7));
   const barR = Math.min(3, barW / 4);
+
+  // Record geometry for the pan handler (volume chart path).
+  _panGeom = { stepDays: bucket.stepDays, pitchPx: barPitch, plotLeft: pad.left };
 
   buckets.forEach((b, i) => {
     const key = _bucketKey(b, bucket.size);
@@ -613,7 +624,11 @@ function renderWilksChart(w, h) {
 function renderHeatmap(w, h) {
   if (store.entries.length === 0) { drawEmpty(w, h, 'No data yet'); return; }
   const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // Shift the viewing window back by chartOffset days so the user can
+  // drag the heatmap horizontally to see earlier months.
+  const offsetDays = Math.max(0, store.chartOffset || 0);
+  const realToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const today = new Date(realToday.getTime() - offsetDays * MS_PER_DAY);
   const weeksToShow = Math.min(52, Math.floor((w - 40) / 10));
   const daysBack = weeksToShow * 7;
   const startDate = new Date(today.getTime() - daysBack * MS_PER_DAY);
@@ -643,6 +658,9 @@ function renderHeatmap(w, h) {
   const padLeft = 22;
   const padTop = 18;
   const summaryRowH = 16;
+
+  // Record geometry for the pan handler (heatmap path): one column = 1 week.
+  _panGeom = { stepDays: 7, pitchPx: cellSize + gap, plotLeft: padLeft };
   const dayLabels = ['M', '', 'W', '', 'F', '', 'S'];
   const surface2 = getComputedStyle(document.documentElement).getPropertyValue('--surface2').trim() || '#2a2a2a';
 
@@ -714,7 +732,9 @@ function renderHeatmap(w, h) {
     let weekTotal = 0;
     for (let day = 0; day < 7; day++) {
       const cellDate = new Date(adjustedStart.getTime() + (wk * 7 + day) * MS_PER_DAY);
-      if (cellDate > today) continue;
+      // Skip cells in the *real* future only — panning back should still
+      // let cells between today-window-end and real-today render normally.
+      if (cellDate > realToday) continue;
       const dateStr = cellDate.toISOString().split('T')[0];
       const val = valByDate[dateStr] || 0;
       weekTotal += val;
@@ -1174,10 +1194,11 @@ export function initChartsTab() {
     renderChart();
   });
 
-  // Chart type selector — leaving volume clears any pan state.
+  // Chart type selector — switching chart types resets the pan offset so
+  // each chart starts at "today" rather than inheriting a stale offset.
   document.querySelectorAll('.chart-type-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      if (btn.dataset.type !== 'volume') store.chartOffset = 0;
+      if (store.chartType !== btn.dataset.type) store.chartOffset = 0;
       store.chartType = btn.dataset.type;
       renderChart();
     });
@@ -1208,9 +1229,11 @@ export function initChartsTab() {
   container.appendChild(todayChip);
 
   // Pan gesture — pointer events so mouse + finger both work.
+  // Applies to Volume histogram AND Activity heatmap.
+  const isPannable = () => store.chartType === 'volume' || store.chartType === 'heatmap';
   let panState = null;
   canvas.addEventListener('pointerdown', e => {
-    if (store.chartType !== 'volume') return;
+    if (!isPannable() || !_panGeom) return;
     panState = {
       startX: e.clientX,
       baseOffset: store.chartOffset || 0,
@@ -1233,14 +1256,11 @@ export function initChartsTab() {
       if (ch) ch.style.opacity = '0';
     }
 
-    const stepDays = (_activeBucket && _activeBucket.stepDays) || 1;
-    // chartSetup uses pad.left=55, pad.right=16 for volume bars.
-    const plotW = Math.max(1, canvas.clientWidth - 55 - 16);
-    const bucketCount = Math.max(1, Math.round(_windowDays(store.chartDateRange) / stepDays));
-    const barPitch = plotW / bucketCount;
-    // Drag right → go back in time (offset increases).
-    const bucketsDragged = Math.round(-dx / barPitch);
-    const proposed = panState.baseOffset + bucketsDragged * stepDays;
+    if (!_panGeom) return;
+    const { stepDays, pitchPx } = _panGeom;
+    // Drag right (dx > 0) → go back in time (offset increases).
+    const columnsDragged = Math.round(-dx / Math.max(1, pitchPx));
+    const proposed = panState.baseOffset + columnsDragged * stepDays;
     const next = Math.max(0, Math.min(_maxOffsetDays(), proposed));
     if (next !== store.chartOffset) {
       store.chartOffset = next;
