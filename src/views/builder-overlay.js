@@ -41,6 +41,20 @@ let _builderDirty = false;
 // Slots whose "Why this exercise?" body is currently expanded.
 const _openWhyIdx = new Set();
 
+// Browser filter state — reset each time the builder opens.
+let _browserFilters = {
+  muscle: null,           // string | null — exact muscle group name
+  pattern: null,          // string | null — movement pattern key
+  equipmentOnly: false,   // boolean — only show exercises with available equipment
+  neverTried: false,      // boolean — only show exercises with no accessoryLog history
+  search: '',             // last search query (debounced)
+};
+// Recently used accessory canonical IDs (LRU, oldest first → newest last).
+let _recentExerciseIds = [];
+const _RECENT_LIMIT = 8;
+// Debounce handle for search input.
+let _searchDebounceTimer = null;
+
 /** Mark builder as dirty and persist draft for crash recovery (#8, #9). */
 function _markDirty() {
   _builderDirty = true;
@@ -400,6 +414,7 @@ export function openBuilder(mainLift, preloadExercises) {
   _gapPanelOpen = false;
   _builderDirty = false;
   _openWhyIdx.clear();
+  _browserFilters = { muscle: null, pattern: null, equipmentOnly: false, neverTried: false, search: '' };
 
   // Helper that actually mounts the overlay once draft handling has resolved.
   const mount = (initialExercises) => {
@@ -596,6 +611,8 @@ export function renderBuilder(mainLift) {
     <button class="browser-tab active" data-browser-tab="recommended">Recommended</button>
     <button class="browser-tab" data-browser-tab="all">All Exercises</button>
   </div>`;
+  html += _renderRecentsStrip();
+  html += _renderFilterChips();
   html += `<div class="exercise-browser-list" id="builder-exercise-list">`;
   html += renderRecommendedBrowser(mainLift);
   html += `</div>`;
@@ -641,59 +658,48 @@ export function renderBuilder(mainLift) {
 function renderRecommendedBrowser(mainLift) {
   const addedIds = new Set(store.builderExercises.filter(e => e.type !== 'main').map(e => resolveCanonicalId(e.exerciseId)));
   const scored = scoreAccessories(mainLift).filter(ex => !addedIds.has(ex.canonicalId || ex.id));
-  const equip = store.equipmentProfile || {};
 
-  // Split into recommended (supports this lift) and other
-  const recommended = scored.filter(ex => (ex.supportsLifts || []).includes(mainLift)).slice(0, 15);
+  // Apply filters (muscle, pattern, equipment, never-tried, search).
+  const filtered = scored
+    .filter(ex => (ex.supportsLifts || []).includes(mainLift))
+    .filter(ex => _exercisePassesFilters(ex))
+    .slice(0, 15);
 
-  let html = '';
-  if (recommended.length === 0) {
-    html += '<div class="builder-empty-state">All recommended exercises added</div>';
-    return html;
+  if (filtered.length === 0) {
+    return '<div class="builder-empty-state">All recommended exercises added</div>';
   }
 
-  // Group by movement pattern
-  const groups = {};
-  recommended.forEach(ex => {
-    const pattern = ex.movementPattern || 'other';
-    if (!groups[pattern]) groups[pattern] = [];
-    groups[pattern].push(ex);
-  });
-
-  for (const [pattern, exercises] of Object.entries(groups)) {
-    const patternInfo = MOVEMENT_PATTERNS[pattern] || { label: pattern, pushPull: 'neutral' };
-    html += `<div class="pattern-group-header">${patternInfo.label} <span class="pattern-badge ${patternInfo.pushPull}">${patternInfo.pushPull}</span></div>`;
-    for (const ex of exercises) {
-      const available = equip[ex.equipment] !== false;
-      html += `<div class="exercise-browser-item${!available ? ' unavailable' : ''}" data-exid="${ex.id}">
-        <div>
-          <div class="exercise-browser-item-name">${ex.name}</div>
-          <div class="muscle-pills">${renderMusclePills(ex)}</div>
-        </div>
-        <span class="exercise-browser-item-equip">${ex.equipment}</span>
-      </div>`;
-    }
-  }
-  return html;
+  return _renderBrowserGroups(filtered, addedIds);
 }
 
 function renderAllBrowser(mainLift, query) {
   const addedIds = new Set(store.builderExercises.filter(e => e.type !== 'main').map(e => resolveCanonicalId(e.exerciseId)));
-  const equip = store.equipmentProfile || {};
-  let html = '';
-
-  // Group all catalog exercises by movement pattern
-  const groups = {};
+  const items = [];
   for (const [id, ex] of Object.entries(EXERCISE_CATALOG)) {
+    const candidate = { id, ...ex };
     if (query && !ex.name.toLowerCase().includes(query.toLowerCase())) continue;
+    if (!_exercisePassesFilters(candidate)) continue;
+    items.push(candidate);
+  }
+  if (items.length === 0) return '<div class="builder-empty-state">No exercises found</div>';
+  return _renderBrowserGroups(items, addedIds);
+}
+
+/** Group filtered exercises by movement pattern + render rows. */
+function _renderBrowserGroups(items, addedIds) {
+  const equip = store.equipmentProfile || {};
+  const groups = {};
+  for (const ex of items) {
     const pattern = ex.movementPattern || 'other';
     if (!groups[pattern]) groups[pattern] = [];
-    groups[pattern].push({ id, ...ex });
+    groups[pattern].push(ex);
   }
-
-  for (const [pattern, exercises] of Object.entries(groups).sort()) {
+  let html = '';
+  for (const [pattern, exercises] of Object.entries(groups)) {
     const patternInfo = MOVEMENT_PATTERNS[pattern] || { label: pattern, pushPull: 'neutral' };
-    html += `<div class="pattern-group-header">${patternInfo.label} <span class="pattern-badge ${patternInfo.pushPull}">${patternInfo.pushPull}</span></div>`;
+    html += `<div class="pattern-group-header">${patternInfo.label}
+      <button class="pattern-badge ${patternInfo.pushPull}" data-filter-pattern="${pattern}" title="Filter to ${patternInfo.label}">${patternInfo.pushPull}</button>
+    </div>`;
     for (const ex of exercises) {
       const added = addedIds.has(ex.id);
       const available = equip[ex.equipment] !== false;
@@ -706,8 +712,7 @@ function renderAllBrowser(mainLift, query) {
       </div>`;
     }
   }
-
-  return html || '<div class="builder-empty-state">No exercises found</div>';
+  return html;
 }
 
 function renderMusclePills(ex) {
@@ -716,8 +721,97 @@ function renderMusclePills(ex) {
     .filter(([, w]) => w >= 0.20)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
-    .map(([mg]) => `<span class="muscle-pill">${mg}</span>`)
+    .map(([mg]) => `<button class="muscle-pill" data-filter-muscle="${mg}" title="Filter to ${mg}">${mg}</button>`)
     .join('');
+}
+
+/** Whether an exercise passes the active browser filter chip state. */
+function _exercisePassesFilters(ex) {
+  const f = _browserFilters;
+  if (f.muscle) {
+    const muscles = ex.primaryMuscles || {};
+    const w = muscles[f.muscle] || 0;
+    if (w < 0.20) return false;
+  }
+  if (f.pattern && (ex.movementPattern || 'other') !== f.pattern) return false;
+  if (f.equipmentOnly) {
+    const available = (store.equipmentProfile || {})[ex.equipment] !== false;
+    if (!available) return false;
+  }
+  if (f.neverTried) {
+    const id = ex.canonicalId || ex.id;
+    const tried = store.accessoryLog.some(l => resolveCanonicalId(l.exerciseId) === id);
+    if (tried) return false;
+  }
+  if (f.search) {
+    const q = f.search.toLowerCase();
+    if (!ex.name.toLowerCase().includes(q)) return false;
+  }
+  return true;
+}
+
+/** Recents row above the list — last 8 added accessories. */
+function _renderRecentsStrip() {
+  if (_recentExerciseIds.length === 0) return '';
+  // Newest-first order.
+  const ids = [..._recentExerciseIds].reverse();
+  let chips = '';
+  for (const id of ids) {
+    const ex = EXERCISE_CATALOG[id];
+    if (!ex) continue;
+    chips += `<button class="browser-recent-chip" data-recent-id="${id}" title="Add ${escapeHTML(ex.name)}">${escapeHTML(ex.name)}</button>`;
+  }
+  if (!chips) return '';
+  return `<div class="browser-recents">
+    <span class="browser-recents-label">Recent</span>
+    <div class="browser-recents-list">${chips}</div>
+  </div>`;
+}
+
+/** Filter chip row above the list. */
+function _renderFilterChips() {
+  const f = _browserFilters;
+  const active = (cond) => cond ? ' active' : '';
+  return `<div class="browser-filters">
+    <button class="filter-chip${active(f.equipmentOnly)}" data-filter-toggle="equipmentOnly">My Equipment</button>
+    <button class="filter-chip${active(f.neverTried)}" data-filter-toggle="neverTried">Never Tried</button>
+    ${f.muscle ? `<button class="filter-chip active" data-filter-clear="muscle">Muscle: ${f.muscle} &times;</button>` : ''}
+    ${f.pattern ? `<button class="filter-chip active" data-filter-clear="pattern">Pattern: ${(MOVEMENT_PATTERNS[f.pattern]||{label:f.pattern}).label} &times;</button>` : ''}
+  </div>`;
+}
+
+/** Re-render only the browser sub-tree (recents + filters + list). */
+function _refreshBrowserList() {
+  const browser = $('builder-browser');
+  if (!browser || browser.hidden) return;
+  // Recents strip + filter chips live as siblings before the list.
+  const recents = browser.querySelector('.browser-recents');
+  const filters = browser.querySelector('.browser-filters');
+  const newRecents = _renderRecentsStrip();
+  const newFilters = _renderFilterChips();
+  if (recents) recents.outerHTML = newRecents || '';
+  else if (newRecents) browser.querySelector('.browser-tabs').insertAdjacentHTML('afterend', newRecents);
+  if (filters) filters.outerHTML = newFilters;
+  else browser.querySelector('.browser-tabs').insertAdjacentHTML('afterend', newFilters);
+  // List body
+  const activeTab = browser.querySelector('.browser-tab.active');
+  const tab = activeTab ? activeTab.dataset.browserTab : 'recommended';
+  const list = $('builder-exercise-list');
+  if (!list) return;
+  list.innerHTML = tab === 'all'
+    ? renderAllBrowser(_builderMainLift, _browserFilters.search)
+    : renderRecommendedBrowser(_builderMainLift);
+}
+
+/** Track that an accessory was added — feeds the recents strip. */
+function _trackRecent(exId) {
+  const id = resolveCanonicalId(exId);
+  if (!EXERCISE_CATALOG[id]) return; // skip custom exercises
+  _recentExerciseIds = _recentExerciseIds.filter(x => x !== id);
+  _recentExerciseIds.push(id);
+  if (_recentExerciseIds.length > _RECENT_LIMIT) {
+    _recentExerciseIds = _recentExerciseIds.slice(-_RECENT_LIMIT);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -865,6 +959,7 @@ function addExerciseFromCatalog(exId) {
     slotRole: 'accessory',
     reasons: [],
   });
+  _trackRecent(exId);
   _markDirty();
   renderBuilder(mainLift);
 }
@@ -1298,12 +1393,48 @@ export function initBuilderOverlay() {
     if (tabBtn) {
       body.querySelectorAll('.browser-tab').forEach(t => t.classList.remove('active'));
       tabBtn.classList.add('active');
-      const tab = tabBtn.dataset.browserTab;
-      if (tab === 'recommended') {
-        $('builder-exercise-list').innerHTML = renderRecommendedBrowser(mainLift);
-      } else {
-        $('builder-exercise-list').innerHTML = renderAllBrowser(mainLift, $('builder-search')?.value || '');
-      }
+      _refreshBrowserList();
+      return;
+    }
+
+    // Filter chip toggles (My Equipment / Never Tried)
+    const filterToggle = e.target.closest('[data-filter-toggle]');
+    if (filterToggle) {
+      const key = filterToggle.dataset.filterToggle;
+      _browserFilters[key] = !_browserFilters[key];
+      _refreshBrowserList();
+      return;
+    }
+
+    // Filter chip clear (active Muscle: / Pattern: chips)
+    const filterClear = e.target.closest('[data-filter-clear]');
+    if (filterClear) {
+      const key = filterClear.dataset.filterClear;
+      _browserFilters[key] = null;
+      _refreshBrowserList();
+      return;
+    }
+
+    // Muscle pill in a list item → set muscle filter
+    const musclePill = e.target.closest('[data-filter-muscle]');
+    if (musclePill) {
+      _browserFilters.muscle = musclePill.dataset.filterMuscle;
+      _refreshBrowserList();
+      return;
+    }
+
+    // Pattern badge in a group header → set pattern filter
+    const patternBadge = e.target.closest('[data-filter-pattern]');
+    if (patternBadge) {
+      _browserFilters.pattern = patternBadge.dataset.filterPattern;
+      _refreshBrowserList();
+      return;
+    }
+
+    // Recents chip → add directly
+    const recent = e.target.closest('[data-recent-id]');
+    if (recent) {
+      addExerciseFromCatalog(recent.dataset.recentId);
       return;
     }
 
@@ -1432,18 +1563,15 @@ export function initBuilderOverlay() {
     }
   });
 
-  // Delegated search input
+  // Delegated search input — debounced 200ms so we don't re-render on every keystroke.
   body.addEventListener('input', (e) => {
-    if (e.target.id === 'builder-search') {
-      const activeTab = body.querySelector('.browser-tab.active');
-      const tab = activeTab ? activeTab.dataset.browserTab : 'recommended';
-      if (tab === 'all') {
-        $('builder-exercise-list').innerHTML = renderAllBrowser(_builderMainLift, e.target.value);
-      } else {
-        // Filter recommended by search
-        $('builder-exercise-list').innerHTML = renderRecommendedBrowser(_builderMainLift);
-      }
-    }
+    if (e.target.id !== 'builder-search') return;
+    const value = e.target.value;
+    clearTimeout(_searchDebounceTimer);
+    _searchDebounceTimer = setTimeout(() => {
+      _browserFilters.search = value;
+      _refreshBrowserList();
+    }, 200);
   });
 
   // Builder close button

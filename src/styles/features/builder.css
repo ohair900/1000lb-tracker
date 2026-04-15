@@ -116,7 +116,65 @@
   color: var(--text); font-size: var(--text-sm); outline: none;
 }
 .exercise-browser-search:focus { border-color: var(--bench); }
-.exercise-browser-list { max-height: 300px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.exercise-browser-list {
+  max-height: min(60vh, 480px);
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
+
+/* Recents strip — newest-first chips of last 8 added accessories */
+.browser-recents {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+.browser-recents-label {
+  font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-dim); flex-shrink: 0;
+}
+.browser-recents-list {
+  display: flex; gap: 4px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+.browser-recent-chip {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface2); color: var(--text);
+  font-size: 0.65rem; font-weight: 600;
+  white-space: nowrap; cursor: pointer;
+}
+.browser-recent-chip:active { background: var(--bench); color: #fff; border-color: var(--bench); }
+
+/* Filter chip row — persistent above the list */
+.browser-filters {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  padding: 6px var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+.filter-chip {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface2); color: var(--text-dim);
+  font-size: 0.65rem; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+}
+.filter-chip.active {
+  background: var(--bench); color: #fff; border-color: var(--bench);
+}
+.filter-chip:active { transform: scale(0.97); }
+
+/* Pattern badge in group header is now an interactive filter */
+.pattern-group-header .pattern-badge {
+  cursor: pointer;
+  border: none;
+}
+/* Muscle pills in browser items are now filters too */
+.muscle-pill {
+  cursor: pointer;
+  border: none;
+}
 .exercise-browser-cat {
   font-size: var(--text-xs); font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.06em; color: var(--text-dim); padding: 8px var(--space-3) 4px;
