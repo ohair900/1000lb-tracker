@@ -40,8 +40,8 @@ body{font-family:'Figtree',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-seri
 .tab-btn{flex:1;padding:8px 0;border:none;background:transparent;color:var(--text-dim);font-size:var(--text-sm);font-weight:600;cursor:pointer}
 .tab-btn.active{color:var(--text-strong);border-bottom:2px solid var(--text-strong)}
 </style>
-  <script type="module" crossorigin src="/assets/index.src-CobC8LJq.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-BLS8Ba1R.css">
+  <script type="module" crossorigin src="/assets/index.src-C8uHKMdZ.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-BuL2ZIta.css">
 </head>
 <body>
 <!-- Silent audio keepalive — primed by first user click in main.js so the
@@ -496,6 +496,67 @@ body{font-family:'Figtree',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-seri
     <div class="builder-footer">
       <button class="btn-secondary" id="builder-save-template">Save Template</button>
       <button class="btn-primary" id="builder-start">Start Workout</button>
+      <button class="btn-icon builder-footer-overflow" id="builder-discard" title="Discard workout">&times;</button>
+    </div>
+  </div>
+
+  <!-- Builder Draft Recovery Sheet -->
+  <div class="sheet-backdrop builder-draft-sheet-backdrop" id="builder-draft-sheet-backdrop" style="display:none"></div>
+  <div class="sheet-panel builder-draft-sheet" id="builder-draft-sheet" style="display:none">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">Recover unsaved draft?</div>
+    <div class="builder-draft-body">
+      <p class="builder-draft-text">You have a workout in progress. Pick up where you left off?</p>
+      <div class="builder-draft-actions">
+        <button class="btn-secondary" id="builder-draft-discard">Discard</button>
+        <button class="btn-primary" id="builder-draft-recover">Recover</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Builder Template Save Sheet -->
+  <div class="sheet-backdrop builder-template-sheet-backdrop" id="builder-template-sheet-backdrop" style="display:none"></div>
+  <div class="sheet-panel builder-template-sheet" id="builder-template-sheet" style="display:none">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header" id="builder-template-sheet-title">Save as Template</div>
+    <div class="builder-template-body">
+      <label class="builder-template-field">
+        <span class="builder-template-label">Name</span>
+        <input type="text" id="builder-template-name" placeholder="Squat day, hypertrophy week 2…" maxlength="60">
+      </label>
+      <label class="builder-template-field">
+        <span class="builder-template-label">Notes <span class="builder-template-hint">(optional)</span></span>
+        <textarea id="builder-template-notes" rows="2" placeholder="Anything to remember about this template…"></textarea>
+      </label>
+      <div class="builder-template-field">
+        <span class="builder-template-label">Tags</span>
+        <div class="builder-template-tags" id="builder-template-tags">
+          <button class="template-tag-chip" data-tag="Strength">Strength</button>
+          <button class="template-tag-chip" data-tag="Hypertrophy">Hypertrophy</button>
+          <button class="template-tag-chip" data-tag="Recovery">Recovery</button>
+          <button class="template-tag-chip" data-tag="Volume">Volume</button>
+          <button class="template-tag-chip" data-tag="Competition">Competition</button>
+        </div>
+        <input type="text" id="builder-template-tag-extra" placeholder="Add custom tag and press Enter">
+      </div>
+      <div class="builder-template-actions">
+        <button class="btn-secondary" id="builder-template-cancel">Cancel</button>
+        <button class="btn-primary" id="builder-template-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Builder Discard Confirm Sheet -->
+  <div class="sheet-backdrop builder-discard-sheet-backdrop" id="builder-discard-sheet-backdrop" style="display:none"></div>
+  <div class="sheet-panel builder-discard-sheet" id="builder-discard-sheet" style="display:none">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">Discard workout?</div>
+    <div class="builder-draft-body">
+      <p class="builder-draft-text">Your slots and sets will be cleared.</p>
+      <div class="builder-draft-actions">
+        <button class="btn-secondary" id="builder-discard-cancel">Keep</button>
+        <button class="btn-primary danger" id="builder-discard-confirm">Discard</button>
+      </div>
     </div>
   </div>
 

@@ -160,7 +160,24 @@ export function openBuilder(mainLift, preloadExercises) {
   _gapPanelOpen = false;
   _builderDirty = false;
 
-  // #9: Recover draft if no preload provided
+  // Helper that actually mounts the overlay once draft handling has resolved.
+  const mount = (initialExercises) => {
+    if (initialExercises && initialExercises.length > 0) {
+      store.builderExercises = initialExercises;
+      if (!store.builderExercises.some(e => e.type === 'main')) {
+        store.builderExercises.unshift(buildMainLiftSlot(mainLift));
+      }
+    } else {
+      store.builderExercises = buildDefaultSlots(mainLift);
+    }
+    $('builder-title').textContent = `Build ${LIFT_NAMES[mainLift]} Workout`;
+    $('builder-overlay').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    renderBuilder(mainLift);
+  };
+
+  // Look for a recoverable draft (only when no preloadExercises supplied).
+  let draftExercises = null;
   if (!preloadExercises) {
     try {
       const raw = localStorage.getItem('sbd-builder-draft');
@@ -168,30 +185,25 @@ export function openBuilder(mainLift, preloadExercises) {
         const draft = JSON.parse(raw);
         if (draft && draft.mainLift === mainLift && draft.exercises && draft.exercises.length > 0
             && (Date.now() - draft.timestamp) < 7200000) {
-          if (confirm('Recover unsaved builder draft?')) {
-            preloadExercises = draft.exercises;
-          }
+          draftExercises = draft.exercises;
         }
         localStorage.removeItem('sbd-builder-draft');
       }
     } catch { /* corrupt draft — ignore */ }
   }
 
-  if (preloadExercises && preloadExercises.length > 0) {
-    store.builderExercises = preloadExercises;
-    // Ensure main lift slot
-    if (!store.builderExercises.some(e => e.type === 'main')) {
-      store.builderExercises.unshift(buildMainLiftSlot(mainLift));
-    }
+  if (draftExercises) {
+    // Ask via sheet (replaces native confirm). Mount the overlay first so
+    // the sheet appears layered above an empty builder; once user picks,
+    // we re-mount with the chosen exercises.
+    mount([]);
+    _openDraftRecoverySheet({
+      onRecover: () => mount(draftExercises),
+      onDiscard: () => { /* keep the empty (smart-prefilled) builder */ mount(null); },
+    });
   } else {
-    // Pre-fill with smart recommendations
-    store.builderExercises = buildDefaultSlots(mainLift);
+    mount(preloadExercises);
   }
-
-  $('builder-title').textContent = `Build ${LIFT_NAMES[mainLift]} Workout`;
-  $('builder-overlay').style.display = 'flex';
-  document.body.style.overflow = 'hidden';
-  renderBuilder(mainLift);
 }
 
 /**
@@ -199,7 +211,9 @@ export function openBuilder(mainLift, preloadExercises) {
  */
 export function closeBuilder(force) {
   if (!force && _builderDirty && store.builderExercises.length > 0) {
-    if (!confirm('Discard unsaved changes?')) return;
+    // Sheet-driven discard confirmation (replaces native confirm).
+    _openDiscardSheet({ onConfirm: () => closeBuilder(true) });
+    return;
   }
   $('builder-overlay').style.display = 'none';
   document.body.style.overflow = '';
@@ -706,56 +720,52 @@ export function saveAsTemplate(mainLift) {
   const editingId = $('builder-save-template')._templateId || null;
   const existing = editingId ? store.customTemplates.find(t => t.id === editingId) : null;
 
-  const name = prompt('Template name:', existing ? existing.name : '');
-  if (!name || !name.trim()) return;
+  // Open the template-save sheet; `_openTemplateSaveSheet` calls back with
+  // a single { name, notes, tags } object once the user taps Save.
+  _openTemplateSaveSheet({
+    existing,
+    onSave: ({ name, notes, tags }) => {
+      const gapReport = getGapReport(mainLift);
+      const pushPull = analyzePushPullRatio();
+      const exercises = store.builderExercises.map(e => ({ ...e }));
+      const metadata = {
+        gapCount: gapReport.length,
+        pushPullRatio: pushPull.ratio,
+        slotRoles: store.builderExercises.map(e => e.slotRole || 'accessory'),
+      };
 
-  const gapReport = getGapReport(mainLift);
-  const pushPull = analyzePushPullRatio();
-  const exercises = store.builderExercises.map(e => ({ ...e }));
-  const metadata = {
-    gapCount: gapReport.length,
-    pushPullRatio: pushPull.ratio,
-    slotRoles: store.builderExercises.map(e => e.slotRole || 'accessory'),
-  };
-
-  // #13: Optional notes
-  const notes = prompt('Notes (optional):', existing ? (existing.notes || '') : '') || '';
-  // #17: Tags
-  const PRESET_TAGS = ['Strength', 'Hypertrophy', 'Recovery', 'Volume', 'Competition'];
-  const tagsInput = prompt(`Tags (comma-separated):\n${PRESET_TAGS.join(', ')}`, existing ? (existing.tags || []).join(', ') : '') || '';
-  const tags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
-
-  if (existing) {
-    // Update in-place
-    existing.name = name.trim();
-    existing.notes = notes.trim();
-    existing.tags = tags;
-    existing.exercises = exercises;
-    existing.metadata = metadata;
-    existing.lastUsed = Date.now();
-    $('builder-save-template')._templateId = null;
-    _builderDirty = false;
-    localStorage.removeItem('sbd-builder-draft');
-    store.saveCustomTemplates();
-    showToast('Template updated: ' + name.trim());
-  } else {
-    const template = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      name: name.trim(),
-      notes: notes.trim(),
-      tags,
-      mainLift,
-      createdAt: Date.now(),
-      lastUsed: Date.now(),
-      exercises,
-      metadata,
-    };
-    store.customTemplates.push(template);
-    _builderDirty = false;
-    localStorage.removeItem('sbd-builder-draft');
-    store.saveCustomTemplates();
-    showToast('Template saved: ' + name.trim());
-  }
+      if (existing) {
+        existing.name = name;
+        existing.notes = notes;
+        existing.tags = tags;
+        existing.exercises = exercises;
+        existing.metadata = metadata;
+        existing.lastUsed = Date.now();
+        $('builder-save-template')._templateId = null;
+        _builderDirty = false;
+        localStorage.removeItem('sbd-builder-draft');
+        store.saveCustomTemplates();
+        showToast('Template updated: ' + name);
+      } else {
+        const template = {
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+          name,
+          notes,
+          tags,
+          mainLift,
+          createdAt: Date.now(),
+          lastUsed: Date.now(),
+          exercises,
+          metadata,
+        };
+        store.customTemplates.push(template);
+        _builderDirty = false;
+        localStorage.removeItem('sbd-builder-draft');
+        store.saveCustomTemplates();
+        showToast('Template saved: ' + name);
+      }
+    },
+  });
 }
 
 export function showTemplateList() {
@@ -1204,5 +1214,139 @@ export function initBuilderOverlay() {
   $('builder-save-template')?.addEventListener('click', () => {
     if (!_builderMainLift) return;
     saveAsTemplate(_builderMainLift);
+  });
+
+  // Footer discard (replaces the X-in-header for explicit "throw it away").
+  $('builder-discard')?.addEventListener('click', () => closeBuilder(false));
+
+  // Wire up the new sheets — backdrops dismiss, buttons resolve callbacks.
+  _initBuilderSheets();
+}
+
+// ---------------------------------------------------------------------------
+// Sheet primitives — replaces native confirm() / prompt() with consistent
+// bottom-sheet UI matching the rest of the app.
+// ---------------------------------------------------------------------------
+
+let _draftCallback = null;       // { onRecover, onDiscard }
+let _discardCallback = null;     // { onConfirm }
+let _templateCallback = null;    // { onSave, existing }
+let _templateActiveTags = new Set();
+
+function _showSheet(panelId, backdropId) {
+  $(backdropId).style.display = 'block';
+  $(panelId).style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+function _hideSheet(panelId, backdropId) {
+  $(backdropId).style.display = 'none';
+  $(panelId).style.display = 'none';
+  // Don't unlock body scroll — the parent overlay still wants it locked.
+}
+
+function _openDraftRecoverySheet({ onRecover, onDiscard }) {
+  _draftCallback = { onRecover, onDiscard };
+  _showSheet('builder-draft-sheet', 'builder-draft-sheet-backdrop');
+}
+function _closeDraftSheet(action) {
+  const cb = _draftCallback;
+  _draftCallback = null;
+  _hideSheet('builder-draft-sheet', 'builder-draft-sheet-backdrop');
+  if (cb && action === 'recover') cb.onRecover?.();
+  if (cb && action === 'discard') cb.onDiscard?.();
+}
+
+function _openDiscardSheet({ onConfirm }) {
+  _discardCallback = { onConfirm };
+  _showSheet('builder-discard-sheet', 'builder-discard-sheet-backdrop');
+}
+function _closeDiscardSheet(action) {
+  const cb = _discardCallback;
+  _discardCallback = null;
+  _hideSheet('builder-discard-sheet', 'builder-discard-sheet-backdrop');
+  if (cb && action === 'confirm') cb.onConfirm?.();
+}
+
+function _openTemplateSaveSheet({ existing, onSave }) {
+  _templateCallback = { onSave, existing };
+  $('builder-template-sheet-title').textContent = existing ? 'Edit Template' : 'Save as Template';
+  $('builder-template-name').value = existing ? existing.name : '';
+  $('builder-template-notes').value = existing ? (existing.notes || '') : '';
+  $('builder-template-tag-extra').value = '';
+  _templateActiveTags = new Set(existing ? (existing.tags || []) : []);
+  _refreshTemplateTagChips();
+  _showSheet('builder-template-sheet', 'builder-template-sheet-backdrop');
+  setTimeout(() => $('builder-template-name').focus(), 50);
+}
+function _closeTemplateSheet(action) {
+  const cb = _templateCallback;
+  _templateCallback = null;
+  _hideSheet('builder-template-sheet', 'builder-template-sheet-backdrop');
+  if (cb && action === 'save') {
+    const name = ($('builder-template-name').value || '').trim();
+    if (!name) { showToast('Template needs a name'); return; }
+    const notes = ($('builder-template-notes').value || '').trim();
+    const tags = Array.from(_templateActiveTags);
+    cb.onSave?.({ name, notes, tags });
+  }
+}
+
+function _refreshTemplateTagChips() {
+  const container = $('builder-template-tags');
+  if (!container) return;
+  // Reset preset chips to reflect current active set
+  container.querySelectorAll('.template-tag-chip[data-tag]').forEach(chip => {
+    chip.classList.toggle('active', _templateActiveTags.has(chip.dataset.tag));
+  });
+  // Render any custom tags (not in the preset list) as chips with .custom
+  container.querySelectorAll('.template-tag-chip.custom').forEach(c => c.remove());
+  const presets = new Set(['Strength', 'Hypertrophy', 'Recovery', 'Volume', 'Competition']);
+  for (const tag of _templateActiveTags) {
+    if (presets.has(tag)) continue;
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'template-tag-chip custom active';
+    chip.dataset.customTag = tag;
+    chip.textContent = tag;
+    container.appendChild(chip);
+  }
+}
+
+function _initBuilderSheets() {
+  // Draft recovery
+  $('builder-draft-recover')?.addEventListener('click', () => _closeDraftSheet('recover'));
+  $('builder-draft-discard')?.addEventListener('click', () => _closeDraftSheet('discard'));
+  $('builder-draft-sheet-backdrop')?.addEventListener('click', () => _closeDraftSheet('discard'));
+
+  // Discard confirm
+  $('builder-discard-confirm')?.addEventListener('click', () => _closeDiscardSheet('confirm'));
+  $('builder-discard-cancel')?.addEventListener('click', () => _closeDiscardSheet('cancel'));
+  $('builder-discard-sheet-backdrop')?.addEventListener('click', () => _closeDiscardSheet('cancel'));
+
+  // Template save sheet
+  $('builder-template-save')?.addEventListener('click', () => _closeTemplateSheet('save'));
+  $('builder-template-cancel')?.addEventListener('click', () => _closeTemplateSheet('cancel'));
+  $('builder-template-sheet-backdrop')?.addEventListener('click', () => _closeTemplateSheet('cancel'));
+
+  // Tag chip clicks (preset + custom)
+  $('builder-template-tags')?.addEventListener('click', (e) => {
+    const chip = e.target.closest('.template-tag-chip');
+    if (!chip) return;
+    const tag = chip.dataset.tag || chip.dataset.customTag;
+    if (!tag) return;
+    if (_templateActiveTags.has(tag)) _templateActiveTags.delete(tag);
+    else _templateActiveTags.add(tag);
+    _refreshTemplateTagChips();
+  });
+
+  // Custom-tag entry: Enter key adds, then clears the input
+  $('builder-template-tag-extra')?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const v = e.target.value.trim();
+    if (!v) return;
+    _templateActiveTags.add(v);
+    e.target.value = '';
+    _refreshTemplateTagChips();
   });
 }
