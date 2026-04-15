@@ -34,7 +34,7 @@
   padding: 0;
 }
 
-/* Legacy slot-btn (still used outside .builder-slot-actions: superset Unlink, etc.) */
+/* Legacy slot-btn (still used outside .builder-slot-actions: hint-swap, gap row, etc.) */
 .slot-btn {
   padding: 4px 8px; font-size: var(--text-xs); border-radius: var(--radius-sm);
   border: 1px solid var(--border); background: transparent;
@@ -42,7 +42,38 @@
 }
 .slot-btn:active { background: var(--surface2); }
 .slot-btn.danger { color: var(--danger); border-color: var(--danger); opacity: 0.7; }
-.slot-btn.unlink-btn { font-size: 10px; padding: 1px 6px; }
+
+/* Superset bracket — left gutter holds one SS badge for the entire group;
+ * the inner rows render as a stack inside .superset-rows. Tap the gutter
+ * (or the × inside it) to unlink the group. */
+.superset-group {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  border-left: 2px solid var(--gold, #ffd700);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--gold, #ffd700) 5%, transparent);
+  padding: var(--space-1) var(--space-1) var(--space-1) 0;
+}
+.superset-gutter {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 4px;
+  background: none; border: none; padding: 0;
+  cursor: pointer;
+  color: var(--gold, #ffd700);
+}
+.superset-gutter:active { opacity: 0.7; }
+.superset-badge {
+  font-size: 0.6rem; font-weight: 800; letter-spacing: 0.04em;
+  writing-mode: vertical-rl; transform: rotate(180deg);
+  color: var(--gold, #ffd700);
+}
+.superset-unlink { font-size: 0.85rem; color: var(--text-dim); }
+.superset-rows { display: flex; flex-direction: column; gap: 0; }
+.superset-rows .builder-slot { margin-bottom: 0; background: transparent; }
+.superset-rows .builder-slot + .builder-slot { border-top: 1px dashed var(--border); border-radius: 0; }
 
 /* Add exercise button */
 .builder-add-btn {

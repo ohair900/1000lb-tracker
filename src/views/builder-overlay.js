@@ -288,15 +288,19 @@ export function renderBuilder(mainLift) {
     const isGroupEnd   = inGroup && (!nextEx || nextEx.groupId !== ex.groupId);
 
     if (isGroupStart) {
+      // Left-gutter bracket — one badge per group, tap to unlink. The
+      // per-row SS button is suppressed inside the group (handled in _slotRowHTML).
       html += `<div class="superset-group">
-        <div class="superset-label">Superset
-          <button class="slot-btn unlink-btn" data-unlink-group="${ex.groupId}">Unlink</button>
-        </div>`;
+        <button class="superset-gutter" data-unlink-group="${ex.groupId}" title="Unlink superset">
+          <span class="superset-badge">SS</span>
+          <span class="superset-unlink">&times;</span>
+        </button>
+        <div class="superset-rows">`;
     }
 
     html += _slotRowHTML(ex, i);
 
-    if (isGroupEnd) html += `</div>`;
+    if (isGroupEnd) html += `</div></div>`;
   });
 
   // Add exercise button
