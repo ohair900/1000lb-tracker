@@ -2,12 +2,53 @@
 
 /* Summary bar in header */
 .builder-summary-bar {
-  display: flex; align-items: center; gap: var(--space-2);
+  display: flex; flex-direction: column; gap: 4px;
   font-size: var(--text-xs); color: var(--text-dim); margin-top: 2px;
 }
-.builder-summary-bar .duration-pill {
+.summary-stats {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+}
+.summary-stats > span {
   background: var(--surface2); padding: 2px 8px;
   border-radius: var(--radius-pill); white-space: nowrap;
+  font-size: var(--text-xs);
+}
+.summary-stats .duration-pill { color: var(--text); font-weight: 600; }
+.summary-stats .sets-pill     { color: var(--text); font-weight: 600; }
+.summary-stats .muscles-pill  { color: var(--text-dim); }
+
+/* Per-muscle weekly volume meters (top 4 muscles by planned set count) */
+.summary-meters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  margin-top: 2px;
+}
+.muscle-meter {
+  display: grid;
+  grid-template-columns: 60px 1fr auto;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.62rem;
+  color: var(--text-dim);
+}
+.muscle-meter-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.muscle-meter-bar {
+  height: 4px; border-radius: 2px; background: var(--surface2);
+  overflow: hidden;
+}
+.muscle-meter-bar > span {
+  display: block; height: 100%; border-radius: 2px;
+  background: var(--green, #43a047);
+  transition: width 0.2s ease;
+}
+.muscle-meter[data-status="under"] .muscle-meter-bar > span { background: var(--text-dim); }
+.muscle-meter[data-status="over"]  .muscle-meter-bar > span { background: var(--gold, #ffd700); }
+.muscle-meter-val {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  white-space: nowrap;
 }
 
 /* Slot role tags */

@@ -24,6 +24,7 @@ import {
   getGapReport,
   estimateWorkoutDuration,
 } from '../systems/gap-analysis.js';
+import { MAIN_LIFT_WEIGHTS } from '../data/muscle-groups.js';
 import { checkGuardrails } from '../systems/workout-guardrails.js';
 import { showToast } from '../ui/toast.js';
 import { displayWeight } from '../formulas/units.js';
@@ -68,6 +69,83 @@ function _patternForExercise(ex) {
   if (ex.movementPattern) return ex.movementPattern;
   const catalogEx = resolveExercise(ex.exerciseId);
   return (catalogEx && catalogEx.movementPattern) || null;
+}
+
+/** Render the summary bar HTML from a precomputed summary object. */
+function _renderBuilderSummary(mainLift) {
+  const s = _calcBuilderSummary(mainLift);
+  const stats = `<div class="summary-stats">
+    <span class="duration-pill">~${s.minutes}min</span>
+    <span class="sets-pill">${s.totalSets} sets</span>
+    ${s.muscleLabel ? `<span class="muscles-pill">${escapeHTML(s.muscleLabel)}</span>` : ''}
+  </div>`;
+
+  if (s.meters.length === 0) return stats;
+
+  const metersHtml = s.meters.map(m => `
+    <div class="muscle-meter" data-status="${m.status}">
+      <span class="muscle-meter-label">${m.muscle}</span>
+      <div class="muscle-meter-bar"><span style="width:${m.pct}%"></span></div>
+      <span class="muscle-meter-val">${m.after}/${m.target}</span>
+    </div>`).join('');
+
+  return stats + `<div class="summary-meters">${metersHtml}</div>`;
+}
+
+/**
+ * Compute a richer summary for the header bar:
+ *   - minutes (estimated workout duration)
+ *   - totalSets (sum across all slots)
+ *   - perMuscle: planned sets this session, blended with last 7d weekly volume
+ * Returns the top 4 muscles by planned-this-session set count for the meter row.
+ */
+function _calcBuilderSummary(mainLift) {
+  const minutes = estimateWorkoutDuration(store.builderExercises);
+
+  // Planned sets per muscle, this session.
+  const planned = {};
+  let totalSets = 0;
+  for (const ex of store.builderExercises) {
+    const sets = ex.sets || 0;
+    totalSets += sets;
+    if (ex.type === 'main') {
+      const w = MAIN_LIFT_WEIGHTS[ex.exerciseId];
+      if (!w) continue;
+      for (const [mg, weight] of Object.entries(w)) {
+        if (weight >= 0.20) planned[mg] = (planned[mg] || 0) + sets;
+        else if (weight >= 0.10) planned[mg] = (planned[mg] || 0) + sets * 0.5;
+      }
+    } else {
+      const catalogEx = resolveExercise(ex.exerciseId);
+      const muscles = catalogEx && catalogEx.primaryMuscles;
+      if (!muscles) continue;
+      for (const [mg, weight] of Object.entries(muscles)) {
+        if (weight >= 0.20) planned[mg] = (planned[mg] || 0) + sets;
+        else if (weight >= 0.10) planned[mg] = (planned[mg] || 0) + sets * 0.5;
+      }
+    }
+  }
+
+  // Pick top muscles by planned set count.
+  const ranked = Object.entries(planned)
+    .filter(([, s]) => s > 0)
+    .sort((a, b) => b[1] - a[1]);
+  const topMuscles = ranked.slice(0, 4);
+  const muscleLabel = ranked.slice(0, 3).map(([mg]) => mg.toLowerCase()).join(' · ');
+
+  // Blend with weekly volume (last 7d) for the meter row.
+  const weekly = analyzeWeeklyVolume();
+  const meters = topMuscles.map(([mg, plannedSets]) => {
+    const w = weekly[mg] || { sets: 0, target: { min: 6, max: 16 } };
+    const after = w.sets + plannedSets;
+    const target = w.target.min || 6;
+    const pct = Math.min(100, Math.round((after / target) * 100));
+    let status = 'under';
+    if (after >= target) status = after > (w.target.max || target * 2) ? 'over' : 'optimal';
+    return { muscle: mg, planned: Math.round(plannedSets * 10) / 10, after: Math.round(after * 10) / 10, target, pct, status };
+  });
+
+  return { minutes, totalSets, muscleLabel, meters };
 }
 
 /**
@@ -285,10 +363,8 @@ export function renderBuilder(mainLift) {
   _builderMainLift = mainLift;
   const body = $('builder-body');
 
-  // Summary bar
-  const duration = estimateWorkoutDuration(store.builderExercises);
-  $('builder-summary-bar').innerHTML =
-    `<span class="duration-pill">~${duration}min</span>`;
+  // Summary bar — duration + sets + muscle hint + per-muscle weekly meter
+  $('builder-summary-bar').innerHTML = _renderBuilderSummary(mainLift);
 
   let html = '';
 
@@ -1176,9 +1252,10 @@ export function initBuilderOverlay() {
       }
     }
     _markDirty();
-    // Update summary bar duration
-    const duration = estimateWorkoutDuration(store.builderExercises);
-    $('builder-summary-bar').innerHTML = `<span class="duration-pill">~${duration}min</span>`;
+    // Live-update the rich summary as sets/reps change.
+    if (_builderMainLift) {
+      $('builder-summary-bar').innerHTML = _renderBuilderSummary(_builderMainLift);
+    }
   });
 
   // Delegated search input
