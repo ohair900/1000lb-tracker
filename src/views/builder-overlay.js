@@ -843,19 +843,27 @@ function openSwapSheet(slotIdx) {
     .filter(ex => ex.movementPattern !== pattern && !addedIds.has(ex.canonicalId || ex.id) && gapExerciseIds.has(ex.id))
     .slice(0, 4);
 
+  // Comparison context — computed once, passed to each candidate row.
+  const ctx = {
+    current: exercise,
+    currentPattern: pattern,
+    fatigueByMuscle: calcFatigueByMuscle() || {},
+    daysSince: _buildDaysSinceMap(),
+  };
+
   let html = '';
   if (samePattern.length > 0) {
     html += `<div class="swap-section-label">Same Movement Pattern</div>`;
     for (const ex of samePattern) {
       const available = equip[ex.equipment] !== false;
-      html += renderSwapItem(ex, slotIdx, available);
+      html += renderSwapItem(ex, slotIdx, available, ctx);
     }
   }
   if (gapBased.length > 0) {
     html += `<div class="swap-section-label">Addresses Training Gaps</div>`;
     for (const ex of gapBased) {
       const available = equip[ex.equipment] !== false;
-      html += renderSwapItem(ex, slotIdx, available);
+      html += renderSwapItem(ex, slotIdx, available, ctx);
     }
   }
   if (samePattern.length === 0 && gapBased.length === 0) {
@@ -880,12 +888,45 @@ function openSwapSheet(slotIdx) {
   $('swap-sheet-backdrop').addEventListener('click', closeSwapSheet);
 }
 
-function renderSwapItem(ex, slotIdx, available) {
+function renderSwapItem(ex, slotIdx, available, ctx) {
   const reason = ex.reasons && ex.reasons.length > 0 ? ex.reasons[0] : '';
+
+  // "vs current" deltas — computed only when ctx is provided.
+  let deltas = '';
+  if (ctx) {
+    const chips = [];
+    // Pattern delta: same / different label
+    const patternInfo = MOVEMENT_PATTERNS[ex.movementPattern];
+    if (patternInfo) {
+      const sameP = ex.movementPattern === ctx.currentPattern;
+      chips.push(`<span class="delta-chip pattern${sameP ? ' same' : ' different'}">${patternInfo.label}</span>`);
+    }
+    // Recency: days since last logged set
+    const canonId = ex.canonicalId || ex.id;
+    const days = ctx.daysSince[canonId];
+    if (days === undefined) {
+      chips.push(`<span class="delta-chip recency">Never tried</span>`);
+    } else if (days === 0) {
+      chips.push(`<span class="delta-chip recency hot">Today</span>`);
+    } else if (days <= 3) {
+      chips.push(`<span class="delta-chip recency hot">${days}d ago</span>`);
+    } else {
+      chips.push(`<span class="delta-chip recency">${days}d ago</span>`);
+    }
+    // Fatigue dot — only if candidate's primary muscle is red/orange
+    const muscle = _primaryMuscleFor({ exerciseId: ex.id, type: 'accessory' });
+    const f = muscle && ctx.fatigueByMuscle[muscle];
+    if (f && (f.status === 'red' || f.status === 'orange')) {
+      chips.push(`<span class="delta-chip fatigue" data-status="${f.status}" title="${muscle} ${f.status}">${muscle} ${f.status}</span>`);
+    }
+    deltas = `<div class="swap-item-deltas">${chips.join('')}</div>`;
+  }
+
   return `<div class="swap-item${!available ? ' unavailable' : ''}" data-exid="${ex.id}" data-slot="${slotIdx}">
     <div class="swap-item-info">
       <div class="swap-item-name">${ex.name}</div>
       <div class="swap-item-meta">${ex.sets || 3}x${Array.isArray(ex.repRange) ? ex.repRange.join('-') : '8-12'}</div>
+      ${deltas}
       ${reason ? `<div class="swap-item-reason">${escapeHTML(reason)}</div>` : ''}
     </div>
     <span class="swap-item-equip">${ex.equipment}</span>
