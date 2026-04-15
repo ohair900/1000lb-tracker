@@ -629,7 +629,21 @@ function renderHeatmap(w, h) {
   const offsetDays = Math.max(0, store.chartOffset || 0);
   const realToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const today = new Date(realToday.getTime() - offsetDays * MS_PER_DAY);
-  const weeksToShow = Math.min(52, Math.floor((w - 40) / 10));
+
+  // Layout — pick cellSize, then pick weeksToShow that actually fits.
+  // Old code estimated cellSize+gap as 10 for the column count but then
+  // computed cellSize without accounting for the 2px gap, which pushed
+  // the rightmost ~3 columns (today + recent days) off the canvas.
+  const gap = 2;
+  const padLeft = 22;
+  const padRight = 8;
+  const ideal = Math.floor((w - padLeft - padRight) / 53) - gap;
+  const cellSize = Math.min(14, Math.max(8, ideal));
+  const pitch = cellSize + gap;
+  // Loop below uses `wk <= weeksToShow`, i.e. (weeksToShow + 1) columns.
+  const weeksToShow = Math.min(52, Math.max(4,
+    Math.floor((w - padLeft - padRight) / pitch) - 1
+  ));
   const daysBack = weeksToShow * 7;
   const startDate = new Date(today.getTime() - daysBack * MS_PER_DAY);
   const startDay = startDate.getDay();
@@ -652,15 +666,12 @@ function renderHeatmap(w, h) {
   // Streak data
   const trainingDates = new Set(Object.keys(valByDate));
 
-  // --- Layout ---
-  const cellSize = Math.min(14, Math.max(8, Math.floor((w - 40) / (weeksToShow + 1))));
-  const gap = 2;
-  const padLeft = 22;
+  // --- Layout (cellSize / gap / padLeft already computed above) ---
   const padTop = 18;
   const summaryRowH = 16;
 
   // Record geometry for the pan handler (heatmap path): one column = 1 week.
-  _panGeom = { stepDays: 7, pitchPx: cellSize + gap, plotLeft: padLeft };
+  _panGeom = { stepDays: 7, pitchPx: pitch, plotLeft: padLeft };
   const dayLabels = ['M', '', 'W', '', 'F', '', 'S'];
   const surface2 = getComputedStyle(document.documentElement).getPropertyValue('--surface2').trim() || '#2a2a2a';
 
