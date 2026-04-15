@@ -34,10 +34,7 @@
   padding: 0;
 }
 
-/* Swap and Remove buttons */
-.slot-actions {
-  display: flex; gap: 4px; flex-shrink: 0; margin-left: auto;
-}
+/* Legacy slot-btn (still used outside .builder-slot-actions: superset Unlink, etc.) */
 .slot-btn {
   padding: 4px 8px; font-size: var(--text-xs); border-radius: var(--radius-sm);
   border: 1px solid var(--border); background: transparent;
@@ -45,6 +42,7 @@
 }
 .slot-btn:active { background: var(--surface2); }
 .slot-btn.danger { color: var(--danger); border-color: var(--danger); opacity: 0.7; }
+.slot-btn.unlink-btn { font-size: 10px; padding: 1px 6px; }
 
 /* Add exercise button */
 .builder-add-btn {

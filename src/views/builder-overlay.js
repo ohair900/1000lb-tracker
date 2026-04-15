@@ -63,6 +63,88 @@ function formatBWWeight(weight, catalogEx) {
   return '—';
 }
 
+// Movement pattern lookup for an exercise — drives the slot stripe color.
+function _patternForExercise(ex) {
+  if (ex.movementPattern) return ex.movementPattern;
+  const catalogEx = resolveExercise(ex.exerciseId);
+  return (catalogEx && catalogEx.movementPattern) || null;
+}
+
+/**
+ * Render one slot row (main lift OR accessory) using the unified .builder-slot
+ * grid. Inline styles intentionally avoided — every visual is a CSS class.
+ */
+function _slotRowHTML(ex, i) {
+  const isMain = ex.type === 'main';
+  const role = ex.slotRole || (isMain ? 'main' : 'accessory');
+  const catalogEx = resolveExercise(ex.exerciseId);
+  const pattern = _patternForExercise(ex);
+
+  // Stripe data attributes (lift accent for main, pattern color otherwise).
+  const stripeAttrs = isMain
+    ? `data-lift="${ex.exerciseId}"`
+    : (pattern ? `data-pattern="${pattern}"` : '');
+
+  // Weight chip (accessories only).
+  const weightDisplay = isMain
+    ? ''
+    : `<span class="slot-weight">${formatBWWeight(ex.weightValue, catalogEx)}</span>`;
+
+  // Reason tag — first 3 displays per exercise (existing behavior preserved).
+  let reasonHtml = '';
+  if (!isMain && ex.reasons && ex.reasons.length > 0) {
+    const canonId = resolveCanonicalId(ex.exerciseId);
+    const count = store.reasonTagCounts[canonId] || 0;
+    if (count < 3) reasonHtml = `<div class="slot-reason">${escapeHTML(ex.reasons[0])}</div>`;
+  }
+
+  // Action buttons — fixed 5-column grid; missing slots use placeholders so
+  // the trailing × always sits in the same pixel.
+  const nextEx = i < store.builderExercises.length - 1 ? store.builderExercises[i + 1] : null;
+  const inGroup = !!ex.groupId && !isMain;
+  const canMoveUp   = !isMain && i > 1;
+  const canMoveDown = !isMain && i < store.builderExercises.length - 1;
+  const canLinkSS   = !isMain && !inGroup && nextEx && !nextEx.groupId && nextEx.type !== 'main';
+  const canSwap     = !isMain;
+  const canRemove   = !isMain;
+
+  const cell = (cond, html) => cond ? html : `<span class="slot-action-placeholder"></span>`;
+  const actionsHtml = `
+    ${cell(canMoveUp,   `<button class="slot-btn" data-move-up="${i}" title="Move up">&uarr;</button>`)}
+    ${cell(canMoveDown, `<button class="slot-btn" data-move-down="${i}" title="Move down">&darr;</button>`)}
+    ${cell(canLinkSS,   `<button class="slot-btn" data-link-ss="${i}" title="Superset with next">SS</button>`)}
+    ${cell(canSwap,     `<button class="slot-btn" data-swap="${i}">Swap</button>`)}
+    ${cell(canRemove,   `<button class="slot-btn danger" data-remove="${i}">&times;</button>`)}
+  `;
+
+  // Compose the slot row.
+  const repsDisplay = Array.isArray(ex.repRange) ? ex.repRange.join('-') : ex.reps;
+  const repInputVal = Array.isArray(ex.repRange) ? ex.repRange[1] : ex.reps;
+  const slotClasses = [
+    'builder-slot',
+    isMain ? 'is-main' : '',
+    inGroup ? 'in-superset' : '',
+  ].filter(Boolean).join(' ');
+
+  return `<div class="${slotClasses}" data-slot="${i}">
+    <div class="builder-slot-stripe" ${stripeAttrs}></div>
+    <div class="builder-slot-body">
+      <div class="builder-slot-head">
+        <span class="slot-role-tag">${role}</span>
+        <span class="slot-name">${escapeHTML(ex.name)}</span>${weightDisplay}
+      </div>
+      <div class="builder-slot-meta">${ex.equipment} &bull; ${ex.sets}x${repsDisplay}</div>
+      ${reasonHtml}
+    </div>
+    <div class="builder-slot-controls">
+      <input type="number" value="${ex.sets}" min="1" max="10" data-field="sets" data-idx="${i}" inputmode="numeric" title="Sets">
+      <span class="x-divider">x</span>
+      <input type="number" value="${repInputVal}" min="1" max="30" data-field="reps" data-idx="${i}" inputmode="numeric" title="Reps">
+    </div>
+    <div class="builder-slot-actions">${actionsHtml}</div>
+  </div>`;
+}
+
 // ---------------------------------------------------------------------------
 // Open / Close
 // ---------------------------------------------------------------------------
@@ -198,59 +280,22 @@ export function renderBuilder(mainLift) {
 
   // --- Exercise slot list ---
   store.builderExercises.forEach((ex, i) => {
-    const isMain = ex.type === 'main';
-    const role = ex.slotRole || (isMain ? 'main' : 'accessory');
-    const roleLabel = role === 'main' ? 'main' : role;
-    const catalogEx = resolveExercise(ex.exerciseId);
-
-    // Weight display
-    let weightDisplay = '';
-    if (!isMain) {
-      weightDisplay = `<span class="slot-weight">${formatBWWeight(ex.weightValue, catalogEx)}</span>`;
-    }
-
-    // Reason tag (first 3 times per exercise)
-    let reasonHtml = '';
-    if (!isMain && ex.reasons && ex.reasons.length > 0) {
-      const canonId = resolveCanonicalId(ex.exerciseId);
-      const count = store.reasonTagCounts[canonId] || 0;
-      if (count < 3) {
-        reasonHtml = `<div class="slot-reason">${escapeHTML(ex.reasons[0])}</div>`;
-      }
-    }
-
-    // #20: Superset grouping — open group container if this starts a group
+    // Superset grouping — open/close a wrapper container around grouped rows.
     const prevEx = i > 0 ? store.builderExercises[i - 1] : null;
     const nextEx = i < store.builderExercises.length - 1 ? store.builderExercises[i + 1] : null;
-    const inGroup = ex.groupId && !isMain;
+    const inGroup = !!ex.groupId && ex.type !== 'main';
     const isGroupStart = inGroup && (!prevEx || prevEx.groupId !== ex.groupId);
-    const isGroupEnd = inGroup && (!nextEx || nextEx.groupId !== ex.groupId);
+    const isGroupEnd   = inGroup && (!nextEx || nextEx.groupId !== ex.groupId);
+
     if (isGroupStart) {
-      html += `<div class="superset-group"><div class="superset-label">Superset <button class="slot-btn" data-unlink-group="${ex.groupId}" style="font-size:10px;padding:1px 4px">Unlink</button></div>`;
+      html += `<div class="superset-group">
+        <div class="superset-label">Superset
+          <button class="slot-btn unlink-btn" data-unlink-group="${ex.groupId}">Unlink</button>
+        </div>`;
     }
 
-    html += `<div class="builder-exercise${isMain ? ` main-lift ${mainLift}` : ''}${inGroup ? ' in-superset' : ''}" data-slot="${i}">
-      <div class="builder-exercise-info">
-        <div class="builder-exercise-name">
-          <span class="slot-role-tag">${roleLabel}</span>
-          ${escapeHTML(ex.name)}${weightDisplay}
-        </div>
-        <div class="builder-exercise-meta">${ex.equipment} &bull; ${ex.sets}x${Array.isArray(ex.repRange) ? ex.repRange.join('-') : ex.reps}</div>
-        ${reasonHtml}
-      </div>
-      <div class="builder-exercise-controls">
-        <input type="number" value="${ex.sets}" min="1" max="10" data-field="sets" data-idx="${i}" inputmode="numeric" title="Sets">
-        <span style="color:var(--text-dim);font-size:0.7rem;align-self:center">x</span>
-        <input type="number" value="${Array.isArray(ex.repRange) ? ex.repRange[1] : ex.reps}" min="1" max="30" data-field="reps" data-idx="${i}" inputmode="numeric" title="Reps">
-      </div>
-      <div class="slot-actions">
-        ${!isMain && i > 1 ? `<button class="slot-btn" data-move-up="${i}" title="Move up">&uarr;</button>` : ''}
-        ${!isMain && i < store.builderExercises.length - 1 ? `<button class="slot-btn" data-move-down="${i}" title="Move down">&darr;</button>` : ''}
-        ${!isMain && !inGroup && nextEx && !nextEx.groupId && nextEx.type !== 'main' ? `<button class="slot-btn" data-link-ss="${i}" title="Superset with next">SS</button>` : ''}
-        ${!isMain ? `<button class="slot-btn" data-swap="${i}">Swap</button>` : ''}
-        ${!isMain ? `<button class="slot-btn danger" data-remove="${i}">&times;</button>` : ''}
-      </div>
-    </div>`;
+    html += _slotRowHTML(ex, i);
+
     if (isGroupEnd) html += `</div>`;
   });
 
@@ -304,7 +349,7 @@ export function renderBuilder(mainLift) {
   html += `</div>`; // end gap-panel
 
   // --- Exercise browser ---
-  html += `<div class="exercise-browser" id="builder-browser" style="display:none">`;
+  html += `<div class="exercise-browser" id="builder-browser" hidden>`;
   html += `<div class="exercise-browser-header">
     <input type="text" class="exercise-browser-search" id="builder-search" placeholder="Search exercises...">
   </div>`;
@@ -317,8 +362,8 @@ export function renderBuilder(mainLift) {
   html += `</div>`;
 
   // Custom exercise form
-  html += `<div class="custom-exercise-form" id="builder-custom-form" style="display:none">
-    <div class="section-label" style="margin-bottom:0">Custom Exercise</div>
+  html += `<div class="custom-exercise-form" id="builder-custom-form" hidden>
+    <div class="section-label section-label--tight">Custom Exercise</div>
     <input type="text" id="custom-ex-name" placeholder="Exercise name">
     <div class="custom-exercise-row">
       <input type="number" id="custom-ex-sets" placeholder="Sets" value="3" min="1" inputmode="numeric">
@@ -341,10 +386,10 @@ export function renderBuilder(mainLift) {
     </div>
     <div class="custom-exercise-row">
       <input type="number" id="custom-ex-weight" placeholder="Weight (optional)" min="0" step="2.5" inputmode="decimal">
-      <button class="btn-primary" id="custom-ex-add" style="padding:8px 16px;font-size:var(--text-sm)">Add</button>
+      <button class="btn-primary custom-ex-add-btn" id="custom-ex-add">Add</button>
     </div>
   </div>`;
-  html += `<button class="btn-dashed" id="builder-toggle-custom" style="margin-top:var(--space-2)">+ Add Custom Exercise</button>`;
+  html += `<button class="btn-dashed builder-toggle-custom" id="builder-toggle-custom">+ Add Custom Exercise</button>`;
   html += `</div>`; // end exercise-browser
 
   body.innerHTML = html;
@@ -364,7 +409,7 @@ function renderRecommendedBrowser(mainLift) {
 
   let html = '';
   if (recommended.length === 0) {
-    html += '<div style="padding:16px;text-align:center;color:var(--text-dim);font-size:var(--text-sm)">All recommended exercises added</div>';
+    html += '<div class="builder-empty-state">All recommended exercises added</div>';
     return html;
   }
 
@@ -423,7 +468,7 @@ function renderAllBrowser(mainLift, query) {
     }
   }
 
-  return html || '<div style="padding:16px;text-align:center;color:var(--text-dim);font-size:var(--text-sm)">No exercises found</div>';
+  return html || '<div class="builder-empty-state">No exercises found</div>';
 }
 
 function renderMusclePills(ex) {
@@ -481,7 +526,7 @@ function openSwapSheet(slotIdx) {
     }
   }
   if (samePattern.length === 0 && gapBased.length === 0) {
-    html = '<div style="padding:16px;text-align:center;color:var(--text-dim)">No alternatives available</div>';
+    html = '<div class="builder-empty-state">No alternatives available</div>';
   }
 
   $('swap-sheet-title').textContent = `Swap: ${exercise.name}`;
@@ -990,7 +1035,7 @@ export function initBuilderOverlay() {
     // Add exercise button — show browser
     if (e.target.closest('#builder-add-exercise')) {
       const browser = $('builder-browser');
-      browser.style.display = browser.style.display === 'none' ? 'block' : 'none';
+      browser.hidden = !browser.hidden;
       return;
     }
 
@@ -1062,7 +1107,7 @@ export function initBuilderOverlay() {
     // Toggle custom form
     if (e.target.closest('#builder-toggle-custom')) {
       const form = $('builder-custom-form');
-      form.style.display = form.style.display === 'none' ? 'flex' : 'none';
+      form.hidden = !form.hidden;
       return;
     }
 
@@ -1095,7 +1140,7 @@ export function initBuilderOverlay() {
       });
       $('custom-ex-name').value = '';
       $('custom-ex-weight').value = '';
-      $('builder-custom-form').style.display = 'none';
+      $('builder-custom-form').hidden = true;
       _markDirty();
       renderBuilder(mainLift);
       return;
