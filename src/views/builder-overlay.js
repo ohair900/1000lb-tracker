@@ -1394,12 +1394,28 @@ export function initBuilderOverlay() {
       return;
     }
 
-    // Remove buttons
+    // Remove buttons — capture snapshot for undo before splicing.
     const removeBtn = e.target.closest('[data-remove]');
     if (removeBtn) {
-      store.builderExercises.splice(parseInt(removeBtn.dataset.remove), 1);
+      const idx = parseInt(removeBtn.dataset.remove);
+      const removed = store.builderExercises[idx];
+      if (!removed) return;
+      // Snapshot is a shallow clone — sufficient for slot data which has no nested refs.
+      const snapshot = { idx, ex: { ...removed } };
+      store.builderExercises.splice(idx, 1);
       _markDirty();
       renderBuilder(mainLift);
+      showToast(`Removed: ${removed.name}`, {
+        action: 'Undo',
+        duration: 5000,
+        onAction: () => {
+          // Restore at original index, clamping to current array bounds.
+          const restoreAt = Math.min(snapshot.idx, store.builderExercises.length);
+          store.builderExercises.splice(restoreAt, 0, snapshot.ex);
+          _markDirty();
+          renderBuilder(_builderMainLift);
+        },
+      });
       return;
     }
 
