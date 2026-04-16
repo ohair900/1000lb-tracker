@@ -10,6 +10,7 @@ import {
   UNIT_KEY, BADGES_KEY, DASH_WIDGETS_KEY, ACCENT_KEY, VERSION_KEY,
   TOTAL_CELEBRATED_KEY, ALL_DATA_KEYS
 } from '../constants/storage-keys.js';
+import { WEAK_POINT_OPTIONS } from '../data/accessories.js';
 import { CURRENT_VERSION } from '../constants/time.js';
 import { bestE1RM, getTotal } from '../formulas/e1rm.js';
 import { displayWeight, formatWeight, inputToLbs } from '../formulas/units.js';
@@ -56,6 +57,20 @@ function renderProfileTab() {
 
 function renderPrefsTab() {
   let html = '';
+  html += sectionLabel('Weak Points');
+  html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:10px">Targets accessory selection toward your weaknesses</div>`;
+  const wp = store.workoutConfig?.weakPoints || {};
+  LIFTS.forEach(lift => {
+    const current = wp[lift];
+    html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="font-size:var(--text-sm);font-weight:700;color:${COLORS[lift]};min-width:70px">${LIFT_NAMES[lift]}</span>
+      <select class="wp-select" data-lift="${lift}" style="flex:1;padding:8px 10px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--text-sm)">
+        <option value=""${!current ? ' selected' : ''}>None</option>
+        ${WEAK_POINT_OPTIONS[lift].map(opt => `<option value="${opt.id}"${current === opt.id ? ' selected' : ''}>${opt.label}</option>`).join('')}
+      </select>
+    </div>`;
+  });
+  html += settingsDivider;
   html += sectionLabel('Dashboard Widgets');
   html += `<label class="widget-toggle"><input type="checkbox" data-widget="ratios" ${store.dashboardWidgets.ratios ? 'checked' : ''}> Strength Ratios</label>
     <label class="widget-toggle"><input type="checkbox" data-widget="fatigue" ${store.dashboardWidgets.fatigue ? 'checked' : ''}> Fatigue Indicator</label>
@@ -334,6 +349,15 @@ export function attachSettingsListeners() {
       body.innerHTML = renderSettingsBody();
       attachSettingsListeners();
       _settingsTab = prevTab;
+    });
+  });
+
+  // Weak point dropdowns
+  body.querySelectorAll('.wp-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      store.workoutConfig.weakPoints[sel.dataset.lift] = sel.value || null;
+      store.save('workoutConfig');
+      scheduleCloudSync();
     });
   });
 
