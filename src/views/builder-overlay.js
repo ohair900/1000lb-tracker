@@ -351,24 +351,24 @@ function _slotRowHTML(ex, i, ctx) {
     ? `<span class="slot-fatigue-dot" data-status="${fStatus}" data-muscle="${primaryMuscle}" title="${primaryMuscle} fatigue: ${fStatus}"></span>`
     : '';
 
-  // Action buttons — fixed 5-column grid; missing slots use placeholders so
-  // the trailing × always sits in the same pixel.
+  // Action buttons — 3 buttons (SS, Swap, ×); ↑/↓ replaced by drag-to-reorder.
   const nextEx = i < store.builderExercises.length - 1 ? store.builderExercises[i + 1] : null;
   const inGroup = !!ex.groupId && !isMain;
-  const canMoveUp   = !isMain && i > 1;
-  const canMoveDown = !isMain && i < store.builderExercises.length - 1;
   const canLinkSS   = !isMain && !inGroup && nextEx && !nextEx.groupId && nextEx.type !== 'main';
   const canSwap     = !isMain;
   const canRemove   = !isMain;
 
-  const cell = (cond, html) => cond ? html : `<span class="slot-action-placeholder"></span>`;
-  const actionsHtml = `
-    ${cell(canMoveUp,   `<button class="slot-btn" data-move-up="${i}" title="Move up">&uarr;</button>`)}
-    ${cell(canMoveDown, `<button class="slot-btn" data-move-down="${i}" title="Move down">&darr;</button>`)}
-    ${cell(canLinkSS,   `<button class="slot-btn" data-link-ss="${i}" title="Superset with next">SS</button>`)}
-    ${cell(canSwap,     `<button class="slot-btn" data-swap="${i}">Swap</button>`)}
-    ${cell(canRemove,   `<button class="slot-btn danger" data-remove="${i}">&times;</button>`)}
-  `;
+  let actionsHtml = '';
+  if (!isMain) {
+    actionsHtml = `
+      ${canLinkSS ? `<button class="slot-btn" data-link-ss="${i}" title="Superset with next">SS</button>` : ''}
+      ${canSwap   ? `<button class="slot-btn" data-swap="${i}">Swap</button>` : ''}
+      ${canRemove ? `<button class="slot-btn danger" data-remove="${i}">&times;</button>` : ''}
+    `;
+  }
+
+  // Drag handle — accessories only (main lift is pinned at index 0).
+  const dragHandle = isMain ? '' : `<span class="builder-slot-drag" data-drag="${i}">&#x2807;</span>`;
 
   // Compose the slot row.
   const repsDisplay = Array.isArray(ex.repRange) ? ex.repRange.join('-') : ex.reps;
@@ -383,7 +383,7 @@ function _slotRowHTML(ex, i, ctx) {
     <div class="builder-slot-stripe" ${stripeAttrs}></div>
     <div class="builder-slot-body">
       <div class="builder-slot-head">
-        <span class="slot-role-tag">${role}</span>
+        ${dragHandle}<span class="slot-role-tag">${role}</span>
         <span class="slot-name">${escapeHTML(ex.name)}</span>${fatigueDot}${weightDisplay}${whyDot}
       </div>
       <div class="builder-slot-meta">${ex.equipment} &bull; ${ex.sets}x${repsDisplay}</div>
@@ -395,7 +395,7 @@ function _slotRowHTML(ex, i, ctx) {
       <span class="x-divider">x</span>
       <input type="number" value="${repInputVal}" min="1" max="30" data-field="reps" data-idx="${i}" inputmode="numeric" title="Reps">
     </div>
-    <div class="builder-slot-actions">${actionsHtml}</div>
+    ${actionsHtml ? `<div class="builder-slot-actions">${actionsHtml}</div>` : ''}
   </div>`;
 }
 

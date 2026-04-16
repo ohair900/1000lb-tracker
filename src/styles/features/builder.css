@@ -13,15 +13,16 @@
   padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0));
 }
 /* ===== Unified slot row ====================================================
- * Single row pattern shared by main lift + accessories.
- * Grid: stripe | body (title + meta) | controls (sets/reps) | actions
- * The stripe color encodes the movement pattern (or main lift accent).
- * The actions cluster is a fixed-width grid so buttons never reflow.
+ * Two-row layout so mobile doesn't crush the exercise name:
+ *   Row 1:  stripe | body (name + meta) | controls (sets × reps)
+ *   Row 2:  stripe | actions (right-aligned, spans body + controls cols)
+ * The stripe spans both rows via grid-row.
  */
 .builder-slot {
   display: grid;
-  grid-template-columns: 4px minmax(0, 1fr) auto auto;
-  gap: var(--space-2);
+  grid-template-columns: 4px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  gap: 4px var(--space-2);
   align-items: center;
   background: var(--surface);
   border-radius: var(--radius-lg);
@@ -33,6 +34,7 @@
 
 /* Left stripe — movement pattern color or main-lift accent */
 .builder-slot-stripe {
+  grid-row: 1 / -1;
   align-self: stretch;
   width: 4px;
   border-radius: 2px;
@@ -50,8 +52,8 @@
 .builder-slot-stripe[data-pattern="core-stability"]  { background: #9c27b0; }
 .builder-slot-stripe[data-pattern="grip-carry"]      { background: #607d8b; }
 
-/* Body */
-.builder-slot-body { min-width: 0; }
+/* Body — sits in row 1, col 2 */
+.builder-slot-body { grid-column: 2; grid-row: 1; min-width: 0; }
 .builder-slot-head {
   font-size: var(--text-sm); font-weight: 700; color: var(--text-strong);
   -webkit-user-select: none; user-select: none;
@@ -60,8 +62,9 @@
 .builder-slot-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .builder-slot-meta { font-size: var(--text-xs); color: var(--text-dim); margin-top: 2px; }
 
-/* Controls (sets / reps inputs) */
+/* Controls (sets / reps inputs) — row 1, col 3 */
 .builder-slot-controls {
+  grid-column: 3; grid-row: 1;
   display: flex; gap: 4px; flex-shrink: 0; align-items: center;
 }
 .builder-slot-controls input {
@@ -74,22 +77,44 @@
   color: var(--text-dim); font-size: 0.7rem; align-self: center;
 }
 
-/* Action cluster — fixed 5-column grid so buttons live in the same pixel */
+/* Action cluster — row 2, right-aligned, flex with 3 buttons (SS, Swap, ×) */
 .builder-slot-actions {
-  display: grid;
-  grid-template-columns: repeat(5, 22px);
-  gap: 2px;
-  flex-shrink: 0;
+  grid-column: 2 / -1;
+  grid-row: 2;
+  justify-self: end;
+  display: flex;
+  gap: 4px;
 }
 .builder-slot-actions .slot-btn {
-  padding: 4px 0; min-width: 22px;
+  padding: 4px 8px;
   font-size: var(--text-xs); border-radius: var(--radius-sm);
   border: 1px solid var(--border); background: transparent;
-  color: var(--text-dim); cursor: pointer;
+  color: var(--text-dim); cursor: pointer; white-space: nowrap;
 }
 .builder-slot-actions .slot-btn:active { background: var(--surface2); }
 .builder-slot-actions .slot-btn.danger { color: var(--danger); border-color: var(--danger); opacity: 0.7; }
-.builder-slot-actions .slot-action-placeholder { /* keeps grid columns aligned when a button is hidden */ }
+
+/* Drag handle — ⠿ grip icon, first child of slot head */
+.builder-slot-drag {
+  cursor: grab;
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--text-dim);
+  touch-action: none;
+  -webkit-user-select: none; user-select: none;
+  padding: 2px 6px 2px 0;
+  opacity: 0.5;
+}
+.builder-slot-drag:active { cursor: grabbing; color: var(--text); opacity: 1; }
+
+/* Drag visual states */
+.builder-slot.drag-placeholder { opacity: 0.25; }
+.builder-slot.drag-ghost {
+  position: fixed; z-index: 500; pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  transform: scale(1.02);
+  border: 1px solid var(--border);
+}
 
 /* Inline-style replacements (was scattered across renderBuilder) */
 .builder-empty-state {
