@@ -1343,29 +1343,7 @@ export function initBuilderOverlay() {
     const mainLift = _builderMainLift;
     if (!mainLift) return;
 
-    // #12: Move up/down buttons
-    const moveUpBtn = e.target.closest('[data-move-up]');
-    if (moveUpBtn) {
-      const idx = parseInt(moveUpBtn.dataset.moveUp);
-      if (idx > 1) {
-        [store.builderExercises[idx], store.builderExercises[idx - 1]] = [store.builderExercises[idx - 1], store.builderExercises[idx]];
-        _markDirty();
-        renderBuilder(mainLift);
-      }
-      return;
-    }
-    const moveDownBtn = e.target.closest('[data-move-down]');
-    if (moveDownBtn) {
-      const idx = parseInt(moveDownBtn.dataset.moveDown);
-      if (idx < store.builderExercises.length - 1) {
-        [store.builderExercises[idx], store.builderExercises[idx + 1]] = [store.builderExercises[idx + 1], store.builderExercises[idx]];
-        _markDirty();
-        renderBuilder(mainLift);
-      }
-      return;
-    }
-
-    // #20: Superset link/unlink
+    // Superset link/unlink
     const linkBtn = e.target.closest('[data-link-ss]');
     if (linkBtn) {
       const idx = parseInt(linkBtn.dataset.linkSs);
@@ -1661,6 +1639,149 @@ export function initBuilderOverlay() {
 
   // Wire up the new sheets — backdrops dismiss, buttons resolve callbacks.
   _initBuilderSheets();
+
+  // Drag-to-reorder for exercise slots.
+  _initDragReorder();
+}
+
+// ---------------------------------------------------------------------------
+// Drag-to-reorder — pointer-based, works on touch + mouse.
+// ---------------------------------------------------------------------------
+
+function _initDragReorder() {
+  const body = $('builder-body');
+  let drag = null;
+
+  body.addEventListener('pointerdown', e => {
+    const handle = e.target.closest('[data-drag]');
+    if (!handle) return;
+    const idx = parseInt(handle.dataset.drag);
+    if (idx === 0 || !store.builderExercises[idx]) return;
+
+    const slotEl = handle.closest('.builder-slot');
+    if (!slotEl) return;
+
+    e.preventDefault();
+    try { body.setPointerCapture(e.pointerId); } catch (_) {}
+
+    const rect = slotEl.getBoundingClientRect();
+    const bodyRect = body.getBoundingClientRect();
+
+    // Create ghost — a fixed-position clone of the slot element.
+    const ghost = slotEl.cloneNode(true);
+    ghost.classList.add('drag-ghost');
+    ghost.style.width = rect.width + 'px';
+    ghost.style.left = rect.left + 'px';
+    ghost.style.top = rect.top + 'px';
+    document.body.appendChild(ghost);
+
+    // Mark the original as a placeholder.
+    slotEl.classList.add('drag-placeholder');
+
+    // Snapshot slot midpoints for hit-testing.
+    const slots = [...body.querySelectorAll('.builder-slot[data-slot]')];
+    const mids = slots.map(s => {
+      const r = s.getBoundingClientRect();
+      return { idx: parseInt(s.dataset.slot), top: r.top, mid: r.top + r.height / 2, bottom: r.bottom };
+    });
+
+    drag = {
+      idx,
+      currentIdx: idx,
+      ghost,
+      placeholder: slotEl,
+      startY: e.clientY,
+      ghostStartTop: rect.top,
+      mids,
+      pointerId: e.pointerId,
+      dirLocked: false,
+      isVertical: false,
+      bodyRect,
+      scrollTimer: null,
+    };
+  });
+
+  body.addEventListener('pointermove', e => {
+    if (!drag) return;
+
+    const dx = Math.abs(e.clientX - drag.startY); // reuse startY but approx
+    const dy = e.clientY - drag.startY;
+
+    // Direction lock — first 8px of movement.
+    if (!drag.dirLocked) {
+      if (Math.abs(dy) < 8 && dx < 8) return;
+      drag.dirLocked = true;
+      drag.isVertical = Math.abs(dy) >= dx;
+      if (!drag.isVertical) {
+        // Horizontal — abort drag, let it be a scroll or other gesture.
+        _endDrag(false);
+        return;
+      }
+    }
+    if (!drag.isVertical) return;
+
+    e.preventDefault();
+
+    // Translate ghost to follow pointer.
+    const offsetY = e.clientY - drag.startY;
+    drag.ghost.style.top = (drag.ghostStartTop + offsetY) + 'px';
+
+    // Auto-scroll when near edges of the scrollable body.
+    const edgeZone = 40;
+    const ghostCenter = drag.ghostStartTop + offsetY + drag.ghost.offsetHeight / 2;
+    clearInterval(drag.scrollTimer);
+    if (ghostCenter < drag.bodyRect.top + edgeZone) {
+      drag.scrollTimer = setInterval(() => { body.scrollTop -= 8; }, 16);
+    } else if (ghostCenter > drag.bodyRect.bottom - edgeZone) {
+      drag.scrollTimer = setInterval(() => { body.scrollTop += 8; }, 16);
+    }
+
+    // Compute which slot the ghost center is hovering over.
+    // Recalculate midpoints (they shift as we scroll).
+    const liveSlots = [...body.querySelectorAll('.builder-slot[data-slot]')];
+    let targetIdx = drag.currentIdx;
+    for (const s of liveSlots) {
+      const sIdx = parseInt(s.dataset.slot);
+      if (sIdx === 0) continue; // can't drop above main lift
+      const r = s.getBoundingClientRect();
+      const mid = r.top + r.height / 2;
+      if (ghostCenter < mid && sIdx < targetIdx) { targetIdx = sIdx; break; }
+      if (ghostCenter > mid && sIdx > targetIdx) targetIdx = sIdx;
+    }
+
+    // If target changed, do a live swap in the array and re-render.
+    if (targetIdx !== drag.currentIdx && targetIdx >= 1) {
+      const item = store.builderExercises.splice(drag.currentIdx, 1)[0];
+      store.builderExercises.splice(targetIdx, 0, item);
+      drag.currentIdx = targetIdx;
+
+      // Re-render the body (preserving the ghost).
+      renderBuilder(_builderMainLift);
+
+      // Re-mark the new placeholder.
+      const newSlot = body.querySelector(`.builder-slot[data-slot="${targetIdx}"]`);
+      if (newSlot) {
+        newSlot.classList.add('drag-placeholder');
+        drag.placeholder = newSlot;
+      }
+    }
+  });
+
+  function _endDrag(commit) {
+    if (!drag) return;
+    clearInterval(drag.scrollTimer);
+    drag.ghost.remove();
+    if (drag.placeholder) drag.placeholder.classList.remove('drag-placeholder');
+    if (commit) {
+      _markDirty();
+      renderBuilder(_builderMainLift);
+    }
+    try { body.releasePointerCapture(drag.pointerId); } catch (_) {}
+    drag = null;
+  }
+
+  body.addEventListener('pointerup', () => _endDrag(true));
+  body.addEventListener('pointercancel', () => _endDrag(false));
 }
 
 // ---------------------------------------------------------------------------
