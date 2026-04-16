@@ -235,13 +235,17 @@ function _renderBuilderSummary(mainLift) {
   if (s.meters.length === 0) return stats;
 
   const metersHtml = s.meters.map(m => `
-    <div class="muscle-meter" data-status="${m.status}">
+    <div class="muscle-meter" data-status="${m.status}"
+         title="${m.after} sets this week (after this session) vs. ${m.target} minimum target">
       <span class="muscle-meter-label">${m.muscle}</span>
       <div class="muscle-meter-bar"><span style="width:${m.pct}%"></span></div>
-      <span class="muscle-meter-val">${m.after}/${m.target}</span>
+      <span class="muscle-meter-val">${m.after} / ${m.target} target</span>
     </div>`).join('');
 
-  return stats + `<div class="summary-meters">${metersHtml}</div>`;
+  return stats + `<div class="summary-meters">
+    <span class="summary-meters-title">Sets this week (incl. this session)</span>
+    ${metersHtml}
+  </div>`;
 }
 
 /**

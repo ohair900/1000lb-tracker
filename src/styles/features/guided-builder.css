@@ -24,6 +24,15 @@
   gap: 4px 12px;
   margin-top: 2px;
 }
+.summary-meters-title {
+  grid-column: 1 / -1;
+  font-size: 0.58rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
 .muscle-meter {
   display: grid;
   grid-template-columns: 60px 1fr auto;
