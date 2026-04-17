@@ -33,6 +33,7 @@ import {
   getNextTier,
   getWeightForTier,
 } from '../systems/workout-builder.js';
+import { computeNextTarget } from '../systems/accessory-progression.js';
 import { REP_TIERS } from '../constants/rotation.js';
 import {
   generateSessionPlan,
@@ -229,21 +230,21 @@ function createWorkoutSession(mainLift) {
     // (BBB, T2, etc.) — preserved for back-compat with in-flight sessions.
     bbbSets: [],
     accessories: accessories.map(ex => {
-      const tier = getNextTier(ex.id);
-      const tierInfo = tier ? REP_TIERS[tier] : null;
-      const repRange = tierInfo ? tierInfo.repRange : ex.repRange;
-      const sets = tierInfo ? tierInfo.sets : (ex.sets || 3);
-      const weight = tier ? getWeightForTier(ex.id, tier, mainLift) : getAccessoryWeight(ex.id, mainLift);
+      const px = computeNextTarget(ex.id, mainLift);
+      const repsLow = px.targetReps[0];
+      const repsHigh = px.targetReps[px.targetReps.length - 1] ?? repsLow;
       return {
         exerciseId: ex.id,
         name: ex.name,
-        setWeights: computeSetWeights(weight, sets),
-        targetSets: sets,
-        repRange,
+        setWeights: computeSetWeights(px.targetWeight, px.targetSets),
+        targetSets: px.targetSets,
+        repRange: [repsLow, repsHigh],
         equipment: ex.equipment,
         setsCompleted: [],
-        progressed: checkAccessoryProgression(ex.id, mainLift),
-        _tier: tier,
+        progressed: px.action === 'bump',
+        _targetReps: px.targetReps,
+        _progressionMessage: px.message,
+        _progressionAction: px.action,
       };
     }),
     completed: false
@@ -500,7 +501,11 @@ export function renderWorkoutView() {
     const currentTopWeight = acc.setWeights ? acc.setWeights[acc.setWeights.length - 1] : 0;
     const isNewHigh = hasBestWeight && currentTopWeight > accBestWeight;
     let metaParts = [acc.equipment];
-    metaParts.push(`hit ${targetReps}${isTimeBased ? 's' : ' reps'} on all sets to progress`);
+    if (acc._progressionMessage) {
+      metaParts.push(acc._progressionMessage);
+    } else {
+      metaParts.push(`hit ${targetReps}${isTimeBased ? 's' : ' reps'} on all sets to progress`);
+    }
     if (accLogCount > 0) metaParts.push(`${accLogCount} session${accLogCount !== 1 ? 's' : ''}`);
     if (hasBestWeight && !isNewHigh) {
       if (isBodyweight) {
@@ -535,7 +540,10 @@ export function renderWorkoutView() {
     for (let si = 0; si < acc.targetSets; si++) {
       const done = si < acc.setsCompleted.length;
       const repsVal = done ? acc.setsCompleted[si] : '';
-      const repTarget = isTimeBased ? `${targetReps}s` : targetReps;
+      const perSetTarget = (acc._targetReps && acc._targetReps[si] !== undefined)
+        ? acc._targetReps[si]
+        : targetReps;
+      const repTarget = isTimeBased ? `${perSetTarget}s` : perSetTarget;
       let setWeight;
       if (isBodyweight) {
         const w = acc.setWeights ? acc.setWeights[si] : 0;
@@ -576,7 +584,7 @@ export function renderWorkoutView() {
           <button class="acc-set-weight-btn" data-acc="${ai}" data-set="${si}" data-dir="-1">&minus;</button>
           <button class="acc-set-weight-btn" data-acc="${ai}" data-set="${si}" data-dir="1">+</button>
         </div>` : ''}
-        ${!done && !isTimeBased ? `<input type="number" class="workout-set-input" data-acc-input="${ai}-${si}" placeholder="${targetReps}" min="1" inputmode="numeric">` : ''}
+        ${!done && !isTimeBased ? `<input type="number" class="workout-set-input" data-acc-input="${ai}-${si}" placeholder="${perSetTarget}" min="1" inputmode="numeric">` : ''}
       </div>`;
     }
     html += `<button class="workout-add-set-btn small" data-add-acc-set="${ai}">+ Set</button>`;
@@ -974,18 +982,21 @@ export function initWorkoutOverlay() {
         }
         item.innerHTML = `<div><span>${alt.name}</span><span class="acc-swap-alt-meta">${alt.equipment}</span></div><div>${perfHtml}</div>`;
         item.addEventListener('click', () => {
-          const newWeight = getAccessoryWeight(alt.id, store.workoutSession.mainLift);
-          const newSetWeights = computeSetWeights(newWeight, alt.sets);
-          const progressed = checkAccessoryProgression(alt.id, store.workoutSession.mainLift);
+          const px = computeNextTarget(alt.id, store.workoutSession.mainLift);
+          const repsLow = px.targetReps[0];
+          const repsHigh = px.targetReps[px.targetReps.length - 1] ?? repsLow;
           store.workoutSession.accessories[ai] = {
             exerciseId: alt.id,
             name: alt.name,
-            setWeights: newSetWeights,
-            targetSets: alt.sets,
-            repRange: [...alt.repRange],
+            setWeights: computeSetWeights(px.targetWeight, px.targetSets),
+            targetSets: px.targetSets,
+            repRange: [repsLow, repsHigh],
             equipment: alt.equipment,
             setsCompleted: [],
-            progressed: !!progressed,
+            progressed: px.action === 'bump',
+            _targetReps: px.targetReps,
+            _progressionMessage: px.message,
+            _progressionAction: px.action,
           };
           store.saveWorkoutSession();
           renderWorkoutView();
@@ -1102,22 +1113,22 @@ export function initWorkoutOverlay() {
         showToast('Already in your workout');
         return;
       }
-      // Apply tier rotation (same as createWorkoutSession)
-      const tier = getNextTier(exId);
-      const tierInfo = tier ? REP_TIERS[tier] : null;
-      const repRange = tierInfo ? tierInfo.repRange : (catalogEx.repRange ? [...catalogEx.repRange] : [8, 12]);
-      const sets = tierInfo ? tierInfo.sets : (catalogEx.sets || 3);
-      const weight = tier ? getWeightForTier(exId, tier, mainLift) : getAccessoryWeight(exId, mainLift);
+      // Smart progression engine handles target reps + weight per exercise.
+      const px = computeNextTarget(exId, mainLift);
+      const repsLow = px.targetReps[0];
+      const repsHigh = px.targetReps[px.targetReps.length - 1] ?? repsLow;
       store.workoutSession.accessories.push({
         exerciseId: exId,
         name: catalogEx.name,
-        setWeights: computeSetWeights(weight, sets),
-        targetSets: sets,
-        repRange,
+        setWeights: computeSetWeights(px.targetWeight, px.targetSets),
+        targetSets: px.targetSets,
+        repRange: [repsLow, repsHigh],
         equipment: catalogEx.equipment,
         setsCompleted: [],
-        progressed: !!checkAccessoryProgression(exId, mainLift),
-        _tier: tier,
+        progressed: px.action === 'bump',
+        _targetReps: px.targetReps,
+        _progressionMessage: px.message,
+        _progressionAction: px.action,
       });
       store.saveWorkoutSession();
       renderWorkoutView();
