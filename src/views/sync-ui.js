@@ -23,6 +23,28 @@ import { openModal, closeModal } from '../ui/modal.js';
 import { showToast } from '../ui/toast.js';
 
 // ---------------------------------------------------------------------------
+// Schema-blocked banner
+// ---------------------------------------------------------------------------
+
+/**
+ * Display a prominent banner when the cloud data uses a newer schema
+ * version than this code understands. Blocks all sync and prompts refresh.
+ * @param {number} cloudVersion
+ */
+export function showSchemaBlockedBanner(cloudVersion) {
+  if (document.getElementById('schema-blocked-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'schema-blocked-banner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:var(--danger,#d32f2f);color:#fff;padding:12px 16px;text-align:center;font-size:0.85rem;line-height:1.4';
+  banner.innerHTML = `
+    <strong>App update required</strong><br>
+    Your cloud data uses a newer format (v${cloudVersion}).
+    Please refresh to continue syncing.
+    <br><button onclick="location.reload()" style="margin-top:8px;padding:6px 16px;border:none;border-radius:6px;background:#fff;color:var(--danger,#d32f2f);font-weight:700;cursor:pointer">Refresh Now</button>`;
+  document.body.prepend(banner);
+}
+
+// ---------------------------------------------------------------------------
 // Sync button
 // ---------------------------------------------------------------------------
 
@@ -85,10 +107,10 @@ export function showSetupWizard() {
         <li style="margin-bottom:8px"><strong>Firestore Database</strong> \u2192 Create database (production mode)</li>
         <li style="margin-bottom:8px">Firestore \u2192 Rules \u2192 paste this and <strong>Publish</strong>:</li>
       </ol>
-      <div style="background:var(--surface2);border-radius:8px;padding:10px 12px;font-family:monospace;font-size:0.7rem;margin-bottom:16px;white-space:pre;overflow-x:auto;color:var(--text)">rules_version = '2';
+      <div style="background:var(--surface2);border-radius:8px;padding:10px 12px;font-family:monospace;font-size:0.7rem;margin-bottom:4px;white-space:pre;overflow-x:auto;color:var(--text)">rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId} {
+    match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null
         && request.auth.uid == userId;
     }
@@ -97,8 +119,12 @@ service cloud.firestore {
       allow write: if request.auth != null
         && request.auth.uid == userId;
     }
+    match /crews/{crewId} {
+      allow read, write: if request.auth != null;
+    }
   }
 }</div>
+      <div style="font-size:0.65rem;color:var(--text-dim);margin-bottom:16px">The <code style="background:var(--surface2);padding:1px 4px;border-radius:3px">{document=**}</code> wildcard grants access to your user document and all its sub-data.</div>
       <ol start="6" style="padding-left:20px;margin-bottom:16px">
         <li style="margin-bottom:8px">Project Settings (gear icon) \u2192 Your apps \u2192 <strong>Add web app</strong> \u2192 Copy the <code style="background:var(--surface2);padding:1px 4px;border-radius:3px">firebaseConfig</code> object</li>
         <li>Paste it below:</li>

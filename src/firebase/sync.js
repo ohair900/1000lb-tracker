@@ -7,6 +7,7 @@
  */
 
 import store from '../state/store.js';
+import { generateId } from '../utils/helpers.js';
 
 import {
   db,
@@ -58,6 +59,28 @@ export const syncState = {
 const SYNC_DEBOUNCE_MS = 10000;     // #1: 10s debounce (was 1.5s)
 const LEADERBOARD_CACHE_MS = 300000; // #3: 5-minute cache TTL
 const SCHEMA_VERSION = 1;
+
+// ===== Schema version guard =====
+// Prevents this code from overwriting data written by a newer schema version.
+// If the cloud doc has schemaVersion > SCHEMA_VERSION, all pushes and merges
+// are blocked and the user is prompted to refresh.
+
+let _schemaBlocked = false;
+let _onSchemaBlocked = null;
+
+export function setOnSchemaBlocked(cb) { _onSchemaBlocked = cb; }
+export function isSchemaBlocked() { return _schemaBlocked; }
+
+function checkAndBlockIfNewerSchema(cloudData) {
+  if (!cloudData) return false;
+  const cloudVersion = cloudData.schemaVersion || 1;
+  if (cloudVersion > SCHEMA_VERSION) {
+    _schemaBlocked = true;
+    _onSchemaBlocked?.(cloudVersion);
+    return true;
+  }
+  return false;
+}
 
 // ===== Callbacks (set by UI layer to avoid circular deps) =====
 
@@ -139,7 +162,7 @@ function computeDataHash(data) {
  * Write all local data to the current user's Firestore document.
  */
 export async function pushToCloud() {
-  if (!currentUser || !db || syncState.isMergingFromCloud) return;
+  if (!currentUser || !db || syncState.isMergingFromCloud || _schemaBlocked) return;
   try {
     const data = getLocalData();
 
@@ -181,7 +204,7 @@ export async function pushToCloud() {
  * before actually pushing.  Safe to call on every local save.
  */
 export function scheduleCloudSync() {
-  if (!currentUser || !db || syncState.isMergingFromCloud) return;
+  if (!currentUser || !db || syncState.isMergingFromCloud || _schemaBlocked) return;
   // #6: Skip if this was triggered by a merge save
   if (syncState.isMergeOriginated) return;
   clearTimeout(syncState.syncDebounceTimer);
@@ -196,6 +219,11 @@ export function scheduleCloudSync() {
  * Intended for the `visibilitychange` handler (tab hide / close).
  */
 export function flushPendingSync() {
+  if (_schemaBlocked) {
+    clearTimeout(syncState.syncDebounceTimer);
+    syncState.syncDebounceTimer = null;
+    return;
+  }
   if (syncState.syncDebounceTimer) {
     clearTimeout(syncState.syncDebounceTimer);
     syncState.syncDebounceTimer = null;
@@ -230,6 +258,7 @@ export function flushPendingSync() {
  */
 export function mergeCloudData(cloudData) {
   if (!cloudData) return;
+  if (checkAndBlockIfNewerSchema(cloudData)) return;
   syncState.isMergingFromCloud = true;
   // #6: Flag to prevent merge saves from triggering another cloud push
   syncState.isMergeOriginated = true;
@@ -440,6 +469,8 @@ export function startRealtimeSync() {
   syncState.unsubSnapshot = onSnapshot(userDocRef, (snapshot) => {
     if (!snapshot.exists()) return;
     const cloudData = snapshot.data();
+    // Block if cloud has a newer schema than we understand
+    if (checkAndBlockIfNewerSchema(cloudData)) { stopRealtimeSync(); return; }
     // Skip if this was triggered by our own write
     if (syncState.isMergingFromCloud) return;
     // Skip if we have pending local changes not yet pushed
@@ -670,7 +701,9 @@ export async function handleFirstSignIn() {
       // No cloud doc — push all local data up
       await pushToCloud();
     } else {
-      // Cloud doc exists — merge cloud into local, then push merged result back
+      // Cloud doc exists — check schema version before merging
+      if (checkAndBlockIfNewerSchema(snapshot.data())) return;
+      // Merge cloud into local, then push merged result back
       mergeCloudData(snapshot.data());
       await pushToCloud();
     }
@@ -679,6 +712,65 @@ export async function handleFirstSignIn() {
     syncState.status = 'error';
     notifyStatusChange();
   }
+}
+
+// ===== Data integrity pre-checks =====
+
+/**
+ * Scan entries and accessoryLog for missing or duplicate IDs.
+ * Fixes issues in place and saves. Run before migration to ensure
+ * every record has a unique ID suitable for use as a Firestore doc ID.
+ *
+ * @returns {Array<{type: string, count: number, fixed: boolean}>}
+ */
+export function runDataIntegrityChecks() {
+  const issues = [];
+
+  // Entries: missing IDs
+  const noId = store.entries.filter(e => !e.id);
+  if (noId.length > 0) {
+    noId.forEach(e => { e.id = generateId(); });
+    store.saveEntries();
+    issues.push({ type: 'entries-missing-id', count: noId.length, fixed: true });
+  }
+
+  // Entries: duplicate IDs
+  const idCounts = {};
+  store.entries.forEach(e => { idCounts[e.id] = (idCounts[e.id] || 0) + 1; });
+  const dupes = Object.entries(idCounts).filter(([, c]) => c > 1);
+  if (dupes.length > 0) {
+    const seen = new Set();
+    store.entries.forEach(e => {
+      if (seen.has(e.id)) e.id = generateId();
+      seen.add(e.id);
+    });
+    store.saveEntries();
+    issues.push({ type: 'duplicate-entry-ids', count: dupes.length, fixed: true });
+  }
+
+  // AccessoryLog: missing IDs
+  const noAccId = store.accessoryLog.filter(a => !a.id);
+  if (noAccId.length > 0) {
+    noAccId.forEach(a => { a.id = generateId(); });
+    store.saveAccessoryLog();
+    issues.push({ type: 'acclog-missing-id', count: noAccId.length, fixed: true });
+  }
+
+  // AccessoryLog: duplicate IDs
+  const accIdCounts = {};
+  store.accessoryLog.forEach(a => { accIdCounts[a.id] = (accIdCounts[a.id] || 0) + 1; });
+  const accDupes = Object.entries(accIdCounts).filter(([, c]) => c > 1);
+  if (accDupes.length > 0) {
+    const seen = new Set();
+    store.accessoryLog.forEach(a => {
+      if (seen.has(a.id)) a.id = generateId();
+      seen.add(a.id);
+    });
+    store.saveAccessoryLog();
+    issues.push({ type: 'duplicate-acclog-ids', count: accDupes.length, fixed: true });
+  }
+
+  return issues;
 }
 
 // ===== Crews (invite-only groups) =====

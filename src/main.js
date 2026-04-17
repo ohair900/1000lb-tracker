@@ -58,6 +58,8 @@ import {
   flushPendingSync,
   setOnSyncComplete,
   setOnSyncStatusChange,
+  setOnSchemaBlocked,
+  runDataIntegrityChecks,
   stopRealtimeSync,
   startRealtimeSync,
 } from './firebase/sync.js';
@@ -117,7 +119,7 @@ import {
 import { showWorkoutSummary } from './views/workout-summary.js';
 import { initWelcomeOverlay, setWelcomeDeps, showWelcomeScreen } from './views/welcome.js';
 import { renderCycleBar } from './views/cycle-bar.js';
-import { initSyncUI, updateSyncButton } from './views/sync-ui.js';
+import { initSyncUI, updateSyncButton, showSchemaBlockedBanner } from './views/sync-ui.js';
 import { initLeaderboardTab, renderLeaderboard } from './views/leaderboard.js';
 
 // ===== 8. Polyfills =====
@@ -329,6 +331,10 @@ store.onStorageFull = (msg) => showToast(msg);
 // loading — prevents the body-map "stale guy flash" on cold start.
 store.onDeferredLoad = () => {
   try { updateDashboard(); } catch { /* best-effort */ }
+  try {
+    const issues = runDataIntegrityChecks();
+    if (issues.length > 0) console.log('[integrity] Fixed:', issues);
+  } catch { /* best-effort */ }
 };
 
 // Prime the silent <audio> keepalive on first user gesture so iOS keeps
@@ -368,6 +374,11 @@ setOnAuthStatusChange(() => {
 // 4d2. Sync status change — update sync button
 setOnSyncStatusChange(() => {
   updateSyncButton();
+});
+
+// 4d3. Schema version guard — block sync if cloud has newer schema
+setOnSchemaBlocked((cloudVersion) => {
+  showSchemaBlockedBanner(cloudVersion);
 });
 
 // 4e. Toast deps
