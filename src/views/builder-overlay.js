@@ -1690,6 +1690,7 @@ function _initDragReorder() {
       currentIdx: idx,
       ghost,
       placeholder: slotEl,
+      startX: e.clientX,
       startY: e.clientY,
       ghostStartTop: rect.top,
       mids,
@@ -1704,7 +1705,7 @@ function _initDragReorder() {
   body.addEventListener('pointermove', e => {
     if (!drag) return;
 
-    const dx = Math.abs(e.clientX - drag.startY); // reuse startY but approx
+    const dx = Math.abs(e.clientX - drag.startX);
     const dy = e.clientY - drag.startY;
 
     // Direction lock — first 8px of movement.

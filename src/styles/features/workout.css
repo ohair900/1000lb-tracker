@@ -47,8 +47,9 @@
   box-shadow: var(--shadow-sm);
 }
 /* Superset grouping */
-.superset-group { border-left: 3px solid var(--accent); border-radius: var(--radius-lg); padding-left: var(--space-2); margin-bottom: var(--space-3); }
-.superset-group .workout-exercise { margin-bottom: var(--space-1); }
+.superset-group { border-left: 3px solid var(--accent); border-radius: var(--radius-lg); padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3); margin-bottom: var(--space-3); }
+.superset-group .workout-exercise { margin-bottom: var(--space-2); }
+.superset-group .workout-exercise:last-child { margin-bottom: 0; }
 .superset-group .builder-exercise { margin-bottom: var(--space-1); }
 .superset-label { font-size: 10px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 0 4px; display: flex; align-items: center; gap: 6px; }
 .template-tag-filter-btn { font-size: 11px; padding: 3px 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); cursor: pointer; }

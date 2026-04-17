@@ -17,6 +17,17 @@ import { resolveExercise } from '../data/exercise-compat.js';
 import { showToast } from '../ui/toast.js';
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function bestE1RMAsOf(lift, beforeTimestamp) {
+  const vals = store.entries
+    .filter(e => e.lift === lift && e.timestamp <= beforeTimestamp && e.e1rm > 0)
+    .map(e => e.e1rm);
+  return vals.length > 0 ? Math.max(...vals) : 0;
+}
+
+// ---------------------------------------------------------------------------
 // Athlete profile block
 // ---------------------------------------------------------------------------
 
@@ -25,8 +36,8 @@ function buildAthleteProfile() {
   const unit = store.unit;
   const overall = getOverallClassification() || 'Unknown';
   const total = getTotal();
-  const wilks = bw ? calcWilks(total, bw, store.profile.sex || 'male') : null;
-  const dots = bw ? calcDOTS(total, bw, store.profile.sex || 'male') : null;
+  const wilks = bw ? calcWilks(total, bw, store.profile.gender || 'male') : null;
+  const dots = bw ? calcDOTS(total, bw, store.profile.gender || 'male') : null;
 
   // Training age estimate
   const sorted = [...store.entries].sort((a, b) => a.timestamp - b.timestamp);
@@ -55,7 +66,7 @@ function buildAthleteProfile() {
   const wp = store.workoutConfig?.weakPoints || {};
 
   let text = `=== ATHLETE PROFILE ===\n`;
-  text += `Gender: ${store.profile.sex || 'Male'}\n`;
+  text += `Gender: ${store.profile.gender || 'Male'}\n`;
   text += `Bodyweight: ${bw ? formatWeight(bw) + ' ' + unit : 'Not set'} (Trend: ${bwTrend})\n`;
   text += `Classification: ${overall}\n`;
   text += `Training history: ${trainingAge}\n`;
@@ -136,7 +147,7 @@ function buildSessionLog(startDate, endDate) {
     // Main lifts
     const mainSets = mainByDate[date] || [];
     mainSets.forEach(e => {
-      const best = bestE1RM(e.lift);
+      const best = bestE1RMAsOf(e.lift, e.timestamp);
       const pctE1rm = best > 0 ? Math.round(e.weight / best * 100) : null;
       let line = `  ${LIFT_NAMES[e.lift]}: ${Math.round(displayWeight(e.weight))} x ${e.reps}`;
       if (e.rpe) line += ` @ RPE ${e.rpe}`;
@@ -222,7 +233,7 @@ function buildIntensityDistribution(entries) {
   const rpeGroups = { '6-7': 0, '7-8': 0, '8-9': 0, '9+': 0, 'none': 0 };
 
   entries.forEach(e => {
-    const best = bestE1RM(e.lift);
+    const best = bestE1RMAsOf(e.lift, e.timestamp);
     if (best > 0) {
       const pct = e.weight / best;
       if (pct >= 0.90) zones['90%+']++;
@@ -287,8 +298,9 @@ function buildMonthlyAggregates(startDate, endDate) {
     text += `Training days: ${days} (${(days / weeks).toFixed(1)}/week)\n`;
     LIFTS.forEach(l => {
       const liftEntries = entries.filter(e => e.lift === l);
-      const avgInt = liftEntries.length > 0
-        ? Math.round(liftEntries.reduce((s, e) => { const b = bestE1RM(e.lift); return s + (b > 0 ? e.weight / b : 0); }, 0) / liftEntries.length * 100)
+      const blockBest = bestE1RMAsOf(l, mEnd);
+      const avgInt = liftEntries.length > 0 && blockBest > 0
+        ? Math.round(liftEntries.reduce((s, e) => s + e.weight / blockBest, 0) / liftEntries.length * 100)
         : 0;
       text += `${LIFT_SHORT[l]}: ${liftEntries.length} sets, avg intensity ${avgInt}%\n`;
     });
@@ -329,9 +341,9 @@ Evaluate volume adequacy per muscle group, intensity distribution, RPE managemen
 **What Went Well** (2-4 bullets — be specific, reference actual numbers)
 **What Needs Work** (2-4 bullets — identify the ROOT issue, not just symptoms)
 **This Week's Focus** (2-3 bullets — the single most impactful change to make)
-**Quick Numbers Check** (flag anything that looks like a data entry error)
 
 === GUARDRAILS ===
+- Do not comment on the data format, structure, or quality. Treat all provided data as accurate and complete. Focus entirely on coaching.
 - Do not suggest increasing weekly volume by more than 10-20% in a single week.
 - Do not recommend intensity above 90% of e1RM for more than 1-2 sets per lift per week at this level.
 - If ACWR for any muscle group is elevated, recommend reducing volume for that group.
@@ -354,10 +366,15 @@ export function buildProgramCheckPrompt(notes = '') {
   LIFTS.forEach(l => {
     const liftEntries = entries.filter(e => e.lift === l).sort((a, b) => a.timestamp - b.timestamp);
     if (liftEntries.length < 2) { prompt += `${LIFT_NAMES[l]}: Insufficient data\n`; return; }
-    const firstBest = liftEntries[0].e1rm;
-    const lastBest = Math.max(...liftEntries.map(e => e.e1rm));
+    const firstTs = liftEntries[0].timestamp;
+    const lastTs = liftEntries[liftEntries.length - 1].timestamp;
+    const weekMs = 7 * MS_PER_DAY;
+    const earlyEnd = Math.min(firstTs + weekMs, lastTs);
+    const lateStart = Math.max(lastTs - weekMs, firstTs);
+    const firstBest = Math.max(...liftEntries.filter(e => e.timestamp <= earlyEnd).map(e => e.e1rm));
+    const lastBest = Math.max(...liftEntries.filter(e => e.timestamp >= lateStart).map(e => e.e1rm));
     const change = lastBest - firstBest;
-    const daySpan = (liftEntries[liftEntries.length - 1].timestamp - liftEntries[0].timestamp) / MS_PER_DAY;
+    const daySpan = (lastTs - firstTs) / MS_PER_DAY;
     const rate = daySpan > 0 ? (change / (daySpan / 30)).toFixed(1) : '?';
     prompt += `${LIFT_NAMES[l]}: ${Math.round(displayWeight(firstBest))} → ${Math.round(displayWeight(lastBest))} (${change > 0 ? '+' : ''}${Math.round(displayWeight(change))} ${store.unit}) | Rate: ${rate} ${store.unit}/month\n`;
   });
@@ -388,6 +405,7 @@ Analyze this 90-day block. Evaluate: progression rate vs classification level, v
 **Goal Projection** (estimated timeline to reach stated goals at current rate)
 
 === GUARDRAILS ===
+- Do not comment on the data format, structure, or quality. Treat all provided data as accurate and complete. Focus entirely on coaching.
 - Default to adjusting the current program, not replacing it.
 - Do not recommend more than 15-20% volume increase per mesocycle.
 - If the lifter has not deloaded in 6+ weeks and fatigue is elevated, recommend a deload first.
@@ -411,10 +429,16 @@ export function buildLiftDeepDivePrompt(lift, notes = '') {
   prompt += `Current e1RM: ${currentBest ? Math.round(displayWeight(currentBest)) + ' ' + store.unit : 'No data'} ${cls ? '(' + cls + ')' : ''}\n`;
 
   if (entries.length >= 2) {
-    const firstE1rm = entries[0].e1rm;
-    const bestE1rm = Math.max(...entries.map(e => e.e1rm));
-    prompt += `90-day starting e1RM: ${Math.round(displayWeight(firstE1rm))} ${store.unit}\n`;
-    prompt += `Change: ${Math.round(displayWeight(bestE1rm - firstE1rm))} ${store.unit}\n`;
+    const firstTs = entries[0].timestamp;
+    const lastTs = entries[entries.length - 1].timestamp;
+    const weekMs = 7 * MS_PER_DAY;
+    const earlyEnd = Math.min(firstTs + weekMs, lastTs);
+    const lateStart = Math.max(lastTs - weekMs, firstTs);
+    const startBest = Math.max(...entries.filter(e => e.timestamp <= earlyEnd).map(e => e.e1rm));
+    const endBest = Math.max(...entries.filter(e => e.timestamp >= lateStart).map(e => e.e1rm));
+    prompt += `90-day starting e1RM: ${Math.round(displayWeight(startBest))} ${store.unit}\n`;
+    prompt += `Current e1RM: ${Math.round(displayWeight(endBest))} ${store.unit}\n`;
+    prompt += `Change: ${endBest - startBest > 0 ? '+' : ''}${Math.round(displayWeight(endBest - startBest))} ${store.unit}\n`;
   }
 
   // Best sets
@@ -495,6 +519,7 @@ Perform a complete analysis of this lift:
 **Programming Adjustments** (2-3 specific changes to main lift training)
 
 === GUARDRAILS ===
+- Do not comment on the data format, structure, or quality. Treat all provided data as accurate and complete. Focus entirely on coaching.
 - Max 5 accessory recommendations, standard gym equipment.
 - If e1RM trend is positive, reinforce what's working.
 - All prescriptions appropriate for ${cls || 'intermediate'}-level lifter.
