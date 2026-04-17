@@ -22,6 +22,10 @@ import { ACCESSORY_CAT_WEIGHTS } from '../data/muscle-groups.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
 import { MS_PER_DAY } from '../constants/time.js';
 
+let _volCache = null, _volEntryGen = -1, _volAccGen = -1;
+let _ppCache = null, _ppEntryGen = -1, _ppAccGen = -1;
+let _recCache = null, _recEntryGen = -1, _recAccGen = -1;
+
 // ---------------------------------------------------------------------------
 // Layer 1: Weekly set volume per muscle group
 // ---------------------------------------------------------------------------
@@ -36,6 +40,8 @@ import { MS_PER_DAY } from '../constants/time.js';
  * @returns {{ [muscleGroup: string]: { sets: number, target: { min: number, max: number }, status: 'under'|'optimal'|'over' } }}
  */
 export function analyzeWeeklyVolume() {
+  if (_volCache && typeof store._entryGen === 'number' && store._entryGen === _volEntryGen && store._accLogGen === _volAccGen) return _volCache;
+
   const now = Date.now();
   const weekAgo = now - 7 * MS_PER_DAY;
   const result = {};
@@ -95,6 +101,7 @@ export function analyzeWeeklyVolume() {
     }
   }
 
+  _volCache = result; _volEntryGen = store._entryGen; _volAccGen = store._accLogGen;
   return result;
 }
 
@@ -126,6 +133,8 @@ const LEGACY_UPPER_PULL_CATS = new Set(['back']);
  * @returns {{ pushSets: number, pullSets: number, ratio: number, target: number, status: 'balanced'|'push-heavy'|'pull-heavy' }}
  */
 export function analyzePushPullRatio() {
+  if (_ppCache && typeof store._entryGen === 'number' && store._entryGen === _ppEntryGen && store._accLogGen === _ppAccGen) return _ppCache;
+
   const now = Date.now();
   const weekAgo = now - 7 * MS_PER_DAY;
   let pushSets = 0;
@@ -171,13 +180,15 @@ export function analyzePushPullRatio() {
   if (ratio >= 1.5) status = 'push-heavy';
   else if (ratio <= 0.67) status = 'pull-heavy';
 
-  return {
+  _ppCache = {
     pushSets: Math.round(pushSets),
     pullSets: Math.round(pullSets),
     ratio: Math.round(ratio * 100) / 100,
-    target: 1.0, // Target push:pull ratio (1:1 to 1:1.5)
+    target: 1.0,
     status,
   };
+  _ppEntryGen = store._entryGen; _ppAccGen = store._accLogGen;
+  return _ppCache;
 }
 
 // ---------------------------------------------------------------------------
@@ -190,6 +201,8 @@ export function analyzePushPullRatio() {
  * @returns {{ [muscleGroup: string]: { daysSince: number, status: 'fresh'|'due'|'stale' } }}
  */
 export function analyzeRecencyGaps() {
+  if (_recCache && typeof store._entryGen === 'number' && store._entryGen === _recEntryGen && store._accLogGen === _recAccGen) return _recCache;
+
   const now = Date.now();
   const result = {};
 
@@ -245,6 +258,7 @@ export function analyzeRecencyGaps() {
     else result[mg].status = 'stale';
   }
 
+  _recCache = result; _recEntryGen = store._entryGen; _recAccGen = store._accLogGen;
   return result;
 }
 

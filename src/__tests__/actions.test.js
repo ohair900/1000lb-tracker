@@ -40,11 +40,11 @@ const { mockStore } = vi.hoisted(() => ({
 vi.mock('../state/store.js', () => ({ default: mockStore }));
 
 import { calcE1RM } from '../formulas/e1rm.js';
-import { rebuildPRs, checkPR, checkRepPR, getMilestone } from '../systems/pr-tracking.js';
+import { rebuildPRs, checkPR, checkRepPR, getMilestone, updateBestAfterAdd } from '../systems/pr-tracking.js';
 import { addEntry, editEntry, deleteEntry, executeUndo, inject } from '../state/actions.js';
 
 // Wire actions with real dependencies
-inject({ calcE1RM, rebuildPRs, checkPR, checkRepPR, getMilestone });
+inject({ calcE1RM, rebuildPRs, checkPR, checkRepPR, getMilestone, updateBestAfterAdd });
 
 function resetForActionsTest() {
   mockStore.entries = [];

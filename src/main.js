@@ -32,7 +32,7 @@ import { calcE1RM } from './formulas/e1rm.js';
 import { formatWeight, inputToLbs } from './formulas/units.js';
 
 // ===== 4. Systems =====
-import { rebuildPRs, checkPR, checkRepPR, getMilestone } from './systems/pr-tracking.js';
+import { rebuildPRs, checkPR, checkRepPR, getMilestone, updateBestAfterAdd } from './systems/pr-tracking.js';
 import { checkMilestonesAchieved, lockMilestones } from './systems/goals.js';
 import { migrateAccessoryIds } from './systems/accessory-migration.js';
 import {
@@ -319,6 +319,7 @@ injectActions({
   checkRepPR,
   getMilestone,
   checkMilestonesAchieved,
+  updateBestAfterAdd,
 });
 
 // 4b. Store hooks — cloud sync on every local save

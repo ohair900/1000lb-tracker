@@ -12,6 +12,9 @@ import store from '../state/store.js';
 import { PLATE_MILESTONES, REP_RANGES } from '../constants/lift-config.js';
 
 let _rebuildScheduled = false;
+let _bestE1RM = { squat: 0, bench: 0, deadlift: 0 };
+let _bestRepWeight = {};
+let _prCacheGen = -1;
 
 /**
  * Schedule a PR rebuild for the next microtask, coalescing multiple
@@ -37,6 +40,7 @@ export function rebuildPRs() {
   const sorted = [...store.entries].sort((a, b) => a.timestamp - b.timestamp);
   const best = { squat: 0, bench: 0, deadlift: 0 };
   const achieved = { squat: new Set(), bench: new Set(), deadlift: new Set() };
+  const repW = {};
   store.prs = [];
   store.entries.forEach(e => { e.isPR = false; });
 
@@ -57,9 +61,17 @@ export function rebuildPRs() {
         milestone,
       });
     }
+    const reps = parseInt(e.reps, 10);
+    if (Number.isFinite(reps) && reps >= 1) {
+      const key = `${e.lift}:${reps}`;
+      if (!repW[key] || e.weight > repW[key]) repW[key] = e.weight;
+    }
   });
 
+  _bestE1RM = best;
+  _bestRepWeight = repW;
   store.saveEntries();
+  _prCacheGen = store._entryGen;
 }
 
 /**
@@ -70,10 +82,28 @@ export function rebuildPRs() {
  * @returns {boolean} True if this beats all existing entries for the lift
  */
 export function checkPR(lift, e1rm) {
+  if (_prCacheGen >= 0 && store._entryGen === _prCacheGen) {
+    return e1rm > (_bestE1RM[lift] || 0);
+  }
   const prev = store.entries
     .filter(e => e.lift === lift)
     .reduce((mx, e) => Math.max(mx, e.e1rm), 0);
   return e1rm > prev;
+}
+
+/**
+ * Incrementally update best-value caches after a new entry is added.
+ * Call from addEntry so checkPR/checkRepPR stay correct between rebuilds.
+ */
+export function updateBestAfterAdd(lift, e1rm, weight, reps) {
+  if (_prCacheGen < 0) return;
+  if (e1rm > (_bestE1RM[lift] || 0)) _bestE1RM[lift] = e1rm;
+  const r = parseInt(reps, 10);
+  if (Number.isFinite(r) && r >= 1) {
+    const key = `${lift}:${r}`;
+    if (weight > (_bestRepWeight[key] || 0)) _bestRepWeight[key] = weight;
+  }
+  _prCacheGen = store._entryGen;
 }
 
 /**
@@ -133,6 +163,9 @@ export function getRepPRs() {
  * @returns {boolean} True if this is a new rep-PR
  */
 export function checkRepPR(lift, weight, reps) {
+  if (_prCacheGen >= 0 && store._entryGen === _prCacheGen) {
+    return weight > (_bestRepWeight[`${lift}:${reps}`] || 0);
+  }
   const prev = store.entries
     .filter(e => e.lift === lift && e.reps === reps)
     .reduce((mx, e) => Math.max(mx, e.weight), 0);

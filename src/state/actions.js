@@ -69,6 +69,7 @@ export function addEntry(lift, weight, reps, rpe, notes, tags) {
   };
 
   store.entries.push(entry);
+  _deps.updateBestAfterAdd?.(lift, e1rm, weight, reps);
 
   if (isPR) {
     store.prs.push({

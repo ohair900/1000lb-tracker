@@ -329,6 +329,8 @@ class Store {
     // -----------------------------------------------------------------------
     this._dirtyStores = new Set();
     this._flushScheduled = false;
+    this._entryGen = 0;
+    this._accLogGen = 0;
 
     /**
      * Optional callback invoked after any flush writes to localStorage.
@@ -495,7 +497,7 @@ class Store {
   // Convenience save shortcuts (match original function names)
   // -------------------------------------------------------------------------
 
-  saveEntries()        { this.save('entries'); }
+  saveEntries()        { this._entryGen++; this.save('entries'); }
   saveProfile()        { this.save('profile'); }
   saveGoals()          { this.save('goals'); }
   saveGoalMilestones() { this.save('goalMilestones'); }
@@ -503,7 +505,7 @@ class Store {
   saveCycles()         { this.save('cycles'); }
   saveProgramConfig()  { this.saveNow('programs'); this._backupCompletedSets(); }
   saveWorkoutConfig()  { this.save('workoutConfig'); }
-  saveAccessoryLog()   { this.save('accessoryLog'); }
+  saveAccessoryLog()   { this._accLogGen++; this.save('accessoryLog'); }
   saveWorkoutSession() { this.saveNow('workoutSession'); }
   saveCustomTemplates(){ this.save('customTemplates'); }
   saveMesocycle()      { this.save('mesocycle'); }

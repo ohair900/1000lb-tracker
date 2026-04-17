@@ -149,6 +149,10 @@ const EWMA_WINDOW_DAYS = 42;         // Lookback for EWMA initialization
 let _calibratedThresholds = null;
 let _calibrationTimestamp = 0;
 
+let _muscleCache = null;
+let _muscleCacheEntryGen = -1;
+let _muscleCacheAccGen = -1;
+
 function getThresholds() {
   // Recalibrate at most once per session (or if entries changed significantly)
   const now = Date.now();
@@ -230,6 +234,7 @@ function getThresholds() {
 export function invalidateThresholds() {
   _calibratedThresholds = null;
   _calibrationTimestamp = 0;
+  _muscleCache = null;
 }
 
 // ---------------------------------------------------------------------------
@@ -532,6 +537,10 @@ export function calcFatigue() {
  * Calculate EWMA ACWR for each muscle group with density multiplier.
  */
 export function calcFatigueByMuscle() {
+  if (_muscleCache && typeof store._entryGen === 'number' && store._entryGen === _muscleCacheEntryGen && store._accLogGen === _muscleCacheAccGen) {
+    return _muscleCache;
+  }
+
   const now = Date.now();
   const day = MS_PER_DAY;
   const results = {};
@@ -677,7 +686,10 @@ export function calcFatigueByMuscle() {
     anyValid = true;
   });
 
-  return anyValid ? results : null;
+  _muscleCache = anyValid ? results : null;
+  _muscleCacheEntryGen = store._entryGen;
+  _muscleCacheAccGen = store._accLogGen;
+  return _muscleCache;
 }
 
 // ---------------------------------------------------------------------------
