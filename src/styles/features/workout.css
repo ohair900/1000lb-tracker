@@ -46,12 +46,37 @@
   padding: var(--space-3); margin-bottom: var(--space-3);
   box-shadow: var(--shadow-sm);
 }
-/* Superset grouping */
-.superset-group { border-left: 3px solid var(--accent); border-radius: var(--radius-lg); padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3); margin-bottom: var(--space-3); }
-.superset-group .workout-exercise { margin-bottom: var(--space-2); }
-.superset-group .workout-exercise:last-child { margin-bottom: 0; }
-.superset-group .builder-exercise { margin-bottom: var(--space-1); }
-.superset-label { font-size: 10px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 0 4px; display: flex; align-items: center; gap: 6px; }
+/* Superset grouping — scoped under #workout-overlay so the workout overlay's
+ * rules beat the builder's .superset-group grid (guided-builder.css), which
+ * would otherwise leak in and crush the 2nd exercise into a 28px grid column. */
+#workout-overlay .superset-group {
+  display: block;
+  background: var(--surface);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+  box-shadow: var(--shadow-sm);
+}
+#workout-overlay .superset-group .workout-exercise {
+  background: transparent;
+  box-shadow: none;
+  border-left: none;
+  border-radius: 0;
+  padding: 0;
+  margin-bottom: 0;
+}
+#workout-overlay .superset-group .workout-exercise + .workout-exercise {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--border);
+}
+#workout-overlay .superset-label {
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 0 0 var(--space-2);
+  display: flex; align-items: center; gap: 6px;
+}
 .template-tag-filter-btn { font-size: 11px; padding: 3px 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); cursor: pointer; }
 .template-tag-filter-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 /* Main lift = sacred. Thick lift-colored rail + subtle ambient glow. */
