@@ -64,6 +64,7 @@ import {
 
 // ===== 6. UI primitives =====
 import { $ } from './utils/helpers.js';
+import { safeCall } from './utils/error.js';
 import { initDOMRefs } from './ui/dom.js';
 import { showToast, setToastDeps, showToastWithUndo } from './ui/toast.js';
 import { openModal, closeModal, initModalListeners } from './ui/modal.js';
@@ -342,20 +343,16 @@ document.addEventListener('click', () => {
 
 // 4c. Sync callbacks — refresh UI after cloud merge
 setOnSyncComplete(() => {
-  // Rebuild PRs from merged entries
-  rebuildPRs();
-  // Full UI refresh
-  updateDashboard();
-  renderCycleBar();
-  updateWorkoutButton();
-  if (store.currentTab === 'log') renderProgramSection();
-  if (store.currentTab === 'history') renderHistory();
-  if (store.currentTab === 'charts') renderChart();
-  if (store.currentTab === 'stats') renderStats();
-  if (store.currentTab === 'ranks') renderLeaderboard();
-  // Re-apply accent in case cloud changed it
-  applyAccentColor();
-  // Re-sync unit UI
+  safeCall(() => rebuildPRs(), 'sync:rebuildPRs');
+  safeCall(() => updateDashboard(), 'sync:dashboard');
+  safeCall(() => renderCycleBar(), 'sync:cycleBar');
+  safeCall(() => updateWorkoutButton(), 'sync:workoutBtn');
+  if (store.currentTab === 'log') safeCall(() => renderProgramSection(), 'sync:program');
+  if (store.currentTab === 'history') safeCall(() => renderHistory(), 'sync:history');
+  if (store.currentTab === 'charts') safeCall(() => renderChart(), 'sync:charts');
+  if (store.currentTab === 'stats') safeCall(() => renderStats(), 'sync:stats');
+  if (store.currentTab === 'ranks') safeCall(() => renderLeaderboard(), 'sync:leaderboard');
+  safeCall(() => applyAccentColor(), 'sync:accent');
   document.querySelectorAll('.unit-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.unit === store.unit)
   );
@@ -394,10 +391,10 @@ setToastDeps({
       rebuildPRs();
     }
     // Refresh UI
-    updateDashboard();
-    renderCycleBar();
-    if (store.currentTab === 'history') renderHistory();
-    if (store.currentTab === 'charts') renderChart();
+    safeCall(() => updateDashboard(), 'undo:dashboard');
+    safeCall(() => renderCycleBar(), 'undo:cycleBar');
+    if (store.currentTab === 'history') safeCall(() => renderHistory(), 'undo:history');
+    if (store.currentTab === 'charts') safeCall(() => renderChart(), 'undo:charts');
   },
 });
 
@@ -605,11 +602,11 @@ document.querySelectorAll('.unit-btn').forEach(btn => {
     localStorage.setItem(UNIT_KEY, store.unit);
     scheduleCloudSync();
     document.querySelectorAll('.unit-label').forEach(el => el.textContent = store.unit);
-    updateDashboard();
-    updatePreview();
-    if (store.currentTab === 'history') renderHistory();
-    if (store.currentTab === 'charts') renderChart();
-    if (store.currentTab === 'stats') renderStats();
+    safeCall(() => updateDashboard(), 'unit:dashboard');
+    safeCall(() => updatePreview(), 'unit:preview');
+    if (store.currentTab === 'history') safeCall(() => renderHistory(), 'unit:history');
+    if (store.currentTab === 'charts') safeCall(() => renderChart(), 'unit:charts');
+    if (store.currentTab === 'stats') safeCall(() => renderStats(), 'unit:stats');
   });
 });
 

@@ -11,6 +11,21 @@
 import store from '../state/store.js';
 import { PLATE_MILESTONES, REP_RANGES } from '../constants/lift-config.js';
 
+let _rebuildScheduled = false;
+
+/**
+ * Schedule a PR rebuild for the next microtask, coalescing multiple
+ * calls in the same tick into one execution.
+ */
+export function schedulePRRebuild() {
+  if (_rebuildScheduled) return;
+  _rebuildScheduled = true;
+  queueMicrotask(() => {
+    _rebuildScheduled = false;
+    rebuildPRs();
+  });
+}
+
 /**
  * Rebuild the entire PR list from scratch by scanning all entries
  * in chronological order.  Marks each entry's `isPR` flag and

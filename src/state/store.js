@@ -438,6 +438,19 @@ class Store {
   // -------------------------------------------------------------------------
 
   /**
+   * Estimate current total localStorage usage in bytes.
+   * @returns {number}
+   */
+  getStorageUsage() {
+    let total = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      total += key.length + (localStorage.getItem(key) || '').length;
+    }
+    return total * 2; // JS strings are UTF-16 (2 bytes per char)
+  }
+
+  /**
    * Mark a store as dirty and schedule a batched flush via queueMicrotask.
    * Multiple `save()` calls in the same microtask tick coalesce into one write.
    * @param {string} name - Store name from STORES registry
@@ -461,8 +474,9 @@ class Store {
     if (!s) return;
     const val = s.get();
     try {
+      const json = JSON.stringify(val);
       if (val == null && s.nullable) localStorage.removeItem(s.key);
-      else localStorage.setItem(s.key, JSON.stringify(val));
+      else localStorage.setItem(s.key, json);
     } catch (e) {
       if (e.name === 'QuotaExceededError' || e.code === 22) {
         if (this.onStorageFull) this.onStorageFull('Storage full! Export your data.');
@@ -521,6 +535,17 @@ class Store {
     this._flushScheduled = false;
     const names = [...this._dirtyStores];
     this._dirtyStores.clear();
+
+    if (!this._quotaWarned) {
+      try {
+        const usage = this.getStorageUsage();
+        // Warn at 4MB (conservative for Safari's 5MB limit)
+        if (usage > 4 * 1024 * 1024 && this.onStorageFull) {
+          this._quotaWarned = true;
+          this.onStorageFull('Storage nearly full — export your data to avoid data loss.');
+        }
+      } catch { /* best-effort */ }
+    }
 
     names.forEach((name) => {
       const s = this.STORES[name];
