@@ -23,8 +23,10 @@ import {
   checkCycleBoundaryProgression,
   daysSinceLastLift,
 } from '../systems/programs.js';
+import { recoverProgramHistory } from '../systems/program-migration.js';
 import { openModal, closeModal } from '../ui/modal.js';
 import { showToast } from '../ui/toast.js';
+import { openHistoryReview } from './program-history-review.js';
 
 // ---------------------------------------------------------------------------
 // Dependency injection
@@ -134,22 +136,28 @@ export function renderProgramSection() {
     el.classList.remove('lift-complete');
   }
 
-  // Recovery banner: show once if migration left unmatched sets
+  // Recovery banner: show when there are completed sets that may need review
   const existingBanner = el.querySelector('.program-recovery-banner');
   if (existingBanner) existingBanner.remove();
   const pc = store.programConfig;
-  if (pc.completedSetDataMigrated && !pc.completedSetDataReviewDismissed &&
-      pc.completedSetDataUnrecoveredKeys && pc.completedSetDataUnrecoveredKeys.length > 0) {
-    const n = pc.completedSetDataUnrecoveredKeys.length;
-    const banner = document.createElement('div');
-    banner.className = 'program-recovery-banner';
-    banner.innerHTML = `<span>${n} past set${n !== 1 ? 's' : ''} couldn\u2019t be auto-recovered \u2014 your actual lift history is unchanged in History.</span> <button class="program-recovery-dismiss" style="margin-left:8px;font-size:var(--text-xs);cursor:pointer;background:none;border:1px solid currentColor;border-radius:4px;padding:2px 6px">Dismiss</button>`;
-    banner.querySelector('.program-recovery-dismiss').addEventListener('click', () => {
-      store.programConfig.completedSetDataReviewDismissed = true;
-      store.saveProgramConfig();
-      banner.remove();
-    });
-    setsEl.before(banner);
+  const hasCompletedSets = Object.keys(pc.completedSets || {}).length > 0;
+  if (hasCompletedSets && !pc.completedSetDataReviewDismissed) {
+    const unreviewed = Object.keys(pc.completedSets).filter(k => {
+      const d = pc.completedSetData?.[k];
+      return !d || d.recovered;
+    }).length;
+    if (unreviewed > 0) {
+      const banner = document.createElement('div');
+      banner.className = 'program-recovery-banner';
+      banner.innerHTML = `<span>${unreviewed} past set${unreviewed !== 1 ? 's' : ''} may have wrong weights from TM changes.</span><div style="display:flex;gap:6px;flex-shrink:0"><button class="program-recovery-review-btn">Review</button><button class="program-recovery-dismiss-btn">&#10005;</button></div>`;
+      banner.querySelector('.program-recovery-review-btn').addEventListener('click', openHistoryReview);
+      banner.querySelector('.program-recovery-dismiss-btn').addEventListener('click', () => {
+        store.programConfig.completedSetDataReviewDismissed = true;
+        store.saveProgramConfig();
+        banner.remove();
+      });
+      setsEl.before(banner);
+    }
   }
 
   // Days-since-last-lift badges on selector buttons
@@ -318,6 +326,15 @@ export function showProgramSetupModal() {
     // Confirm before wiping progress
     if (programChanged && Object.keys(store.programConfig.completedSets || {}).length > 0) {
       if (!confirm('Changing programs will reset your weekly progress. Continue?')) return;
+    }
+    if (!programChanged) {
+      // Freeze any legacy completed rows before changing TMs, so only
+      // incomplete workouts are recalculated from the new maxes.
+      recoverProgramHistory({
+        fallbackToPrescription: true,
+        overwriteRecovered: false,
+        save: false,
+      });
     }
     store.programConfig.activeProgram = sel || null;
     LIFTS.forEach(lift => {

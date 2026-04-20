@@ -91,6 +91,7 @@ class Store {
       progressedCycles: {},
       failureCounts: { squat: 0, bench: 0, deadlift: 0 },
       completedSetDataMigrated: false,
+      completedSetDataMigrationVersion: 0,
       completedSetDataUnrecoveredKeys: [],
       completedSetDataReviewDismissed: false,
     };
@@ -225,6 +226,7 @@ class Store {
           weekStreak: 0,
           progressedCycles: {},
           completedSetDataMigrated: false,
+          completedSetDataMigrationVersion: 0,
           completedSetDataUnrecoveredKeys: [],
           completedSetDataReviewDismissed: false,
         },
@@ -610,6 +612,7 @@ class Store {
     if (!pc.weekStreak) pc.weekStreak = 0;
     if (!pc.progressedCycles) pc.progressedCycles = {};
     if (!pc.failureCounts) pc.failureCounts = { squat: 0, bench: 0, deadlift: 0 };
+    if (!pc.completedSetDataMigrationVersion) pc.completedSetDataMigrationVersion = 0;
 
     // Migrate from single currentWeek to per-lift liftWeeks
     if (pc.currentWeek !== undefined && !pc.liftWeeks) {
@@ -625,7 +628,7 @@ class Store {
     // Migrate cycle-aware keys from reverted commits (92c9bd4, 5ee0388)
     // Format: "lift-c{cycle}-w{week}-{idx}" -> "lift-{week}-{idx}"
     const cycleKeyRe = /^(\w+)-c(\d+)-w(\d+)-(\d+)$/;
-    [pc.completedSets, pc.amrapResults].forEach(obj => {
+    [pc.completedSets, pc.completedSetData, pc.amrapResults].forEach(obj => {
       Object.keys(obj).forEach(key => {
         const m = key.match(cycleKeyRe);
         if (m) {
@@ -656,6 +659,7 @@ class Store {
     try {
       localStorage.setItem('sbd-completed-backup', JSON.stringify({
         completedSets: this.programConfig.completedSets,
+        completedSetData: this.programConfig.completedSetData,
         amrapResults: this.programConfig.amrapResults,
         completedWeeks: this.programConfig.completedWeeks,
         trainingMaxes: this.programConfig.trainingMaxes,
@@ -679,6 +683,9 @@ class Store {
       const backupCount = Object.keys(backup.completedSets).length;
       if (currentCount === 0 && backupCount > 0) {
         this.programConfig.completedSets = { ...backup.completedSets };
+        if (backup.completedSetData) {
+          this.programConfig.completedSetData = { ...backup.completedSetData };
+        }
         if (backup.amrapResults) {
           this.programConfig.amrapResults = { ...backup.amrapResults };
         }
@@ -686,6 +693,15 @@ class Store {
           this.programConfig.completedWeeks = { ...backup.completedWeeks };
         }
         this.saveNow('programs');
+      }
+
+      // Frozen completed-set data is safe to merge by key. Without it, old
+      // completed rows fall back to current-TM calculations.
+      if (backup.completedSetData) {
+        const currentData = this.programConfig.completedSetData || {};
+        const addsFrozenData = Object.keys(backup.completedSetData).some(k => !currentData[k]);
+        this.programConfig.completedSetData = { ...backup.completedSetData, ...currentData };
+        if (addsFrozenData) this.saveNow('programs');
       }
 
       // Restore training maxes if they were lost

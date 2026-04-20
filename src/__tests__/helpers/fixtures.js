@@ -102,7 +102,7 @@ export function resetMockStore(store) {
     machine: true,
     bodyweight: true,
   };
-  store.programConfig = { activeProgram: null, completedSets: {}, amrapResults: {}, liftWeeks: {} };
+  store.programConfig = { activeProgram: null, completedSets: {}, completedSetData: {}, amrapResults: {}, liftWeeks: {} };
 }
 
 /**

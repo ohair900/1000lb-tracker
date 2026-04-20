@@ -419,7 +419,7 @@ export function attachSettingsListeners() {
     store.profile = { gender: null, bodyweight: null, bodyweightHistory: [] };
     store.goals = { squat: null, bench: null, deadlift: null, total: null };
     store.activeCycleId = null; store.lastLoggedSet = null;
-    store.programConfig = { activeProgram: null, trainingMaxes: {}, liftWeeks: { squat: 1, bench: 1, deadlift: 1 }, completedSets: {}, completedSetData: {}, amrapResults: {}, tmHistory: [], autoProgressEnabled: true, completedWeeks: {}, weekStreak: 0, progressedCycles: {}, completedSetDataMigrated: false, completedSetDataUnrecoveredKeys: [], completedSetDataReviewDismissed: false };
+    store.programConfig = { activeProgram: null, trainingMaxes: {}, liftWeeks: { squat: 1, bench: 1, deadlift: 1 }, completedSets: {}, completedSetData: {}, amrapResults: {}, tmHistory: [], autoProgressEnabled: true, completedWeeks: {}, weekStreak: 0, progressedCycles: {}, completedSetDataMigrated: false, completedSetDataMigrationVersion: 0, completedSetDataUnrecoveredKeys: [], completedSetDataReviewDismissed: false };
     store.unlockedBadges = {};
     store.workoutConfig = { weakPoints: { squat: null, bench: null, deadlift: null }, setupComplete: false };
     store.accessoryLog = []; store.workoutSession = null;

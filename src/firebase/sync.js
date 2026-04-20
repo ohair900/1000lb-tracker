@@ -332,6 +332,7 @@ export function mergeCloudData(cloudData) {
     // Programs: cloud wins EXCEPT local-sensitive fields (union/local-wins merge)
     if (cloudData.programs) {
       const localCompleted = { ...store.programConfig.completedSets };
+      const localCompletedSetData = { ...store.programConfig.completedSetData };
       const localAmrap = { ...store.programConfig.amrapResults };
       const localCompletedWeeks = { ...store.programConfig.completedWeeks };
       const localTMs = { ...store.programConfig.trainingMaxes };
@@ -339,6 +340,7 @@ export function mergeCloudData(cloudData) {
       store.programConfig = { ...store.programConfig, ...cloudData.programs };
       // Union merge — never lose a local completion
       store.programConfig.completedSets = { ...(store.programConfig.completedSets || {}), ...localCompleted };
+      store.programConfig.completedSetData = { ...(store.programConfig.completedSetData || {}), ...localCompletedSetData };
       store.programConfig.amrapResults = { ...(store.programConfig.amrapResults || {}), ...localAmrap };
       store.programConfig.completedWeeks = { ...(store.programConfig.completedWeeks || {}), ...localCompletedWeeks };
       // Local wins for TMs and week numbers — prevents stale cloud from reverting progression

@@ -12,6 +12,10 @@ import { roundToPlate } from '../formulas/plates.js';
 import { formatWeight } from '../formulas/units.js';
 import { SUPPLEMENTAL_TIERS } from '../constants/program-tiers.js';
 
+function _validFrozenSetData(data) {
+  return !!data && Number.isFinite(Number(data.weight)) && Number.isFinite(Number(data.reps));
+}
+
 // ---------------------------------------------------------------------------
 // Per-lift week helper
 // ---------------------------------------------------------------------------
@@ -70,9 +74,10 @@ export function getProgramWorkout(lift, weekOverride) {
     week: useWeek,
     sets: weekData.sets.map((s, i) => {
       const key = `${lift}-${useWeek}-${i}`;
-      const frozen = store.programConfig.completedSets[key]
+      const maybeFrozen = store.programConfig.completedSets[key]
         ? store.programConfig.completedSetData?.[key]
         : null;
+      const frozen = _validFrozenSetData(maybeFrozen) ? maybeFrozen : null;
       return {
         num: i + 1,
         weight: frozen ? frozen.weight : roundToPlate(tm * s.pct / 100),
