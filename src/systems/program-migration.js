@@ -10,8 +10,9 @@ import store from '../state/store.js';
 import { PROGRAM_TEMPLATES } from '../data/programs.js';
 import { LIFT_NAMES } from '../constants/lift-config.js';
 import { roundToPlate } from '../formulas/plates.js';
+import { SUPPLEMENTAL_TIERS } from '../constants/program-tiers.js';
 
-export const PROGRAM_HISTORY_MIGRATION_VERSION = 2;
+export const PROGRAM_HISTORY_MIGRATION_VERSION = 3;
 
 /**
  * Infer the training max that was active when a given absolute week number
@@ -104,6 +105,7 @@ function _setItemFromKey(pc, tmpl, key) {
   if (!weekData || !weekData.sets[idx]) return null;
 
   const setSpec = weekData.sets[idx];
+  const primarySetCount = weekData.sets.filter(s => !SUPPLEMENTAL_TIERS.includes(s.tier)).length;
   const expectedTM = inferTMAtWeek(pc, lift, week, tmpl.weeks);
   const expectedWeight = expectedTM ? roundToPlate(expectedTM * setSpec.pct / 100) : 0;
   const isAmrap = _isAmrapReps(setSpec.reps);
@@ -121,6 +123,8 @@ function _setItemFromKey(pc, tmpl, key) {
     expectedTM,
     expectedWeight,
     pct: setSpec.pct,
+    tier: setSpec.tier || null,
+    primarySetCount,
     prescribedReps: setSpec.reps,
     isAmrap,
     prescribedFloor,
@@ -151,6 +155,215 @@ function _freezeFromEntry(item, entry) {
     recovered: true,
     recoveryVersion: PROGRAM_HISTORY_MIGRATION_VERSION,
   };
+}
+
+function _groupKey(item) {
+  return `${item.lift}-${item.week}`;
+}
+
+function _groupLabel(group) {
+  const liftName = LIFT_NAMES[group.lift] || group.lift;
+  return `${liftName} - Week ${group.week}`;
+}
+
+function _entryDate(entry) {
+  if (entry.date) return entry.date;
+  if (entry.timestamp) return new Date(entry.timestamp).toISOString().split('T')[0];
+  return '';
+}
+
+function _dateLabel(dateStr) {
+  if (!dateStr) return 'Unknown date';
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function _valuesSummary(values) {
+  const nums = values.filter(v => Number.isFinite(Number(v))).map(Number);
+  if (!nums.length) return '';
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  return min === max ? `${min}` : `${min}-${max}`;
+}
+
+function _buildWorkoutGroups() {
+  const groupsByKey = {};
+  _buildSetItems().forEach(item => {
+    const key = _groupKey(item);
+    if (!groupsByKey[key]) {
+      groupsByKey[key] = {
+        key,
+        lift: item.lift,
+        week: item.week,
+        label: '',
+        items: [],
+      };
+    }
+    groupsByKey[key].items.push(item);
+  });
+
+  return Object.values(groupsByKey)
+    .map(group => {
+      group.items.sort((a, b) => a.idx - b.idx);
+      group.label = _groupLabel(group);
+      group.expectedSetCount = group.items[0]?.primarySetCount || group.items.length;
+      group.isCompleteWorkout = group.items.length >= group.expectedSetCount;
+      return group;
+    })
+    .sort((a, b) => {
+      if (a.lift !== b.lift) return a.lift.localeCompare(b.lift);
+      return a.week - b.week;
+    });
+}
+
+function _buildEntrySessions(lift) {
+  const byDate = {};
+  store.entries
+    .filter(entry => entry.lift === lift)
+    .sort(_entrySort)
+    .forEach(entry => {
+      const date = _entryDate(entry);
+      if (!byDate[date]) {
+        byDate[date] = {
+          key: `${lift}-${date}`,
+          lift,
+          date,
+          label: _dateLabel(date),
+          entries: [],
+        };
+      }
+      byDate[date].entries.push(entry);
+    });
+
+  return Object.values(byDate).sort((a, b) => {
+    const at = a.entries[0]?.timestamp || new Date(a.date || 0).getTime() || 0;
+    const bt = b.entries[0]?.timestamp || new Date(b.date || 0).getTime() || 0;
+    return at - bt;
+  });
+}
+
+function _assignmentScore(group, entries) {
+  let weightScore = 0;
+  let exactRepMatches = 0;
+  group.items.forEach((item, idx) => {
+    const entry = entries[idx];
+    if (entry.reps === item.prescribedFloor) exactRepMatches++;
+    if (item.expectedWeight) {
+      weightScore += Math.abs(entry.weight - item.expectedWeight);
+    }
+  });
+  return {
+    exactRepMatches,
+    weightScore,
+    score: exactRepMatches * 1000 - weightScore,
+  };
+}
+
+function _bestEntryAssignment(group, session, usedEntries = new Set()) {
+  const needed = group.items.length;
+  const available = session.entries.filter(entry => !usedEntries.has(_entryKey(entry)));
+  if (available.length < needed) return null;
+
+  let best = null;
+  function search(itemIdx, chosen, remaining) {
+    if (itemIdx >= group.items.length) {
+      const scored = _assignmentScore(group, chosen);
+      const match = { entries: [...chosen], ...scored };
+      if (!best || match.score > best.score) best = match;
+      return;
+    }
+
+    const item = group.items[itemIdx];
+    const candidates = remaining
+      .filter(entry => _repMatches(entry, item))
+      .sort((a, b) => {
+        const ad = item.expectedWeight ? Math.abs(a.weight - item.expectedWeight) : 0;
+        const bd = item.expectedWeight ? Math.abs(b.weight - item.expectedWeight) : 0;
+        if (ad !== bd) return ad - bd;
+        return _entrySort(a, b);
+      })
+      .slice(0, 8);
+
+    candidates.forEach(entry => {
+      search(
+        itemIdx + 1,
+        [...chosen, entry],
+        remaining.filter(e => _entryKey(e) !== _entryKey(entry))
+      );
+    });
+  }
+
+  search(0, [], available);
+  return best;
+}
+
+function _bestSessionMatch(group, session, usedEntries = new Set()) {
+  const assignment = _bestEntryAssignment(group, session, usedEntries);
+  if (!assignment) return null;
+  return {
+    sessionKey: session.key,
+    date: session.date,
+    dateLabel: session.label,
+    entries: assignment.entries,
+    score: assignment.score,
+    exactRepMatches: assignment.exactRepMatches,
+    weightScore: assignment.weightScore,
+    weightSummary: _valuesSummary(assignment.entries.map(entry => entry.weight)),
+    repsSummary: _valuesSummary(assignment.entries.map(entry => entry.reps)),
+  };
+}
+
+function _buildWorkoutAssignments(groups, reservedEntries = new Set()) {
+  const assignments = {};
+  const byLift = {};
+  groups.filter(group => group.isCompleteWorkout).forEach(group => {
+    if (!byLift[group.lift]) byLift[group.lift] = [];
+    byLift[group.lift].push(group);
+  });
+
+  Object.entries(byLift).forEach(([lift, liftGroups]) => {
+    const sessions = _buildEntrySessions(lift);
+    const usedEntries = new Set(reservedEntries);
+    let cursor = sessions.length - 1;
+
+    [...liftGroups].sort((a, b) => b.week - a.week).forEach(group => {
+      let best = null;
+      let bestIndex = -1;
+
+      for (let i = cursor; i >= 0; i--) {
+        const match = _bestSessionMatch(group, sessions[i], usedEntries);
+        if (!match) continue;
+        best = match;
+        bestIndex = i;
+        break;
+      }
+
+      if (!best) return;
+
+      assignments[group.key] = best;
+      best.entries.forEach(entry => usedEntries.add(_entryKey(entry)));
+      cursor = bestIndex - 1;
+    });
+  });
+
+  return assignments;
+}
+
+function _shouldRecoverData(data, overwriteRecovered) {
+  if (!_hasFrozenData(data)) return true;
+  if (!overwriteRecovered) return false;
+  return !!data.recovered || (data.recoveryVersion || 0) < PROGRAM_HISTORY_MIGRATION_VERSION;
+}
+
+function _freezeGroupFromMatch(group, match, pc) {
+  let applied = 0;
+  group.items.forEach((item, idx) => {
+    const entry = match.entries[idx];
+    if (!entry) return;
+    pc.completedSetData[item.key] = _freezeFromEntry(item, entry);
+    applied++;
+  });
+  return applied;
 }
 
 function _freezeFromPrescription(item) {
@@ -188,12 +401,31 @@ function _freezeFromPrescription(item) {
  */
 export function buildSetCandidates() {
   const results = _buildSetItems();
+  const groups = _buildWorkoutGroups();
+  const assignments = _buildWorkoutAssignments(groups);
+  const assignedByKey = {};
+
+  groups.forEach(group => {
+    const match = assignments[group.key];
+    if (!match) return;
+    group.items.forEach((item, idx) => {
+      const entry = match.entries[idx];
+      if (entry) assignedByKey[item.key] = entry;
+    });
+  });
 
   results.forEach(item => {
     let candidates = store.entries.filter(e => e.lift === item.lift && _repMatches(e, item));
+    const assigned = assignedByKey[item.key];
 
-    // Score by weight proximity, then date descending for review convenience.
+    // Prefer the workout-level date match, then show nearby same-lift options.
     candidates.sort((a, b) => {
+      if (assigned) {
+        if (_entryKey(a) === _entryKey(assigned)) return -1;
+        if (_entryKey(b) === _entryKey(assigned)) return 1;
+      }
+      const dateCmp = String(b.date || '').localeCompare(String(a.date || ''));
+      if (dateCmp !== 0) return dateCmp;
       if (item.expectedWeight) {
         const wd = Math.abs(a.weight - item.expectedWeight) - Math.abs(b.weight - item.expectedWeight);
         if (wd !== 0) return wd;
@@ -213,6 +445,31 @@ export function buildSetCandidates() {
   });
 
   return results;
+}
+
+export function buildWorkoutReviewGroups() {
+  const groups = _buildWorkoutGroups();
+  const assignments = _buildWorkoutAssignments(groups);
+
+  return groups.map(group => {
+    const match = assignments[group.key] || null;
+    const pendingItems = group.items.filter(item => {
+      const data = item.existingData;
+      return !_hasFrozenData(data) || data.recovered ||
+        (data.recoveryVersion || 0) < PROGRAM_HISTORY_MIGRATION_VERSION;
+    });
+
+    return {
+      ...group,
+      match,
+      pendingCount: pendingItems.length,
+      status: pendingItems.length === 0
+        ? 'set'
+        : match
+          ? 'matched'
+          : group.isCompleteWorkout ? 'unmatched' : 'partial',
+    };
+  });
 }
 
 /**
@@ -243,11 +500,10 @@ export function recoverProgramHistory({
 
   if (!pc.completedSetData) pc.completedSetData = {};
 
-  const allItems = _buildSetItems();
+  const allGroups = _buildWorkoutGroups();
+  const allItems = allGroups.flatMap(group => group.items);
   const targetItems = allItems.filter(item => {
-    const data = pc.completedSetData[item.key];
-    if (!_hasFrozenData(data)) return true;
-    return overwriteRecovered && data.recovered;
+    return _shouldRecoverData(pc.completedSetData[item.key], overwriteRecovered);
   });
 
   const targetKeys = new Set(targetItems.map(item => item.key));
@@ -257,29 +513,36 @@ export function recoverProgramHistory({
     if (_hasFrozenData(data) && data.entryId) usedEntries.add(data.entryId);
   });
 
-  const entriesByLift = {};
-  store.entries.forEach(entry => {
-    if (!entriesByLift[entry.lift]) entriesByLift[entry.lift] = [];
-    entriesByLift[entry.lift].push(entry);
-  });
-  Object.values(entriesByLift).forEach(entries => entries.sort(_entrySort));
-
   let recovered = 0;
   let prescriptionFallback = 0;
   let changed = false;
   const unrecoveredKeys = [];
+  const recoveredKeys = new Set();
+
+  const assignments = _buildWorkoutAssignments(allGroups, usedEntries);
+  allGroups.forEach(group => {
+    const match = assignments[group.key];
+    if (!match) return;
+
+    let groupApplied = 0;
+    group.items.forEach((item, idx) => {
+      if (!targetKeys.has(item.key)) return;
+      const entry = match.entries[idx];
+      if (!entry) return;
+      pc.completedSetData[item.key] = _freezeFromEntry(item, entry);
+      usedEntries.add(_entryKey(entry));
+      recoveredKeys.add(item.key);
+      groupApplied++;
+    });
+
+    if (groupApplied > 0) {
+      recovered += groupApplied;
+      changed = true;
+    }
+  });
 
   targetItems.sort(_itemSort).forEach(item => {
-    const entries = entriesByLift[item.lift] || [];
-    const match = entries.find(entry => !usedEntries.has(_entryKey(entry)) && _repMatches(entry, item));
-
-    if (match) {
-      pc.completedSetData[item.key] = _freezeFromEntry(item, match);
-      usedEntries.add(_entryKey(match));
-      recovered++;
-      changed = true;
-      return;
-    }
+    if (recoveredKeys.has(item.key)) return;
 
     if (fallbackToPrescription && item.expectedWeight) {
       pc.completedSetData[item.key] = _freezeFromPrescription(item);
@@ -288,6 +551,10 @@ export function recoverProgramHistory({
       return;
     }
 
+    if (pc.completedSetData[item.key]?.recovered) {
+      delete pc.completedSetData[item.key];
+      changed = true;
+    }
     unrecoveredKeys.push(item.key);
   });
 

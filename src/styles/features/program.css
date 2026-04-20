@@ -117,6 +117,20 @@
 .hr-summary { font-size: var(--text-sm); color: var(--text-dim); margin-bottom: 14px; }
 .hr-empty { text-align: center; color: var(--text-dim); padding: 32px; font-size: var(--text-sm); }
 .hr-cards { display: flex; flex-direction: column; gap: 10px; }
+.hr-group-section { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.hr-group-card {
+  background: var(--surface); border-radius: var(--radius-lg);
+  border: 1px solid var(--border); overflow: hidden;
+}
+.hr-group-match {
+  font-size: var(--text-sm); color: var(--text);
+  padding: 6px 12px 8px; line-height: 1.4;
+}
+.hr-group-apply {
+  width: calc(100% - 24px); margin: 0 12px 12px; min-height: 42px;
+  border: none; border-radius: var(--radius-md); background: var(--green);
+  color: #fff; font-size: var(--text-sm); font-weight: 700; cursor: pointer;
+}
 
 .hr-set-card {
   background: var(--surface); border-radius: var(--radius-lg);

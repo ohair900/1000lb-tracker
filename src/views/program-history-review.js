@@ -9,11 +9,12 @@
 import store from '../state/store.js';
 import { formatWeight, displayWeight } from '../formulas/units.js';
 import { showToast } from '../ui/toast.js';
-import { buildSetCandidates } from '../systems/program-migration.js';
+import { buildSetCandidates, buildWorkoutReviewGroups } from '../systems/program-migration.js';
 
 // Selections made in the current review session: { [key]: { weight, reps, entryId, date } | 'skip' }
 let _selections = {};
 let _setData = [];
+let _groupData = [];
 
 function _lift_color(lift) {
   return lift === 'squat' ? 'var(--squat)' : lift === 'bench' ? 'var(--bench)' : 'var(--deadlift)';
@@ -96,6 +97,37 @@ function _renderSetCard(item) {
   </div>`;
 }
 
+function _renderGroupCard(group) {
+  const color = _lift_color(group.lift);
+  const selectedCount = group.items.filter(item => _selections[item.key] && _selections[item.key] !== 'skip').length;
+  const match = group.match;
+  const statusBadge = group.status === 'set'
+    ? `<span class="hr-badge hr-badge-set">&#10003; Set</span>`
+    : selectedCount === group.items.length
+      ? `<span class="hr-badge hr-badge-set">&#10003; Selected</span>`
+      : match
+        ? `<span class="hr-badge hr-badge-auto">Date match</span>`
+        : `<span class="hr-badge hr-badge-pending">${group.status === 'partial' ? 'Partial' : 'Needs review'}</span>`;
+
+  const expected = group.items
+    .map(item => `${displayWeight(item.expectedWeight)}x${item.prescribedReps}`)
+    .join(' / ');
+  const actual = match
+    ? match.entries.map(entry => `${displayWeight(entry.weight)}x${entry.reps}`).join(' / ')
+    : '';
+
+  return `<div class="hr-group-card" data-group-key="${group.key}">
+    <div class="hr-set-header" style="border-left:3px solid ${color}">
+      <div class="hr-set-title">${group.label}</div>
+      ${statusBadge}
+    </div>
+    <div class="hr-set-prescription">Expected: ${expected}</div>
+    ${match ? `<div class="hr-group-match"><strong>${match.dateLabel}</strong> ${actual}</div>
+      <button class="hr-group-apply" data-group-key="${group.key}">Use this workout</button>` :
+      `<div class="hr-no-candidates">${group.status === 'partial' ? 'Only part of this workout is marked complete.' : 'No full workout date matches these sets.'}</div>`}
+  </div>`;
+}
+
 function _countPending() {
   return _setData.filter(item => {
     const sel = _selections[item.key];
@@ -120,6 +152,9 @@ function _renderOverlay() {
   const cards = _setData.length > 0
     ? _setData.map(_renderSetCard).join('')
     : `<div class="hr-empty">No completed program sets to review.</div>`;
+  const groupCards = _groupData.length > 0
+    ? `<div class="hr-group-section"><div class="section-label-lg">Workout Date Matches</div>${_groupData.map(_renderGroupCard).join('')}</div>`
+    : '';
 
   const applyCount = Object.values(_selections).filter(v => v && v !== 'skip').length;
   const applyLabel = applyCount > 0 ? `Apply ${applyCount} Selection${applyCount !== 1 ? 's' : ''}` : 'Apply Selections';
@@ -132,6 +167,7 @@ function _renderOverlay() {
     <div class="hr-overlay-body" id="hr-body">
       <div class="hr-intro">Match each completed set to the entry you actually logged. Tap a row to select it. Changes only apply when you tap Apply.</div>
       ${summary}
+      ${groupCards}
       <div class="hr-cards">${cards}</div>
     </div>
     <div class="hr-overlay-footer">
@@ -191,6 +227,26 @@ function _attachEvents(overlay) {
       entryId: entry.id,
     };
     _patchCard(overlay, key);
+  });
+
+  overlay.querySelectorAll('.hr-group-apply').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const group = _groupData.find(g => g.key === btn.dataset.groupKey);
+      if (!group || !group.match) return;
+      group.items.forEach((item, idx) => {
+        const entry = group.match.entries[idx];
+        if (!entry) return;
+        _selections[item.key] = {
+          weight: entry.weight,
+          reps: entry.reps,
+          tm: item.expectedTM,
+          date: entry.date,
+          entryId: entry.id,
+        };
+      });
+      _renderOverlay();
+    });
   });
 }
 
@@ -258,6 +314,7 @@ function _applySelections() {
 export function openHistoryReview() {
   _selections = {};
   _setData = buildSetCandidates();
+  _groupData = buildWorkoutReviewGroups();
 
   let overlay = document.getElementById('history-review-overlay');
   if (!overlay) {

@@ -23,16 +23,16 @@ const { mockStore } = vi.hoisted(() => ({
 vi.mock('../state/store.js', () => ({ default: mockStore }));
 
 import { getProgramWorkout } from '../systems/programs.js';
-import { recoverProgramHistory } from '../systems/program-migration.js';
+import { buildWorkoutReviewGroups, recoverProgramHistory } from '../systems/program-migration.js';
 
-function entry(id, timestamp, weight, reps = 5) {
+function entry(id, timestamp, weight, reps = 5, lift = 'squat', date = null) {
   return {
     id,
-    lift: 'squat',
+    lift,
     weight,
     reps,
     e1rm: weight * (1 + reps / 30),
-    date: `2026-05-${String(timestamp).padStart(2, '0')}`,
+    date: date || `2026-05-${String(timestamp).padStart(2, '0')}`,
     timestamp,
     tags: [],
   };
@@ -80,11 +80,11 @@ describe('program history freezing', () => {
       'squat-1-4': true,
     };
     mockStore.entries = [
-      entry('e1', 1, 315),
-      entry('e2', 2, 315),
-      entry('e3', 3, 315),
-      entry('e4', 4, 315),
-      entry('e5', 5, 315),
+      entry('e1', 1, 315, 5, 'squat', '2026-05-01'),
+      entry('e2', 2, 315, 5, 'squat', '2026-05-01'),
+      entry('e3', 3, 315, 5, 'squat', '2026-05-01'),
+      entry('e4', 4, 315, 5, 'squat', '2026-05-01'),
+      entry('e5', 5, 315, 5, 'squat', '2026-05-01'),
     ];
 
     const result = recoverProgramHistory();
@@ -107,5 +107,70 @@ describe('program history freezing', () => {
 
     expect(result.recovered).toBe(0);
     expect(mockStore.programConfig.completedSetData['squat-1-0'].weight).toBe(300);
+  });
+
+  it('matches real 5/3/1 history by workout date and weights instead of reusing close sets', () => {
+    mockStore.programConfig.activeProgram = '5/3/1';
+    mockStore.programConfig.trainingMaxes = { bench: 245, squat: 300, deadlift: 385 };
+    mockStore.programConfig.completedSets = {};
+    for (let week = 1; week <= 6; week++) {
+      for (let idx = 0; idx < 3; idx++) {
+        mockStore.programConfig.completedSets[`bench-${week}-${idx}`] = true;
+      }
+    }
+    mockStore.programConfig.completedSetData = {};
+    mockStore.entries = [
+      entry('old1', 1, 215, 3, 'bench', '2026-03-03'),
+      entry('old2', 2, 225, 5, 'bench', '2026-03-03'),
+      entry('w1a', 10, 155, 5, 'bench', '2026-03-20'),
+      entry('w1b', 11, 175, 5, 'bench', '2026-03-20'),
+      entry('w1c', 12, 200, 6, 'bench', '2026-03-20'),
+      entry('w2a', 20, 165, 3, 'bench', '2026-03-23'),
+      entry('w2b', 21, 190, 3, 'bench', '2026-03-23'),
+      entry('w2c', 22, 210, 5, 'bench', '2026-03-23'),
+      entry('w3a', 30, 175, 5, 'bench', '2026-03-25'),
+      entry('w3b', 31, 200, 3, 'bench', '2026-03-25'),
+      entry('w3c', 32, 225, 3, 'bench', '2026-03-25'),
+      entry('w4a', 40, 95, 5, 'bench', '2026-03-28'),
+      entry('w4b', 41, 120, 5, 'bench', '2026-03-28'),
+      entry('w4c', 42, 140, 5, 'bench', '2026-03-28'),
+      entry('w5a', 50, 165, 5, 'bench', '2026-03-31'),
+      entry('w5b', 51, 190, 5, 'bench', '2026-03-31'),
+      entry('w5c', 52, 215, 5, 'bench', '2026-03-31'),
+      // Same date was logged out of order; recovery should still assign by weight/reps.
+      entry('w6b', 61, 205, 3, 'bench', '2026-04-02'),
+      entry('w6c', 62, 230, 4, 'bench', '2026-04-02'),
+      entry('w6a', 63, 180, 3, 'bench', '2026-04-02'),
+    ];
+
+    const result = recoverProgramHistory();
+
+    expect(result.recovered).toBe(18);
+    expect(result.unrecoveredKeys).toEqual([]);
+    expect(mockStore.programConfig.completedSetData['bench-1-0']).toMatchObject({ date: '2026-03-20', weight: 155, reps: 5 });
+    expect(mockStore.programConfig.completedSetData['bench-6-0']).toMatchObject({ date: '2026-04-02', weight: 180, reps: 3 });
+    expect(mockStore.programConfig.completedSetData['bench-6-1']).toMatchObject({ date: '2026-04-02', weight: 205, reps: 3 });
+    expect(mockStore.programConfig.completedSetData['bench-6-2']).toMatchObject({ date: '2026-04-02', weight: 230, reps: 4 });
+  });
+
+  it('surfaces workout-level matches for one-tap review', () => {
+    mockStore.programConfig.activeProgram = '5/3/1';
+    mockStore.programConfig.trainingMaxes = { bench: 245, squat: 300, deadlift: 385 };
+    mockStore.programConfig.completedSets = {
+      'bench-1-0': true,
+      'bench-1-1': true,
+      'bench-1-2': true,
+    };
+    mockStore.entries = [
+      entry('w1a', 10, 155, 5, 'bench', '2026-03-20'),
+      entry('w1b', 11, 175, 5, 'bench', '2026-03-20'),
+      entry('w1c', 12, 200, 6, 'bench', '2026-03-20'),
+    ];
+
+    const groups = buildWorkoutReviewGroups();
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].match.date).toBe('2026-03-20');
+    expect(groups[0].match.entries.map(e => `${e.weight}x${e.reps}`)).toEqual(['155x5', '175x5', '200x6']);
   });
 });
