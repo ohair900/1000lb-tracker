@@ -82,6 +82,7 @@ class Store {
       trainingMaxes: {},
       liftWeeks: { squat: 1, bench: 1, deadlift: 1 },
       completedSets: {},
+      completedSetData: {},
       amrapResults: {},
       tmHistory: [],
       autoProgressEnabled: true,
@@ -89,6 +90,9 @@ class Store {
       weekStreak: 0,
       progressedCycles: {},
       failureCounts: { squat: 0, bench: 0, deadlift: 0 },
+      completedSetDataMigrated: false,
+      completedSetDataUnrecoveredKeys: [],
+      completedSetDataReviewDismissed: false,
     };
     this.workoutConfig = {
       weakPoints: { squat: null, bench: null, deadlift: null },
@@ -213,12 +217,16 @@ class Store {
           trainingMaxes: {},
           liftWeeks: { squat: 1, bench: 1, deadlift: 1 },
           completedSets: {},
+          completedSetData: {},
           amrapResults: {},
           tmHistory: [],
           autoProgressEnabled: true,
           completedWeeks: {},
           weekStreak: 0,
           progressedCycles: {},
+          completedSetDataMigrated: false,
+          completedSetDataUnrecoveredKeys: [],
+          completedSetDataReviewDismissed: false,
         },
         postLoad: () => this._patchProgramConfig(),
       },
@@ -594,6 +602,7 @@ class Store {
     const pc = this.programConfig;
     if (!pc.trainingMaxes) pc.trainingMaxes = {};
     if (!pc.completedSets) pc.completedSets = {};
+    if (!pc.completedSetData) pc.completedSetData = {};
     if (!pc.amrapResults) pc.amrapResults = {};
     if (!pc.tmHistory) pc.tmHistory = [];
     if (pc.autoProgressEnabled === undefined) pc.autoProgressEnabled = true;

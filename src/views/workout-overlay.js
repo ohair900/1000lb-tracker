@@ -331,9 +331,17 @@ function _completeMainSet(idx) {
   set.completed = true;
   set.rpe = null;
   set.entryId = _lastMainEntryId;
-  store.programConfig.completedSets[`${store.workoutSession.mainLift}-${week}-${idx}`] = true;
+  const _setKey = `${store.workoutSession.mainLift}-${week}-${idx}`;
+  store.programConfig.completedSets[_setKey] = true;
+  store.programConfig.completedSetData[_setKey] = {
+    weight: set.weight,
+    reps: repsToLog,
+    tm: store.programConfig.trainingMaxes[store.workoutSession.mainLift],
+    date: new Date().toISOString().split('T')[0],
+    entryId: _lastMainEntryId,
+  };
   if (isAmrap && repsToLog) {
-    store.programConfig.amrapResults[`${store.workoutSession.mainLift}-${week}-${idx}`] = repsToLog;
+    store.programConfig.amrapResults[_setKey] = repsToLog;
   }
   const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
   if (tmpl && tmpl.progression && tmpl.progression.type === 'session') {
@@ -437,7 +445,7 @@ export function renderWorkoutView() {
           ${isAmrap ? '<span class="amrap-badge">AMRAP</span>' : ''}
           ${plateStr ? `<div class="plate-display">${plateStr} /side</div>` : ''}
         </div>
-        ${isAmrap ? `<input type="number" class="workout-set-input" data-main-amrap="${i}" placeholder="${parseInt(s.reps)}" min="1" inputmode="numeric" ${s.completed ? 'disabled' : ''}>` : ''}
+        ${isAmrap ? `<input type="number" class="workout-set-input" data-main-amrap="${i}" placeholder="${s.reps}" min="1" inputmode="numeric" ${s.completed ? 'disabled' : ''}>` : ''}
       </div>`;
     });
     html += `<button class="workout-add-set-btn" data-add-main-set>+ Add Set</button>`;
@@ -1146,16 +1154,29 @@ export function initWorkoutOverlay() {
       const set = store.workoutSession.mainSets[idx];
       const week = store.workoutSession.programWeek || (store.programConfig.liftWeeks?.[store.workoutSession.mainLift] || 1);
       if (set.completed) {
+        const key = `${store.workoutSession.mainLift}-${week}-${idx}`;
+        if (set.entryId) _deps.deleteEntry?.(set.entryId);
         set.completed = false;
         delete set.rpe;
         delete set.entryId;
-        delete store.programConfig.completedSets[`${store.workoutSession.mainLift}-${week}-${idx}`];
-        delete store.programConfig.amrapResults[`${store.workoutSession.mainLift}-${week}-${idx}`];
+        delete store.programConfig.completedSets[key];
+        delete store.programConfig.amrapResults[key];
+        delete store.programConfig.completedSetData[key];
         store.saveProgramConfig();
         store.saveWorkoutSession();
         renderWorkoutView();
         _deps.renderProgramSection?.();
       } else {
+        // Gate AMRAP sets: require explicit rep entry before logging
+        const isAmrapSet = typeof set.reps === 'string' && set.reps.toString().includes('+');
+        if (isAmrapSet) {
+          const amrapInput = document.querySelector(`[data-main-amrap="${idx}"]`);
+          if (!amrapInput || !amrapInput.value.trim()) {
+            if (amrapInput) amrapInput.focus();
+            showToast('Enter your reps first');
+            return;
+          }
+        }
         // Log immediately, then show RPE slider
         _completeMainSet(idx);
         // Remove any existing slider
@@ -1274,7 +1295,10 @@ export function initWorkoutOverlay() {
         }
       } else if (si === acc.setsCompleted.length) {
         const input = accRow.querySelector('.workout-set-input');
-        const reps = input && input.value ? parseInt(input.value) : acc.repRange[1];
+        const perSetTarget = (acc._targetReps && acc._targetReps[si] !== undefined)
+          ? acc._targetReps[si]
+          : acc.repRange[1];
+        const reps = input && input.value ? parseInt(input.value) : perSetTarget;
         acc.setsCompleted.push(reps);
         startTimer(store.timerDuration);
         if (navigator.vibrate) navigator.vibrate(50);
@@ -1328,8 +1352,10 @@ export function initWorkoutOverlay() {
       const week = store.workoutSession.programWeek || (store.programConfig.liftWeeks?.[lift] || 1);
       store.workoutSession.mainSets.forEach((s, i) => {
         if (s.completed) {
-          delete store.programConfig.completedSets[`${lift}-${week}-${i}`];
-          delete store.programConfig.amrapResults[`${lift}-${week}-${i}`];
+          const dKey = `${lift}-${week}-${i}`;
+          delete store.programConfig.completedSets[dKey];
+          delete store.programConfig.amrapResults[dKey];
+          delete store.programConfig.completedSetData[dKey];
         }
       });
       store.saveProgramConfig();

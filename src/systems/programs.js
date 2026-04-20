@@ -68,15 +68,21 @@ export function getProgramWorkout(lift, weekOverride) {
   return {
     label: weekData.label,
     week: useWeek,
-    sets: weekData.sets.map((s, i) => ({
-      num: i + 1,
-      weight: roundToPlate(tm * s.pct / 100),
-      reps: s.reps,
-      pct: s.pct,
-      tier: s.tier || null,
-      day: s.day || null,
-      completed: !!store.programConfig.completedSets[`${lift}-${useWeek}-${i}`]
-    }))
+    sets: weekData.sets.map((s, i) => {
+      const key = `${lift}-${useWeek}-${i}`;
+      const frozen = store.programConfig.completedSets[key]
+        ? store.programConfig.completedSetData?.[key]
+        : null;
+      return {
+        num: i + 1,
+        weight: frozen ? frozen.weight : roundToPlate(tm * s.pct / 100),
+        reps: frozen ? frozen.reps : s.reps,
+        pct: s.pct,
+        tier: s.tier || null,
+        day: s.day || null,
+        completed: !!store.programConfig.completedSets[key],
+      };
+    }),
   };
 }
 

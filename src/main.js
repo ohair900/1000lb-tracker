@@ -35,6 +35,7 @@ import { formatWeight, inputToLbs } from './formulas/units.js';
 import { rebuildPRs, checkPR, checkRepPR, getMilestone, updateBestAfterAdd } from './systems/pr-tracking.js';
 import { checkMilestonesAchieved, lockMilestones } from './systems/goals.js';
 import { migrateAccessoryIds } from './systems/accessory-migration.js';
+import { runProgramHistoryMigration } from './systems/program-migration.js';
 import {
   getProgramWorkout,
   updateWeekStreak,
@@ -489,6 +490,7 @@ setProgramSectionDeps({
 setWorkoutOverlayDeps({
   updateDashboard,
   addEntry,
+  deleteEntry,
   renderProgramSection,
   updateWorkoutButton,
   showWorkoutSummary,
@@ -537,6 +539,7 @@ setWelcomeDeps({
 const _ric = window.requestIdleCallback || ((cb) => setTimeout(cb, 1));
 _ric(() => {
   try { rebuildPRs(); } catch {}
+  try { runProgramHistoryMigration(); } catch {}
   // Migrate: auto-generate goalMilestones for users with existing goals
   try {
     ['squat', 'bench', 'deadlift'].forEach(lift => {

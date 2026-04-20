@@ -142,6 +142,14 @@ export function initLogTab() {
             if (!store.programConfig.amrapResults[key]) {
               store.programConfig.amrapResults[key] = r;
               store.programConfig.completedSets[key] = true;
+              if (!store.programConfig.completedSetData) store.programConfig.completedSetData = {};
+              store.programConfig.completedSetData[key] = {
+                weight: entry.weight,
+                reps: r,
+                tm: store.programConfig.trainingMaxes[store.currentLift],
+                date: entry.date,
+                entryId: entry.id,
+              };
               store.saveProgramConfig();
               _deps.renderProgramSection?.();
               // Session-type (SL5x5/SS) applies progression immediately

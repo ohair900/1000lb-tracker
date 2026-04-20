@@ -134,6 +134,24 @@ export function renderProgramSection() {
     el.classList.remove('lift-complete');
   }
 
+  // Recovery banner: show once if migration left unmatched sets
+  const existingBanner = el.querySelector('.program-recovery-banner');
+  if (existingBanner) existingBanner.remove();
+  const pc = store.programConfig;
+  if (pc.completedSetDataMigrated && !pc.completedSetDataReviewDismissed &&
+      pc.completedSetDataUnrecoveredKeys && pc.completedSetDataUnrecoveredKeys.length > 0) {
+    const n = pc.completedSetDataUnrecoveredKeys.length;
+    const banner = document.createElement('div');
+    banner.className = 'program-recovery-banner';
+    banner.innerHTML = `<span>${n} past set${n !== 1 ? 's' : ''} couldn\u2019t be auto-recovered \u2014 your actual lift history is unchanged in History.</span> <button class="program-recovery-dismiss" style="margin-left:8px;font-size:var(--text-xs);cursor:pointer;background:none;border:1px solid currentColor;border-radius:4px;padding:2px 6px">Dismiss</button>`;
+    banner.querySelector('.program-recovery-dismiss').addEventListener('click', () => {
+      store.programConfig.completedSetDataReviewDismissed = true;
+      store.saveProgramConfig();
+      banner.remove();
+    });
+    setsEl.before(banner);
+  }
+
   // Days-since-last-lift badges on selector buttons
   updateLiftDaysBadges();
 
@@ -164,10 +182,12 @@ export function renderProgramSection() {
       const set = workout.sets[idx];
       const wasLiftComplete = isLiftComplete(currentLift);
       const wasComplete = isWeekComplete(currentLift);
+      const psKey = `${currentLift}-${lw}-${idx}`;
       if (set.completed) {
         // Toggle off completed
-        delete store.programConfig.completedSets[`${currentLift}-${lw}-${idx}`];
-        delete store.programConfig.amrapResults[`${currentLift}-${lw}-${idx}`];
+        delete store.programConfig.completedSets[psKey];
+        delete store.programConfig.amrapResults[psKey];
+        delete store.programConfig.completedSetData[psKey];
       } else {
         // Auto-fill inputs
         const weightInput = $('input-weight');
@@ -177,8 +197,16 @@ export function renderProgramSection() {
         const repVal = typeof set.reps === 'string' ? parseInt(set.reps) : set.reps;
         if (repsInput) repsInput.value = repVal;
         _deps.updatePreview?.();
-        // Mark completed
-        store.programConfig.completedSets[`${currentLift}-${lw}-${idx}`] = true;
+        // Mark completed and freeze prescription at current TM
+        store.programConfig.completedSets[psKey] = true;
+        if (!store.programConfig.completedSetData) store.programConfig.completedSetData = {};
+        store.programConfig.completedSetData[psKey] = {
+          weight: set.weight,
+          reps: repVal,
+          tm: store.programConfig.trainingMaxes[currentLift],
+          date: new Date().toISOString().split('T')[0],
+          entryId: null,
+        };
         // Check session-type auto-progression (SL5x5 / SS)
         const tmpl2 = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
         if (tmpl2 && tmpl2.progression && tmpl2.progression.type === 'session') {
