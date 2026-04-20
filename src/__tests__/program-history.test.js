@@ -23,7 +23,7 @@ const { mockStore } = vi.hoisted(() => ({
 vi.mock('../state/store.js', () => ({ default: mockStore }));
 
 import { getProgramWorkout } from '../systems/programs.js';
-import { buildWorkoutReviewGroups, recoverProgramHistory } from '../systems/program-migration.js';
+import { buildWorkoutReviewGroups, recoverProgramHistory, runProgramHistoryMigration } from '../systems/program-migration.js';
 
 function entry(id, timestamp, weight, reps = 5, lift = 'squat', date = null) {
   return {
@@ -69,6 +69,19 @@ describe('program history freezing', () => {
     expect(workout.sets[0].reps).toBe(5);
     expect(workout.sets[1].weight).toBe(405);
     expect(workout.sets[1].reps).toBe(5);
+  });
+
+  it('keeps completed history frozen when a training max changes', () => {
+    mockStore.programConfig.completedSets = { 'squat-1-0': true };
+    mockStore.programConfig.completedSetData = {
+      'squat-1-0': { weight: 315, reps: 5, tm: 315, date: '2026-05-01', entryId: 'e1' },
+    };
+
+    mockStore.programConfig.trainingMaxes.squat = 455;
+    const workout = getProgramWorkout('squat', 1);
+
+    expect(workout.sets[0]).toMatchObject({ weight: 315, reps: 5, completed: true });
+    expect(workout.sets[1]).toMatchObject({ weight: 455, reps: 5, completed: false });
   });
 
   it('recovers repeated completed sets from distinct logged entries after a TM change', () => {
@@ -172,5 +185,26 @@ describe('program history freezing', () => {
     expect(groups).toHaveLength(1);
     expect(groups[0].match.date).toBe('2026-03-20');
     expect(groups[0].match.entries.map(e => `${e.weight}x${e.reps}`)).toEqual(['155x5', '175x5', '200x6']);
+  });
+
+  it('does not ask for history review after migration, even with unmatched partial sets', () => {
+    mockStore.programConfig.activeProgram = '5/3/1';
+    mockStore.programConfig.completedSets = {
+      'bench-1-0': true,
+      'bench-1-1': true,
+      'bench-1-2': true,
+      'bench-2-2': true,
+    };
+    mockStore.entries = [
+      entry('w1a', 10, 155, 5, 'bench', '2026-03-20'),
+      entry('w1b', 11, 175, 5, 'bench', '2026-03-20'),
+      entry('w1c', 12, 200, 6, 'bench', '2026-03-20'),
+    ];
+    mockStore.programConfig.completedSetDataReviewDismissed = false;
+
+    runProgramHistoryMigration();
+
+    expect(mockStore.programConfig.completedSetDataUnrecoveredKeys).toEqual(['bench-2-2']);
+    expect(mockStore.programConfig.completedSetDataReviewDismissed).toBe(true);
   });
 });

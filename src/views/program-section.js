@@ -26,7 +26,6 @@ import {
 import { recoverProgramHistory } from '../systems/program-migration.js';
 import { openModal, closeModal } from '../ui/modal.js';
 import { showToast } from '../ui/toast.js';
-import { openHistoryReview } from './program-history-review.js';
 
 // ---------------------------------------------------------------------------
 // Dependency injection
@@ -134,30 +133,6 @@ export function renderProgramSection() {
   } else {
     el.classList.remove('week-complete');
     el.classList.remove('lift-complete');
-  }
-
-  // Recovery banner: show when there are completed sets that may need review
-  const existingBanner = el.querySelector('.program-recovery-banner');
-  if (existingBanner) existingBanner.remove();
-  const pc = store.programConfig;
-  const hasCompletedSets = Object.keys(pc.completedSets || {}).length > 0;
-  if (hasCompletedSets && !pc.completedSetDataReviewDismissed) {
-    const unreviewed = Object.keys(pc.completedSets).filter(k => {
-      const d = pc.completedSetData?.[k];
-      return !d || d.recovered;
-    }).length;
-    if (unreviewed > 0) {
-      const banner = document.createElement('div');
-      banner.className = 'program-recovery-banner';
-      banner.innerHTML = `<span>${unreviewed} past set${unreviewed !== 1 ? 's' : ''} may have wrong weights from TM changes.</span><div style="display:flex;gap:6px;flex-shrink:0"><button class="program-recovery-review-btn">Review</button><button class="program-recovery-dismiss-btn">&#10005;</button></div>`;
-      banner.querySelector('.program-recovery-review-btn').addEventListener('click', openHistoryReview);
-      banner.querySelector('.program-recovery-dismiss-btn').addEventListener('click', () => {
-        store.programConfig.completedSetDataReviewDismissed = true;
-        store.saveProgramConfig();
-        banner.remove();
-      });
-      setsEl.before(banner);
-    }
   }
 
   // Days-since-last-lift badges on selector buttons

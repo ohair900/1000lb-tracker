@@ -12,7 +12,7 @@ import { LIFT_NAMES } from '../constants/lift-config.js';
 import { roundToPlate } from '../formulas/plates.js';
 import { SUPPLEMENTAL_TIERS } from '../constants/program-tiers.js';
 
-export const PROGRAM_HISTORY_MIGRATION_VERSION = 3;
+export const PROGRAM_HISTORY_MIGRATION_VERSION = 4;
 
 /**
  * Infer the training max that was active when a given absolute week number
@@ -601,7 +601,7 @@ export function runProgramHistoryMigration() {
   pc.completedSetDataMigrated = true;
   pc.completedSetDataMigrationVersion = PROGRAM_HISTORY_MIGRATION_VERSION;
   pc.completedSetDataUnrecoveredKeys = result.unrecoveredKeys;
-  pc.completedSetDataReviewDismissed = result.unrecoveredKeys.length === 0;
+  pc.completedSetDataReviewDismissed = true;
   store.saveProgramConfig();
 }
 
