@@ -226,6 +226,8 @@ function handleImport(ev) {
     const data = JSON.parse(ev.target.result);
     if (!data.entries || !Array.isArray(data.entries)) throw new Error('Invalid format');
     store.entries = data.entries;
+    // Mark every imported entry dirty so v2 push writes them to the subcollection
+    data.entries.forEach(e => { if (e?.id) store.onEntryDirty?.(e.id); });
     if (data.profile) store.profile = data.profile;
     if (data.goals) store.goals = data.goals;
     if (data.prs) store.prs = data.prs;
@@ -440,6 +442,8 @@ export function attachSettingsListeners() {
       console.warn('Cloud data clear failed:', err);
       showToast('Local data cleared (cloud clear failed — retry or sign out)');
     }
+    // Clear v2 migration flag so a fresh sign-in re-migrates correctly
+    try { localStorage.removeItem('sbd-migration-v2-done'); } catch {}
     closeModal('settings-modal');
     _deps.updateDashboard?.();
     _deps.renderCycleBar?.();

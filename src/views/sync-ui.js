@@ -44,6 +44,15 @@ export function showSchemaBlockedBanner(cloudVersion) {
   document.body.prepend(banner);
 }
 
+/**
+ * Shown when the v2 subcollection migration aborts because the user's
+ * Firestore security rules don't permit subcollection access. Prompts
+ * the user to update their rules via Settings → Firebase setup.
+ */
+export function showMigrationRulesPrompt() {
+  showToast('Sync upgrade needs an update to your Firestore rules. Open Settings → Firebase setup for the new rules.', 8000);
+}
+
 // ---------------------------------------------------------------------------
 // Sync button
 // ---------------------------------------------------------------------------

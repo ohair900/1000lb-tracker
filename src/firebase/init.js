@@ -29,6 +29,9 @@ export let query = null;
 export let orderBy = null;
 export let limit = null;
 export let deleteDoc = null;
+export let writeBatch = null;
+export let updateDoc = null;
+export let where = null;
 export let signInWithPopup = null;
 export let signInWithRedirect = null;
 export let getRedirectResult = null;
@@ -66,6 +69,9 @@ export async function initFirebase(config) {
       orderBy = fsMod.orderBy;
       limit = fsMod.limit;
       deleteDoc = fsMod.deleteDoc;
+      writeBatch = fsMod.writeBatch;
+      updateDoc = fsMod.updateDoc;
+      where = fsMod.where;
 
       // Populate Auth symbols
       signInWithPopup = authMod.signInWithPopup;

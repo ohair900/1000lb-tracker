@@ -70,6 +70,7 @@ export function addEntry(lift, weight, reps, rpe, notes, tags) {
 
   store.entries.push(entry);
   _deps.updateBestAfterAdd?.(lift, e1rm, weight, reps);
+  store.onEntryDirty?.(entry.id);
 
   if (isPR) {
     store.prs.push({
@@ -118,6 +119,7 @@ export function editEntry(id, lift, weight, reps, rpe, notes) {
   e.notes = notes || '';
   e.updatedAt = Date.now();
 
+  store.onEntryDirty?.(id);
   _deps.rebuildPRs();
 }
 
@@ -140,6 +142,7 @@ export function deleteEntry(id) {
   const wasPR = entry?.isPR;
   store.entries = store.entries.filter((e) => e.id !== id);
 
+  store.onEntryDirty?.(id);
   if (wasPR) _deps.rebuildPRs();
   else store.saveEntries();
 }
@@ -182,15 +185,18 @@ export function executeUndo() {
 
   if (type === 'delete') {
     store.entries.push(data.entry);
+    store.onEntryDirty?.(data.entry.id);
     _deps.rebuildPRs();
   } else if (type === 'edit') {
     const e = store.entries.find((x) => x.id === data.id);
     if (e) {
       Object.assign(e, data.previous);
+      store.onEntryDirty?.(data.id);
       _deps.rebuildPRs();
     }
   } else if (type === 'add') {
     store.entries = store.entries.filter((e) => e.id !== data.id);
+    store.onEntryDirty?.(data.id);
     _deps.rebuildPRs();
   }
 

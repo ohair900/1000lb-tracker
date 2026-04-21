@@ -22,6 +22,8 @@ import {
   orderBy,
   limit,
   deleteDoc,
+  writeBatch,
+  updateDoc,
 } from './init.js';
 
 import { currentUser } from './auth.js';
@@ -54,11 +56,18 @@ export const syncState = {
   lastLeaderboardFetch: 0,          // #3: cache leaderboard reads
   cachedLeaderboard: [],            // #3: cached data
   isMergeOriginated: false,         // #6: prevent merge → resync loop
+  // Release 2: subcollection migration
+  isMigrating: false,               // blocks all pushes during migration
+  migrationState: 'idle',           // idle|pre_check|snapshot|writing|updating|verifying|done|error
+  dirtyEntries: new Set(),          // entry IDs modified since last v2 push
+  lastAccLogPushGen: 0,             // tracks store._accLogGen at last v2 push
 };
 
 const SYNC_DEBOUNCE_MS = 10000;     // #1: 10s debounce (was 1.5s)
 const LEADERBOARD_CACHE_MS = 300000; // #3: 5-minute cache TTL
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
+const V2_MIGRATION_KEY = 'sbd-migration-v2-done';
+const BATCH_LIMIT = 450;            // Firestore caps at 500; leave room for parent doc ops
 
 // ===== Schema version guard =====
 // Prevents this code from overwriting data written by a newer schema version.
@@ -80,6 +89,18 @@ function checkAndBlockIfNewerSchema(cloudData) {
     return true;
   }
   return false;
+}
+
+// ===== Migration rules callback =====
+// Fired when the pre-migration rules-access check fails, so the UI
+// can prompt the user to update their Firestore security rules.
+let _onMigrationNeedsRules = null;
+export function setOnMigrationNeedsRules(cb) { _onMigrationNeedsRules = cb; }
+
+// Returns true if local has completed the v2 subcollection migration.
+function _isV2() {
+  try { return localStorage.getItem(V2_MIGRATION_KEY) != null; }
+  catch { return false; }
 }
 
 // ===== Callbacks (set by UI layer to avoid circular deps) =====
@@ -153,6 +174,13 @@ export function getLocalData() {
 // ===== Data hash for change detection (#5) =====
 
 function computeDataHash(data) {
+  // In v2, entries and accessoryLog live in subcollections and are tracked
+  // separately via generation counters. Exclude them from the parent-doc hash
+  // so entry-only changes don't invalidate the parent-doc push skip.
+  if (_isV2()) {
+    const { entries, accessoryLog, ...parentFields } = data;
+    return JSON.stringify(parentFields);
+  }
   return JSON.stringify(data);
 }
 
@@ -163,6 +191,11 @@ function computeDataHash(data) {
  */
 export async function pushToCloud() {
   if (!currentUser || !db || syncState.isMergingFromCloud || _schemaBlocked) return;
+  if (syncState.isMigrating) return;
+
+  // Route to v2 path if subcollection migration is complete
+  if (_isV2()) return pushToCloudV2();
+
   try {
     const data = getLocalData();
 
@@ -205,6 +238,7 @@ export async function pushToCloud() {
  */
 export function scheduleCloudSync() {
   if (!currentUser || !db || syncState.isMergingFromCloud || _schemaBlocked) return;
+  if (syncState.isMigrating) return;
   // #6: Skip if this was triggered by a merge save
   if (syncState.isMergeOriginated) return;
   clearTimeout(syncState.syncDebounceTimer);
@@ -219,7 +253,7 @@ export function scheduleCloudSync() {
  * Intended for the `visibilitychange` handler (tab hide / close).
  */
 export function flushPendingSync() {
-  if (_schemaBlocked) {
+  if (_schemaBlocked || syncState.isMigrating) {
     clearTimeout(syncState.syncDebounceTimer);
     syncState.syncDebounceTimer = null;
     return;
@@ -455,6 +489,456 @@ export function mergeCloudData(cloudData) {
   }
 }
 
+// ===========================================================================
+// Release 2: Subcollection migration (v1 → v2)
+// ===========================================================================
+
+/**
+ * Write + delete a probe doc in the entries subcollection to verify the
+ * user's Firestore security rules allow subcollection access.
+ * @returns {Promise<boolean>}
+ */
+async function testSubcollectionAccess() {
+  if (!currentUser || !db) return false;
+  const probeRef = doc(db, 'users', currentUser.uid, 'entries', '__rules_test__');
+  try {
+    await setDoc(probeRef, { _test: true, ts: Date.now() });
+    await deleteDoc(probeRef);
+    return true;
+  } catch (err) {
+    if (err.code === 'permission-denied') return false;
+    // Network or other error — don't block migration, it will surface its own error
+    console.warn('[migrate] rules probe inconclusive:', err);
+    return true;
+  }
+}
+
+/**
+ * Migrate entries and accessoryLog from the parent doc array into Firestore
+ * subcollections. Idempotent: retrying after partial failure is safe because
+ * entry.id is used as the subcollection doc ID.
+ *
+ * Commit point: the parent doc's schemaVersion bump to 2. If anything before
+ * that fails, the parent stays at v1 and the migration retries on next boot.
+ *
+ * Backup arrays (entries, accessoryLog) remain in the parent doc until
+ * Release 3 cleanup.
+ *
+ * @returns {Promise<boolean>} true on success
+ */
+async function migrateToV2() {
+  if (!currentUser || !db) return false;
+  if (syncState.isMigrating) return false;
+
+  syncState.isMigrating = true;
+  syncState.migrationState = 'pre_check';
+  notifyStatusChange();
+
+  try {
+    // 1. PRE_CHECK — rules allow subcollection access?
+    const hasAccess = await testSubcollectionAccess();
+    if (!hasAccess) {
+      syncState.migrationState = 'error';
+      _onMigrationNeedsRules?.();
+      return false;
+    }
+
+    // 2. SNAPSHOT — deep-copy local data at this instant
+    syncState.migrationState = 'snapshot';
+    const entriesSnapshot = JSON.parse(JSON.stringify(store.entries));
+    const accLogSnapshot = JSON.parse(JSON.stringify(store.accessoryLog));
+
+    // 3. WRITE SUBCOLLECTIONS — chunked batches
+    syncState.migrationState = 'writing';
+    for (let i = 0; i < entriesSnapshot.length; i += BATCH_LIMIT) {
+      const chunk = entriesSnapshot.slice(i, i + BATCH_LIMIT);
+      const batch = writeBatch(db);
+      chunk.forEach(e => batch.set(doc(db, 'users', currentUser.uid, 'entries', e.id), e));
+      await batch.commit();
+    }
+    for (let i = 0; i < accLogSnapshot.length; i += BATCH_LIMIT) {
+      const chunk = accLogSnapshot.slice(i, i + BATCH_LIMIT);
+      const batch = writeBatch(db);
+      chunk.forEach(a => batch.set(doc(db, 'users', currentUser.uid, 'accLog', a.id), a));
+      await batch.commit();
+    }
+
+    // 4. Capture anything added DURING migration (by diff against snapshot)
+    const snapIds = new Set(entriesSnapshot.map(e => e.id));
+    const newEntries = store.entries.filter(e => !snapIds.has(e.id));
+    if (newEntries.length > 0) {
+      const batch = writeBatch(db);
+      newEntries.forEach(e => batch.set(doc(db, 'users', currentUser.uid, 'entries', e.id), e));
+      await batch.commit();
+    }
+    const snapAccIds = new Set(accLogSnapshot.map(a => a.id));
+    const newAccLog = store.accessoryLog.filter(a => !snapAccIds.has(a.id));
+    if (newAccLog.length > 0) {
+      const batch = writeBatch(db);
+      newAccLog.forEach(a => batch.set(doc(db, 'users', currentUser.uid, 'accLog', a.id), a));
+      await batch.commit();
+    }
+
+    // 5. UPDATE PARENT — commit point. Keep arrays as backup for rollback safety.
+    syncState.migrationState = 'updating';
+    const parentData = getLocalData();
+    parentData.schemaVersion = 2;
+    parentData.lastEntryModified = serverTimestamp();
+    parentData.entryCount = store.entries.length;
+    parentData.accLogCount = store.accessoryLog.length;
+    parentData.migratedAt = serverTimestamp();
+    parentData.lastModified = serverTimestamp();
+    await setDoc(doc(db, 'users', currentUser.uid), parentData);
+
+    // 6. VERIFY — spot-check first entry exists in subcollection
+    syncState.migrationState = 'verifying';
+    if (entriesSnapshot.length > 0) {
+      const checkSnap = await getDoc(doc(db, 'users', currentUser.uid, 'entries', entriesSnapshot[0].id));
+      if (!checkSnap.exists()) throw new Error('Verification failed: first entry missing in subcollection');
+    }
+
+    // 7. DONE
+    syncState.migrationState = 'done';
+    try { localStorage.setItem(V2_MIGRATION_KEY, Date.now().toString()); } catch { /* quota — migration is idempotent, will retry */ }
+    syncState.dirtyEntries.clear();
+    syncState.lastAccLogPushGen = store._accLogGen;
+    syncState.lastPushHash = null; // Reset so next push computes v2 hash cleanly
+    return true;
+  } catch (err) {
+    console.error('[migrate] failed:', err);
+    syncState.migrationState = 'error';
+    syncState.status = 'error';
+    notifyStatusChange();
+    return false;
+  } finally {
+    syncState.isMigrating = false;
+  }
+}
+
+/**
+ * V2 push: parent doc + incremental entry writes.
+ * Only writes entries in syncState.dirtyEntries. AccLog pushes in full when
+ * _accLogGen changes (changes are rare and accLog is small).
+ */
+async function pushToCloudV2() {
+  if (!currentUser || !db || syncState.isMergingFromCloud || _schemaBlocked || syncState.isMigrating) return;
+
+  try {
+    syncState.status = 'syncing';
+    notifyStatusChange();
+
+    // 1. Parent doc (excluding entries/accLog is handled by computeDataHash)
+    const data = getLocalData();
+    data.schemaVersion = 2;
+    data.entryCount = store.entries.length;
+    data.accLogCount = store.accessoryLog.length;
+    data.lastModified = serverTimestamp();
+    const hash = computeDataHash(data);
+    const parentChanged = hash !== syncState.lastPushHash;
+    if (parentChanged) {
+      await setDoc(doc(db, 'users', currentUser.uid), data);
+      syncState.lastPushHash = hash;
+    }
+
+    // 2. Dirty entries → subcollection (also handles deletes)
+    const dirtyIds = syncState.dirtyEntries;
+    if (dirtyIds.size > 0) {
+      const currentById = new Map(store.entries.map(e => [e.id, e]));
+      const toWrite = [];
+      const toDelete = [];
+      for (const id of dirtyIds) {
+        const e = currentById.get(id);
+        if (e) toWrite.push(e);
+        else toDelete.push(id);
+      }
+      for (let i = 0; i < toWrite.length; i += BATCH_LIMIT) {
+        const chunk = toWrite.slice(i, i + BATCH_LIMIT);
+        const batch = writeBatch(db);
+        chunk.forEach(e => batch.set(doc(db, 'users', currentUser.uid, 'entries', e.id), e));
+        await batch.commit();
+      }
+      for (let i = 0; i < toDelete.length; i += BATCH_LIMIT) {
+        const chunk = toDelete.slice(i, i + BATCH_LIMIT);
+        const batch = writeBatch(db);
+        chunk.forEach(id => batch.delete(doc(db, 'users', currentUser.uid, 'entries', id)));
+        await batch.commit();
+      }
+      // Update sentinel so other devices know to re-fetch
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        lastEntryModified: serverTimestamp(),
+        entryCount: store.entries.length,
+      });
+      syncState.dirtyEntries.clear();
+    }
+
+    // 3. AccLog full-push on gen change (rare — only on workout completion)
+    if (store._accLogGen !== syncState.lastAccLogPushGen) {
+      for (let i = 0; i < store.accessoryLog.length; i += BATCH_LIMIT) {
+        const chunk = store.accessoryLog.slice(i, i + BATCH_LIMIT);
+        const batch = writeBatch(db);
+        chunk.forEach(a => batch.set(doc(db, 'users', currentUser.uid, 'accLog', a.id), a));
+        await batch.commit();
+      }
+      syncState.lastAccLogPushGen = store._accLogGen;
+    }
+
+    // 4. Leaderboard (unchanged from v1 path)
+    if (store.leaderboardOptedIn !== false) {
+      const s = bestE1RM('squat') || 0;
+      const b = bestE1RM('bench') || 0;
+      const d = bestE1RM('deadlift') || 0;
+      const scoreKey = `${s}|${b}|${d}`;
+      if (scoreKey !== syncState.lastLeaderboardScores) {
+        syncState.lastLeaderboardScores = scoreKey;
+        updateLeaderboard(s, b, d).catch(err => console.warn('Leaderboard update failed:', err));
+      }
+    }
+
+    syncState.status = 'synced';
+    notifyStatusChange();
+  } catch (err) {
+    console.error('Push to cloud (v2) failed:', err);
+    syncState.status = 'error';
+    notifyStatusChange();
+  }
+}
+
+/**
+ * Fetch entries subcollection and union-merge into store.entries.
+ */
+async function pullEntriesFromSubcollection() {
+  if (!currentUser || !db) return;
+  try {
+    const entriesRef = collection(db, 'users', currentUser.uid, 'entries');
+    const snap = await getDocs(entriesRef);
+    const cloudEntries = [];
+    snap.forEach(d => {
+      const data = d.data();
+      if (data && !data._test) cloudEntries.push(data);
+    });
+
+    const localMap = new Map(store.entries.map(e => [e.id, e]));
+    const localDeleted = store.deletedEntryIds;
+    cloudEntries.forEach(ce => {
+      if (localDeleted.has(ce.id)) return;
+      const local = localMap.get(ce.id);
+      if (!local) {
+        store.entries.push(ce);
+      } else {
+        const cloudTime = ce.updatedAt || ce.timestamp;
+        const localTime = local.updatedAt || local.timestamp;
+        if (cloudTime > localTime) Object.assign(local, ce);
+      }
+    });
+    store.saveEntries();
+  } catch (err) {
+    console.error('[v2] pullEntriesFromSubcollection failed:', err);
+  }
+}
+
+/**
+ * Fetch accessoryLog subcollection and union-merge into store.accessoryLog.
+ */
+async function pullAccLogFromSubcollection() {
+  if (!currentUser || !db) return;
+  try {
+    const ref = collection(db, 'users', currentUser.uid, 'accLog');
+    const snap = await getDocs(ref);
+    const cloud = [];
+    snap.forEach(d => { const data = d.data(); if (data) cloud.push(data); });
+
+    const localMap = new Map(store.accessoryLog.map(a => [a.id, a]));
+    cloud.forEach(ca => {
+      if (!localMap.has(ca.id)) store.accessoryLog.push(ca);
+    });
+    store.saveAccessoryLog();
+  } catch (err) {
+    console.error('[v2] pullAccLogFromSubcollection failed:', err);
+  }
+}
+
+/**
+ * V2 merge: same as mergeCloudData but skips the entries/accessoryLog array
+ * blocks (those live in subcollections now). All other fields merge identically.
+ */
+function mergeCloudDataV2(cloudData) {
+  if (!cloudData) return;
+  if (checkAndBlockIfNewerSchema(cloudData)) return;
+
+  syncState.isMergingFromCloud = true;
+  syncState.isMergeOriginated = true;
+  try {
+    // Profile (same as v1)
+    if (cloudData.profile) {
+      if (cloudData.profile.gender) store.profile.gender = cloudData.profile.gender;
+      if (cloudData.profile.bodyweight) store.profile.bodyweight = cloudData.profile.bodyweight;
+      if (cloudData.profile.bodyweightHistory && Array.isArray(cloudData.profile.bodyweightHistory)) {
+        const localBWMap = new Map((store.profile.bodyweightHistory || []).map(b => [b.timestamp, b]));
+        cloudData.profile.bodyweightHistory.forEach(cb => {
+          if (!localBWMap.has(cb.timestamp)) store.profile.bodyweightHistory.push(cb);
+        });
+        store.profile.bodyweightHistory.sort((a, b) => a.timestamp - b.timestamp);
+      }
+    }
+    if (cloudData.goals) store.goals = { ...store.goals, ...cloudData.goals };
+    if (cloudData.cycles && Array.isArray(cloudData.cycles)) {
+      const localCycleMap = new Map(store.cycles.map(c => [c.id, c]));
+      cloudData.cycles.forEach(cc => {
+        if (!localCycleMap.has(cc.id)) store.cycles.push(cc);
+        else Object.assign(localCycleMap.get(cc.id), cc);
+      });
+      store.activeCycleId = (store.cycles.find(c => c.active) || {}).id || null;
+    }
+    if (cloudData.programs) {
+      const localCompleted = { ...store.programConfig.completedSets };
+      const localAmrap = { ...store.programConfig.amrapResults };
+      const localCompletedWeeks = { ...store.programConfig.completedWeeks };
+      const localTMs = { ...store.programConfig.trainingMaxes };
+      const localLiftWeeks = { ...store.programConfig.liftWeeks };
+      store.programConfig = { ...store.programConfig, ...cloudData.programs };
+      store.programConfig.completedSets = { ...(store.programConfig.completedSets || {}), ...localCompleted };
+      store.programConfig.amrapResults = { ...(store.programConfig.amrapResults || {}), ...localAmrap };
+      store.programConfig.completedWeeks = { ...(store.programConfig.completedWeeks || {}), ...localCompletedWeeks };
+      store.programConfig.trainingMaxes = { ...(store.programConfig.trainingMaxes || {}), ...localTMs };
+      store.programConfig.liftWeeks = { ...(store.programConfig.liftWeeks || {}), ...localLiftWeeks };
+      store._patchProgramConfig();
+      store.save('programs');
+    }
+    if (cloudData.unit) { store.unit = cloudData.unit; localStorage.setItem(UNIT_KEY, store.unit); }
+    if (cloudData.timer) { store.timerDuration = cloudData.timer; localStorage.setItem(TIMER_KEY, store.timerDuration.toString()); }
+    if (cloudData.badges) {
+      Object.entries(cloudData.badges).forEach(([id, data]) => {
+        if (!store.unlockedBadges[id] || (data.timestamp && data.timestamp < (store.unlockedBadges[id].timestamp || Infinity))) {
+          store.unlockedBadges[id] = data;
+        }
+      });
+      localStorage.setItem(BADGES_KEY, JSON.stringify(store.unlockedBadges));
+    }
+    if (cloudData.dashboardWidgets) {
+      store.dashboardWidgets = { ...store.dashboardWidgets, ...cloudData.dashboardWidgets };
+      localStorage.setItem(DASH_WIDGETS_KEY, JSON.stringify(store.dashboardWidgets));
+    }
+    if (cloudData.accentColor) { store.accentColor = cloudData.accentColor; localStorage.setItem(ACCENT_KEY, store.accentColor); }
+    if (cloudData.celebratedTotals) {
+      let localCelebrated = {};
+      try { localCelebrated = JSON.parse(localStorage.getItem(TOTAL_CELEBRATED_KEY)) || {}; } catch {}
+      Object.entries(cloudData.celebratedTotals).forEach(([ms, ts]) => {
+        if (!localCelebrated[ms] || (ts && Number(ts) < Number(localCelebrated[ms]))) localCelebrated[ms] = ts;
+      });
+      localStorage.setItem(TOTAL_CELEBRATED_KEY, JSON.stringify(localCelebrated));
+    }
+    if (cloudData.workoutConfig) {
+      store.workoutConfig = { ...store.workoutConfig, ...cloudData.workoutConfig };
+      store.save('workoutConfig');
+    }
+    if (cloudData.customTemplates && Array.isArray(cloudData.customTemplates)) {
+      const localTmplMap = new Map(store.customTemplates.map(t => [t.id, t]));
+      cloudData.customTemplates.forEach(ct => {
+        const local = localTmplMap.get(ct.id);
+        if (!local) store.customTemplates.push(ct);
+        else if (ct.lastUsed > (local.lastUsed || 0)) Object.assign(local, ct);
+      });
+      store.save('customTemplates');
+    }
+    if (cloudData.activeMesocycle) {
+      if (!store.activeMesocycle || (cloudData.activeMesocycle.createdAt > store.activeMesocycle.createdAt)) {
+        store.activeMesocycle = cloudData.activeMesocycle;
+        store.save('mesocycle');
+      }
+    }
+    if (cloudData.mesocycleHistory && Array.isArray(cloudData.mesocycleHistory)) {
+      const localMesoMap = new Map(store.mesocycleHistory.map(m => [m.id, m]));
+      cloudData.mesocycleHistory.forEach(cm => {
+        if (!localMesoMap.has(cm.id)) store.mesocycleHistory.push(cm);
+      });
+      store.save('mesocycleHistory');
+    }
+    if (cloudData.leaderboardOptedIn !== undefined) {
+      store.leaderboardOptedIn = cloudData.leaderboardOptedIn;
+      store.save('leaderboard');
+    }
+
+    // Handle cross-device deletes (deletedEntryIds still in parent doc)
+    if (cloudData.deletedEntryIds && Array.isArray(cloudData.deletedEntryIds)) {
+      const cloudDeleted = new Set(cloudData.deletedEntryIds.map(r => r.id || r));
+      store.entries = store.entries.filter(e => !cloudDeleted.has(e.id));
+      cloudData.deletedEntryIds.forEach(r => {
+        const id = r.id || r;
+        if (!store.deletedEntryIds.has(id)) {
+          const rec = typeof r === 'object' ? r : { id: r, deletedAt: Date.now() };
+          store._deletedEntryRecords.push(rec);
+          store.deletedEntryIds.add(id);
+        }
+      });
+      store.save('deletedEntryIds');
+    }
+
+    store.undoStack = null;
+    store.saveAll();
+    onSyncComplete?.();
+  } finally {
+    syncState.isMergingFromCloud = false;
+    queueMicrotask(() => { syncState.isMergeOriginated = false; });
+  }
+}
+
+/**
+ * V2 realtime sync: listen only to the parent doc. When lastEntryModified
+ * changes, pull the subcollection. Avoids the quota-killing N-reads-per-attach
+ * cost of subcollection listeners.
+ */
+function startRealtimeSyncV2() {
+  if (!currentUser || !db) return;
+  if (syncState.unsubSnapshot) {
+    syncState.unsubSnapshot();
+    syncState.unsubSnapshot = null;
+  }
+  let lastKnownEntryModified = null;
+  const userDocRef = doc(db, 'users', currentUser.uid);
+  syncState.unsubSnapshot = onSnapshot(userDocRef, async (snapshot) => {
+    if (!snapshot.exists()) return;
+    const cloudData = snapshot.data();
+    if (checkAndBlockIfNewerSchema(cloudData)) { stopRealtimeSync(); return; }
+    if (syncState.isMergingFromCloud || syncState.isMigrating) return;
+    if (syncState.syncDebounceTimer) return;
+
+    mergeCloudDataV2(cloudData);
+
+    // If entries changed on another device, fetch them from subcollection
+    const cloudEntryMod = cloudData.lastEntryModified?.toMillis?.() || cloudData.lastEntryModified || 0;
+    if (lastKnownEntryModified !== null && cloudEntryMod > lastKnownEntryModified) {
+      await pullEntriesFromSubcollection();
+      await pullAccLogFromSubcollection();
+    }
+    lastKnownEntryModified = cloudEntryMod;
+
+    syncState.status = 'synced';
+    notifyStatusChange();
+  }, (err) => {
+    console.error('Snapshot listener error (v2):', err);
+    syncState.status = 'error';
+    notifyStatusChange();
+  });
+}
+
+/**
+ * Delete every document in a named subcollection (users/{uid}/{name}).
+ * Firestore does not cascade deletes, so we must do this explicitly.
+ */
+async function deleteSubcollection(name) {
+  if (!currentUser || !db) return;
+  const colRef = collection(db, 'users', currentUser.uid, name);
+  const snap = await getDocs(colRef);
+  const refs = [];
+  snap.forEach(d => refs.push(d.ref));
+  for (let i = 0; i < refs.length; i += BATCH_LIMIT) {
+    const chunk = refs.slice(i, i + BATCH_LIMIT);
+    const batch = writeBatch(db);
+    chunk.forEach(r => batch.delete(r));
+    await batch.commit();
+  }
+}
+
 // ===== startRealtimeSync =====
 
 /**
@@ -463,6 +947,7 @@ export function mergeCloudData(cloudData) {
  */
 export function startRealtimeSync() {
   if (!currentUser || !db) return;
+  if (_isV2()) return startRealtimeSyncV2();
   if (syncState.unsubSnapshot) {
     syncState.unsubSnapshot();
     syncState.unsubSnapshot = null;
@@ -641,10 +1126,16 @@ function _computeTotalMilestones() {
 export async function clearCloudData() {
   if (!currentUser || !db) return;
   try {
+    // Firestore does not cascade subcollection deletes — clear them first
+    if (_isV2()) {
+      try { await deleteSubcollection('entries'); } catch (e) { console.warn('[clear] entries subcollection:', e); }
+      try { await deleteSubcollection('accLog'); } catch (e) { console.warn('[clear] accLog subcollection:', e); }
+    }
     await deleteDoc(doc(db, 'users', currentUser.uid));
     await removeFromLeaderboard();
     syncState.lastPushHash = null;
     syncState.lastLeaderboardScores = null;
+    try { localStorage.removeItem(V2_MIGRATION_KEY); } catch {}
   } catch (err) {
     console.warn('Failed to clear cloud data:', err);
   }
@@ -700,14 +1191,46 @@ export async function handleFirstSignIn() {
   try {
     const snapshot = await getDoc(userDocRef);
     if (!snapshot.exists()) {
-      // No cloud doc — push all local data up
+      // No cloud doc — push all local data up (v1 format initially; migration
+      // will happen on next boot when cloud doc is read back)
       await pushToCloud();
+      return;
+    }
+
+    const cloudData = snapshot.data();
+    const cloudVersion = cloudData.schemaVersion || 1;
+
+    // Safety: if cloud is newer than we understand (future v3+), block
+    if (cloudVersion > SCHEMA_VERSION) {
+      checkAndBlockIfNewerSchema(cloudData);
+      return;
+    }
+
+    if (cloudVersion >= 2) {
+      // Cloud is v2. Merge parent-doc fields, then pull subcollections.
+      mergeCloudDataV2(cloudData);
+      await pullEntriesFromSubcollection();
+      await pullAccLogFromSubcollection();
+
+      // Mark local as v2 if not already
+      if (!_isV2()) {
+        try { localStorage.setItem(V2_MIGRATION_KEY, Date.now().toString()); } catch {}
+        syncState.dirtyEntries.clear();
+        syncState.lastAccLogPushGen = store._accLogGen;
+        syncState.lastPushHash = null;
+      }
+
+      // Push merged result back via v2 path
+      await pushToCloudV2();
     } else {
-      // Cloud doc exists — check schema version before merging
-      if (checkAndBlockIfNewerSchema(snapshot.data())) return;
-      // Merge cloud into local, then push merged result back
-      mergeCloudData(snapshot.data());
-      await pushToCloud();
+      // Cloud is v1. Merge then attempt migration.
+      mergeCloudData(cloudData);
+      const migrated = await migrateToV2();
+      if (!migrated) {
+        // Migration failed (e.g. rules). Fall back to a v1 push so local
+        // changes aren't lost.
+        await pushToCloud();
+      }
     }
   } catch (err) {
     console.error('First sign-in sync failed:', err);

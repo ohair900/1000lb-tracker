@@ -60,7 +60,9 @@ import {
   setOnSyncComplete,
   setOnSyncStatusChange,
   setOnSchemaBlocked,
+  setOnMigrationNeedsRules,
   runDataIntegrityChecks,
+  syncState,
   stopRealtimeSync,
   startRealtimeSync,
 } from './firebase/sync.js';
@@ -120,7 +122,7 @@ import {
 import { showWorkoutSummary } from './views/workout-summary.js';
 import { initWelcomeOverlay, setWelcomeDeps, showWelcomeScreen } from './views/welcome.js';
 import { renderCycleBar } from './views/cycle-bar.js';
-import { initSyncUI, updateSyncButton, showSchemaBlockedBanner } from './views/sync-ui.js';
+import { initSyncUI, updateSyncButton, showSchemaBlockedBanner, showMigrationRulesPrompt } from './views/sync-ui.js';
 import { initLeaderboardTab, renderLeaderboard } from './views/leaderboard.js';
 
 // ===== 8. Polyfills =====
@@ -328,6 +330,8 @@ injectActions({
 // 4b. Store hooks — cloud sync on every local save
 store.onAfterFlush = scheduleCloudSync;
 store.onStorageFull = (msg) => showToast(msg);
+// Release 2: track dirty entries for incremental subcollection push
+store.onEntryDirty = (id) => { syncState.dirtyEntries.add(id); };
 // Re-render the dashboard once deferred stores (accessoryLog, etc.) finish
 // loading — prevents the body-map "stale guy flash" on cold start.
 store.onDeferredLoad = () => {
@@ -382,6 +386,11 @@ setOnSchemaBlocked((cloudVersion) => {
   showSchemaBlockedBanner(cloudVersion);
 });
 
+// 4d4. Migration rules callback — prompt user to update Firestore rules
+setOnMigrationNeedsRules(() => {
+  showMigrationRulesPrompt();
+});
+
 // 4e. Toast deps
 setToastDeps({
   sharePRCard,
@@ -392,15 +401,18 @@ setToastDeps({
       store.deletedEntryIds.delete(data.entry.id);
       store._deletedEntryRecords = store._deletedEntryRecords.filter(r => r.id !== data.entry.id);
       store.save('deletedEntryIds');
+      store.onEntryDirty?.(data.entry.id);
       rebuildPRs();
     } else if (type === 'edit' && data.id) {
       const e = store.entries.find(x => x.id === data.id);
       if (e) {
         Object.assign(e, data.previous);
+        store.onEntryDirty?.(data.id);
         rebuildPRs();
       }
     } else if (type === 'add' && data.id) {
       store.entries = store.entries.filter(e => e.id !== data.id);
+      store.onEntryDirty?.(data.id);
       rebuildPRs();
     }
     // Refresh UI

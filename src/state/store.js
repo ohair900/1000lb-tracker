@@ -355,6 +355,14 @@ class Store {
      * @type {Function|null}
      */
     this.onStorageFull = null;
+
+    /**
+     * Optional callback fired when an individual entry is mutated (add/edit/
+     * delete). Release 2 wires this to track entries needing incremental push
+     * to the Firestore subcollection.
+     * @type {Function|null} (id: string) => void
+     */
+    this.onEntryDirty = null;
   }
 
   // -------------------------------------------------------------------------
