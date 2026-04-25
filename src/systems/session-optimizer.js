@@ -366,10 +366,14 @@ export function evaluateSetCompletion(setIdx, actualRPE, actualReps, actualWeigh
 
   const rpeDrift = actualRPE - target.expectedRPE;
 
-  // Compute cumulative drift across all evaluated sets
+  // Compute cumulative drift, excluding sets that have since been dropped
+  const droppedIndices = new Set(
+    (store.workoutSession?.mainSets || [])
+      .flatMap((s, i) => s._dropped ? [i] : [])
+  );
   const allEvals = optimizer.evaluations || [];
   const pastDrifts = allEvals
-    .filter(e => e && e.rpeDrift != null)
+    .filter(e => e && e.rpeDrift != null && !droppedIndices.has(e.setIndex))
     .map(e => e.rpeDrift);
   pastDrifts.push(rpeDrift);
   const avgDrift = pastDrifts.reduce((s, d) => s + d, 0) / pastDrifts.length;
@@ -535,7 +539,7 @@ export function gradeSession(session) {
   const mainTonnage = session.mainSets
     .filter(s => s.completed)
     .reduce((sum, s) => {
-      const reps = typeof s.reps === 'string' ? parseInt(s.reps) : s.reps;
+      const reps = s.actualReps ?? (typeof s.reps === 'string' ? parseInt(s.reps) : s.reps);
       return sum + (s.weight * (reps || 0));
     }, 0);
   const bbbTonnage = session.bbbSets

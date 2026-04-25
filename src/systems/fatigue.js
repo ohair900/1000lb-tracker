@@ -169,7 +169,7 @@ function getThresholds() {
 
   // Build daily loads for user's full history and compute rolling EWMA ACWR
   const sorted = [...entries].sort((a, b) => a.timestamp - b.timestamp);
-  const firstDay = new Date(sorted[0].date);
+  const firstDay = new Date(sorted[0].date + 'T12:00:00');
   const today = new Date();
   const totalDays = Math.ceil((today - firstDay) / MS_PER_DAY) + 1;
 
@@ -182,7 +182,7 @@ function getThresholds() {
   // Build daily load array
   const dailyLoads = new Array(totalDays).fill(0);
   sorted.forEach(e => {
-    const dayIdx = Math.floor((new Date(e.date) - firstDay) / MS_PER_DAY);
+    const dayIdx = Math.floor((new Date(e.date + 'T12:00:00') - firstDay) / MS_PER_DAY);
     if (dayIdx >= 0 && dayIdx < totalDays) {
       dailyLoads[dayIdx] += calcINOL(e.weight, e.reps, e.e1rm);
     }
@@ -278,8 +278,8 @@ function calcMuscleDensity(mainEntries, accEntries, mg) {
   const sorted = [...trainingDays].sort();
   let maxStreak = 1, streak = 1;
   for (let i = 1; i < sorted.length; i++) {
-    const prev = new Date(sorted[i - 1]);
-    const curr = new Date(sorted[i]);
+    const prev = new Date(sorted[i - 1] + 'T12:00:00');
+    const curr = new Date(sorted[i] + 'T12:00:00');
     const diffDays = Math.round((curr - prev) / MS_PER_DAY);
     if (diffDays === 1) {
       streak++;
@@ -310,8 +310,7 @@ function buildDailyLoads(mainEntries, accEntries, muscleGroup, dayCount) {
   todayStart.setHours(0, 0, 0, 0);
 
   mainEntries.forEach(e => {
-    const entryDate = new Date(e.date);
-    entryDate.setHours(0, 0, 0, 0);
+    const entryDate = new Date(e.date + 'T12:00:00');
     const daysAgo = Math.round((todayStart - entryDate) / MS_PER_DAY);
     if (daysAgo < 0 || daysAgo >= dayCount) return;
     const idx = dayCount - 1 - daysAgo; // chronological: 0 = oldest
@@ -328,8 +327,7 @@ function buildDailyLoads(mainEntries, accEntries, muscleGroup, dayCount) {
     const ex = ACCESSORY_DB[a.exerciseId];
     const catalogEx = resolveExercise(a.exerciseId);
     if (!ex && !catalogEx) return;
-    const entryDate = new Date(a.date);
-    entryDate.setHours(0, 0, 0, 0);
+    const entryDate = new Date(a.date + 'T12:00:00');
     const daysAgo = Math.round((todayStart - entryDate) / MS_PER_DAY);
     if (daysAgo < 0 || daysAgo >= dayCount) return;
     const idx = dayCount - 1 - daysAgo;

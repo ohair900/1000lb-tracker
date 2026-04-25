@@ -1142,6 +1142,16 @@ export async function clearCloudData() {
 }
 
 /**
+ * Reset in-memory leaderboard cache so the next fetch is live.
+ * Call after opt-in/opt-out changes so stale data never shows.
+ */
+export function invalidateLeaderboardCache() {
+  syncState.lastLeaderboardScores = null;
+  syncState.lastLeaderboardFetch = 0;
+  syncState.cachedLeaderboard = [];
+}
+
+/**
  * Remove the current user's leaderboard document (opt-out).
  */
 export async function removeFromLeaderboard() {

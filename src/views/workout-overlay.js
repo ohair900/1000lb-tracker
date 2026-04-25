@@ -49,6 +49,7 @@ import { burstMilestoneConfetti } from '../ui/confetti.js';
 import { confirmSheet } from '../ui/confirm-sheet.js';
 import {
   startTimer,
+  stopTimer,
   ensureAudioContext,
   startExerciseTimer,
   stopExerciseTimer,
@@ -686,6 +687,7 @@ export async function openWorkoutView(mainLift) {
  * Close the workout overlay.
  */
 export function closeWorkoutView() {
+  stopTimer();
   stopExerciseTimer();
   setWakeLockNeeded(false);
   releaseWakeLock();

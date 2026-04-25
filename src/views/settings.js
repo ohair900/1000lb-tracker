@@ -390,9 +390,10 @@ export function attachSettingsListeners() {
       store.leaderboardOptedIn = lbCheckbox.checked;
       store.save('leaderboard');
       scheduleCloudSync();
-      if (!lbCheckbox.checked) {
-        import('../firebase/sync.js').then(m => m.removeFromLeaderboard());
-      }
+      import('../firebase/sync.js').then(m => {
+        m.invalidateLeaderboardCache();
+        if (!lbCheckbox.checked) m.removeFromLeaderboard();
+      });
     });
   }
 

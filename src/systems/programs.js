@@ -202,6 +202,7 @@ export function checkAutoProgression(lift) {
     if (allDone) {
       // Success: reset failure count, progress
       if (store.programConfig.failureCounts) store.programConfig.failureCounts[lift] = 0;
+      store.saveProgramConfig();
       return { lift, oldTM: tm, newTM: tm + increment, reason: 'All sets completed' };
     }
     // Failure path: track consecutive failures, deload after 3
