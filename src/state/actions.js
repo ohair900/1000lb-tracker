@@ -143,8 +143,8 @@ export function deleteEntry(id) {
   store.entries = store.entries.filter((e) => e.id !== id);
 
   store.onEntryDirty?.(id);
+  store.saveEntries();
   if (wasPR) _deps.rebuildPRs();
-  else store.saveEntries();
 }
 
 // ---------------------------------------------------------------------------

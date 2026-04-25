@@ -574,8 +574,9 @@ export function gradeSession(session) {
     });
   }
 
-  // Fatigue warning for next session
-  const fatigue = plan ? plan.cache.fatigueByMuscle : null;
+  // Fatigue warning for next session — recompute from live store so the
+  // sets just logged (added mid-session) are included in the calculation.
+  const fatigue = calcFatigueByMuscle();
   if (fatigue) {
     const liftWeights = MAIN_LIFT_WEIGHTS[session.mainLift] || {};
     for (const [mg, mw] of Object.entries(liftWeights)) {

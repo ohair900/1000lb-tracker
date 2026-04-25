@@ -289,7 +289,9 @@ export function cancelExerciseTimer() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
 
-  // Rest timer: check if it should have completed while backgrounded
+  // Rest timer: check if it should have completed while backgrounded.
+  // After resuming, the throttled setInterval may be stale — restart it so
+  // the countdown continues smoothly on iOS Safari.
   if (store.timerRunning && store.timerStartTime) {
     const elapsed = Math.floor((Date.now() - store.timerStartTime) / 1000);
     store.timerRemaining = Math.max(0, store.timerDuration - elapsed);
@@ -304,15 +306,50 @@ document.addEventListener('visibilitychange', () => {
       }
     } else {
       updateTimerDisplay();
+      // Restart the interval so iOS throttled ticks don't leave the display frozen
+      if (store.timerInterval) clearInterval(store.timerInterval);
+      store.timerInterval = setInterval(() => {
+        const e2 = Math.floor((Date.now() - store.timerStartTime) / 1000);
+        store.timerRemaining = Math.max(0, store.timerDuration - e2);
+        updateTimerDisplay();
+        if (store.timerRemaining <= 0) {
+          stopTimer();
+          try { playBeep(); } catch { /* ignore */ }
+          try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch { /* ignore */ }
+          try { _flashTimerAlert(); } catch { /* ignore */ }
+          $('timer-display').textContent = 'DONE';
+          $('timer-display').className = 'timer-display done';
+        }
+      }, 1000);
     }
   }
 
-  // Exercise timer: check if it should have completed while backgrounded
+  // Exercise timer: check if it should have completed while backgrounded.
+  // Restart the interval for the same reason as the rest timer.
   if (store.exerciseTimer && store.exerciseTimer.startTime) {
     const elapsed = Math.floor((Date.now() - store.exerciseTimer.startTime) / 1000);
     store.exerciseTimer.remaining = Math.max(0, store.exerciseTimer.duration - elapsed);
     if (store.exerciseTimer.remaining <= 0) {
       completeExerciseTimer();
+    } else {
+      if (store.exerciseTimer.interval) clearInterval(store.exerciseTimer.interval);
+      store.exerciseTimer.interval = setInterval(() => {
+        if (!store.exerciseTimer) return;
+        const e2 = Math.floor((Date.now() - store.exerciseTimer.startTime) / 1000);
+        store.exerciseTimer.remaining = Math.max(0, store.exerciseTimer.duration - e2);
+        const display = document.getElementById(
+          `exercise-cd-${store.exerciseTimer.accIdx}-${store.exerciseTimer.setIdx}`
+        );
+        if (display) {
+          display.textContent = store.exerciseTimer.remaining + 's';
+          display.className = 'exercise-countdown-display' +
+            (store.exerciseTimer.remaining <= 3 ? ' final' :
+              store.exerciseTimer.remaining <= 10 ? ' warning' : '');
+        }
+        if (store.exerciseTimer.remaining <= 0) {
+          completeExerciseTimer();
+        }
+      }, 250);
     }
   }
 });

@@ -284,7 +284,7 @@ function updateCompleteButton() {
   const btn = $('workout-complete-btn');
   if (!store.workoutSession) { btn.disabled = true; return; }
   const hasProgress = store.workoutSession.mainSets.some(s => s.completed) ||
-    (store.workoutSession.bbbSets && store.workoutSession.bbbSets.some(s => s.completed)) ||
+    (store.workoutSession.bbbSets && store.workoutSession.bbbSets.some(s => s.completed && !s._dropped)) ||
     store.workoutSession.accessories.some(a => a.setsCompleted.length > 0);
   btn.disabled = !hasProgress;
 }
@@ -331,6 +331,7 @@ function _completeMainSet(idx) {
   set.completed = true;
   set.rpe = null;
   set.entryId = _lastMainEntryId;
+  set.actualReps = repsToLog;
   const _setKey = `${store.workoutSession.mainLift}-${week}-${idx}`;
   store.programConfig.completedSets[_setKey] = true;
   store.programConfig.completedSetData[_setKey] = {
@@ -641,6 +642,9 @@ export async function openWorkoutView(mainLift) {
         s.completed = !!store.programConfig.completedSets[`${mainLift}-${sessionWeek}-${i}`];
       });
     }
+    // Clear _dropped on uncompleted sets so the user can re-engage them on resume
+    store.workoutSession.mainSets.forEach(s => { if (!s.completed) s._dropped = false; });
+    store.workoutSession.bbbSets?.forEach(s => { if (!s.completed) s._dropped = false; });
     // Migrate old-format sessions
     store.workoutSession.accessories.forEach(acc => {
       if (acc.weight !== undefined && !acc.setWeights) {
@@ -922,13 +926,10 @@ export function initWorkoutOverlay() {
       if (!acc) return;
       // Snapshot for undo (deep clone the accessory object)
       const snapshot = JSON.parse(JSON.stringify(acc));
-      // Cancel/adjust timer BEFORE splicing to avoid race condition
+      // Cancel any running exercise timer — index arithmetic is error-prone when
+      // accessories shift, so always cancel; the user can restart after removal.
       if (store.exerciseTimer) {
-        if (store.exerciseTimer.accIdx === ai) {
-          stopExerciseTimer();
-        } else if (store.exerciseTimer.accIdx > ai) {
-          store.exerciseTimer.accIdx--;
-        }
+        cancelExerciseTimer();
       }
       store.workoutSession.accessories.splice(ai, 1);
       store.saveWorkoutSession();
@@ -953,13 +954,15 @@ export function initWorkoutOverlay() {
       e.stopPropagation();
       const ai = parseInt(swapBtn.dataset.accSwap);
       const acc = store.workoutSession.accessories[ai];
+      const catalogExForSwap = resolveExercise(acc.exerciseId);
       const ex = ACCESSORY_DB[acc.exerciseId];
+      const equipment = catalogExForSwap?.equipment ?? (ex?.equipment ?? null);
       const container = swapBtn.closest('.workout-exercise');
       // Toggle off if already showing
       const existing = container.querySelector('.acc-swap-alternatives');
       if (existing) { existing.remove(); return; }
       // Get alternatives excluding current equipment
-      const allScored = scoreAccessories(store.workoutSession.mainLift, ex ? ex.equipment : null);
+      const allScored = scoreAccessories(store.workoutSession.mainLift, { excludeEquipment: equipment });
       const usedIds = new Set(store.workoutSession.accessories.map(a => a.exerciseId));
       const alternatives = allScored.filter(a => !usedIds.has(a.id)).slice(0, 5);
       if (alternatives.length === 0) {
@@ -1041,7 +1044,12 @@ export function initWorkoutOverlay() {
       const ai = parseInt(timeBtn.dataset.acc);
       const dir = parseInt(timeBtn.dataset.dir);
       const acc = store.workoutSession.accessories[ai];
-      acc.repRange[1] = Math.max(5, acc.repRange[1] + dir * 5);
+      const delta = dir * 5;
+      acc.repRange[1] = Math.max(5, acc.repRange[1] + delta);
+      acc.repRange[0] = Math.max(5, Math.min(acc.repRange[0] + delta, acc.repRange[1]));
+      if (Array.isArray(acc._targetReps)) {
+        acc._targetReps = acc._targetReps.map(t => Math.max(5, t + delta));
+      }
       store.saveWorkoutSession();
       renderWorkoutView();
       return;
@@ -1079,6 +1087,9 @@ export function initWorkoutOverlay() {
       acc.targetSets += 1;
       const lastWeight = acc.setWeights[acc.setWeights.length - 1] || 0;
       acc.setWeights.push(lastWeight);
+      if (Array.isArray(acc._targetReps) && acc._targetReps.length > 0) {
+        acc._targetReps.push(acc._targetReps[acc._targetReps.length - 1]);
+      }
       store.saveWorkoutSession();
       renderWorkoutView();
       return;
@@ -1218,7 +1229,7 @@ export function initWorkoutOverlay() {
           // Session Optimizer: evaluate after RPE is set (debounced on change)
           slider.addEventListener('change', () => {
             const rpeVal = parseInt(slider.value);
-            const reps = typeof set.reps === 'string' ? parseInt(set.reps) : set.reps;
+            const reps = set.actualReps ?? (typeof set.reps === 'string' ? parseInt(set.reps) : set.reps);
             const evaluation = evaluateSetCompletion(idx, rpeVal, reps, set.weight);
             if (evaluation && evaluation.drift !== 'on-track') {
               // Remove any existing chip for this set
@@ -1269,8 +1280,9 @@ export function initWorkoutOverlay() {
       const ai = parseInt(accRow.dataset.acc);
       const si = parseInt(accRow.dataset.set);
       const acc = store.workoutSession.accessories[ai];
+      const rowCatalogEx = resolveExercise(acc.exerciseId);
       const ex = ACCESSORY_DB[acc.exerciseId];
-      const isTimeBased = !!(ex && ex.timeBased);
+      const isTimeBased = rowCatalogEx ? !!rowCatalogEx.timeBased : !!(ex && ex.timeBased);
 
       if (e.target.closest('.exercise-countdown-cancel')) {
         e.stopPropagation();

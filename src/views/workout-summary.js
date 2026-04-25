@@ -114,7 +114,7 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
   if (session.source === 'mesocycle') {
     const meso = store.activeMesocycle || (store.mesocycleHistory.length ? store.mesocycleHistory[store.mesocycleHistory.length - 1] : null);
     if (meso) {
-      const weekIdx = (session.mesocycleWeek || 1) - 1;
+      const weekIdx = (meso.currentWeek ? meso.currentWeek - 1 : 0);
       const week = meso.weeks[weekIdx];
       const perf = week ? week.performance[session.mainLift] : null;
       if (week && perf) {
