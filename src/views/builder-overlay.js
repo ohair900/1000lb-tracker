@@ -30,6 +30,7 @@ import { MS_PER_DAY } from '../constants/time.js';
 import { checkGuardrails } from '../systems/workout-guardrails.js';
 import { showToast } from '../ui/toast.js';
 import { displayWeight } from '../formulas/units.js';
+import { isRouterResolving, pushRoute, clearOverlayState } from '../ui/router.js';
 
 // ---------------------------------------------------------------------------
 // Module state
@@ -419,6 +420,7 @@ export function openBuilder(mainLift, preloadExercises) {
   _builderDirty = false;
   _openWhyIdx.clear();
   _browserFilters = { muscle: null, pattern: null, equipmentOnly: false, neverTried: false, search: '' };
+  if (!isRouterResolving()) pushRoute('#builder/' + mainLift, 'builder', () => closeBuilder(true));
 
   // Helper that actually mounts the overlay once draft handling has resolved.
   const mount = (initialExercises) => {
@@ -482,6 +484,7 @@ export function closeBuilder(force) {
   localStorage.removeItem('sbd-builder-draft');
   if ($('builder-save-template')) $('builder-save-template')._templateId = null;
   closeSwapSheet();
+  clearOverlayState('#' + store.currentTab);
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 // Keep version in sync with main.js SW registration
-const CACHE_NAME = '1000lb-tracker-v25';
+const CACHE_NAME = '1000lb-tracker-v26';
 
 self.addEventListener('install', e => {
   e.waitUntil(

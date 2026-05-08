@@ -19,6 +19,7 @@ import { rebuildPRs } from '../systems/pr-tracking.js';
 import { lockMilestones } from '../systems/goals.js';
 import { showToast } from '../ui/toast.js';
 import { openModal, closeModal } from '../ui/modal.js';
+import { isRouterResolving, pushRoute, clearOverlayState } from '../ui/router.js';
 import { applyAccentColor } from '../ui/theme.js';
 import { buildProfileHTML, buildGoalsHTML } from './stats.js';
 import { buildWeeklyReviewPrompt, buildProgramCheckPrompt, buildLiftDeepDivePrompt, shareCoachingPrompt } from '../systems/ai-export.js';
@@ -262,6 +263,7 @@ function handleImport(ev) {
     if (store.currentTab === 'charts') _deps.renderChart?.();
     if (store.currentTab === 'stats') _deps.renderStats?.();
     closeModal('settings-modal');
+    clearOverlayState('#' + store.currentTab);
     showToast('Data imported');
   } catch (err) {
     showToast('Import failed: ' + err.message);
@@ -446,6 +448,7 @@ export function attachSettingsListeners() {
     // Clear v2 migration flag so a fresh sign-in re-migrates correctly
     try { localStorage.removeItem('sbd-migration-v2-done'); } catch {}
     closeModal('settings-modal');
+    clearOverlayState('#' + store.currentTab);
     _deps.updateDashboard?.();
     _deps.renderCycleBar?.();
     _deps.renderProgramSection?.();
@@ -464,15 +467,28 @@ export function attachSettingsListeners() {
  * Set up the gear button click handler and import-file change handler.
  * Call once after DOMContentLoaded.
  */
+export function openSettings() {
+  store.clearConfirm = false;
+  _settingsTab = 'profile';
+  resetExercisesTabState();
+  const body = $('settings-body');
+  body.innerHTML = renderSettingsBody();
+  openModal('settings-modal');
+  attachSettingsListeners();
+  if (!isRouterResolving()) pushRoute('#settings', 'settings', () => {
+    closeModal('settings-modal');
+    clearOverlayState('#' + store.currentTab);
+  });
+}
+
 export function initSettingsListeners() {
-  $('gear-btn').addEventListener('click', () => {
-    store.clearConfirm = false;
-    _settingsTab = 'profile';
-    resetExercisesTabState();
-    const body = $('settings-body');
-    body.innerHTML = renderSettingsBody();
-    openModal('settings-modal');
-    attachSettingsListeners();
+  $('gear-btn').addEventListener('click', openSettings);
+  // Also clear overlay state when settings is closed via close button or backdrop.
+  // initModalListeners() wires these for closeModal; we add a second listener
+  // to sync the router.
+  $('settings-close').addEventListener('click', () => clearOverlayState('#' + store.currentTab));
+  $('settings-modal').addEventListener('click', e => {
+    if (e.target === $('settings-modal')) clearOverlayState('#' + store.currentTab);
   });
 
   $('import-file').addEventListener('change', e => {

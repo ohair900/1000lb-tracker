@@ -14,6 +14,7 @@ import { calcProgression, detectPlateau } from '../formulas/progression.js';
 import { getClassification } from '../formulas/standards.js';
 import { calcDOTS } from '../formulas/scoring.js';
 import { openSheet, closeSheet, enableSheetSwipeDismiss } from '../ui/sheet.js';
+import { isRouterResolving, pushRoute, clearOverlayState } from '../ui/router.js';
 import { calcMilestoneRoadmap } from '../systems/goals.js';
 
 /* --- RPE color helpers --- */
@@ -32,8 +33,9 @@ function rpeClass(rpe) {
   return 'max';
 }
 
-function closeLiftDetail() {
+export function closeLiftDetail() {
   closeSheet('lift-detail-sheet', 'lift-detail-backdrop');
+  clearOverlayState('#' + store.currentTab);
 }
 
 export function showLiftDetail(lift) {
@@ -206,6 +208,7 @@ export function showLiftDetail(lift) {
   $('lift-detail-title').textContent = LIFT_NAMES[lift];
   $('lift-detail-body').innerHTML = html;
   openSheet('lift-detail-sheet', 'lift-detail-backdrop');
+  if (!isRouterResolving()) pushRoute('#lift/' + lift, 'liftDetail', closeLiftDetail);
 
   // Wire plateau buttons if diagnosis is present
   if (plateaued) {

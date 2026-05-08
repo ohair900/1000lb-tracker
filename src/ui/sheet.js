@@ -12,6 +12,8 @@
  */
 
 import { $ } from '../utils/helpers.js';
+import store from '../state/store.js';
+import { isRouterResolving, pushRoute, clearOverlayState } from './router.js';
 
 // ---------------------------------------------------------------------------
 // Generic sheet helpers
@@ -53,10 +55,12 @@ export function closeSheet(sheetId, backdropId) {
 
 export function openFatigueSheet() {
   openSheet('fatigue-sheet', 'fatigue-sheet-backdrop');
+  if (!isRouterResolving()) pushRoute('#fatigue', 'fatigueSheet', closeFatigueSheet);
 }
 
 export function closeFatigueSheet() {
   closeSheet('fatigue-sheet', 'fatigue-sheet-backdrop');
+  clearOverlayState('#' + store.currentTab);
 }
 
 // ---------------------------------------------------------------------------

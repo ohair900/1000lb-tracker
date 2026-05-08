@@ -77,7 +77,8 @@ import { startTimer, dismissTimer, setTimerDeps } from './ui/timer.js';
 import { setConfettiDeps, triggerWeekCompleteCelebration, triggerLiftCompleteCelebration } from './ui/confetti.js';
 import { sharePRCard, shareMilestoneCard } from './ui/share.js';
 import { initSwipeToDelete, setSwipeDeps } from './ui/swipe.js';
-import { initSheetListeners, closeChoiceSheet } from './ui/sheet.js';
+import { initSheetListeners, closeChoiceSheet, openFatigueSheet } from './ui/sheet.js';
+import { initRouter, updateRoute } from './ui/router.js';
 import { applyAccentColor, setThemeDeps } from './ui/theme.js';
 
 // ===== 7. Views =====
@@ -86,7 +87,7 @@ import { initLogTab, injectLogDeps, updatePreview } from './views/log.js';
 import { initHistoryTab, injectHistoryDeps, renderHistory } from './views/history.js';
 import { initChartsTab, renderChart } from './views/charts.js';
 import { initStatsTab, injectStatsDeps, renderStats } from './views/stats.js';
-import { initSettingsListeners, setSettingsDeps } from './views/settings.js';
+import { initSettingsListeners, setSettingsDeps, openSettings } from './views/settings.js';
 import {
   initProgramSection,
   setProgramSectionDeps,
@@ -100,7 +101,7 @@ import {
   renderWorkoutView,
   updateWorkoutButton,
 } from './views/workout-overlay.js';
-import { initLiftDetailSheet } from './views/lift-detail.js';
+import { initLiftDetailSheet, showLiftDetail } from './views/lift-detail.js';
 import { initAccessoryDetailSheet } from './views/accessory-detail.js';
 import { initPlateauSheet, setPlateauDeps } from './views/plateau-analysis.js';
 import {
@@ -223,6 +224,7 @@ function switchToTab(tabName, direction) {
   }
   newPanel.classList.add('active');
   store.currentTab = tabName;
+  updateRoute('#' + tabName);
   if (store.currentTab === 'history') renderHistory();
   if (store.currentTab === 'charts') renderChart();
   if (store.currentTab === 'stats') renderStats();
@@ -655,6 +657,15 @@ initWelcomeOverlay();
 initSyncUI();
 initLeaderboardTab();
 initSettingsListeners();
+
+initRouter({
+  tab: (m) => switchToTab(m[1]),
+  settings: () => openSettings(),
+  workout: (m) => openWorkoutView(m[1]),
+  builder: (m) => openBuilder(m[1]),
+  fatigueSheet: () => openFatigueSheet(),
+  liftDetail: (m) => showLiftDetail(m[1]),
+});
 
 // Timer presets
 $('timer-presets').addEventListener('click', e => {

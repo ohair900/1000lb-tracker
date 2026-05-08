@@ -58,6 +58,7 @@ import {
   releaseWakeLock,
   setWakeLockNeeded,
 } from '../ui/timer.js';
+import { isRouterResolving, pushRoute, clearOverlayState } from '../ui/router.js';
 
 // ---------------------------------------------------------------------------
 // Progression badge text (category-specific)
@@ -674,6 +675,7 @@ export async function openWorkoutView(mainLift) {
     }
     createWorkoutSession(mainLift);
   }
+  if (!isRouterResolving()) pushRoute('#workout/' + mainLift, 'workout', closeWorkoutView);
   $('workout-overlay').style.display = 'flex';
   $('workout-overlay').dataset.lift = mainLift;
   document.body.style.overflow = 'hidden';
@@ -693,6 +695,7 @@ export function closeWorkoutView() {
   releaseWakeLock();
   $('workout-overlay').style.display = 'none';
   document.body.style.overflow = '';
+  clearOverlayState('#' + store.currentTab);
   _deps.updateWorkoutButton?.();
 }
 
