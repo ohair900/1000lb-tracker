@@ -51,6 +51,7 @@ import {
   DISABLED_ACCESSORIES_KEY,
   GOAL_MILESTONES_KEY,
   TRAVEL_EQUIPMENT_PRESET_KEY,
+  TRAVEL_PRESETS_KEY,
 } from '../constants/storage-keys.js';
 
 import { CURRENT_VERSION } from '../constants/time.js';
@@ -511,6 +512,12 @@ class Store {
     } catch {
       this.travelEquipmentPreset = null;
     }
+    try {
+      const _tp = localStorage.getItem(TRAVEL_PRESETS_KEY);
+      this.travelPresets = _tp ? JSON.parse(_tp) : [];
+    } catch {
+      this.travelPresets = [];
+    }
 
     try {
       this.statsCollapsed = JSON.parse(localStorage.getItem(STATS_COLLAPSED_KEY)) || {};
@@ -663,6 +670,9 @@ class Store {
     } else {
       localStorage.removeItem(TRAVEL_EQUIPMENT_PRESET_KEY);
     }
+  }
+  saveTravelPresets() {
+    localStorage.setItem(TRAVEL_PRESETS_KEY, JSON.stringify(this.travelPresets));
   }
   saveDisabledAccessories() {
     this.save('disabledAccessories');

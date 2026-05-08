@@ -239,6 +239,30 @@ export function renderBodyMap(fatigueByMuscle) {
   );
 }
 
+/**
+ * Compact body-map silhouette for travel grouping cards.
+ * Highlights only the specified muscle groups; everything else renders as inactive.
+ * Uses distinct gradient IDs to avoid conflicts with the main body map.
+ *
+ * @param {string[]} highlightedMuscles - Muscle group keys to highlight (e.g. ['Chest','Shoulders'])
+ * @param {Object} [fatigueByMuscle] - Optional fatigue map; uses 'green' fallback if absent
+ * @returns {string} HTML string with two side-by-side mini SVG figures
+ */
+export function renderBodyMapCompact(highlightedMuscles, fatigueByMuscle = {}) {
+  const syntheticFatigue = {};
+  for (const mg of highlightedMuscles) {
+    syntheticFatigue[mg] = {
+      displayStatus: fatigueByMuscle[mg]?.displayStatus || 'green',
+    };
+  }
+  return (
+    `<div class="body-map-compact">` +
+    buildFigure(FRONT_MUSCLES, FRONT_INACTIVE, 'CFRONT', syntheticFatigue) +
+    buildFigure(BACK_MUSCLES, BACK_INACTIVE, 'CBACK', syntheticFatigue) +
+    `</div>`
+  );
+}
+
 export function initBodyMapEvents(container, onMuscleClick) {
   container.querySelectorAll('.body-map-muscle').forEach((g) => {
     g.addEventListener('click', (e) => {

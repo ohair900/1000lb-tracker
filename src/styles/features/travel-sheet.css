@@ -1,0 +1,349 @@
+/* ===== Travel Workout Sheet ===== */
+
+/* --- Preset chips row --- */
+
+.travel-preset-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 0 0 10px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.travel-preset-row::-webkit-scrollbar {
+  display: none;
+}
+
+.travel-preset-chip {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+  white-space: nowrap;
+}
+.travel-preset-chip:hover {
+  border-color: var(--text-dim);
+  color: var(--text);
+}
+.travel-preset-chip.active {
+  background: var(--accent, var(--gold));
+  border-color: var(--accent, var(--gold));
+  color: var(--bg);
+}
+.travel-preset-chip--save {
+  border-style: dashed;
+  color: var(--text-dim);
+}
+.travel-preset-chip--save:hover {
+  border-color: var(--accent, var(--gold));
+  color: var(--accent, var(--gold));
+}
+
+/* --- Equipment tiles --- */
+
+.travel-equip-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.travel-equip-tile {
+  flex: 1 1 calc(20% - 8px);
+  min-width: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 4px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.travel-equip-tile:active {
+  transform: scale(0.94);
+}
+.travel-equip-tile.active {
+  background: color-mix(in srgb, var(--accent, var(--gold)) 15%, var(--surface));
+  border-color: var(--accent, var(--gold));
+  color: var(--accent, var(--gold));
+}
+
+.travel-equip-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+}
+.travel-equip-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.travel-equip-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+/* --- Exercise count --- */
+
+.travel-exercise-count {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  text-align: center;
+  margin-bottom: 14px;
+  font-weight: 500;
+}
+.travel-exercise-count--low {
+  color: var(--red);
+}
+
+/* --- Grouping cards --- */
+
+.travel-grouping-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.travel-group-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border-left: 3px solid var(--border);
+  overflow: hidden;
+  position: relative;
+  transition: border-color var(--transition-base);
+}
+
+/* Recommended ring */
+.travel-group-card.expanded {
+  background: var(--surface2);
+}
+
+.travel-group-recommended {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--gold-bg);
+  color: var(--gold);
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  pointer-events: none;
+}
+
+.travel-group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--transition-fast);
+}
+.travel-group-header:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* --- Compact body map inside card --- */
+
+.travel-bodymap-mini {
+  flex-shrink: 0;
+  width: 52px;
+}
+.travel-bodymap-mini .body-map-compact {
+  display: flex;
+  gap: 2px;
+  width: 52px;
+}
+.travel-bodymap-mini .body-map-figure {
+  flex: 1;
+  width: 24px;
+}
+.travel-bodymap-mini .body-map-view-label {
+  display: none;
+}
+.travel-bodymap-mini .body-map-svg {
+  width: 100%;
+  height: auto;
+}
+
+/* --- Card info --- */
+
+.travel-group-info {
+  flex: 1;
+  min-width: 0;
+}
+.travel-group-name {
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text-strong);
+  margin-bottom: 2px;
+}
+.travel-group-muscles {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.travel-group-duration {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  opacity: 0.7;
+}
+
+.travel-group-chevron {
+  color: var(--text-dim);
+  font-size: 1.2rem;
+  line-height: 1;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  padding-right: 2px;
+}
+.travel-group-card.expanded .travel-group-chevron {
+  transform: rotate(90deg);
+}
+
+/* --- Exercise preview --- */
+
+.travel-group-preview {
+  border-top: 1px solid var(--border);
+  padding: 10px 12px 12px;
+  animation: travel-preview-open 0.18s ease;
+}
+
+@keyframes travel-preview-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.travel-preview-empty {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  text-align: center;
+  padding: 8px 0;
+}
+
+.travel-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.travel-preview-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.travel-preview-name {
+  font-size: var(--text-sm);
+  color: var(--text);
+  font-weight: 500;
+}
+.travel-preview-sets {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  font-weight: 600;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.travel-preview-tag {
+  font-size: 0.55rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.travel-preview-tag--light {
+  background: rgba(255, 193, 7, 0.15);
+  color: var(--yellow);
+}
+
+.travel-preview-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.travel-start-btn {
+  flex: 1;
+  padding: 10px 16px;
+  background: var(--accent, var(--gold));
+  color: var(--bg);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast);
+}
+.travel-start-btn:active {
+  opacity: 0.85;
+  transform: scale(0.97);
+}
+
+.travel-shuffle-btn {
+  padding: 10px 14px;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+.travel-shuffle-btn:hover {
+  border-color: var(--text-dim);
+  color: var(--text);
+}
+
+/* --- Responsive --- */
+
+@media (max-width: 359px) {
+  .travel-equip-tile {
+    flex: 1 1 calc(33.333% - 8px);
+  }
+}
