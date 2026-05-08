@@ -20,14 +20,18 @@
 import store from '../state/store.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
 import { PROGRESSION_MODELS } from '../data/exercise-catalog.js';
-import { resolveExercise, resolveCanonicalId, getExerciseHistory } from '../data/exercise-compat.js';
+import {
+  resolveExercise,
+  resolveCanonicalId,
+  getExerciseHistory,
+} from '../data/exercise-compat.js';
 import { MS_PER_DAY } from '../constants/time.js';
 import { roundToPlate } from '../formulas/plates.js';
 import { getAccessoryWeight } from './workout-builder.js';
 
-const RELOAD_DAYS = 42;          // 6 weeks off → 80% reload (per plan, locked)
-const BUMP_AFTER_CEILING = 3;    // amrap: add load after N consecutive ceiling sessions
-const RELOAD_FACTOR = 0.80;
+const RELOAD_DAYS = 42; // 6 weeks off → 80% reload (per plan, locked)
+const BUMP_AFTER_CEILING = 3; // amrap: add load after N consecutive ceiling sessions
+const RELOAD_FACTOR = 0.8;
 const BACKOFF_FACTOR = 0.92;
 
 // Upper-body bumps +5, lower-body +10 (matches existing heuristic at workout-builder.js:238-241).
@@ -114,7 +118,14 @@ export function computeNextTarget(exerciseId, mainLift) {
   }
 
   // ---------- Double-progression (compound + isolation, default) ----------
-  return doubleProgressionPrescription({ last, history, repRange, defaultSets, mainLift, catalogEx });
+  return doubleProgressionPrescription({
+    last,
+    history,
+    repRange,
+    defaultSets,
+    mainLift,
+    catalogEx,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -154,15 +165,21 @@ function firstTimePrescription({ progressionType, repRange, defaultSets, startWe
 // Double progression (compound + isolation)
 // ---------------------------------------------------------------------------
 
-function doubleProgressionPrescription({ last, history, repRange, defaultSets, mainLift, catalogEx }) {
+function doubleProgressionPrescription({
+  last,
+  history,
+  repRange,
+  defaultSets,
+  mainLift,
+  catalogEx,
+}) {
   const [low, high] = repRange;
   const lastReps = last.setsCompleted || [];
   const lastWeight = lastTopWeight(last);
   const bump = bumpFor(mainLift, catalogEx);
 
   // Hit the ceiling on every set → bump weight, reset reps.
-  const allAtCeiling = lastReps.length >= last.targetSets &&
-    lastReps.every(r => r >= high);
+  const allAtCeiling = lastReps.length >= last.targetSets && lastReps.every((r) => r >= high);
   if (allAtCeiling) {
     const newWeight = roundToPlate(lastWeight + bump);
     return {
@@ -178,8 +195,9 @@ function doubleProgressionPrescription({ last, history, repRange, defaultSets, m
   // couldn't hold the floor of the prescribed range). This is conservative
   // and won't false-positive on healthy double-progression sessions where
   // the lifter is grinding mid-range reps.
-  const setsBelowLow = lastReps.filter(r => r < low).length;
-  const lastTwoBothMissed = history.length >= 2 &&
+  const setsBelowLow = lastReps.filter((r) => r < low).length;
+  const lastTwoBothMissed =
+    history.length >= 2 &&
     countSetsBelowLow(history[1], (history[1].repRange && history[1].repRange[0]) || low) > 0 &&
     setsBelowLow > 0;
 
@@ -197,7 +215,11 @@ function doubleProgressionPrescription({ last, history, repRange, defaultSets, m
 
   // Soft miss (1 set below low) → repeat target, hold weight.
   if (setsBelowLow === 1) {
-    const target = padToSets(lastReps.map(r => Math.max(r, low)), defaultSets, low);
+    const target = padToSets(
+      lastReps.map((r) => Math.max(r, low)),
+      defaultSets,
+      low
+    );
     return {
       targetReps: target,
       targetSets: defaultSets,
@@ -208,7 +230,11 @@ function doubleProgressionPrescription({ last, history, repRange, defaultSets, m
   }
 
   // Solid session → progress: each set +1 rep, capped at ceiling.
-  const target = padToSets(lastReps.map(r => Math.min(r + 1, high)), defaultSets, low);
+  const target = padToSets(
+    lastReps.map((r) => Math.min(r + 1, high)),
+    defaultSets,
+    low
+  );
   const newWeight = roundToPlate(lastWeight + bump);
   return {
     targetReps: target,
@@ -226,7 +252,7 @@ function doubleProgressionPrescription({ last, history, repRange, defaultSets, m
 function amrapPrescription({ last, history, repRange, defaultSets, mainLift, catalogEx }) {
   const [low, high] = repRange;
   const lastReps = last.setsCompleted || [];
-  const lastWeight = lastTopWeight(last);    // can be negative (assisted), 0 (BW), or positive (loaded)
+  const lastWeight = lastTopWeight(last); // can be negative (assisted), 0 (BW), or positive (loaded)
   const topSet = lastReps[0] ?? 0;
   const bump = bumpFor(mainLift, catalogEx);
 
@@ -316,7 +342,7 @@ function lastTopWeight(entry) {
 }
 
 function countSetsBelowLow(entry, low) {
-  return (entry.setsCompleted || []).filter(r => r < low).length;
+  return (entry.setsCompleted || []).filter((r) => r < low).length;
 }
 
 function countCeilingStreak(history, ceiling) {
@@ -336,7 +362,7 @@ function padToSets(arr, n, fill) {
 }
 
 function formatRepArray(reps) {
-  if (reps.every(r => r === reps[0])) return `${reps.length}\u00d7${reps[0]}`;
+  if (reps.every((r) => r === reps[0])) return `${reps.length}\u00d7${reps[0]}`;
   return reps.join('/');
 }
 

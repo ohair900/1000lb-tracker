@@ -14,9 +14,11 @@ import { LBS_PER_KG } from '../constants/formulas.js';
 // Dependency injection
 // ---------------------------------------------------------------------------
 
-let _deps = {};
+const _deps = {};
 
-export function setWelcomeDeps(deps) { Object.assign(_deps, deps); }
+export function setWelcomeDeps(deps) {
+  Object.assign(_deps, deps);
+}
 
 // ---------------------------------------------------------------------------
 // Show welcome screen
@@ -34,7 +36,7 @@ export function showWelcomeScreen() {
   let selectedGender = null;
 
   function showStep(n) {
-    overlay.querySelectorAll('.welcome-step').forEach(s => s.style.display = 'none');
+    overlay.querySelectorAll('.welcome-step').forEach((s) => (s.style.display = 'none'));
     const step = $(`welcome-step-${n}`);
     if (step) step.style.display = '';
   }
@@ -48,7 +50,10 @@ export function showWelcomeScreen() {
     if (bw > 0) {
       const bwLbs = store.unit === 'kg' ? bw * LBS_PER_KG : bw;
       store.profile.bodyweight = bwLbs;
-      store.profile.bodyweightHistory.push({ date: new Date().toISOString().split('T')[0], value: bwLbs });
+      store.profile.bodyweightHistory.push({
+        date: new Date().toISOString().split('T')[0],
+        value: bwLbs,
+      });
       store.saveProfile();
     }
     const goalVal = parseInt($('welcome-goal')?.value);
@@ -71,9 +76,11 @@ export function showWelcomeScreen() {
   $('welcome-next-1').addEventListener('click', () => showStep(2));
 
   // Gender pills
-  overlay.querySelectorAll('.welcome-pill[data-gender]').forEach(pill => {
+  overlay.querySelectorAll('.welcome-pill[data-gender]').forEach((pill) => {
     pill.addEventListener('click', () => {
-      overlay.querySelectorAll('.welcome-pill[data-gender]').forEach(p => p.classList.remove('active'));
+      overlay
+        .querySelectorAll('.welcome-pill[data-gender]')
+        .forEach((p) => p.classList.remove('active'));
       pill.classList.add('active');
       selectedGender = pill.dataset.gender;
     });
@@ -88,7 +95,9 @@ export function showWelcomeScreen() {
 
   // Finish
   $('welcome-finish').addEventListener('click', dismiss);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) dismiss(); });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) dismiss();
+  });
 }
 
 // ---------------------------------------------------------------------------

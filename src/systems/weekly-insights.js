@@ -39,24 +39,30 @@ function getWeekRange(weeksBack) {
 }
 
 function getWeekStats(startMs, endMs) {
-  const entries = store.entries.filter(e => e.timestamp >= startMs && e.timestamp < endMs);
+  const entries = store.entries.filter((e) => e.timestamp >= startMs && e.timestamp < endMs);
   const volume = entries.reduce((s, e) => s + e.weight * e.reps, 0);
   let avgIntensity = 0;
   let intensityCount = 0;
-  entries.forEach(e => {
+  entries.forEach((e) => {
     const best = bestE1RM(e.lift);
-    if (best > 0) { avgIntensity += e.weight / best; intensityCount++; }
+    if (best > 0) {
+      avgIntensity += e.weight / best;
+      intensityCount++;
+    }
   });
   avgIntensity = intensityCount > 0 ? avgIntensity / intensityCount : 0;
-  const withRPE = entries.filter(e => e.rpe != null && e.rpe > 0);
-  const avgRPE = withRPE.length > 0 ? withRPE.reduce((s, e) => s + e.rpe, 0) / withRPE.length : null;
+  const withRPE = entries.filter((e) => e.rpe != null && e.rpe > 0);
+  const avgRPE =
+    withRPE.length > 0 ? withRPE.reduce((s, e) => s + e.rpe, 0) / withRPE.length : null;
   const rpeLogged = entries.length > 0 ? withRPE.length / entries.length : 0;
   return { entries, volume, avgIntensity, avgRPE, rpeLogged, sets: entries.length };
 }
 
 function getRollingAvg() {
   // 4-week rolling average from W-2 to W-5 (skip W-1 = last week itself)
-  let totalVol = 0, totalInt = 0, count = 0;
+  let totalVol = 0,
+    totalInt = 0,
+    count = 0;
   for (let w = 2; w <= 5; w++) {
     const { startMs, endMs } = getWeekRange(w);
     const stats = getWeekStats(startMs, endMs);
@@ -82,18 +88,23 @@ function detectPhase(lastWeekStats, rolling) {
   if (!rolling) return 'normal';
 
   const volRatio = rolling.avgVolume > 0 ? lastWeekStats.volume / rolling.avgVolume : 1;
-  const intDrop = rolling.avgIntensity > 0 ? (rolling.avgIntensity - lastWeekStats.avgIntensity) / rolling.avgIntensity : 0;
+  const intDrop =
+    rolling.avgIntensity > 0
+      ? (rolling.avgIntensity - lastWeekStats.avgIntensity) / rolling.avgIntensity
+      : 0;
 
   // Deload auto-detect: volume drop >= 40% AND intensity drop >= 10%
-  if (volRatio <= 0.60 && intDrop >= 0.10) return 'deload';
+  if (volRatio <= 0.6 && intDrop >= 0.1) return 'deload';
   // Or volume drop >= 50% alone
-  if (volRatio <= 0.50) return 'deload';
+  if (volRatio <= 0.5) return 'deload';
 
   // Peaking: avg intensity >= 85% AND volume <= 70% of rolling AND 3+ entries
-  if (lastWeekStats.avgIntensity >= 0.85 && volRatio <= 0.70 && lastWeekStats.sets >= 3) return 'peaking';
+  if (lastWeekStats.avgIntensity >= 0.85 && volRatio <= 0.7 && lastWeekStats.sets >= 3)
+    return 'peaking';
 
   // Accumulation: avg intensity 60-80% AND volume >= 110% of rolling
-  if (lastWeekStats.avgIntensity >= 0.60 && lastWeekStats.avgIntensity <= 0.80 && volRatio >= 1.10) return 'accumulation';
+  if (lastWeekStats.avgIntensity >= 0.6 && lastWeekStats.avgIntensity <= 0.8 && volRatio >= 1.1)
+    return 'accumulation';
 
   return 'normal';
 }
@@ -107,16 +118,54 @@ function generateInsights(lastWeekStats, phase, rolling) {
   const { startMs, endMs } = getWeekRange(1); // last week
 
   // --- Phase chip ---
-  if (phase === 'deload') insights.push({ type: 'phase', label: 'Deload week', color: COLORS.blue, severity: 0, tier: 1, detail: 'Low volume/intensity week — recovery focused' });
-  else if (phase === 'peaking') insights.push({ type: 'phase', label: 'Peaking', color: COLORS.blue, severity: 0, tier: 1, detail: 'High intensity, reduced volume — strength is sharpening' });
-  else if (phase === 'accumulation') insights.push({ type: 'phase', label: 'Building volume', color: COLORS.blue, severity: 0, tier: 1, detail: 'Moderate intensity, high volume — accumulation block' });
+  if (phase === 'deload')
+    insights.push({
+      type: 'phase',
+      label: 'Deload week',
+      color: COLORS.blue,
+      severity: 0,
+      tier: 1,
+      detail: 'Low volume/intensity week — recovery focused',
+    });
+  else if (phase === 'peaking')
+    insights.push({
+      type: 'phase',
+      label: 'Peaking',
+      color: COLORS.blue,
+      severity: 0,
+      tier: 1,
+      detail: 'High intensity, reduced volume — strength is sharpening',
+    });
+  else if (phase === 'accumulation')
+    insights.push({
+      type: 'phase',
+      label: 'Building volume',
+      color: COLORS.blue,
+      severity: 0,
+      tier: 1,
+      detail: 'Moderate intensity, high volume — accumulation block',
+    });
 
   // --- PR chips ---
-  const prs = lastWeekStats.entries.filter(e => e.isPR);
+  const prs = lastWeekStats.entries.filter((e) => e.isPR);
   if (prs.length === 1) {
-    insights.push({ type: 'pr', label: `PR: ${LIFT_NAMES[prs[0].lift]}`, color: COLORS.gold, severity: 0, tier: 1, detail: `New PR on ${LIFT_NAMES[prs[0].lift]}` });
+    insights.push({
+      type: 'pr',
+      label: `PR: ${LIFT_NAMES[prs[0].lift]}`,
+      color: COLORS.gold,
+      severity: 0,
+      tier: 1,
+      detail: `New PR on ${LIFT_NAMES[prs[0].lift]}`,
+    });
   } else if (prs.length > 1) {
-    insights.push({ type: 'pr', label: `${prs.length} PRs`, color: COLORS.gold, severity: 0, tier: 1, detail: `${prs.length} personal records this week` });
+    insights.push({
+      type: 'pr',
+      label: `${prs.length} PRs`,
+      color: COLORS.gold,
+      severity: 0,
+      tier: 1,
+      detail: `${prs.length} personal records this week`,
+    });
   }
 
   // --- Fatigue chips (Tier 1 muscles + Lower Back) ---
@@ -124,45 +173,91 @@ function generateInsights(lastWeekStats, phase, rolling) {
   if (fatigue) {
     const hotMuscles = [];
     const warmMuscles = [];
-    CHIP_MUSCLES.forEach(mg => {
+    CHIP_MUSCLES.forEach((mg) => {
       const f = fatigue[mg];
       if (!f) return;
       if (f.displayStatus === 'red') hotMuscles.push(mg);
       else if (f.displayStatus === 'orange') warmMuscles.push(mg);
     });
     if (hotMuscles.length === 1) {
-      insights.push({ type: 'overtrained', label: `${hotMuscles[0]} hot`, color: COLORS.red, severity: 1, tier: 2, detail: `${hotMuscles[0]} fatigue is elevated — consider reducing volume` });
+      insights.push({
+        type: 'overtrained',
+        label: `${hotMuscles[0]} hot`,
+        color: COLORS.red,
+        severity: 1,
+        tier: 2,
+        detail: `${hotMuscles[0]} fatigue is elevated — consider reducing volume`,
+      });
     } else if (hotMuscles.length > 1) {
-      insights.push({ type: 'overtrained', label: `${hotMuscles[0]} hot +${hotMuscles.length - 1}`, color: COLORS.red, severity: 1, tier: 2, detail: `${hotMuscles.join(', ')} fatigue elevated` });
+      insights.push({
+        type: 'overtrained',
+        label: `${hotMuscles[0]} hot +${hotMuscles.length - 1}`,
+        color: COLORS.red,
+        severity: 1,
+        tier: 2,
+        detail: `${hotMuscles.join(', ')} fatigue elevated`,
+      });
     }
     if (warmMuscles.length > 0 && hotMuscles.length === 0) {
-      insights.push({ type: 'overtrained', label: `${warmMuscles[0]} warm`, color: COLORS.orange, severity: 2, tier: 2, detail: `${warmMuscles.join(', ')} fatigue is moderate` });
+      insights.push({
+        type: 'overtrained',
+        label: `${warmMuscles[0]} warm`,
+        color: COLORS.orange,
+        severity: 2,
+        tier: 2,
+        detail: `${warmMuscles.join(', ')} fatigue is moderate`,
+      });
     }
   }
 
   // --- Missing lifts ---
-  const liftsTrained = new Set(lastWeekStats.entries.map(e => e.lift));
-  const missedLifts = LIFTS.filter(l => !liftsTrained.has(l));
-  missedLifts.forEach(l => {
-    insights.push({ type: 'missing', label: `No ${LIFT_NAMES[l]}`, color: COLORS.orange, severity: 2, tier: 2, detail: `${LIFT_NAMES[l]} was not trained last week` });
+  const liftsTrained = new Set(lastWeekStats.entries.map((e) => e.lift));
+  const missedLifts = LIFTS.filter((l) => !liftsTrained.has(l));
+  missedLifts.forEach((l) => {
+    insights.push({
+      type: 'missing',
+      label: `No ${LIFT_NAMES[l]}`,
+      color: COLORS.orange,
+      severity: 2,
+      tier: 2,
+      detail: `${LIFT_NAMES[l]} was not trained last week`,
+    });
   });
 
   // --- Undertrained muscles ---
   const muscleSets = {};
-  MUSCLE_GROUPS.forEach(mg => { muscleSets[mg] = 0; });
-  lastWeekStats.entries.forEach(e => {
+  MUSCLE_GROUPS.forEach((mg) => {
+    muscleSets[mg] = 0;
+  });
+  lastWeekStats.entries.forEach((e) => {
     const weights = MAIN_LIFT_WEIGHTS[e.lift];
     if (!weights) return;
-    MUSCLE_GROUPS.forEach(mg => { if (weights[mg] >= 0.15) muscleSets[mg] += 1; });
+    MUSCLE_GROUPS.forEach((mg) => {
+      if (weights[mg] >= 0.15) muscleSets[mg] += 1;
+    });
   });
-  CHIP_MUSCLES.forEach(mg => {
+  CHIP_MUSCLES.forEach((mg) => {
     const target = WEEKLY_SET_TARGETS[mg];
     if (!target) return;
     const sets = muscleSets[mg];
     if (sets === 0 && target.min >= 6) {
-      insights.push({ type: 'undertrained', label: `${mg} skipped`, color: COLORS.red, severity: 2, tier: 2, detail: `${mg} got 0 sets (target: ${target.min}-${target.max})` });
+      insights.push({
+        type: 'undertrained',
+        label: `${mg} skipped`,
+        color: COLORS.red,
+        severity: 2,
+        tier: 2,
+        detail: `${mg} got 0 sets (target: ${target.min}-${target.max})`,
+      });
     } else if (sets > 0 && sets < target.min * 0.3) {
-      insights.push({ type: 'undertrained', label: `${mg} low`, color: COLORS.orange, severity: 3, tier: 2, detail: `${mg}: ${Math.round(sets)} sets vs ${target.min} minimum target` });
+      insights.push({
+        type: 'undertrained',
+        label: `${mg} low`,
+        color: COLORS.orange,
+        severity: 3,
+        tier: 2,
+        detail: `${mg}: ${Math.round(sets)} sets vs ${target.min} minimum target`,
+      });
     }
   });
 
@@ -170,42 +265,93 @@ function generateInsights(lastWeekStats, phase, rolling) {
   if (rolling && rolling.avgVolume > 0) {
     const volChange = ((lastWeekStats.volume - rolling.avgVolume) / rolling.avgVolume) * 100;
     if (volChange > 10) {
-      insights.push({ type: 'volume', label: `Vol +${Math.round(volChange)}%`, color: COLORS.green, severity: 4, tier: 3, detail: `Volume up ${Math.round(volChange)}% vs 4-week average` });
+      insights.push({
+        type: 'volume',
+        label: `Vol +${Math.round(volChange)}%`,
+        color: COLORS.green,
+        severity: 4,
+        tier: 3,
+        detail: `Volume up ${Math.round(volChange)}% vs 4-week average`,
+      });
     } else if (volChange < -20) {
-      insights.push({ type: 'volume', label: `Vol ${Math.round(volChange)}%`, color: COLORS.orange, severity: 4, tier: 3, detail: `Volume down ${Math.round(Math.abs(volChange))}% vs 4-week average` });
+      insights.push({
+        type: 'volume',
+        label: `Vol ${Math.round(volChange)}%`,
+        color: COLORS.orange,
+        severity: 4,
+        tier: 3,
+        detail: `Volume down ${Math.round(Math.abs(volChange))}% vs 4-week average`,
+      });
     }
   }
 
   // --- RPE creep ---
   if (lastWeekStats.avgRPE !== null && lastWeekStats.rpeLogged >= 0.5) {
-    let rpeBaseline = 0, rpeCount = 0;
+    let rpeBaseline = 0,
+      rpeCount = 0;
     for (let w = 2; w <= 5; w++) {
       const ws = getWeekStats(getWeekRange(w).startMs, getWeekRange(w).endMs);
-      if (ws.avgRPE !== null && ws.rpeLogged >= 0.5) { rpeBaseline += ws.avgRPE; rpeCount++; }
+      if (ws.avgRPE !== null && ws.rpeLogged >= 0.5) {
+        rpeBaseline += ws.avgRPE;
+        rpeCount++;
+      }
     }
     if (rpeCount > 0) {
       const baseAvg = rpeBaseline / rpeCount;
       if (lastWeekStats.avgRPE > baseAvg + 0.5 && prs.length === 0) {
-        insights.push({ type: 'rpe', label: 'RPE creeping', color: COLORS.orange, severity: 3, tier: 3, detail: `Avg RPE ${lastWeekStats.avgRPE.toFixed(1)} vs ${baseAvg.toFixed(1)} baseline — fatigue accumulating` });
+        insights.push({
+          type: 'rpe',
+          label: 'RPE creeping',
+          color: COLORS.orange,
+          severity: 3,
+          tier: 3,
+          detail: `Avg RPE ${lastWeekStats.avgRPE.toFixed(1)} vs ${baseAvg.toFixed(1)} baseline — fatigue accumulating`,
+        });
       }
     }
   }
 
   // --- #18: Structured workouts chip ---
-  const weekAccLogs = store.accessoryLog.filter(l => l.timestamp >= startMs && l.timestamp < endMs);
-  const structuredDates = new Set(weekAccLogs.filter(l => l.source === 'guided-builder' || l.source === 'mesocycle').map(l => l.date));
+  const weekAccLogs = store.accessoryLog.filter(
+    (l) => l.timestamp >= startMs && l.timestamp < endMs
+  );
+  const structuredDates = new Set(
+    weekAccLogs
+      .filter((l) => l.source === 'guided-builder' || l.source === 'mesocycle')
+      .map((l) => l.date)
+  );
   if (structuredDates.size > 0) {
-    insights.push({ type: 'structured', label: `${structuredDates.size} structured workout${structuredDates.size > 1 ? 's' : ''}`, color: COLORS.green, severity: 5, tier: 3, detail: `${structuredDates.size} guided/mesocycle workout${structuredDates.size > 1 ? 's' : ''} completed` });
+    insights.push({
+      type: 'structured',
+      label: `${structuredDates.size} structured workout${structuredDates.size > 1 ? 's' : ''}`,
+      color: COLORS.green,
+      severity: 5,
+      tier: 3,
+      detail: `${structuredDates.size} guided/mesocycle workout${structuredDates.size > 1 ? 's' : ''} completed`,
+    });
   }
 
   // --- Comeback detection ---
   const prevWeekRange = getWeekRange(2);
   const prevPrevRange = getWeekRange(3);
-  const prevEntries = store.entries.filter(e => e.timestamp >= prevWeekRange.startMs && e.timestamp < prevWeekRange.endMs);
-  const prevPrevEntries = store.entries.filter(e => e.timestamp >= prevPrevRange.startMs && e.timestamp < prevPrevRange.endMs);
+  const prevEntries = store.entries.filter(
+    (e) => e.timestamp >= prevWeekRange.startMs && e.timestamp < prevWeekRange.endMs
+  );
+  const prevPrevEntries = store.entries.filter(
+    (e) => e.timestamp >= prevPrevRange.startMs && e.timestamp < prevPrevRange.endMs
+  );
   if (prevEntries.length === 0 && prevPrevEntries.length === 0 && lastWeekStats.sets > 0) {
     // Suppress negatives, add welcome back
-    return [{ type: 'comeback', label: 'Welcome back', color: COLORS.blue, severity: 0, tier: 1, detail: 'First training week after 14+ days off' }];
+    return [
+      {
+        type: 'comeback',
+        label: 'Welcome back',
+        color: COLORS.blue,
+        severity: 0,
+        tier: 1,
+        detail: 'First training week after 14+ days off',
+      },
+    ];
   }
 
   return insights;
@@ -216,28 +362,73 @@ function generateInsights(lastWeekStats, phase, rolling) {
 // ---------------------------------------------------------------------------
 
 function generateFocus(insights, phase, missedLifts, hotMuscles) {
-  if (phase === 'deload') return { label: 'Focus: Recovery + mobility', color: COLORS.purple, detail: 'Deload week — prioritize recovery' };
+  if (phase === 'deload')
+    return {
+      label: 'Focus: Recovery + mobility',
+      color: COLORS.purple,
+      detail: 'Deload week — prioritize recovery',
+    };
 
-  const hasRedMuscle = insights.some(c => c.type === 'overtrained' && c.color === COLORS.red);
+  const hasRedMuscle = insights.some((c) => c.type === 'overtrained' && c.color === COLORS.red);
   const missed = missedLifts.length > 0 ? LIFT_NAMES[missedLifts[0]] : null;
 
-  if (hasRedMuscle && missed) return { label: `Focus: ${missed} (light)`, color: COLORS.purple, detail: `Train ${missed} at reduced load while managing fatigue` };
+  if (hasRedMuscle && missed)
+    return {
+      label: `Focus: ${missed} (light)`,
+      color: COLORS.purple,
+      detail: `Train ${missed} at reduced load while managing fatigue`,
+    };
   if (hasRedMuscle) {
     const hotName = hotMuscles[0] || 'fatigued muscles';
-    return { label: `Focus: Reduce ${hotName} vol`, color: COLORS.purple, detail: `${hotName} fatigue is high — drop volume this week` };
+    return {
+      label: `Focus: Reduce ${hotName} vol`,
+      color: COLORS.purple,
+      detail: `${hotName} fatigue is high — drop volume this week`,
+    };
   }
-  if (missed) return { label: `Focus: ${missed}`, color: COLORS.purple, detail: `${missed} was missed last week — prioritize it` };
+  if (missed)
+    return {
+      label: `Focus: ${missed}`,
+      color: COLORS.purple,
+      detail: `${missed} was missed last week — prioritize it`,
+    };
 
-  const undertrained = insights.filter(c => c.type === 'undertrained').map(c => c.label.replace(' skipped', '').replace(' low', ''));
-  if (undertrained.length > 0) return { label: `Focus: ${undertrained.slice(0, 2).join(' + ')}`, color: COLORS.purple, detail: `Add volume for ${undertrained.join(', ')}` };
+  const undertrained = insights
+    .filter((c) => c.type === 'undertrained')
+    .map((c) => c.label.replace(' skipped', '').replace(' low', ''));
+  if (undertrained.length > 0)
+    return {
+      label: `Focus: ${undertrained.slice(0, 2).join(' + ')}`,
+      color: COLORS.purple,
+      detail: `Add volume for ${undertrained.join(', ')}`,
+    };
 
-  if (phase === 'peaking') return { label: 'Focus: Sharpen singles', color: COLORS.purple, detail: 'Peaking phase — practice heavy singles' };
-  if (phase === 'accumulation') return { label: 'Focus: Push volume', color: COLORS.purple, detail: 'Accumulation phase — build training volume' };
+  if (phase === 'peaking')
+    return {
+      label: 'Focus: Sharpen singles',
+      color: COLORS.purple,
+      detail: 'Peaking phase — practice heavy singles',
+    };
+  if (phase === 'accumulation')
+    return {
+      label: 'Focus: Push volume',
+      color: COLORS.purple,
+      detail: 'Accumulation phase — build training volume',
+    };
 
   // Volume down
-  if (insights.some(c => c.type === 'volume' && c.color === COLORS.orange)) return { label: 'Focus: Rebuild volume', color: COLORS.purple, detail: 'Volume dropped — get back to baseline' };
+  if (insights.some((c) => c.type === 'volume' && c.color === COLORS.orange))
+    return {
+      label: 'Focus: Rebuild volume',
+      color: COLORS.purple,
+      detail: 'Volume dropped — get back to baseline',
+    };
 
-  return { label: 'Stay the course', color: COLORS.purple, detail: 'Training looks balanced — keep going' };
+  return {
+    label: 'Stay the course',
+    color: COLORS.purple,
+    detail: 'Training looks balanced — keep going',
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -245,7 +436,7 @@ function generateFocus(insights, phase, missedLifts, hotMuscles) {
 // ---------------------------------------------------------------------------
 
 function suppressForContext(insights, phase) {
-  return insights.filter(c => {
+  return insights.filter((c) => {
     if (phase === 'deload') {
       // Keep red overtrained (deload not working), suppress undertrained/missing/volume-down
       if (c.type === 'undertrained' || c.type === 'missing') return false;
@@ -289,10 +480,12 @@ export function calcWeeklyInsights() {
   allInsights = suppressForContext(allInsights, phase);
 
   // Focus suggestion
-  const liftsTrained = new Set(lastWeekStats.entries.map(e => e.lift));
-  const missedLifts = LIFTS.filter(l => !liftsTrained.has(l));
+  const liftsTrained = new Set(lastWeekStats.entries.map((e) => e.lift));
+  const missedLifts = LIFTS.filter((l) => !liftsTrained.has(l));
   const fatigue = calcFatigueByMuscle();
-  const hotMuscles = fatigue ? CHIP_MUSCLES.filter(mg => fatigue[mg] && fatigue[mg].displayStatus === 'red') : [];
+  const hotMuscles = fatigue
+    ? CHIP_MUSCLES.filter((mg) => fatigue[mg] && fatigue[mg].displayStatus === 'red')
+    : [];
   const focus = generateFocus(allInsights, phase, missedLifts, hotMuscles);
 
   // Add focus as last insight

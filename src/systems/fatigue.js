@@ -23,10 +23,8 @@ import {
 import { LIFT_NAMES } from '../constants/lift-config.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
 import { resolveExercise } from '../data/exercise-compat.js';
-import { EXERCISE_CATALOG } from '../data/exercise-catalog.js';
 import {
   MUSCLE_GROUPS,
-  MUSCLE_RECOVERY_HOURS,
   MAIN_LIFT_WEIGHTS,
   ACCESSORY_CAT_WEIGHTS,
   SYNERGIST_MAP,
@@ -47,11 +45,11 @@ const FATIGUE_WEIGHT_FLOOR = 0.15;
 // Variable accessory INOL discount by exercise type (#7)
 // Close-variations are nearly as fatiguing as main lifts; isolation is mostly local
 const ACC_INOL_DISCOUNT = {
-  'close-variation': 0.80,
-  compound:          0.55,
-  isolation:         0.30,
-  bodyweight:        0.35,
-  time:              0.20,
+  'close-variation': 0.8,
+  compound: 0.55,
+  isolation: 0.3,
+  bodyweight: 0.35,
+  time: 0.2,
 };
 const DEFAULT_ACC_DISCOUNT = 0.5;
 
@@ -85,10 +83,9 @@ function getAccessorySetLoad(weightLbs, setVal, exerciseId, mainLiftHint) {
   if (!setVal || setVal <= 0) return 0;
   const catalogEx = resolveExercise(exerciseId);
   const legacyEx = ACCESSORY_DB[exerciseId];
-  const progType = catalogEx?.progressionType
-    || (legacyEx?.timeBased ? 'time'
-      : legacyEx?.pctOfTM === 0 ? 'bodyweight'
-        : 'compound');
+  const progType =
+    catalogEx?.progressionType ||
+    (legacyEx?.timeBased ? 'time' : legacyEx?.pctOfTM === 0 ? 'bodyweight' : 'compound');
 
   // TIME-BASED: setVal is seconds. 60s ~= 1 INOL unit.
   if (progType === 'time') {
@@ -127,7 +124,10 @@ function getEccentricMult(accEntries7, mg) {
     const cw = catalogEx.primaryMuscles;
     if (!cw || !cw[mg] || cw[mg] < 0.15) continue;
     const ecc = catalogEx.eccentricLoad || 'moderate';
-    if (ecc === 'high') { worst = 'high'; break; } // can't get worse
+    if (ecc === 'high') {
+      worst = 'high';
+      break;
+    } // can't get worse
     if (ecc === 'low' && worst === 'moderate') worst = 'low';
   }
   return ECCENTRIC_RECOVERY_MULT[worst] || 1.0;
@@ -138,9 +138,9 @@ import { getCalibratedRecovery } from '../systems/recovery-calibration.js';
 // EWMA constants
 // ---------------------------------------------------------------------------
 
-const LAMBDA_ACUTE = 2 / (7 + 1);    // 0.25 — 7-day equivalent
+const LAMBDA_ACUTE = 2 / (7 + 1); // 0.25 — 7-day equivalent
 const LAMBDA_CHRONIC = 2 / (28 + 1); // ~0.069 — 28-day equivalent
-const EWMA_WINDOW_DAYS = 42;         // Lookback for EWMA initialization
+const EWMA_WINDOW_DAYS = 42; // Lookback for EWMA initialization
 
 // ---------------------------------------------------------------------------
 // Auto-calibrated thresholds (computed on first use, cached)
@@ -156,7 +156,7 @@ let _muscleCacheAccGen = -1;
 function getThresholds() {
   // Recalibrate at most once per session (or if entries changed significantly)
   const now = Date.now();
-  if (_calibratedThresholds && (now - _calibrationTimestamp) < 60000) {
+  if (_calibratedThresholds && now - _calibrationTimestamp < 60000) {
     return _calibratedThresholds;
   }
 
@@ -181,7 +181,7 @@ function getThresholds() {
 
   // Build daily load array
   const dailyLoads = new Array(totalDays).fill(0);
-  sorted.forEach(e => {
+  sorted.forEach((e) => {
     const dayIdx = Math.floor((new Date(e.date + 'T12:00:00') - firstDay) / MS_PER_DAY);
     if (dayIdx >= 0 && dayIdx < totalDays) {
       dailyLoads[dayIdx] += calcINOL(e.weight, e.reps, e.e1rm);
@@ -190,7 +190,8 @@ function getThresholds() {
 
   // Run EWMA and collect ACWR values
   const acwrValues = [];
-  let acuteEWMA = 0, chronicEWMA = 0;
+  let acuteEWMA = 0,
+    chronicEWMA = 0;
   let seeded = false;
 
   for (let i = 0; i < totalDays; i++) {
@@ -220,7 +221,7 @@ function getThresholds() {
   // Percentile-based thresholds
   acwrValues.sort((a, b) => a - b);
   const p75 = acwrValues[Math.floor(acwrValues.length * 0.75)];
-  const p90 = acwrValues[Math.floor(acwrValues.length * 0.90)];
+  const p90 = acwrValues[Math.floor(acwrValues.length * 0.9)];
 
   _calibratedThresholds = {
     high: Math.max(1.4, p90),
@@ -243,11 +244,11 @@ export function invalidateThresholds() {
 
 function getMuscleSessionDays(mainEntries, accEntries, mg) {
   const timestamps = [];
-  mainEntries.forEach(e => {
+  mainEntries.forEach((e) => {
     const w = MAIN_LIFT_WEIGHTS[e.lift];
     if (w && w[mg]) timestamps.push(e.timestamp);
   });
-  accEntries.forEach(a => {
+  accEntries.forEach((a) => {
     const cw = resolveAccMuscleWeights(a.exerciseId);
     if (cw && cw[mg]) timestamps.push(a.timestamp);
   });
@@ -264,11 +265,11 @@ function resolveAccMuscleWeights(exerciseId) {
 
 function calcMuscleDensity(mainEntries, accEntries, mg) {
   const trainingDays = new Set();
-  mainEntries.forEach(e => {
+  mainEntries.forEach((e) => {
     const w = MAIN_LIFT_WEIGHTS[e.lift];
     if (w && w[mg]) trainingDays.add(e.date);
   });
-  accEntries.forEach(a => {
+  accEntries.forEach((a) => {
     const cw = resolveAccMuscleWeights(a.exerciseId);
     if (cw && cw[mg]) trainingDays.add(a.date);
   });
@@ -276,7 +277,8 @@ function calcMuscleDensity(mainEntries, accEntries, mg) {
   if (trainingDays.size <= 1) return 1.0;
 
   const sorted = [...trainingDays].sort();
-  let maxStreak = 1, streak = 1;
+  let maxStreak = 1,
+    streak = 1;
   for (let i = 1; i < sorted.length; i++) {
     const prev = new Date(sorted[i - 1] + 'T12:00:00');
     const curr = new Date(sorted[i] + 'T12:00:00');
@@ -304,12 +306,11 @@ function calcMuscleDensity(mainEntries, accEntries, mg) {
  * If muscleGroup is provided, loads are weighted by muscle contribution.
  */
 function buildDailyLoads(mainEntries, accEntries, muscleGroup, dayCount) {
-  const now = Date.now();
   const loads = new Array(dayCount).fill(0);
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
-  mainEntries.forEach(e => {
+  mainEntries.forEach((e) => {
     const entryDate = new Date(e.date + 'T12:00:00');
     const daysAgo = Math.round((todayStart - entryDate) / MS_PER_DAY);
     if (daysAgo < 0 || daysAgo >= dayCount) return;
@@ -323,7 +324,7 @@ function buildDailyLoads(mainEntries, accEntries, muscleGroup, dayCount) {
     }
   });
 
-  accEntries.forEach(a => {
+  accEntries.forEach((a) => {
     const ex = ACCESSORY_DB[a.exerciseId];
     const catalogEx = resolveExercise(a.exerciseId);
     if (!ex && !catalogEx) return;
@@ -332,7 +333,7 @@ function buildDailyLoads(mainEntries, accEntries, muscleGroup, dayCount) {
     if (daysAgo < 0 || daysAgo >= dayCount) return;
     const idx = dayCount - 1 - daysAgo;
     const discount = getAccDiscount(a.exerciseId);
-    const mainLiftHint = ex?.mainLift || (catalogEx?.supportsLifts?.[0]);
+    const mainLiftHint = ex?.mainLift || catalogEx?.supportsLifts?.[0];
 
     // Resolve muscle weights from catalog primaryMuscles OR legacy category weights
     let cw = null;
@@ -367,7 +368,8 @@ function buildDailyLoads(mainEntries, accEntries, muscleGroup, dayCount) {
  * Gaps >42 days trigger a full reset with a 2-week ramp-in flag.
  */
 function computeEWMA(dailyLoads) {
-  let acute = 0, chronic = 0;
+  let acute = 0,
+    chronic = 0;
   let seeded = false;
   let lastLoadDay = -1;
   let ramping = false; // true during 2-week ramp-in after long break
@@ -428,9 +430,15 @@ function classifyACWR(acuteEWMA, chronicEWMA, densityMult) {
     return { acwr, status: 'green', label: 'Low' };
   }
   const acwr = (acuteEWMA * densityMult) / chronicEWMA;
-  let status = 'green', label = 'Low';
-  if (acwr > thresholds.high) { status = 'red'; label = 'High'; }
-  else if (acwr > thresholds.mod) { status = 'yellow'; label = 'Med'; }
+  let status = 'green',
+    label = 'Low';
+  if (acwr > thresholds.high) {
+    status = 'red';
+    label = 'High';
+  } else if (acwr > thresholds.mod) {
+    status = 'yellow';
+    label = 'Med';
+  }
   return { acwr, status, label };
 }
 
@@ -453,7 +461,7 @@ function mainEntryLoadRaw(e) {
  */
 export function calcAccessoryLoad(accEntries, muscleGroup) {
   let load = 0;
-  accEntries.forEach(a => {
+  accEntries.forEach((a) => {
     const ex = ACCESSORY_DB[a.exerciseId];
     const catalogEx = resolveExercise(a.exerciseId);
     if (!ex && !catalogEx) return;
@@ -464,16 +472,19 @@ export function calcAccessoryLoad(accEntries, muscleGroup) {
     const discount = getAccDiscount(a.exerciseId);
     const mainLiftHint = ex?.mainLift || catalogEx?.supportsLifts?.[0];
     const sets = a.setsCompleted || [];
-    load += sets.reduce((s, setVal, i) => {
-      const w = (a.setWeights && a.setWeights[i]) || a.weight || 0;
-      return s + getAccessorySetLoad(w, setVal, a.exerciseId, mainLiftHint);
-    }, 0) * cw[muscleGroup] * discount;
+    load +=
+      sets.reduce((s, setVal, i) => {
+        const w = (a.setWeights && a.setWeights[i]) || a.weight || 0;
+        return s + getAccessorySetLoad(w, setVal, a.exerciseId, mainLiftHint);
+      }, 0) *
+      cw[muscleGroup] *
+      discount;
   });
   return load;
 }
 
 export function countAccessoryEntries(accEntries, muscleGroup) {
-  return accEntries.filter(a => {
+  return accEntries.filter((a) => {
     const ex = ACCESSORY_DB[a.exerciseId];
     const catalogEx = resolveExercise(a.exerciseId);
     if (catalogEx?.primaryMuscles) return !!catalogEx.primaryMuscles[muscleGroup];
@@ -495,19 +506,19 @@ export function countAccessoryEntries(accEntries, muscleGroup) {
 export function calcFatigue() {
   const now = Date.now();
   const day = MS_PER_DAY;
-  const e28 = store.entries.filter(e => (now - e.timestamp) <= 28 * day);
+  const e28 = store.entries.filter((e) => now - e.timestamp <= 28 * day);
   if (e28.length < 3) return null;
 
   // RPE
-  const e7 = store.entries.filter(e => (now - e.timestamp) <= 7 * day);
-  const rpe7  = e7.filter(e => e.rpe != null);
-  const rpe28 = e28.filter(e => e.rpe != null);
-  const avgRPE7  = rpe7.length > 0  ? rpe7.reduce((s, e) => s + e.rpe, 0) / rpe7.length   : null;
+  const e7 = store.entries.filter((e) => now - e.timestamp <= 7 * day);
+  const rpe7 = e7.filter((e) => e.rpe != null);
+  const rpe28 = e28.filter((e) => e.rpe != null);
+  const avgRPE7 = rpe7.length > 0 ? rpe7.reduce((s, e) => s + e.rpe, 0) / rpe7.length : null;
   const avgRPE28 = rpe28.length > 0 ? rpe28.reduce((s, e) => s + e.rpe, 0) / rpe28.length : null;
 
   // EWMA ACWR
-  const allMain = store.entries.filter(e => (now - e.timestamp) <= EWMA_WINDOW_DAYS * day);
-  const allAcc = store.accessoryLog.filter(a => (now - a.timestamp) <= EWMA_WINDOW_DAYS * day);
+  const allMain = store.entries.filter((e) => now - e.timestamp <= EWMA_WINDOW_DAYS * day);
+  const allAcc = store.accessoryLog.filter((a) => now - a.timestamp <= EWMA_WINDOW_DAYS * day);
   const dailyLoads = buildDailyLoads(allMain, allAcc, null, EWMA_WINDOW_DAYS);
   const { acute, chronic, seeded, ramping } = computeEWMA(dailyLoads);
 
@@ -515,13 +526,19 @@ export function calcFatigue() {
 
   const thresholds = getThresholds();
   const acwr = chronic > 0.001 ? acute / chronic : null;
-  let status = 'green', label = 'Recovery: Good';
+  let status = 'green',
+    label = 'Recovery: Good';
   if (ramping) {
     // During ramp-in after break, suppress ACWR warnings (#4)
     label = 'Returning to training';
   } else if (acwr !== null) {
-    if (acwr > thresholds.high) { status = 'red'; label = 'High fatigue'; }
-    else if (acwr > thresholds.mod) { status = 'yellow'; label = 'Moderate load'; }
+    if (acwr > thresholds.high) {
+      status = 'red';
+      label = 'High fatigue';
+    } else if (acwr > thresholds.mod) {
+      status = 'yellow';
+      label = 'Moderate load';
+    }
   }
 
   return { acwr, avgRPE7, avgRPE28, status, label };
@@ -535,7 +552,12 @@ export function calcFatigue() {
  * Calculate EWMA ACWR for each muscle group with density multiplier.
  */
 export function calcFatigueByMuscle() {
-  if (_muscleCache && typeof store._entryGen === 'number' && store._entryGen === _muscleCacheEntryGen && store._accLogGen === _muscleCacheAccGen) {
+  if (
+    _muscleCache &&
+    typeof store._entryGen === 'number' &&
+    store._entryGen === _muscleCacheEntryGen &&
+    store._accLogGen === _muscleCacheAccGen
+  ) {
     return _muscleCache;
   }
 
@@ -544,45 +566,64 @@ export function calcFatigueByMuscle() {
   const results = {};
   let anyValid = false;
 
-  const allMain = store.entries.filter(e => (now - e.timestamp) <= EWMA_WINDOW_DAYS * day);
-  const allAcc = store.accessoryLog.filter(a => (now - a.timestamp) <= EWMA_WINDOW_DAYS * day);
-  const main7 = allMain.filter(e => (now - e.timestamp) <= 7 * day);
-  const acc7 = allAcc.filter(a => (now - a.timestamp) <= 7 * day);
+  const allMain = store.entries.filter((e) => now - e.timestamp <= EWMA_WINDOW_DAYS * day);
+  const allAcc = store.accessoryLog.filter((a) => now - a.timestamp <= EWMA_WINDOW_DAYS * day);
+  const main7 = allMain.filter((e) => now - e.timestamp <= 7 * day);
+  const acc7 = allAcc.filter((a) => now - a.timestamp <= 7 * day);
 
   // Check minimum data (need entries in 28-day window)
-  const main28 = allMain.filter(e => (now - e.timestamp) <= 28 * day);
-  const acc28 = allAcc.filter(a => (now - a.timestamp) <= 28 * day);
+  const main28 = allMain.filter((e) => now - e.timestamp <= 28 * day);
+  const acc28 = allAcc.filter((a) => now - a.timestamp <= 28 * day);
 
   // Pass 1: compute ACWR status for each muscle group
   const acwrData = {};
-  MUSCLE_GROUPS.forEach(mg => {
+  MUSCLE_GROUPS.forEach((mg) => {
     let count28 = 0;
     let lastTs = 0;
-    main28.forEach(e => {
+    main28.forEach((e) => {
       const w = MAIN_LIFT_WEIGHTS[e.lift];
-      if (w && w[mg] && w[mg] >= FATIGUE_WEIGHT_FLOOR) { count28++; if (e.timestamp > lastTs) lastTs = e.timestamp; }
+      if (w && w[mg] && w[mg] >= FATIGUE_WEIGHT_FLOOR) {
+        count28++;
+        if (e.timestamp > lastTs) lastTs = e.timestamp;
+      }
     });
-    acc28.forEach(a => {
+    acc28.forEach((a) => {
       const cw = resolveAccMuscleWeights(a.exerciseId);
-      if (cw && cw[mg] && cw[mg] >= FATIGUE_WEIGHT_FLOOR) { if (a.timestamp > lastTs) lastTs = a.timestamp; }
+      if (cw && cw[mg] && cw[mg] >= FATIGUE_WEIGHT_FLOOR) {
+        if (a.timestamp > lastTs) lastTs = a.timestamp;
+      }
     });
     count28 += countAccessoryEntries(acc28, mg);
 
-    if (count28 < 3) { results[mg] = null; return; }
+    if (count28 < 3) {
+      results[mg] = null;
+      return;
+    }
 
     const dailyLoads = buildDailyLoads(allMain, allAcc, mg, EWMA_WINDOW_DAYS);
     const { acute, chronic, seeded, ramping } = computeEWMA(dailyLoads);
-    if (!seeded) { results[mg] = null; return; }
+    if (!seeded) {
+      results[mg] = null;
+      return;
+    }
 
     // During ramp-in after extended break, ACWR is unreliable (#4)
     if (ramping) {
-      results[mg] = { acwr: null, status: 'green', label: 'Ramping', displayStatus: 'green', displayLabel: '\u2014', recoveryPct: null, hoursSince: null };
+      results[mg] = {
+        acwr: null,
+        status: 'green',
+        label: 'Ramping',
+        displayStatus: 'green',
+        displayLabel: '\u2014',
+        recoveryPct: null,
+        hoursSince: null,
+      };
       anyValid = true;
       return;
     }
 
     let maxWeight = 0;
-    main7.forEach(e => {
+    main7.forEach((e) => {
       const w = MAIN_LIFT_WEIGHTS[e.lift];
       if (w && w[mg] > maxWeight) maxWeight = w[mg];
     });
@@ -595,7 +636,7 @@ export function calcFatigueByMuscle() {
   });
 
   // Pass 2: compute recovery with synergist cross-recovery penalties (#3)
-  MUSCLE_GROUPS.forEach(mg => {
+  MUSCLE_GROUPS.forEach((mg) => {
     if (!acwrData[mg]) return; // already set to null in pass 1
     const { acwr, status, label, lastTs, chronic } = acwrData[mg];
 
@@ -603,24 +644,26 @@ export function calcFatigueByMuscle() {
     const baseHours = getCalibratedRecovery(mg);
 
     // Intensity multiplier
-    const intensityEntries = main7.filter(e => {
+    const intensityEntries = main7.filter((e) => {
       const w = MAIN_LIFT_WEIGHTS[e.lift];
       return w && w[mg] && e.e1rm > 0;
     });
     let intensityMult = 1.0;
     if (intensityEntries.length > 0) {
-      const avgIntensity = intensityEntries.reduce((s, e) => s + e.weight / e.e1rm, 0) / intensityEntries.length;
+      const avgIntensity =
+        intensityEntries.reduce((s, e) => s + e.weight / e.e1rm, 0) / intensityEntries.length;
       if (avgIntensity > 0.85) intensityMult = 1.3;
-      else if (avgIntensity >= 0.70) intensityMult = 1.1;
+      else if (avgIntensity >= 0.7) intensityMult = 1.1;
       else intensityMult = 0.85;
     }
 
     // ACWR multiplier
-    const acwrMult = status === 'red'
-      ? FATIGUE_RECOVERY_MULT.high
-      : status === 'yellow'
-        ? FATIGUE_RECOVERY_MULT.mod
-        : FATIGUE_RECOVERY_MULT.low;
+    const acwrMult =
+      status === 'red'
+        ? FATIGUE_RECOVERY_MULT.high
+        : status === 'yellow'
+          ? FATIGUE_RECOVERY_MULT.mod
+          : FATIGUE_RECOVERY_MULT.low;
 
     // Density penalty
     let densityPenalty = 0;
@@ -638,7 +681,7 @@ export function calcFatigueByMuscle() {
 
     // Spike detection
     const load7 = buildDailyLoads(main7, acc7, mg, 7).reduce((s, v) => s + v, 0);
-    const spikeMult = (chronic > 0 && load7 > 1.5 * chronic) ? 12 : 0;
+    const spikeMult = chronic > 0 && load7 > 1.5 * chronic ? 12 : 0;
 
     // Synergist cross-recovery penalty (#3)
     let synergistMult = 1.0;
@@ -653,10 +696,12 @@ export function calcFatigueByMuscle() {
     // Eccentric load multiplier (#10)
     const eccentricMult = getEccentricMult(acc7, mg);
 
-    const adjustedHours = baseHours * intensityMult * acwrMult * synergistMult * eccentricMult + spikeMult + densityPenalty;
-    const recoveryPct = hoursSince !== null
-      ? Math.min(1, Math.max(0, hoursSince / adjustedHours))
-      : null;
+    const adjustedHours =
+      baseHours * intensityMult * acwrMult * synergistMult * eccentricMult +
+      spikeMult +
+      densityPenalty;
+    const recoveryPct =
+      hoursSince !== null ? Math.min(1, Math.max(0, hoursSince / adjustedHours)) : null;
 
     // Combined display status (ACWR + recovery) — 5-tier color ramp
     let displayStatus;
@@ -697,16 +742,16 @@ export function calcFatigueByMuscle() {
 export function calcFatigueDetail(mg) {
   const now = Date.now();
   const day = MS_PER_DAY;
-  const allMain = store.entries.filter(e => (now - e.timestamp) <= EWMA_WINDOW_DAYS * day);
-  const allAcc = store.accessoryLog.filter(a => (now - a.timestamp) <= EWMA_WINDOW_DAYS * day);
-  const main7 = allMain.filter(e => (now - e.timestamp) <= 7 * day);
-  const main28 = allMain.filter(e => (now - e.timestamp) <= 28 * day);
-  const acc7 = allAcc.filter(a => (now - a.timestamp) <= 7 * day);
-  const acc28 = allAcc.filter(a => (now - a.timestamp) <= 28 * day);
+  const allMain = store.entries.filter((e) => now - e.timestamp <= EWMA_WINDOW_DAYS * day);
+  const allAcc = store.accessoryLog.filter((a) => now - a.timestamp <= EWMA_WINDOW_DAYS * day);
+  const main7 = allMain.filter((e) => now - e.timestamp <= 7 * day);
+  const main28 = allMain.filter((e) => now - e.timestamp <= 28 * day);
+  const acc7 = allAcc.filter((a) => now - a.timestamp <= 7 * day);
+  const acc28 = allAcc.filter((a) => now - a.timestamp <= 28 * day);
 
   // Count data points (only above the fatigue weight floor)
   let count28 = 0;
-  main28.forEach(e => {
+  main28.forEach((e) => {
     const w = MAIN_LIFT_WEIGHTS[e.lift];
     if (w && w[mg] && w[mg] >= FATIGUE_WEIGHT_FLOOR) count28++;
   });
@@ -723,26 +768,30 @@ export function calcFatigueDetail(mg) {
 
   // Compute load7 and weeklyAvg for display
   let load7 = 0;
-  main7.forEach(e => { load7 += mainEntryLoad(e, mg); });
+  main7.forEach((e) => {
+    load7 += mainEntryLoad(e, mg);
+  });
   load7 += calcAccessoryLoad(acc7, mg);
   const weeklyAvg28 = chronic; // chronic EWMA represents the weekly average baseline
 
   // Contributors (7-day)
   const contribMap = {};
   function addContrib(key, name, type, lift, muscleWeight, load, sets, timestamp) {
-    if (!contribMap[key]) { contribMap[key] = { name, type, lift, muscleWeight, load7: 0, sets: 0, lastTs: 0 }; }
+    if (!contribMap[key]) {
+      contribMap[key] = { name, type, lift, muscleWeight, load7: 0, sets: 0, lastTs: 0 };
+    }
     contribMap[key].load7 += load;
     contribMap[key].sets += sets;
     if (timestamp > contribMap[key].lastTs) contribMap[key].lastTs = timestamp;
   }
 
-  main7.forEach(e => {
+  main7.forEach((e) => {
     const w = MAIN_LIFT_WEIGHTS[e.lift];
     if (!w || !w[mg] || w[mg] < FATIGUE_WEIGHT_FLOOR) return;
     const l = calcINOL(e.weight, e.reps, e.e1rm) * w[mg];
     addContrib('main-' + e.lift, LIFT_NAMES[e.lift], 'Main', e.lift, w[mg], l, 1, e.timestamp);
   });
-  acc7.forEach(a => {
+  acc7.forEach((a) => {
     const ex = ACCESSORY_DB[a.exerciseId];
     const catalogEx = resolveExercise(a.exerciseId);
     if (!ex && !catalogEx) return;
@@ -754,42 +803,48 @@ export function calcFatigueDetail(mg) {
     const sets = a.setsCompleted || [];
     const accDiscount = getAccDiscount(a.exerciseId);
     const mainLiftHint = ex?.mainLift || catalogEx?.supportsLifts?.[0];
-    const accLoad = sets.reduce((s, setVal, i) => {
-      const w = (a.setWeights && a.setWeights[i]) || a.weight || 0;
-      return s + getAccessorySetLoad(w, setVal, a.exerciseId, mainLiftHint);
-    }, 0) * cw[mg] * accDiscount;
+    const accLoad =
+      sets.reduce((s, setVal, i) => {
+        const w = (a.setWeights && a.setWeights[i]) || a.weight || 0;
+        return s + getAccessorySetLoad(w, setVal, a.exerciseId, mainLiftHint);
+      }, 0) *
+      cw[mg] *
+      accDiscount;
     const name = catalogEx?.name || ex?.name || a.name || a.exerciseId;
     const lift = ex?.mainLift || catalogEx?.supportsLifts?.[0] || null;
     addContrib('acc-' + a.exerciseId, name, 'Acc', lift, cw[mg], accLoad, sets.length, a.timestamp);
   });
   const contribArr = Object.values(contribMap)
-    .filter(c => c.load7 > 0)
+    .filter((c) => c.load7 > 0)
     .sort((a, b) => b.load7 - a.load7);
 
   // Weekly trend (4 one-week buckets)
   const weeklyTrend = [0, 0, 0, 0];
   const allItems28 = [
-    ...main28.map(e => ({ ts: e.timestamp, load: mainEntryLoad(e, mg) })),
-    ...acc28.map(a => {
+    ...main28.map((e) => ({ ts: e.timestamp, load: mainEntryLoad(e, mg) })),
+    ...acc28.map((a) => {
       const ex = ACCESSORY_DB[a.exerciseId];
       const catalogEx = resolveExercise(a.exerciseId);
       let cw = null;
       if (catalogEx?.primaryMuscles) cw = catalogEx.primaryMuscles;
       else if (ex?.category) cw = ACCESSORY_CAT_WEIGHTS[ex.category];
-      const mw = cw ? (cw[mg] || 0) : 0;
+      const mw = cw ? cw[mg] || 0 : 0;
       const sets = a.setsCompleted || [];
       const disc = getAccDiscount(a.exerciseId);
       const mainLiftHint = ex?.mainLift || catalogEx?.supportsLifts?.[0];
       return {
         ts: a.timestamp,
-        load: sets.reduce((s, setVal, i) => {
-          const w = (a.setWeights && a.setWeights[i]) || a.weight || 0;
-          return s + getAccessorySetLoad(w, setVal, a.exerciseId, mainLiftHint);
-        }, 0) * mw * disc,
+        load:
+          sets.reduce((s, setVal, i) => {
+            const w = (a.setWeights && a.setWeights[i]) || a.weight || 0;
+            return s + getAccessorySetLoad(w, setVal, a.exerciseId, mainLiftHint);
+          }, 0) *
+          mw *
+          disc,
       };
     }),
   ];
-  allItems28.forEach(item => {
+  allItems28.forEach((item) => {
     const daysAgo = (now - item.ts) / day;
     const bucket = Math.min(3, Math.floor(daysAgo / 7));
     weeklyTrend[3 - bucket] += item.load;
@@ -799,28 +854,30 @@ export function calcFatigueDetail(mg) {
   // stabilizer-level involvement (e.g. bench → Upper Back at 0.05) doesn't
   // reset the recovery clock for that muscle group.
   let lastTs = 0;
-  main28.forEach(e => {
+  main28.forEach((e) => {
     const w = MAIN_LIFT_WEIGHTS[e.lift];
     if (w && w[mg] && w[mg] >= FATIGUE_WEIGHT_FLOOR && e.timestamp > lastTs) lastTs = e.timestamp;
   });
-  acc28.forEach(a => {
+  acc28.forEach((a) => {
     const cw = resolveAccMuscleWeights(a.exerciseId);
-    if (cw && cw[mg] && cw[mg] >= FATIGUE_WEIGHT_FLOOR && a.timestamp > lastTs) lastTs = a.timestamp;
+    if (cw && cw[mg] && cw[mg] >= FATIGUE_WEIGHT_FLOOR && a.timestamp > lastTs)
+      lastTs = a.timestamp;
   });
   const hoursSince = lastTs > 0 ? (now - lastTs) / (1000 * 60 * 60) : null;
 
   // Recovery estimate — intensity-scaled, self-calibrated
   const baseHours = getCalibratedRecovery(mg);
 
-  const intensityEntries = main7.filter(e => {
+  const intensityEntries = main7.filter((e) => {
     const w = MAIN_LIFT_WEIGHTS[e.lift];
     return w && w[mg] && w[mg] >= FATIGUE_WEIGHT_FLOOR && e.e1rm > 0;
   });
   let intensityMult = 1.0;
   if (intensityEntries.length > 0) {
-    const avgIntensity = intensityEntries.reduce((s, e) => s + e.weight / e.e1rm, 0) / intensityEntries.length;
+    const avgIntensity =
+      intensityEntries.reduce((s, e) => s + e.weight / e.e1rm, 0) / intensityEntries.length;
     if (avgIntensity > 0.85) intensityMult = 1.3;
-    else if (avgIntensity >= 0.70) intensityMult = 1.1;
+    else if (avgIntensity >= 0.7) intensityMult = 1.1;
     else intensityMult = 0.85;
   }
 
@@ -838,17 +895,18 @@ export function calcFatigueDetail(mg) {
     if ((sorted[0] - sorted[1]) / (1000 * 60 * 60) < 24) densityPenalty = 12;
   }
 
-  const acwrMult = status === 'red'
-    ? FATIGUE_RECOVERY_MULT.high
-    : status === 'yellow'
-      ? FATIGUE_RECOVERY_MULT.mod
-      : FATIGUE_RECOVERY_MULT.low;
-  const spikeMult = (weeklyAvg28 > 0 && load7 > 1.5 * weeklyAvg28) ? 12 : 0;
+  const acwrMult =
+    status === 'red'
+      ? FATIGUE_RECOVERY_MULT.high
+      : status === 'yellow'
+        ? FATIGUE_RECOVERY_MULT.mod
+        : FATIGUE_RECOVERY_MULT.low;
+  const spikeMult = weeklyAvg28 > 0 && load7 > 1.5 * weeklyAvg28 ? 12 : 0;
   const eccentricMult = getEccentricMult(acc7, mg);
-  const adjustedHours = baseHours * intensityMult * acwrMult * eccentricMult + spikeMult + densityPenalty;
-  const percentRecovered = hoursSince !== null
-    ? Math.min(1, Math.max(0, hoursSince / adjustedHours))
-    : null;
+  const adjustedHours =
+    baseHours * intensityMult * acwrMult * eccentricMult + spikeMult + densityPenalty;
+  const percentRecovered =
+    hoursSince !== null ? Math.min(1, Math.max(0, hoursSince / adjustedHours)) : null;
 
   let readyLabel = 'N/A';
   if (percentRecovered !== null) {
@@ -863,7 +921,13 @@ export function calcFatigueDetail(mg) {
   }
 
   return {
-    acwr, status, label, load7, weeklyAvg28, count28, weeklyTrend,
+    acwr,
+    status,
+    label,
+    load7,
+    weeklyAvg28,
+    count28,
+    weeklyTrend,
     contributors: contribArr,
     lastSession: lastTs > 0 ? lastTs : null,
     hoursSince,
@@ -885,14 +949,20 @@ export function getRecoveryAdvice(detail) {
   const { status, recoveryEstimate: r } = detail;
   if (r.percentRecovered === null) return 'Not enough data to estimate recovery.';
   const hrs = Math.round(r.hoursRemaining);
-  const timeStr = hrs <= 0
-    ? ''
-    : hrs > 24
-      ? (hrs < 48 ? 'tomorrow' : `in ~${Math.round(hrs / 24)}d`)
-      : `in ~${hrs}h`;
-  if (r.percentRecovered >= 1 && status === 'green') return 'Fully recovered. Safe to increase volume.';
-  if (r.percentRecovered >= 1 && status === 'yellow') return 'Recovered, but load is building. Maintain volume.';
-  if (r.percentRecovered >= 1 && status === 'red') return 'Consider deloading. ACWR is high despite recovery.';
+  const timeStr =
+    hrs <= 0
+      ? ''
+      : hrs > 24
+        ? hrs < 48
+          ? 'tomorrow'
+          : `in ~${Math.round(hrs / 24)}d`
+        : `in ~${hrs}h`;
+  if (r.percentRecovered >= 1 && status === 'green')
+    return 'Fully recovered. Safe to increase volume.';
+  if (r.percentRecovered >= 1 && status === 'yellow')
+    return 'Recovered, but load is building. Maintain volume.';
+  if (r.percentRecovered >= 1 && status === 'red')
+    return 'Consider deloading. ACWR is high despite recovery.';
   if (r.percentRecovered >= 0.7) return `Light work OK. Full recovery ${timeStr}.`;
   if (status === 'red') return 'Rest recommended. High fatigue + incomplete recovery.';
   return `Recovering. Ready ${timeStr}.`;
@@ -905,15 +975,17 @@ export function getRecoveryAdvice(detail) {
 export function calcFatigueLift(lift) {
   const now = Date.now();
   const day = MS_PER_DAY;
-  const liftEntries = store.entries.filter(e => e.lift === lift && (now - e.timestamp) <= EWMA_WINDOW_DAYS * day);
-  const e28 = liftEntries.filter(e => (now - e.timestamp) <= 28 * day);
+  const liftEntries = store.entries.filter(
+    (e) => e.lift === lift && now - e.timestamp <= EWMA_WINDOW_DAYS * day
+  );
+  const e28 = liftEntries.filter((e) => now - e.timestamp <= 28 * day);
   if (e28.length < 2) return null;
 
   // Build daily loads for just this lift
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
   const loads = new Array(EWMA_WINDOW_DAYS).fill(0);
-  liftEntries.forEach(e => {
+  liftEntries.forEach((e) => {
     const entryDate = new Date(e.date);
     entryDate.setHours(0, 0, 0, 0);
     const daysAgo = Math.round((todayStart - entryDate) / MS_PER_DAY);

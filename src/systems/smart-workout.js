@@ -34,13 +34,13 @@ export function suggestMainLift() {
   const scores = {};
   const reasons = {};
 
-  LIFTS.forEach(lift => {
+  LIFTS.forEach((lift) => {
     let score = 0;
     const r = [];
 
     // Recency — recovery-aware scoring (#9)
     const liftEntries = store.entries
-      .filter(e => e.lift === lift)
+      .filter((e) => e.lift === lift)
       .sort((a, b) => b.timestamp - a.timestamp);
     if (liftEntries.length > 0) {
       const daysSince = Math.floor((Date.now() - liftEntries[0].timestamp) / MS_PER_DAY);
@@ -74,23 +74,36 @@ export function suggestMainLift() {
     // Fatigue
     const liftFatigue = calcFatigueLift(lift);
     if (liftFatigue) {
-      if (liftFatigue.status === 'green') { score += 20; r.push('Well recovered'); }
-      else if (liftFatigue.status === 'yellow') { score += 10; r.push('Moderate fatigue'); }
-      else { score -= 10; r.push('High fatigue'); }
+      if (liftFatigue.status === 'green') {
+        score += 20;
+        r.push('Well recovered');
+      } else if (liftFatigue.status === 'yellow') {
+        score += 10;
+        r.push('Moderate fatigue');
+      } else {
+        score -= 10;
+        r.push('High fatigue');
+      }
     }
 
     // Plateau
-    if (detectPlateau(lift)) { score += 15; r.push('Plateau detected'); }
+    if (detectPlateau(lift)) {
+      score += 15;
+      r.push('Plateau detected');
+    }
 
     // Declining trend
     const prog = calcProgression(lift);
-    if (prog && prog.direction === 'down') { score += 10; r.push('Declining trend'); }
+    if (prog && prog.direction === 'down') {
+      score += 10;
+      r.push('Declining trend');
+    }
 
     scores[lift] = score;
     reasons[lift] = r;
   });
 
-  const best = LIFTS.reduce((a, b) => scores[a] >= scores[b] ? a : b);
+  const best = LIFTS.reduce((a, b) => (scores[a] >= scores[b] ? a : b));
   return { lift: best, scores, reasons };
 }
 
@@ -129,7 +142,7 @@ export function suggestIntensity(lift) {
             pctTM: Math.max(60, basePct - 10),
             rpe: Math.max(6, baseRPE - 1),
             sets: Math.max(3, baseSets - 1),
-            reps: baseReps
+            reps: baseReps,
           };
         }
         if (liftFatigue.status === 'yellow' && !isPeaking) {
@@ -140,17 +153,21 @@ export function suggestIntensity(lift) {
           const displayOrder = { green: 0, lime: 1, yellow: 2, orange: 3, red: 4 };
           if (muscleFatigue) {
             for (const [mg, mw] of Object.entries(liftWeights)) {
-              if (mw >= 0.15 && muscleFatigue[mg] && displayOrder[muscleFatigue[mg].displayStatus] > displayOrder[worstDisplay]) {
+              if (
+                mw >= 0.15 &&
+                muscleFatigue[mg] &&
+                displayOrder[muscleFatigue[mg].displayStatus] > displayOrder[worstDisplay]
+              ) {
                 worstDisplay = muscleFatigue[mg].displayStatus;
               }
             }
           }
           if (worstDisplay === 'orange') {
             return {
-              pctTM: Math.max(60, Math.round(basePct * 0.90)),
+              pctTM: Math.max(60, Math.round(basePct * 0.9)),
               rpe: Math.min(7, baseRPE),
               sets: Math.max(3, baseSets - 1),
-              reps: baseReps
+              reps: baseReps,
             };
           }
           // Yellow: mild tempering
@@ -158,7 +175,7 @@ export function suggestIntensity(lift) {
             pctTM: Math.round(basePct * 0.95),
             rpe: baseRPE,
             sets: baseSets,
-            reps: baseReps
+            reps: baseReps,
           };
         }
       }

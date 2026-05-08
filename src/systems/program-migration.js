@@ -26,7 +26,7 @@ export const PROGRAM_HISTORY_MIGRATION_VERSION = 4;
  */
 export function inferTMAtWeek(pc, lift, week, cycleLen) {
   const history = (pc.tmHistory || [])
-    .filter(h => h.lift === lift && h.oldTM && h.newTM && h.source !== 'manual')
+    .filter((h) => h.lift === lift && h.oldTM && h.newTM && h.source !== 'manual')
     .sort((a, b) => a.date.localeCompare(b.date));
 
   if (!history.length) return pc.trainingMaxes[lift] || 0;
@@ -105,9 +105,9 @@ function _setItemFromKey(pc, tmpl, key) {
   if (!weekData || !weekData.sets[idx]) return null;
 
   const setSpec = weekData.sets[idx];
-  const primarySetCount = weekData.sets.filter(s => !SUPPLEMENTAL_TIERS.includes(s.tier)).length;
+  const primarySetCount = weekData.sets.filter((s) => !SUPPLEMENTAL_TIERS.includes(s.tier)).length;
   const expectedTM = inferTMAtWeek(pc, lift, week, tmpl.weeks);
-  const expectedWeight = expectedTM ? roundToPlate(expectedTM * setSpec.pct / 100) : 0;
+  const expectedWeight = expectedTM ? roundToPlate((expectedTM * setSpec.pct) / 100) : 0;
   const isAmrap = _isAmrapReps(setSpec.reps);
   const prescribedFloor = _prescribedFloor(setSpec.reps);
   const existingData = pc.completedSetData?.[key] || null;
@@ -140,7 +140,7 @@ function _buildSetItems() {
   if (!tmpl) return [];
 
   return Object.keys(pc.completedSets || {})
-    .map(key => _setItemFromKey(pc, tmpl, key))
+    .map((key) => _setItemFromKey(pc, tmpl, key))
     .filter(Boolean)
     .sort(_itemSort);
 }
@@ -179,7 +179,7 @@ function _dateLabel(dateStr) {
 }
 
 function _valuesSummary(values) {
-  const nums = values.filter(v => Number.isFinite(Number(v))).map(Number);
+  const nums = values.filter((v) => Number.isFinite(Number(v))).map(Number);
   if (!nums.length) return '';
   const min = Math.min(...nums);
   const max = Math.max(...nums);
@@ -188,7 +188,7 @@ function _valuesSummary(values) {
 
 function _buildWorkoutGroups() {
   const groupsByKey = {};
-  _buildSetItems().forEach(item => {
+  _buildSetItems().forEach((item) => {
     const key = _groupKey(item);
     if (!groupsByKey[key]) {
       groupsByKey[key] = {
@@ -203,7 +203,7 @@ function _buildWorkoutGroups() {
   });
 
   return Object.values(groupsByKey)
-    .map(group => {
+    .map((group) => {
       group.items.sort((a, b) => a.idx - b.idx);
       group.label = _groupLabel(group);
       group.expectedSetCount = group.items[0]?.primarySetCount || group.items.length;
@@ -219,9 +219,9 @@ function _buildWorkoutGroups() {
 function _buildEntrySessions(lift) {
   const byDate = {};
   store.entries
-    .filter(entry => entry.lift === lift)
+    .filter((entry) => entry.lift === lift)
     .sort(_entrySort)
-    .forEach(entry => {
+    .forEach((entry) => {
       const date = _entryDate(entry);
       if (!byDate[date]) {
         byDate[date] = {
@@ -261,7 +261,7 @@ function _assignmentScore(group, entries) {
 
 function _bestEntryAssignment(group, session, usedEntries = new Set()) {
   const needed = group.items.length;
-  const available = session.entries.filter(entry => !usedEntries.has(_entryKey(entry)));
+  const available = session.entries.filter((entry) => !usedEntries.has(_entryKey(entry)));
   if (available.length < needed) return null;
 
   let best = null;
@@ -275,7 +275,7 @@ function _bestEntryAssignment(group, session, usedEntries = new Set()) {
 
     const item = group.items[itemIdx];
     const candidates = remaining
-      .filter(entry => _repMatches(entry, item))
+      .filter((entry) => _repMatches(entry, item))
       .sort((a, b) => {
         const ad = item.expectedWeight ? Math.abs(a.weight - item.expectedWeight) : 0;
         const bd = item.expectedWeight ? Math.abs(b.weight - item.expectedWeight) : 0;
@@ -284,11 +284,11 @@ function _bestEntryAssignment(group, session, usedEntries = new Set()) {
       })
       .slice(0, 8);
 
-    candidates.forEach(entry => {
+    candidates.forEach((entry) => {
       search(
         itemIdx + 1,
         [...chosen, entry],
-        remaining.filter(e => _entryKey(e) !== _entryKey(entry))
+        remaining.filter((e) => _entryKey(e) !== _entryKey(entry))
       );
     });
   }
@@ -308,42 +308,46 @@ function _bestSessionMatch(group, session, usedEntries = new Set()) {
     score: assignment.score,
     exactRepMatches: assignment.exactRepMatches,
     weightScore: assignment.weightScore,
-    weightSummary: _valuesSummary(assignment.entries.map(entry => entry.weight)),
-    repsSummary: _valuesSummary(assignment.entries.map(entry => entry.reps)),
+    weightSummary: _valuesSummary(assignment.entries.map((entry) => entry.weight)),
+    repsSummary: _valuesSummary(assignment.entries.map((entry) => entry.reps)),
   };
 }
 
 function _buildWorkoutAssignments(groups, reservedEntries = new Set()) {
   const assignments = {};
   const byLift = {};
-  groups.filter(group => group.isCompleteWorkout).forEach(group => {
-    if (!byLift[group.lift]) byLift[group.lift] = [];
-    byLift[group.lift].push(group);
-  });
+  groups
+    .filter((group) => group.isCompleteWorkout)
+    .forEach((group) => {
+      if (!byLift[group.lift]) byLift[group.lift] = [];
+      byLift[group.lift].push(group);
+    });
 
   Object.entries(byLift).forEach(([lift, liftGroups]) => {
     const sessions = _buildEntrySessions(lift);
     const usedEntries = new Set(reservedEntries);
     let cursor = sessions.length - 1;
 
-    [...liftGroups].sort((a, b) => b.week - a.week).forEach(group => {
-      let best = null;
-      let bestIndex = -1;
+    [...liftGroups]
+      .sort((a, b) => b.week - a.week)
+      .forEach((group) => {
+        let best = null;
+        let bestIndex = -1;
 
-      for (let i = cursor; i >= 0; i--) {
-        const match = _bestSessionMatch(group, sessions[i], usedEntries);
-        if (!match) continue;
-        best = match;
-        bestIndex = i;
-        break;
-      }
+        for (let i = cursor; i >= 0; i--) {
+          const match = _bestSessionMatch(group, sessions[i], usedEntries);
+          if (!match) continue;
+          best = match;
+          bestIndex = i;
+          break;
+        }
 
-      if (!best) return;
+        if (!best) return;
 
-      assignments[group.key] = best;
-      best.entries.forEach(entry => usedEntries.add(_entryKey(entry)));
-      cursor = bestIndex - 1;
-    });
+        assignments[group.key] = best;
+        best.entries.forEach((entry) => usedEntries.add(_entryKey(entry)));
+        cursor = bestIndex - 1;
+      });
   });
 
   return assignments;
@@ -405,7 +409,7 @@ export function buildSetCandidates() {
   const assignments = _buildWorkoutAssignments(groups);
   const assignedByKey = {};
 
-  groups.forEach(group => {
+  groups.forEach((group) => {
     const match = assignments[group.key];
     if (!match) return;
     group.items.forEach((item, idx) => {
@@ -414,8 +418,8 @@ export function buildSetCandidates() {
     });
   });
 
-  results.forEach(item => {
-    let candidates = store.entries.filter(e => e.lift === item.lift && _repMatches(e, item));
+  results.forEach((item) => {
+    const candidates = store.entries.filter((e) => e.lift === item.lift && _repMatches(e, item));
     const assigned = assignedByKey[item.key];
 
     // Prefer the workout-level date match, then show nearby same-lift options.
@@ -427,7 +431,8 @@ export function buildSetCandidates() {
       const dateCmp = String(b.date || '').localeCompare(String(a.date || ''));
       if (dateCmp !== 0) return dateCmp;
       if (item.expectedWeight) {
-        const wd = Math.abs(a.weight - item.expectedWeight) - Math.abs(b.weight - item.expectedWeight);
+        const wd =
+          Math.abs(a.weight - item.expectedWeight) - Math.abs(b.weight - item.expectedWeight);
         if (wd !== 0) return wd;
       }
       return _entrySort(b, a);
@@ -451,23 +456,29 @@ export function buildWorkoutReviewGroups() {
   const groups = _buildWorkoutGroups();
   const assignments = _buildWorkoutAssignments(groups);
 
-  return groups.map(group => {
+  return groups.map((group) => {
     const match = assignments[group.key] || null;
-    const pendingItems = group.items.filter(item => {
+    const pendingItems = group.items.filter((item) => {
       const data = item.existingData;
-      return !_hasFrozenData(data) || data.recovered ||
-        (data.recoveryVersion || 0) < PROGRAM_HISTORY_MIGRATION_VERSION;
+      return (
+        !_hasFrozenData(data) ||
+        data.recovered ||
+        (data.recoveryVersion || 0) < PROGRAM_HISTORY_MIGRATION_VERSION
+      );
     });
 
     return {
       ...group,
       match,
       pendingCount: pendingItems.length,
-      status: pendingItems.length === 0
-        ? 'set'
-        : match
-          ? 'matched'
-          : group.isCompleteWorkout ? 'unmatched' : 'partial',
+      status:
+        pendingItems.length === 0
+          ? 'set'
+          : match
+            ? 'matched'
+            : group.isCompleteWorkout
+              ? 'unmatched'
+              : 'partial',
     };
   });
 }
@@ -501,12 +512,12 @@ export function recoverProgramHistory({
   if (!pc.completedSetData) pc.completedSetData = {};
 
   const allGroups = _buildWorkoutGroups();
-  const allItems = allGroups.flatMap(group => group.items);
-  const targetItems = allItems.filter(item => {
+  const allItems = allGroups.flatMap((group) => group.items);
+  const targetItems = allItems.filter((item) => {
     return _shouldRecoverData(pc.completedSetData[item.key], overwriteRecovered);
   });
 
-  const targetKeys = new Set(targetItems.map(item => item.key));
+  const targetKeys = new Set(targetItems.map((item) => item.key));
   const usedEntries = new Set();
   Object.entries(pc.completedSetData || {}).forEach(([key, data]) => {
     if (targetKeys.has(key)) return;
@@ -520,7 +531,7 @@ export function recoverProgramHistory({
   const recoveredKeys = new Set();
 
   const assignments = _buildWorkoutAssignments(allGroups, usedEntries);
-  allGroups.forEach(group => {
+  allGroups.forEach((group) => {
     const match = assignments[group.key];
     if (!match) return;
 
@@ -541,7 +552,7 @@ export function recoverProgramHistory({
     }
   });
 
-  targetItems.sort(_itemSort).forEach(item => {
+  targetItems.sort(_itemSort).forEach((item) => {
     if (recoveredKeys.has(item.key)) return;
 
     if (fallbackToPrescription && item.expectedWeight) {
@@ -582,10 +593,12 @@ export function runProgramHistoryMigration() {
 
   if (!pc.completedSetData) pc.completedSetData = {};
 
-  const needsRecovery = Object.keys(pc.completedSets || {}).some(key => {
+  const needsRecovery = Object.keys(pc.completedSets || {}).some((key) => {
     const data = pc.completedSetData?.[key];
-    return !_hasFrozenData(data) ||
-      (data.recovered && (data.recoveryVersion || 0) < PROGRAM_HISTORY_MIGRATION_VERSION);
+    return (
+      !_hasFrozenData(data) ||
+      (data.recovered && (data.recoveryVersion || 0) < PROGRAM_HISTORY_MIGRATION_VERSION)
+    );
   });
 
   if (pc.completedSetDataMigrationVersion >= PROGRAM_HISTORY_MIGRATION_VERSION && !needsRecovery) {
@@ -618,7 +631,7 @@ export function resetProgramHistoryMigration() {
   pc.completedSetDataReviewDismissed = false;
   // Clear only auto-recovered entries; preserve entries set by user this session
   if (pc.completedSetData) {
-    Object.keys(pc.completedSetData).forEach(k => {
+    Object.keys(pc.completedSetData).forEach((k) => {
       if (pc.completedSetData[k] && pc.completedSetData[k].recovered) {
         delete pc.completedSetData[k];
       }

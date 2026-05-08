@@ -37,8 +37,8 @@ export function closeModal(id) {
  * Call once after DOMContentLoaded.
  */
 export function initModalListeners() {
-  ['edit-modal', 'settings-modal'].forEach(id => {
-    $(id).addEventListener('click', e => {
+  ['edit-modal', 'settings-modal'].forEach((id) => {
+    $(id).addEventListener('click', (e) => {
       if (e.target === $(id)) closeModal(id);
     });
   });

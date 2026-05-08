@@ -15,7 +15,7 @@
 
 import store from '../state/store.js';
 import { LIFTS } from '../constants/lift-config.js';
-import { MUSCLE_GROUPS, MAIN_LIFT_WEIGHTS, WEEKLY_SET_TARGETS } from '../data/muscle-groups.js';
+import { MUSCLE_GROUPS, MAIN_LIFT_WEIGHTS } from '../data/muscle-groups.js';
 import { ACCESSORY_CAT_WEIGHTS } from '../data/muscle-groups.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
 import { resolveExercise, resolveCanonicalId } from '../data/exercise-compat.js';
@@ -29,16 +29,16 @@ import { MS_PER_DAY } from '../constants/time.js';
 
 const GRADE_MAP = [
   { min: 95, grade: 'A+', label: 'Peak performance' },
-  { min: 90, grade: 'A',  label: 'Strong week' },
+  { min: 90, grade: 'A', label: 'Strong week' },
   { min: 85, grade: 'A-', label: 'Good week' },
   { min: 80, grade: 'B+', label: 'On track' },
-  { min: 75, grade: 'B',  label: 'Decent week' },
+  { min: 75, grade: 'B', label: 'Decent week' },
   { min: 70, grade: 'B-', label: 'Room to grow' },
   { min: 65, grade: 'C+', label: 'Missing pieces' },
-  { min: 58, grade: 'C',  label: 'Incomplete week' },
+  { min: 58, grade: 'C', label: 'Incomplete week' },
   { min: 50, grade: 'C-', label: 'Fell short' },
-  { min: 35, grade: 'D',  label: 'Minimal training' },
-  { min: 0,  grade: 'F',  label: 'Rest week?' },
+  { min: 35, grade: 'D', label: 'Minimal training' },
+  { min: 0, grade: 'F', label: 'Rest week?' },
 ];
 
 function scoreToGrade(score) {
@@ -86,17 +86,29 @@ export function calcWeeklyGrade(options = {}) {
   const weekEndMs = weekEnd.getTime();
 
   // Gather week's data
-  const weekEntries = store.entries.filter(e => e.timestamp >= weekStartMs && e.timestamp < weekEndMs);
-  const weekAccessories = store.accessoryLog.filter(l => l.timestamp >= weekStartMs && l.timestamp < weekEndMs);
+  const weekEntries = store.entries.filter(
+    (e) => e.timestamp >= weekStartMs && e.timestamp < weekEndMs
+  );
+  const weekAccessories = store.accessoryLog.filter(
+    (l) => l.timestamp >= weekStartMs && l.timestamp < weekEndMs
+  );
 
   // Insufficient data: hide grade until at least 1 training day
   const uniqueDays = new Set([
-    ...weekEntries.map(e => e.date),
-    ...weekAccessories.map(l => new Date(l.timestamp).toISOString().split('T')[0]),
+    ...weekEntries.map((e) => e.date),
+    ...weekAccessories.map((l) => new Date(l.timestamp).toISOString().split('T')[0]),
   ]);
   if (uniqueDays.size < 1) {
-    return { score: 0, grade: null, label: 'Building baseline...', insufficient: true,
-             pillars: {}, bonuses: {}, bonusPoints: 0, isDeload: false };
+    return {
+      score: 0,
+      grade: null,
+      label: 'Building baseline...',
+      insufficient: true,
+      pillars: {},
+      bonuses: {},
+      bonusPoints: 0,
+      isDeload: false,
+    };
   }
 
   // Past weeks are frozen at end-of-Sunday — no current state should leak
@@ -109,7 +121,7 @@ export function calcWeeklyGrade(options = {}) {
 
   // Calculate each pillar
   const hasProg = !!store.programConfig.activeProgram;
-  const compliance = (hasProg && !isPastWeek) ? calcCompliance(weekEntries) : null;
+  const compliance = hasProg && !isPastWeek ? calcCompliance(weekEntries) : null;
   const coverage = calcCoverage(weekEntries, weekAccessories, isDeload);
   const intensity = calcIntensity(weekEntries, hasProg, isDeload);
   const consistency = calcConsistency(uniqueDays.size, weekStart);
@@ -149,7 +161,7 @@ export function calcWeeklyGrade(options = {}) {
 // Pillar 1: Compliance (25 pts)
 // ---------------------------------------------------------------------------
 
-function calcCompliance(weekEntries) {
+function calcCompliance(_weekEntries) {
   let prescribed = 0;
   let completed = 0;
 
@@ -191,7 +203,9 @@ const TIER2 = ['Lower Back', 'Shoulders', 'Triceps', 'Core', 'Biceps'];
 function calcCoverage(weekEntries, weekAccessories, isDeload) {
   // Count direct sets per muscle
   const muscleSets = {};
-  MUSCLE_GROUPS.forEach(mg => { muscleSets[mg] = 0; });
+  MUSCLE_GROUPS.forEach((mg) => {
+    muscleSets[mg] = 0;
+  });
 
   for (const entry of weekEntries) {
     const weights = MAIN_LIFT_WEIGHTS[entry.lift];
@@ -207,8 +221,8 @@ function calcCoverage(weekEntries, weekAccessories, isDeload) {
     const catalogEx = resolveExercise(log.exerciseId);
     if (catalogEx && catalogEx.primaryMuscles) {
       for (const [mg, weight] of Object.entries(catalogEx.primaryMuscles)) {
-        if (weight >= 0.20) muscleSets[mg] += setsCompleted;
-        else if (weight >= 0.10) muscleSets[mg] += setsCompleted * 0.5;
+        if (weight >= 0.2) muscleSets[mg] += setsCompleted;
+        else if (weight >= 0.1) muscleSets[mg] += setsCompleted * 0.5;
       }
     } else {
       const legacyEx = ACCESSORY_DB[log.exerciseId];
@@ -216,7 +230,7 @@ function calcCoverage(weekEntries, weekAccessories, isDeload) {
         const catWeights = ACCESSORY_CAT_WEIGHTS[legacyEx.category];
         if (catWeights) {
           for (const mg of MUSCLE_GROUPS) {
-            if (catWeights[mg] >= 0.20) muscleSets[mg] += setsCompleted;
+            if (catWeights[mg] >= 0.2) muscleSets[mg] += setsCompleted;
           }
         }
       }
@@ -240,22 +254,28 @@ function calcCoverage(weekEntries, weekAccessories, isDeload) {
     breakdown[mg] = { sets: Math.round(sets * 10) / 10, pts: Math.round(pts * 10) / 10 };
   }
 
-  TIER1.forEach(mg => scoreMuscle(mg, 4.5, false));
-  TIER2.forEach(mg => scoreMuscle(mg, 1.5, true));
+  TIER1.forEach((mg) => scoreMuscle(mg, 4.5, false));
+  TIER2.forEach((mg) => scoreMuscle(mg, 1.5, true));
 
   // Push:pull balance modifier
-  let pushSets = 0, pullSets = 0;
+  let pushSets = 0,
+    pullSets = 0;
   for (const mg of ['Chest', 'Shoulders', 'Triceps']) pushSets += muscleSets[mg] || 0;
   for (const mg of ['Upper Back', 'Biceps']) pullSets += muscleSets[mg] || 0;
   pullSets += (muscleSets['Lower Back'] || 0) * 0.5;
 
-  const ratio = pullSets > 0 ? pushSets / pullSets : (pushSets > 0 ? Infinity : 1);
+  const ratio = pullSets > 0 ? pushSets / pullSets : pushSets > 0 ? Infinity : 1;
   let modifier = 1.0;
   if (ratio > 2.0 || ratio < 0.5) modifier = 0.85;
   else if (ratio > 1.3 || ratio < 0.7) modifier = 0.93;
   score *= modifier;
 
-  return { score: Math.round(score * 10) / 10, breakdown, pushPullRatio: Math.round(ratio * 100) / 100, modifier };
+  return {
+    score: Math.round(score * 10) / 10,
+    breakdown,
+    pushPullRatio: Math.round(ratio * 100) / 100,
+    modifier,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -278,32 +298,34 @@ function calcIntensity(weekEntries, hasProg, isDeload) {
   const avgIntensity = intensityCount > 0 ? intensitySum / intensityCount : 0;
 
   // Intensity scoring — widened sweet zone (65-90% non-deload)
-  const sweetLow = isDeload ? 0.50 : 0.65;
-  const sweetHigh = isDeload ? 0.65 : 0.90;
+  const sweetLow = isDeload ? 0.5 : 0.65;
+  const sweetHigh = isDeload ? 0.65 : 0.9;
   let intensityPts;
   if (avgIntensity >= sweetLow && avgIntensity <= sweetHigh) intensityPts = 10;
-  else if ((avgIntensity > 0.55 && avgIntensity < sweetLow) || (avgIntensity > sweetHigh && avgIntensity <= 0.95)) intensityPts = 9;
-  else if (avgIntensity >= 0.50) intensityPts = 6;
+  else if (
+    (avgIntensity > 0.55 && avgIntensity < sweetLow) ||
+    (avgIntensity > sweetHigh && avgIntensity <= 0.95)
+  )
+    intensityPts = 9;
+  else if (avgIntensity >= 0.5) intensityPts = 6;
   else if (avgIntensity > 0.95) intensityPts = 6;
   else intensityPts = 3;
 
   // Sub-component A: Weight accuracy vs program (15 pts, program users only)
   let weightAccuracy = null;
   if (hasProg) {
-    const liftsWithEntries = new Set(weekEntries.map(e => e.lift));
-    const programLifts = LIFTS.filter(l => {
+    const liftsWithEntries = new Set(weekEntries.map((e) => e.lift));
+    const programLifts = LIFTS.filter((l) => {
       const week = store.programConfig.liftWeeks?.[l] || 1;
       return getProgramWorkout(l, week);
     });
-    const accuracyPct = programLifts.length > 0
-      ? liftsWithEntries.size / programLifts.length
-      : 0;
+    const accuracyPct = programLifts.length > 0 ? liftsWithEntries.size / programLifts.length : 0;
 
     let accuracyPts;
     if (accuracyPct >= 0.97) accuracyPts = 15;
-    else if (accuracyPct >= 0.90) accuracyPts = 12;
-    else if (accuracyPct >= 0.80) accuracyPts = 9;
-    else if (accuracyPct >= 0.70) accuracyPts = 5;
+    else if (accuracyPct >= 0.9) accuracyPts = 12;
+    else if (accuracyPct >= 0.8) accuracyPts = 9;
+    else if (accuracyPct >= 0.7) accuracyPts = 5;
     else accuracyPts = 2;
 
     weightAccuracy = { pts: accuracyPts, pct: Math.round(accuracyPct * 100) };
@@ -316,7 +338,7 @@ function calcIntensity(weekEntries, hasProg, isDeload) {
 
   // No program: intensity is worth full 25 pts
   return {
-    score: Math.round(intensityPts * 25 / 10),
+    score: Math.round((intensityPts * 25) / 10),
     avgIntensity: Math.round(avgIntensity * 100),
     weightAccuracy: null,
   };
@@ -333,9 +355,8 @@ function calcConsistency(trainingDays, weekStart) {
   // freezes last week's consistency score so Monday onward doesn't degrade
   // it. For the current week, count days since week start so partial weeks
   // aren't graded as if they were complete.
-  const daysElapsed = now.getTime() >= weekEndMs
-    ? 7
-    : Math.max(1, Math.ceil((now - weekStart) / MS_PER_DAY));
+  const daysElapsed =
+    now.getTime() >= weekEndMs ? 7 : Math.max(1, Math.ceil((now - weekStart) / MS_PER_DAY));
   const targetRate = 3 / 7; // 3 sessions per week
   const currentRate = trainingDays / daysElapsed;
   const ratio = Math.min(1, currentRate / targetRate);
@@ -352,7 +373,7 @@ function calcBonuses(weekEntries, weekAccessories) {
   const details = {};
 
   // Main lift PRs (+5 each, max +10) — PRs are a big deal
-  const mainPRs = weekEntries.filter(e => e.isPR && LIFTS.includes(e.lift));
+  const mainPRs = weekEntries.filter((e) => e.isPR && LIFTS.includes(e.lift));
   if (mainPRs.length > 0) {
     const prBonus = Math.min(10, mainPRs.length * 5);
     total += prBonus;
@@ -361,19 +382,26 @@ function calcBonuses(weekEntries, weekAccessories) {
   }
 
   // RPE quality: avg RPE of main lifts in 7-9 range (+2)
-  const withRPE = weekEntries.filter(e => e.rpe != null && e.rpe > 0);
+  const withRPE = weekEntries.filter((e) => e.rpe != null && e.rpe > 0);
   if (withRPE.length >= 2) {
     const avgRPE = withRPE.reduce((s, e) => s + e.rpe, 0) / withRPE.length;
-    if (avgRPE >= 7 && avgRPE <= 9) { total += 2; details.rpeQuality = true; }
+    if (avgRPE >= 7 && avgRPE <= 9) {
+      total += 2;
+      details.rpeQuality = true;
+    }
   }
 
   // Accessory variety: 3+ distinct exercises (+2)
-  const distinctAccessories = new Set(weekAccessories.map(l => resolveCanonicalId(l.exerciseId)));
-  if (distinctAccessories.size >= 3) { total += 2; details.variety = true; }
+  const distinctAccessories = new Set(weekAccessories.map((l) => resolveCanonicalId(l.exerciseId)));
+  if (distinctAccessories.size >= 3) {
+    total += 2;
+    details.variety = true;
+  }
 
   // RPE data quality: 50%+ of main sets have RPE (+1)
   if (weekEntries.length > 0 && withRPE.length / weekEntries.length >= 0.5) {
-    total += 1; details.rpeLogging = true;
+    total += 1;
+    details.rpeLogging = true;
   }
 
   total = Math.min(15, total);

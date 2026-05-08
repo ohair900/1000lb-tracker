@@ -108,11 +108,17 @@ class Store {
     this.recoveryCalibration = null;
     this._deletedEntryRecords = []; // Array of { id, deletedAt }
     this.deletedEntryIds = new Set();
-    this.equipmentProfile = { barbell: true, dumbbell: true, cable: true, machine: true, bodyweight: true };
+    this.equipmentProfile = {
+      barbell: true,
+      dumbbell: true,
+      cable: true,
+      machine: true,
+      bodyweight: true,
+    };
     this.reasonTagCounts = {}; // { [canonicalExerciseId]: number } — tracks how many times reason tag shown
-    this.accessoryOverrides = {};   // { [exerciseId]: { sets?, repRange?, pctOfTM? } }
-    this.customAccessories = [];    // [{ id, name, mainLift, weakPoints, pctOfTM, sets, repRange, equipment, category }]
-    this.disabledAccessories = [];  // [exerciseId, ...]
+    this.accessoryOverrides = {}; // { [exerciseId]: { sets?, repRange?, pctOfTM? } }
+    this.customAccessories = []; // [{ id, name, mainLift, weakPoints, pctOfTM, sets, repRange, equipment, category }]
+    this.disabledAccessories = []; // [exerciseId, ...]
     // Persistent per-lift milestone tracking tied to goals.
     // Shape: { squat: { goal, startE1RM, createdAt, milestones: [{ target, label, achievedAt, achievedEntryId }] } | null, ... }
     this.goalMilestones = { squat: null, bench: null, deadlift: null };
@@ -122,14 +128,14 @@ class Store {
     // Some values are seeded from individual localStorage keys on init().
     // -----------------------------------------------------------------------
     this._sessionOptimizer = null; // Ephemeral coaching state — not persisted
-    this._deferredLoaded = false;  // Flips true once DEFERRED_STORES finish loading
+    this._deferredLoaded = false; // Flips true once DEFERRED_STORES finish loading
     this.currentLift = 'squat';
     this.currentTab = 'log';
     this.currentRPE = null;
     this.chartFilter = 'all';
     this.chartType = 'e1rm';
     this.chartDateRange = 'all';
-    this.chartOffset = 0;              // pan offset in days (volume histogram only)
+    this.chartOffset = 0; // pan offset in days (volume histogram only)
     this.heatmapMetric = 'volume';
     this.historyFilter = 'all';
     this.historyFrom = '';
@@ -157,18 +163,24 @@ class Store {
     this.undoTimer = null;
     this.statsCollapsed = {};
     this.unlockedBadges = {};
-    this.dashboardWidgets = { ratios: true, fatigue: true, streak: true, recap: true, prStreak: true };
+    this.dashboardWidgets = {
+      ratios: true,
+      fatigue: true,
+      streak: true,
+      recap: true,
+      prStreak: true,
+    };
     this.builderExercises = [];
     this.calendarMonth = new Date();
     this.chartPoints = [];
     this.leaderboardData = [];
-    this.leaderboardFilter = 'total';     // legacy — Strength tab sort field
-    this.leaderboardTab = 'strength';      // 'strength' | 'streaks' | 'improved' | 'hall'
-    this.leaderboardCrewId = null;         // null = global, else crew id for scoped view
-    this.leaderboardWeightClass = null;    // null = all, else IPF class string (e.g. '83')
-    this.leaderboardActiveOnly = false;    // true = filter to lifters active in last 7d
-    this.leaderboardImprovedRange = 30;    // 30 or 90 days
-    this.userCrews = [];                   // [{ id, name, inviteCode, ownerUid, memberUids }]
+    this.leaderboardFilter = 'total'; // legacy — Strength tab sort field
+    this.leaderboardTab = 'strength'; // 'strength' | 'streaks' | 'improved' | 'hall'
+    this.leaderboardCrewId = null; // null = global, else crew id for scoped view
+    this.leaderboardWeightClass = null; // null = all, else IPF class string (e.g. '83')
+    this.leaderboardActiveOnly = false; // true = filter to lifters active in last 7d
+    this.leaderboardImprovedRange = 30; // 30 or 90 days
+    this.userCrews = []; // [{ id, name, inviteCode, ownerUid, memberUids }]
 
     // Unit / accent — persisted individually (not via STORES)
     this.unit = 'lbs';
@@ -182,37 +194,49 @@ class Store {
       entries: {
         key: STORAGE_KEY,
         get: () => this.entries,
-        set: (v) => { this.entries = v; },
+        set: (v) => {
+          this.entries = v;
+        },
         default: [],
       },
       profile: {
         key: PROFILE_KEY,
         get: () => this.profile,
-        set: (v) => { this.profile = v; },
+        set: (v) => {
+          this.profile = v;
+        },
         default: { gender: null, bodyweight: null, bodyweightHistory: [] },
       },
       goals: {
         key: GOALS_KEY,
         get: () => this.goals,
-        set: (v) => { this.goals = v; },
+        set: (v) => {
+          this.goals = v;
+        },
         default: { squat: null, bench: null, deadlift: null, total: null },
       },
       prs: {
         key: PRS_KEY,
         get: () => this.prs,
-        set: (v) => { this.prs = v; },
+        set: (v) => {
+          this.prs = v;
+        },
         default: [],
       },
       cycles: {
         key: CYCLES_KEY,
         get: () => this.cycles,
-        set: (v) => { this.cycles = v; },
+        set: (v) => {
+          this.cycles = v;
+        },
         default: [],
       },
       programs: {
         key: PROGRAMS_KEY,
         get: () => this.programConfig,
-        set: (v) => { this.programConfig = v; },
+        set: (v) => {
+          this.programConfig = v;
+        },
         default: {
           activeProgram: null,
           trainingMaxes: {},
@@ -235,7 +259,9 @@ class Store {
       workoutConfig: {
         key: WORKOUT_KEY,
         get: () => this.workoutConfig,
-        set: (v) => { this.workoutConfig = v; },
+        set: (v) => {
+          this.workoutConfig = v;
+        },
         default: {
           weakPoints: { squat: null, bench: null, deadlift: null },
           setupComplete: false,
@@ -245,39 +271,51 @@ class Store {
       accessoryLog: {
         key: ACCESSORY_LOG_KEY,
         get: () => this.accessoryLog,
-        set: (v) => { this.accessoryLog = v; },
+        set: (v) => {
+          this.accessoryLog = v;
+        },
         default: [],
       },
       workoutSession: {
         key: WORKOUT_SESSION_KEY,
         get: () => this.workoutSession,
-        set: (v) => { this.workoutSession = v; },
+        set: (v) => {
+          this.workoutSession = v;
+        },
         default: null,
         nullable: true,
       },
       customTemplates: {
         key: CUSTOM_TEMPLATES_KEY,
         get: () => this.customTemplates,
-        set: (v) => { this.customTemplates = v; },
+        set: (v) => {
+          this.customTemplates = v;
+        },
         default: [],
       },
       mesocycle: {
         key: MESOCYCLE_KEY,
         get: () => this.activeMesocycle,
-        set: (v) => { this.activeMesocycle = v; },
+        set: (v) => {
+          this.activeMesocycle = v;
+        },
         default: null,
         nullable: true,
       },
       mesocycleHistory: {
         key: MESOCYCLE_HISTORY_KEY,
         get: () => this.mesocycleHistory,
-        set: (v) => { this.mesocycleHistory = v; },
+        set: (v) => {
+          this.mesocycleHistory = v;
+        },
         default: [],
       },
       recoveryCalibration: {
         key: RECOVERY_CALIBRATION_KEY,
         get: () => this.recoveryCalibration,
-        set: (v) => { this.recoveryCalibration = v; },
+        set: (v) => {
+          this.recoveryCalibration = v;
+        },
         default: null,
         nullable: true,
       },
@@ -286,50 +324,64 @@ class Store {
         get: () => this._deletedEntryRecords,
         set: (v) => {
           this._deletedEntryRecords = v || [];
-          this.deletedEntryIds = new Set(this._deletedEntryRecords.map(r => r.id));
+          this.deletedEntryIds = new Set(this._deletedEntryRecords.map((r) => r.id));
         },
         default: [],
       },
       leaderboard: {
         key: LEADERBOARD_KEY,
         get: () => this.leaderboardOptedIn,
-        set: (v) => { this.leaderboardOptedIn = v; },
+        set: (v) => {
+          this.leaderboardOptedIn = v;
+        },
         default: true,
       },
       equipmentProfile: {
         key: EQUIPMENT_PROFILE_KEY,
         get: () => this.equipmentProfile,
-        set: (v) => { this.equipmentProfile = v; },
+        set: (v) => {
+          this.equipmentProfile = v;
+        },
         default: { barbell: true, dumbbell: true, cable: true, machine: true, bodyweight: true },
       },
       reasonTagCounts: {
         key: REASON_TAG_COUNTS_KEY,
         get: () => this.reasonTagCounts,
-        set: (v) => { this.reasonTagCounts = v; },
+        set: (v) => {
+          this.reasonTagCounts = v;
+        },
         default: {},
       },
       accessoryOverrides: {
         key: ACCESSORY_OVERRIDES_KEY,
         get: () => this.accessoryOverrides,
-        set: (v) => { this.accessoryOverrides = v; },
+        set: (v) => {
+          this.accessoryOverrides = v;
+        },
         default: {},
       },
       customAccessories: {
         key: CUSTOM_ACCESSORIES_KEY,
         get: () => this.customAccessories,
-        set: (v) => { this.customAccessories = v; },
+        set: (v) => {
+          this.customAccessories = v;
+        },
         default: [],
       },
       disabledAccessories: {
         key: DISABLED_ACCESSORIES_KEY,
         get: () => this.disabledAccessories,
-        set: (v) => { this.disabledAccessories = v; },
+        set: (v) => {
+          this.disabledAccessories = v;
+        },
         default: [],
       },
       goalMilestones: {
         key: GOAL_MILESTONES_KEY,
         get: () => this.goalMilestones,
-        set: (v) => { this.goalMilestones = v || { squat: null, bench: null, deadlift: null }; },
+        set: (v) => {
+          this.goalMilestones = v || { squat: null, bench: null, deadlift: null };
+        },
         default: { squat: null, bench: null, deadlift: null },
       },
     };
@@ -381,30 +433,54 @@ class Store {
    */
   /** Stores needed for first paint (dashboard, program section, log tab). */
   static ESSENTIAL_STORES = [
-    'entries', 'profile', 'goals', 'prs', 'programs', 'workoutConfig', 'workoutSession', 'mesocycle',
-    'cycles', 'deletedEntryIds', 'leaderboard', 'goalMilestones',
+    'entries',
+    'profile',
+    'goals',
+    'prs',
+    'programs',
+    'workoutConfig',
+    'workoutSession',
+    'mesocycle',
+    'cycles',
+    'deletedEntryIds',
+    'leaderboard',
+    'goalMilestones',
   ];
   /** Stores that can be loaded after first paint. */
   static DEFERRED_STORES = [
-    'accessoryLog', 'customTemplates', 'mesocycleHistory', 'recoveryCalibration',
-    'equipmentProfile', 'reasonTagCounts', 'accessoryOverrides', 'customAccessories',
+    'accessoryLog',
+    'customTemplates',
+    'mesocycleHistory',
+    'recoveryCalibration',
+    'equipmentProfile',
+    'reasonTagCounts',
+    'accessoryOverrides',
+    'customAccessories',
     'disabledAccessories',
   ];
 
   init() {
     // 1. Load essential stores first (needed for first paint)
-    Store.ESSENTIAL_STORES.forEach((name) => { if (this.STORES[name]) this._loadStore(name); });
+    Store.ESSENTIAL_STORES.forEach((name) => {
+      if (this.STORES[name]) this._loadStore(name);
+    });
     // Schedule deferred stores after first paint
     const _ric = window.requestIdleCallback || ((cb) => setTimeout(cb, 1));
     _ric(() => {
-      Store.DEFERRED_STORES.forEach((name) => { if (this.STORES[name]) this._loadStore(name); });
+      Store.DEFERRED_STORES.forEach((name) => {
+        if (this.STORES[name]) this._loadStore(name);
+      });
       // Mark deferred stores as ready so views can opt into rendering content
       // that depends on them (e.g. fatigue body map).
       this._deferredLoaded = true;
       // Notify subscribers (e.g. dashboard) so they can re-render with the
       // newly-loaded data. Prevents the body map "stale guy" flash.
       if (typeof this.onDeferredLoad === 'function') {
-        try { this.onDeferredLoad(); } catch { /* best-effort */ }
+        try {
+          this.onDeferredLoad();
+        } catch {
+          /* best-effort */
+        }
       }
     });
 
@@ -414,8 +490,10 @@ class Store {
     // Purge deleted entry records older than 30 days
     const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
     const before = this._deletedEntryRecords.length;
-    this._deletedEntryRecords = this._deletedEntryRecords.filter(r => Date.now() - r.deletedAt < THIRTY_DAYS);
-    this.deletedEntryIds = new Set(this._deletedEntryRecords.map(r => r.id));
+    this._deletedEntryRecords = this._deletedEntryRecords.filter(
+      (r) => Date.now() - r.deletedAt < THIRTY_DAYS
+    );
+    this.deletedEntryIds = new Set(this._deletedEntryRecords.map((r) => r.id));
     if (this._deletedEntryRecords.length !== before) this.save('deletedEntryIds');
 
     // Derive activeCycleId from cycles
@@ -441,7 +519,9 @@ class Store {
     try {
       const dw = JSON.parse(localStorage.getItem(DASH_WIDGETS_KEY));
       if (dw) this.dashboardWidgets = { ...this.dashboardWidgets, ...dw };
-    } catch { /* keep defaults */ }
+    } catch {
+      /* keep defaults */
+    }
 
     // 2b. Restore completedSets from backup if main store lost them
     this._restoreCompletedSetsIfLost();
@@ -515,24 +595,63 @@ class Store {
   // Convenience save shortcuts (match original function names)
   // -------------------------------------------------------------------------
 
-  saveEntries()        { this._entryGen++; this.save('entries'); }
-  saveProfile()        { this.save('profile'); }
-  saveGoals()          { this.save('goals'); }
-  saveGoalMilestones() { this.save('goalMilestones'); }
-  savePRs()            { this.save('prs'); }
-  saveCycles()         { this.save('cycles'); }
-  saveProgramConfig()  { this.saveNow('programs'); this._backupCompletedSets(); }
-  saveWorkoutConfig()  { this.save('workoutConfig'); }
-  saveAccessoryLog()   { this._accLogGen++; this.save('accessoryLog'); }
-  saveWorkoutSession() { this.saveNow('workoutSession'); }
-  saveCustomTemplates(){ this.save('customTemplates'); }
-  saveMesocycle()      { this.save('mesocycle'); }
-  saveMesocycleHistory() { this.save('mesocycleHistory'); }
-  saveEquipmentProfile() { this.save('equipmentProfile'); }
-  saveReasonTagCounts()    { this.save('reasonTagCounts'); }
-  saveAccessoryOverrides() { this.save('accessoryOverrides'); }
-  saveCustomAccessories()  { this.save('customAccessories'); }
-  saveDisabledAccessories(){ this.save('disabledAccessories'); }
+  saveEntries() {
+    this._entryGen++;
+    this.save('entries');
+  }
+  saveProfile() {
+    this.save('profile');
+  }
+  saveGoals() {
+    this.save('goals');
+  }
+  saveGoalMilestones() {
+    this.save('goalMilestones');
+  }
+  savePRs() {
+    this.save('prs');
+  }
+  saveCycles() {
+    this.save('cycles');
+  }
+  saveProgramConfig() {
+    this.saveNow('programs');
+    this._backupCompletedSets();
+  }
+  saveWorkoutConfig() {
+    this.save('workoutConfig');
+  }
+  saveAccessoryLog() {
+    this._accLogGen++;
+    this.save('accessoryLog');
+  }
+  saveWorkoutSession() {
+    this.saveNow('workoutSession');
+  }
+  saveCustomTemplates() {
+    this.save('customTemplates');
+  }
+  saveMesocycle() {
+    this.save('mesocycle');
+  }
+  saveMesocycleHistory() {
+    this.save('mesocycleHistory');
+  }
+  saveEquipmentProfile() {
+    this.save('equipmentProfile');
+  }
+  saveReasonTagCounts() {
+    this.save('reasonTagCounts');
+  }
+  saveAccessoryOverrides() {
+    this.save('accessoryOverrides');
+  }
+  saveCustomAccessories() {
+    this.save('customAccessories');
+  }
+  saveDisabledAccessories() {
+    this.save('disabledAccessories');
+  }
 
   // -------------------------------------------------------------------------
   // Private: load, flush, migrate, patches
@@ -543,7 +662,7 @@ class Store {
     const s = this.STORES[name];
     try {
       const raw = localStorage.getItem(s.key);
-      s.set(raw ? JSON.parse(raw) : (s.nullable ? null : clone(s.default)));
+      s.set(raw ? JSON.parse(raw) : s.nullable ? null : clone(s.default));
     } catch {
       s.set(s.nullable ? null : clone(s.default));
     }
@@ -564,7 +683,9 @@ class Store {
           this._quotaWarned = true;
           this.onStorageFull('Storage nearly full — export your data to avoid data loss.');
         }
-      } catch { /* best-effort */ }
+      } catch {
+        /* best-effort */
+      }
     }
 
     names.forEach((name) => {
@@ -590,7 +711,7 @@ class Store {
    * @private Run schema migrations from `fromVersion` to CURRENT_VERSION.
    * This patches every entry to ensure all expected fields exist.
    */
-  _migrate(fromVersion) {
+  _migrate(_fromVersion) {
     this.entries.forEach((e) => {
       if (e.rpe === undefined) e.rpe = null;
       if (e.notes === undefined) e.notes = '';
@@ -636,8 +757,8 @@ class Store {
     // Migrate cycle-aware keys from reverted commits (92c9bd4, 5ee0388)
     // Format: "lift-c{cycle}-w{week}-{idx}" -> "lift-{week}-{idx}"
     const cycleKeyRe = /^(\w+)-c(\d+)-w(\d+)-(\d+)$/;
-    [pc.completedSets, pc.completedSetData, pc.amrapResults].forEach(obj => {
-      Object.keys(obj).forEach(key => {
+    [pc.completedSets, pc.completedSetData, pc.amrapResults].forEach((obj) => {
+      Object.keys(obj).forEach((key) => {
         const m = key.match(cycleKeyRe);
         if (m) {
           const newKey = `${m[1]}-${m[3]}-${m[4]}`;
@@ -650,10 +771,10 @@ class Store {
     // can't be mapped to new per-lift format ("squat-3"). Clear stale keys.
     if (pc.completedWeeks) {
       const liftWeekRe = /^(squat|bench|deadlift)-\d+$/;
-      const hasStaleKeys = Object.keys(pc.completedWeeks).some(k => !liftWeekRe.test(k));
+      const hasStaleKeys = Object.keys(pc.completedWeeks).some((k) => !liftWeekRe.test(k));
       if (hasStaleKeys) {
         const fresh = {};
-        Object.keys(pc.completedWeeks).forEach(k => {
+        Object.keys(pc.completedWeeks).forEach((k) => {
           if (liftWeekRe.test(k)) fresh[k] = pc.completedWeeks[k];
         });
         pc.completedWeeks = fresh;
@@ -665,15 +786,20 @@ class Store {
   /** @private Write completedSets + trainingMaxes to a separate backup key. */
   _backupCompletedSets() {
     try {
-      localStorage.setItem('sbd-completed-backup', JSON.stringify({
-        completedSets: this.programConfig.completedSets,
-        completedSetData: this.programConfig.completedSetData,
-        amrapResults: this.programConfig.amrapResults,
-        completedWeeks: this.programConfig.completedWeeks,
-        trainingMaxes: this.programConfig.trainingMaxes,
-        ts: Date.now(),
-      }));
-    } catch (e) { /* quota exceeded — ignore */ }
+      localStorage.setItem(
+        'sbd-completed-backup',
+        JSON.stringify({
+          completedSets: this.programConfig.completedSets,
+          completedSetData: this.programConfig.completedSetData,
+          amrapResults: this.programConfig.amrapResults,
+          completedWeeks: this.programConfig.completedWeeks,
+          trainingMaxes: this.programConfig.trainingMaxes,
+          ts: Date.now(),
+        })
+      );
+    } catch (_e) {
+      /* quota exceeded — ignore */
+    }
   }
 
   /** @private Restore from backup only if main store data was lost (not intentionally changed). */
@@ -707,7 +833,7 @@ class Store {
       // completed rows fall back to current-TM calculations.
       if (backup.completedSetData) {
         const currentData = this.programConfig.completedSetData || {};
-        const addsFrozenData = Object.keys(backup.completedSetData).some(k => !currentData[k]);
+        const addsFrozenData = Object.keys(backup.completedSetData).some((k) => !currentData[k]);
         this.programConfig.completedSetData = { ...backup.completedSetData, ...currentData };
         if (addsFrozenData) this.saveNow('programs');
       }
@@ -715,14 +841,16 @@ class Store {
       // Restore training maxes if they were lost
       if (backup.trainingMaxes) {
         const currentTMs = this.programConfig.trainingMaxes || {};
-        const hasTMs = Object.values(currentTMs).some(v => v > 0);
-        const backupHasTMs = Object.values(backup.trainingMaxes).some(v => v > 0);
+        const hasTMs = Object.values(currentTMs).some((v) => v > 0);
+        const backupHasTMs = Object.values(backup.trainingMaxes).some((v) => v > 0);
         if (!hasTMs && backupHasTMs) {
           this.programConfig.trainingMaxes = { ...backup.trainingMaxes };
           this.saveNow('programs');
         }
       }
-    } catch (e) { /* corrupt backup — ignore */ }
+    } catch (_e) {
+      /* corrupt backup — ignore */
+    }
   }
 
   /** @private Ensure workoutConfig has all expected sub-fields. */

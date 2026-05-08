@@ -17,8 +17,9 @@ import { WILKS, DOTS } from '../constants/formulas.js';
 export function calcWilks(totalKg, bwKg, gender) {
   if (!gender || !totalKg || !bwKg) return null;
   const c = WILKS[gender];
-  const d = c.a + c.b * bwKg + c.c * bwKg ** 2 + c.d * bwKg ** 3 + c.e * bwKg ** 4 + c.f * bwKg ** 5;
-  return d <= 0 ? null : totalKg * 500 / d;
+  const d =
+    c.a + c.b * bwKg + c.c * bwKg ** 2 + c.d * bwKg ** 3 + c.e * bwKg ** 4 + c.f * bwKg ** 5;
+  return d <= 0 ? null : (totalKg * 500) / d;
 }
 
 /**
@@ -32,5 +33,5 @@ export function calcDOTS(totalKg, bwKg, gender) {
   if (!gender || !totalKg || !bwKg) return null;
   const c = DOTS[gender];
   const d = c.a + c.b * bwKg + c.c * bwKg ** 2 + c.d * bwKg ** 3 + c.e * bwKg ** 4;
-  return d <= 0 ? null : totalKg * 500 / d;
+  return d <= 0 ? null : (totalKg * 500) / d;
 }

@@ -2,85 +2,220 @@
 
 /* Prior Week Review card */
 .prior-week-card {
-  background: var(--surface); border-radius: var(--radius-md); padding: var(--space-3);
-  margin-bottom: var(--space-2); cursor: pointer; border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+  cursor: pointer;
+  border: 1px solid var(--border);
   transition: border-color var(--transition-base);
   box-shadow: var(--shadow-sm);
 }
-.prior-week-card:hover { border-color: var(--border-hover); }
-.prior-week-focus { font-size: 0.7rem; color: var(--text-dim); margin-top: 4px; font-weight: 600; }
+.prior-week-card:hover {
+  border-color: var(--border-hover);
+}
+.prior-week-focus {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-top: 4px;
+  font-weight: 600;
+}
 
 /* Insight chips */
-.insight-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.insight-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
 .insight-chip {
-  font-size: 0.6rem; font-weight: 700; padding: 2px 8px;
-  border-radius: 10px; color: #000; white-space: nowrap;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  color: #000;
+  white-space: nowrap;
   letter-spacing: 0.02em;
 }
 
 /* Review sheet — muscle coverage table */
 .review-muscle-row {
-  display: grid; grid-template-columns: 1fr 30px 76px 40px;
-  gap: 4px; align-items: center; padding: 4px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.03); font-size: var(--text-xs);
+  display: grid;
+  grid-template-columns: 1fr 30px 76px 40px;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  font-size: var(--text-xs);
 }
-.review-muscle-name { color: var(--text); font-weight: 500; }
-.review-muscle-sets { text-align: center; font-weight: 700; color: var(--text-strong); }
-.review-muscle-status { font-weight: 600; font-size: 0.6rem; }
-.review-muscle-delta { text-align: right; font-size: 0.6rem; font-weight: 600; }
+.review-muscle-name {
+  color: var(--text);
+  font-weight: 500;
+}
+.review-muscle-sets {
+  text-align: center;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.review-muscle-status {
+  font-weight: 600;
+  font-size: 0.6rem;
+}
+.review-muscle-delta {
+  text-align: right;
+  font-size: 0.6rem;
+  font-weight: 600;
+}
 
 /* Review sheet — week comparison */
-.review-compare-grid { display: flex; flex-direction: column; gap: 4px; }
-.review-compare-row {
-  display: flex; align-items: center; gap: 8px;
-  font-size: var(--text-xs); padding: 3px 0;
+.review-compare-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
-.review-compare-label { min-width: 60px; color: var(--text-dim); font-weight: 600; }
+.review-compare-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-xs);
+  padding: 3px 0;
+}
+.review-compare-label {
+  min-width: 60px;
+  color: var(--text-dim);
+  font-weight: 600;
+}
 
 .recap-grade-badge {
-  font-size: 0.85rem; font-weight: 800; padding: 2px 8px;
-  border-radius: var(--radius-pill); color: #000;
-  text-transform: none; letter-spacing: 0;
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  color: #000;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 /* This Week card */
 .recap-card {
-  background: var(--surface); border-radius: var(--radius-md); padding: var(--space-3);
-  margin-bottom: var(--space-2); cursor: pointer; border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+  cursor: pointer;
+  border: 1px solid var(--border);
   transition: border-color var(--transition-base);
   box-shadow: var(--shadow-sm);
 }
-.recap-card:hover { border-color: var(--border-hover); }
-.recap-card-header { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; }
-.recap-card-preview { font-size: 0.8rem; color: var(--text); }
-.recap-card-days { font-size: 0.65rem; color: var(--text-dim); margin-top: 4px; }
+.recap-card:hover {
+  border-color: var(--border-hover);
+}
+.recap-card-header {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.recap-card-preview {
+  font-size: 0.8rem;
+  color: var(--text);
+}
+.recap-card-days {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
 
 /* Recap modal styles */
 .recap-stat-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 .recap-stat {
-  background: var(--surface2); border-radius: 8px; padding: 10px; text-align: center;
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
 }
-.recap-stat-label { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
-.recap-stat-value { font-size: 1.1rem; font-weight: 700; color: var(--text); }
-.recap-stat-change { font-size: 0.65rem; font-weight: 600; }
-.recap-stat-change.up { color: var(--green); }
-.recap-stat-change.down { color: var(--red); }
+.recap-stat-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+.recap-stat-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.recap-stat-change {
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+.recap-stat-change.up {
+  color: var(--green);
+}
+.recap-stat-change.down {
+  color: var(--red);
+}
 .recap-lift-bar {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 0.75rem;
 }
-.recap-lift-label { min-width: 20px; font-weight: 700; font-size: 0.65rem; }
-.recap-lift-fill { height: 14px; border-radius: 3px; min-width: 2px; }
-.recap-lift-vol { color: var(--text-dim); font-size: 0.7rem; min-width: 50px; text-align: right; }
-.recap-pr-item { font-size: 0.75rem; padding: 4px 0; border-bottom: 1px solid var(--border); }
-.recap-pr-item:last-child { border-bottom: none; }
+.recap-lift-label {
+  min-width: 20px;
+  font-weight: 700;
+  font-size: 0.65rem;
+}
+.recap-lift-fill {
+  height: 14px;
+  border-radius: 3px;
+  min-width: 2px;
+}
+.recap-lift-vol {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  min-width: 50px;
+  text-align: right;
+}
+.recap-pr-item {
+  font-size: 0.75rem;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.recap-pr-item:last-child {
+  border-bottom: none;
+}
 .recap-top-set {
-  background: var(--gold-bg); border: 1px solid rgba(255,215,0,0.2);
-  border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; text-align: center;
+  background: var(--gold-bg);
+  border: 1px solid rgba(255, 215, 0, 0.2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  text-align: center;
 }
-.recap-top-set-label { font-size: 0.65rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.04em; }
-.recap-top-set-value { font-size: 1rem; font-weight: 700; color: var(--text); }
+.recap-top-set-label {
+  font-size: 0.65rem;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.recap-top-set-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
 
 /* Coverage header (centered badge at top of recap modal) */
 .recap-coverage-header {
@@ -88,10 +223,12 @@
   margin-bottom: 12px;
 }
 .recap-coverage-badge {
-  display: inline-flex; align-items: center;
+  display: inline-flex;
+  align-items: center;
   padding: 5px 12px;
   border-radius: var(--radius-pill);
-  background: var(--surface2); color: var(--text);
+  background: var(--surface2);
+  color: var(--text);
   font-family: var(--font-mono);
   font-size: 0.85rem;
   font-weight: 700;

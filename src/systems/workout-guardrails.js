@@ -7,8 +7,7 @@
 
 import store from '../state/store.js';
 import { EXERCISE_CATALOG, MOVEMENT_PATTERNS } from '../data/exercise-catalog.js';
-import { resolveExercise, resolveCanonicalId, getExerciseHistory } from '../data/exercise-compat.js';
-import { MUSCLE_GROUPS } from '../data/muscle-groups.js';
+import { resolveExercise, resolveCanonicalId } from '../data/exercise-compat.js';
 import { calcFatigueByMuscle } from '../systems/fatigue.js';
 import { analyzeRecencyGaps } from '../systems/gap-analysis.js';
 import { estimateWorkoutDuration } from '../systems/gap-analysis.js';
@@ -27,7 +26,7 @@ import { estimateWorkoutDuration } from '../systems/gap-analysis.js';
  */
 export function checkGuardrails(mainLift, exercises) {
   const hints = [];
-  const accessories = exercises.filter(e => e.type !== 'main');
+  const accessories = exercises.filter((e) => e.type !== 'main');
 
   // 1. Too many accessories (>6 warning with duration)
   if (accessories.length > 6) {
@@ -47,7 +46,7 @@ export function checkGuardrails(mainLift, exercises) {
     totalSets += sets;
     if (catalogEx && catalogEx.primaryMuscles) {
       for (const [mg, weight] of Object.entries(catalogEx.primaryMuscles)) {
-        if (weight >= 0.30) {
+        if (weight >= 0.3) {
           muscleSetCounts[mg] = (muscleSetCounts[mg] || 0) + sets;
         }
       }
@@ -55,10 +54,10 @@ export function checkGuardrails(mainLift, exercises) {
   }
   if (totalSets > 0) {
     for (const [mg, count] of Object.entries(muscleSetCounts)) {
-      if (count / totalSets > 0.60) {
+      if (count / totalSets > 0.6) {
         hints.push({
           type: 'muscle-overload',
-          message: `${Math.round(count / totalSets * 100)}% of sets target ${mg}`,
+          message: `${Math.round((count / totalSets) * 100)}% of sets target ${mg}`,
         });
         break; // Only show one overload warning
       }
@@ -67,7 +66,7 @@ export function checkGuardrails(mainLift, exercises) {
 
   // 3. No pulling on bench day
   if (mainLift === 'bench') {
-    const hasPull = accessories.some(ex => {
+    const hasPull = accessories.some((ex) => {
       const catalogEx = resolveExercise(ex.exerciseId || ex.id);
       if (!catalogEx) return false;
       const pattern = MOVEMENT_PATTERNS[catalogEx.movementPattern];
@@ -85,7 +84,7 @@ export function checkGuardrails(mainLift, exercises) {
   const recency = analyzeRecencyGaps();
   if (recency.Core && recency.Core.daysSince >= 10) {
     // Only hint if no core exercise is already in the builder
-    const hasCore = accessories.some(ex => {
+    const hasCore = accessories.some((ex) => {
       const catalogEx = resolveExercise(ex.exerciseId || ex.id);
       return catalogEx && catalogEx.movementPattern === 'core-stability';
     });
@@ -118,7 +117,7 @@ export function checkGuardrails(mainLift, exercises) {
       const catalogEx = resolveExercise(ex.exerciseId || ex.id);
       if (!catalogEx || !catalogEx.primaryMuscles) continue;
       for (const [mg, weight] of Object.entries(catalogEx.primaryMuscles)) {
-        if (weight >= 0.30 && muscleFatigue[mg] && muscleFatigue[mg].status === 'red') {
+        if (weight >= 0.3 && muscleFatigue[mg] && muscleFatigue[mg].status === 'red') {
           hints.push({
             type: 'fatigue-warning',
             message: `${catalogEx.name} loads ${mg} (high fatigue)`,
@@ -162,7 +161,7 @@ function checkStaleness(canonicalId, mainLift) {
   const recentSessions = [...sessionDates].sort().reverse().slice(0, 10);
   if (recentSessions.length < 5) return null; // Not enough data
 
-  const usageCount = recentSessions.filter(d => exerciseDates.has(d)).length;
+  const usageCount = recentSessions.filter((d) => exerciseDates.has(d)).length;
   if (usageCount < 8) return null;
 
   // Find alternative: same movement pattern, different exercise

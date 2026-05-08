@@ -67,7 +67,11 @@ export function drawCardDate(ctx, w, y, date) {
   ctx.font = '14px -apple-system, sans-serif';
   ctx.fillStyle = '#555';
   ctx.textAlign = 'center';
-  ctx.fillText(date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }), w / 2, y);
+  ctx.fillText(
+    date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+    w / 2,
+    y
+  );
 }
 
 /**
@@ -106,7 +110,7 @@ export function drawCardWilks(ctx, cx, y) {
  * @param {string} text
  */
 export function shareOrDownloadCanvas(canvas, filename, title, text) {
-  canvas.toBlob(blob => {
+  canvas.toBlob((blob) => {
     const file = new File([blob], filename, { type: 'image/png' });
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
       navigator.share({ files: [file], title, text });
@@ -189,7 +193,11 @@ export function generatePRCard(lift, weight, e1rm, date) {
     if (w) {
       ctx.font = '16px -apple-system, sans-serif';
       ctx.fillStyle = '#666';
-      ctx.fillText('Total: ' + formatWeight(total) + ' ' + store.unit + '  |  Wilks: ' + Math.round(w), 300, 275);
+      ctx.fillText(
+        'Total: ' + formatWeight(total) + ' ' + store.unit + '  |  Wilks: ' + Math.round(w),
+        300,
+        275
+      );
     }
   }
 
@@ -260,7 +268,7 @@ export function shareMilestoneCard(total, sq, bp, dl, msTheme) {
   const lifts = [
     { label: 'SQ', val: sq, color: COLORS.squat },
     { label: 'BP', val: bp, color: COLORS.bench },
-    { label: 'DL', val: dl, color: COLORS.deadlift }
+    { label: 'DL', val: dl, color: COLORS.deadlift },
   ];
   const startX = 150;
   lifts.forEach((l, i) => {

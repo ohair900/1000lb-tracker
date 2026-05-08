@@ -18,9 +18,11 @@ import { TIMER_KEY } from '../constants/storage-keys.js';
 // Dependency injection
 // ---------------------------------------------------------------------------
 
-let _deps = {};
+const _deps = {};
 
-export function setTimerDeps(deps) { Object.assign(_deps, deps); }
+export function setTimerDeps(deps) {
+  Object.assign(_deps, deps);
+}
 
 // ---------------------------------------------------------------------------
 // Screen Wake Lock — keeps the screen on during timed exercises
@@ -34,19 +36,28 @@ export async function requestWakeLock() {
       _wakeLock = await navigator.wakeLock.request('screen');
       // iOS releases the lock when the page hides; clear our reference so
       // re-acquire on visibilitychange works.
-      _wakeLock.addEventListener('release', () => { _wakeLock = null; });
+      _wakeLock.addEventListener('release', () => {
+        _wakeLock = null;
+      });
     }
-  } catch { /* best-effort */ }
+  } catch {
+    /* best-effort */
+  }
 }
 
 export function releaseWakeLock() {
-  if (_wakeLock) { _wakeLock.release().catch(() => {}); _wakeLock = null; }
+  if (_wakeLock) {
+    _wakeLock.release().catch(() => {});
+    _wakeLock = null;
+  }
 }
 
 // Re-acquire the lock when the page becomes visible again, but only if a
 // workout is open. The workout-overlay registers itself by setting a flag.
 export let _wakeLockNeeded = false;
-export function setWakeLockNeeded(needed) { _wakeLockNeeded = needed; }
+export function setWakeLockNeeded(needed) {
+  _wakeLockNeeded = needed;
+}
 
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
@@ -68,7 +79,9 @@ export function ensureAudioContext() {
       store.sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
     if (store.sharedAudioCtx.state === 'suspended') store.sharedAudioCtx.resume();
-  } catch { /* ignore — audio is best-effort */ }
+  } catch {
+    /* ignore — audio is best-effort */
+  }
 }
 
 /**
@@ -83,9 +96,9 @@ export function playBeep() {
     if (!ac) return;
 
     const notes = [
-      { freq: 523.25, start: 0,    dur: 0.3  },  // C5
-      { freq: 659.25, start: 0.2,  dur: 0.3  },  // E5
-      { freq: 783.99, start: 0.4,  dur: 0.45 },  // G5 (held slightly longer)
+      { freq: 523.25, start: 0, dur: 0.3 }, // C5
+      { freq: 659.25, start: 0.2, dur: 0.3 }, // E5
+      { freq: 783.99, start: 0.4, dur: 0.45 }, // G5 (held slightly longer)
     ];
 
     notes.forEach(({ freq, start, dur }) => {
@@ -117,7 +130,9 @@ export function playBeep() {
       osc2.start(t);
       osc2.stop(t + dur);
     });
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -132,7 +147,7 @@ export function updateTimerDisplay() {
   const s = store.timerRemaining % 60;
   const display = $('timer-display');
   display.textContent = m + ':' + String(s).padStart(2, '0');
-  const pct = ((store.timerDuration - store.timerRemaining) / store.timerDuration * 100);
+  const pct = ((store.timerDuration - store.timerRemaining) / store.timerDuration) * 100;
   display.className = 'timer-display' + (pct > 80 ? ' warning' : '');
 }
 
@@ -169,9 +184,21 @@ export function startTimer(secs) {
     if (store.timerRemaining <= 0) {
       stopTimer();
       // Each alert independent — silent-mode iOS won't get audio but still vibrates + flashes
-      try { playBeep(); } catch { /* ignore */ }
-      try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch { /* ignore */ }
-      try { _flashTimerAlert(); } catch { /* ignore */ }
+      try {
+        playBeep();
+      } catch {
+        /* ignore */
+      }
+      try {
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      } catch {
+        /* ignore */
+      }
+      try {
+        _flashTimerAlert();
+      } catch {
+        /* ignore */
+      }
       $('timer-display').textContent = 'DONE';
       $('timer-display').className = 'timer-display done';
     }
@@ -209,8 +236,16 @@ function completeExerciseTimer() {
   acc.setsCompleted.push(duration);
   stopExerciseTimer();
   // Each alert independent so a silent-mode failure on one doesn't kill the others
-  try { playBeep(); } catch { /* ignore */ }
-  try { if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]); } catch { /* ignore */ }
+  try {
+    playBeep();
+  } catch {
+    /* ignore */
+  }
+  try {
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+  } catch {
+    /* ignore */
+  }
   startTimer(store.timerDuration);
   _deps.saveWorkoutSession?.();
   _deps.renderWorkoutView?.();
@@ -229,7 +264,8 @@ export function startExerciseTimer(accIdx, setIdx) {
   const acc = store.workoutSession.accessories[accIdx];
   const duration = acc.repRange[1];
   store.exerciseTimer = {
-    accIdx, setIdx,
+    accIdx,
+    setIdx,
     remaining: duration,
     duration,
     startTime: Date.now(),
@@ -249,9 +285,13 @@ export function startExerciseTimer(accIdx, setIdx) {
     );
     if (display) {
       display.textContent = store.exerciseTimer.remaining + 's';
-      display.className = 'exercise-countdown-display' +
-        (store.exerciseTimer.remaining <= 3 ? ' final' :
-          store.exerciseTimer.remaining <= 10 ? ' warning' : '');
+      display.className =
+        'exercise-countdown-display' +
+        (store.exerciseTimer.remaining <= 3
+          ? ' final'
+          : store.exerciseTimer.remaining <= 10
+            ? ' warning'
+            : '');
     }
 
     if (store.exerciseTimer.remaining <= 0) {
@@ -314,9 +354,21 @@ document.addEventListener('visibilitychange', () => {
         updateTimerDisplay();
         if (store.timerRemaining <= 0) {
           stopTimer();
-          try { playBeep(); } catch { /* ignore */ }
-          try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch { /* ignore */ }
-          try { _flashTimerAlert(); } catch { /* ignore */ }
+          try {
+            playBeep();
+          } catch {
+            /* ignore */
+          }
+          try {
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+          } catch {
+            /* ignore */
+          }
+          try {
+            _flashTimerAlert();
+          } catch {
+            /* ignore */
+          }
           $('timer-display').textContent = 'DONE';
           $('timer-display').className = 'timer-display done';
         }
@@ -342,9 +394,13 @@ document.addEventListener('visibilitychange', () => {
         );
         if (display) {
           display.textContent = store.exerciseTimer.remaining + 's';
-          display.className = 'exercise-countdown-display' +
-            (store.exerciseTimer.remaining <= 3 ? ' final' :
-              store.exerciseTimer.remaining <= 10 ? ' warning' : '');
+          display.className =
+            'exercise-countdown-display' +
+            (store.exerciseTimer.remaining <= 3
+              ? ' final'
+              : store.exerciseTimer.remaining <= 10
+                ? ' warning'
+                : '');
         }
         if (store.exerciseTimer.remaining <= 0) {
           completeExerciseTimer();

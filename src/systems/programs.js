@@ -7,7 +7,7 @@
 
 import store from '../state/store.js';
 import { PROGRAM_TEMPLATES } from '../data/programs.js';
-import { LIFTS, LIFT_NAMES } from '../constants/lift-config.js';
+import { LIFT_NAMES } from '../constants/lift-config.js';
 import { roundToPlate } from '../formulas/plates.js';
 import { formatWeight } from '../formulas/units.js';
 import { SUPPLEMENTAL_TIERS } from '../constants/program-tiers.js';
@@ -80,7 +80,7 @@ export function getProgramWorkout(lift, weekOverride) {
       const frozen = _validFrozenSetData(maybeFrozen) ? maybeFrozen : null;
       return {
         num: i + 1,
-        weight: frozen ? frozen.weight : roundToPlate(tm * s.pct / 100),
+        weight: frozen ? frozen.weight : roundToPlate((tm * s.pct) / 100),
         reps: frozen ? frozen.reps : s.reps,
         pct: s.pct,
         tier: s.tier || null,
@@ -107,7 +107,7 @@ export function isWeekComplete(lift) {
   if (!store.programConfig.trainingMaxes[lift]) return false;
   const workout = getProgramWorkout(lift);
   if (!workout) return false;
-  return _primarySets(workout).every(s => s.completed);
+  return _primarySets(workout).every((s) => s.completed);
 }
 
 /**
@@ -121,7 +121,7 @@ export function isLiftComplete(lift) {
   if (!store.programConfig.activeProgram || !store.programConfig.trainingMaxes[lift]) return false;
   const workout = getProgramWorkout(lift);
   if (!workout) return false;
-  return _primarySets(workout).every(s => s.completed);
+  return _primarySets(workout).every((s) => s.completed);
 }
 
 /**
@@ -138,14 +138,14 @@ export function findFirstIncompleteWeek(lift) {
   if (!tmpl) return lw;
   for (let w = 1; w <= lw; w++) {
     const workout = getProgramWorkout(lift, w);
-    if (workout && !_primarySets(workout).every(s => s.completed)) return w;
+    if (workout && !_primarySets(workout).every((s) => s.completed)) return w;
   }
   return lw;
 }
 
 /** Filter to only primary working sets (exclude BBB / T2 / other supplemental). */
 function _primarySets(workout) {
-  return workout.sets.filter(s => !SUPPLEMENTAL_TIERS.includes(s.tier));
+  return workout.sets.filter((s) => !SUPPLEMENTAL_TIERS.includes(s.tier));
 }
 
 // ---------------------------------------------------------------------------
@@ -189,15 +189,15 @@ export function checkAutoProgression(lift) {
   const tm = store.programConfig.trainingMaxes[lift];
   if (!tm) return null;
   const lw = getLiftWeek(lift);
-  const increment = (lift === 'bench') ? prog.upperIncrement : prog.lowerIncrement;
+  const increment = lift === 'bench' ? prog.upperIncrement : prog.lowerIncrement;
   const week = ((lw - 1) % tmpl.weeks) + 1;
 
   if (prog.type === 'session') {
     // SL5x5 / SS: all sets completed for this lift this week
     const weekData = tmpl.schedule[week];
     if (!weekData) return null;
-    const allDone = weekData.sets.every((_, i) =>
-      store.programConfig.completedSets[`${lift}-${lw}-${i}`]
+    const allDone = weekData.sets.every(
+      (_, i) => store.programConfig.completedSets[`${lift}-${lw}-${i}`]
     );
     if (allDone) {
       // Success: reset failure count, progress
@@ -227,7 +227,7 @@ export function checkAutoProgression(lift) {
     const weekData = tmpl.schedule[week];
     if (!weekData) return null;
     const amrapIdx = weekData.sets.findIndex(
-      s => typeof s.reps === 'string' && s.reps.includes('+') && s.day === 'Intensity'
+      (s) => typeof s.reps === 'string' && s.reps.includes('+') && s.day === 'Intensity'
     );
     if (amrapIdx < 0) return null;
     const key = `${lift}-${lw}-${amrapIdx}`;
@@ -290,9 +290,14 @@ export function checkCycleBoundaryProgression(lift, cycleEndWeek, tmpl) {
   if (bestAmrapReps < (prog.minReps || 1)) return null;
 
   // Flat increment from template (not percentage-based)
-  const increment = (lift === 'bench') ? prog.upperIncrement : prog.lowerIncrement;
+  const increment = lift === 'bench' ? prog.upperIncrement : prog.lowerIncrement;
   const newTM = tm + increment;
-  return { lift, oldTM: tm, newTM, reason: `Cycle complete (+${formatWeight(increment)} ${store.unit}) AMRAP: ${bestAmrapReps} reps` };
+  return {
+    lift,
+    oldTM: tm,
+    newTM,
+    reason: `Cycle complete (+${formatWeight(increment)} ${store.unit}) AMRAP: ${bestAmrapReps} reps`,
+  };
 }
 
 /**
@@ -311,7 +316,7 @@ export function applyProgression(result) {
     lift: result.lift,
     oldTM: result.oldTM,
     newTM: result.newTM,
-    reason: result.reason
+    reason: result.reason,
   });
   store.saveProgramConfig();
   const name = LIFT_NAMES[result.lift];

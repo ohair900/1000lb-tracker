@@ -25,9 +25,11 @@ import { generateId } from '../utils/helpers.js';
 // Late-bound dependencies (set via inject())
 // ---------------------------------------------------------------------------
 
-let _deps = {};
+const _deps = {};
 
-export function inject(deps) { Object.assign(_deps, deps); }
+export function inject(deps) {
+  Object.assign(_deps, deps);
+}
 
 // ---------------------------------------------------------------------------
 // Add / Edit / Delete

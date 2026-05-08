@@ -20,7 +20,7 @@ import { getWeekKey } from '../utils/date.js';
 export function calcStreak() {
   if (store.entries.length === 0) return null;
 
-  const dates = [...new Set(store.entries.map(e => e.date))].sort().reverse();
+  const dates = [...new Set(store.entries.map((e) => e.date))].sort().reverse();
   if (dates.length === 0) return null;
 
   const dayDiff = (a, b) =>
@@ -39,7 +39,8 @@ export function calcStreak() {
   }
 
   // Longest streak
-  let longest = 1, streak = 1;
+  let longest = 1,
+    streak = 1;
   for (let i = 1; i < dates.length; i++) {
     if (dayDiff(dates[i - 1], dates[i]) <= 2) {
       streak++;
@@ -52,8 +53,8 @@ export function calcStreak() {
 
   // Weeks active in last 4 weeks
   const fourWeeksAgo = Date.now() - 28 * MS_PER_DAY;
-  const recentDates = dates.filter(d => new Date(d + 'T12:00:00').getTime() >= fourWeeksAgo);
-  const weeks = new Set(recentDates.map(d => getWeekKey(d)));
+  const recentDates = dates.filter((d) => new Date(d + 'T12:00:00').getTime() >= fourWeeksAgo);
+  const weeks = new Set(recentDates.map((d) => getWeekKey(d)));
 
   return { current, longest, weeksActive: weeks.size };
 }

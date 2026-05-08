@@ -5,33 +5,18 @@
 
 import store from '../state/store.js';
 import { $ } from '../utils/helpers.js';
-import { LIFT_NAMES, COLORS, PLATE_MILESTONES, REP_RANGES } from '../constants/lift-config.js';
+import { LIFT_NAMES, COLORS } from '../constants/lift-config.js';
 import { DIRECTION_ARROWS } from '../constants/ui.js';
-import { MS_PER_DAY } from '../constants/time.js';
 import { bestE1RM } from '../formulas/e1rm.js';
-import { formatWeight, displayWeight, lbsToKg } from '../formulas/units.js';
+import { formatWeight, lbsToKg } from '../formulas/units.js';
 import { calcProgression, detectPlateau } from '../formulas/progression.js';
 import { getClassification } from '../formulas/standards.js';
 import { calcDOTS } from '../formulas/scoring.js';
 import { openSheet, closeSheet, enableSheetSwipeDismiss } from '../ui/sheet.js';
 import { isRouterResolving, pushRoute, clearOverlayState } from '../ui/router.js';
 import { calcMilestoneRoadmap } from '../systems/goals.js';
-
-/* --- RPE color helpers --- */
-function rpeColor(rpe) {
-  if (rpe == null) return 'var(--text-dim)';
-  if (rpe <= 7) return 'var(--green)';
-  if (rpe <= 8) return 'var(--yellow, #fbc02d)';
-  if (rpe <= 9) return 'var(--orange, #fb8c00)';
-  return 'var(--red)';
-}
-function rpeClass(rpe) {
-  if (rpe == null) return 'none';
-  if (rpe <= 7) return 'low';
-  if (rpe <= 8) return 'mod';
-  if (rpe <= 9) return 'high';
-  return 'max';
-}
+import { diagnosePlateau } from '../systems/plateau-breaker.js';
+import { wireLiftDetailButtons } from './plateau-analysis.js';
 
 export function closeLiftDetail() {
   closeSheet('lift-detail-sheet', 'lift-detail-backdrop');
@@ -48,7 +33,7 @@ export function showLiftDetail(lift) {
   const gender = store.profile.gender;
 
   const liftEntries = store.entries
-    .filter(e => e.lift === lift)
+    .filter((e) => e.lift === lift)
     .sort((a, b) => b.timestamp - a.timestamp);
 
   let html = '';
@@ -69,7 +54,7 @@ export function showLiftDetail(lift) {
   html += `</div>`;
   // All-time best merged into hero
   if (liftEntries.length > 0) {
-    const bestEntry = liftEntries.reduce((b, e) => e.e1rm > b.e1rm ? e : b, liftEntries[0]);
+    const bestEntry = liftEntries.reduce((b, e) => (e.e1rm > b.e1rm ? e : b), liftEntries[0]);
     html += `<div class="ld-banner-best">Best: ${formatWeight(bestEntry.weight)} &times; ${bestEntry.reps} = ${formatWeight(bestEntry.e1rm)} e1RM &bull; ${bestEntry.date}</div>`;
   }
   if (prog) {
@@ -93,10 +78,12 @@ export function showLiftDetail(lift) {
     const deltaClass = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
 
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const oldEntries = liftEntries.filter(e => e.timestamp < thirtyDaysAgo);
-    const oldBest = oldEntries.length ? Math.max(...oldEntries.map(e => e.e1rm)) : null;
+    const oldEntries = liftEntries.filter((e) => e.timestamp < thirtyDaysAgo);
+    const oldBest = oldEntries.length ? Math.max(...oldEntries.map((e) => e.e1rm)) : null;
     const thisMonth = new Date().toISOString().slice(0, 7);
-    const monthSessions = new Set(liftEntries.filter(e => e.date.startsWith(thisMonth)).map(e => e.date)).size;
+    const monthSessions = new Set(
+      liftEntries.filter((e) => e.date.startsWith(thisMonth)).map((e) => e.date)
+    ).size;
 
     html += `<div class="sheet-section ld-progress" style="--i:${sectionIdx++}">`;
     html += `<div class="ld-progress-grid">`;
@@ -113,7 +100,7 @@ export function showLiftDetail(lift) {
 
   // --- 3. Goal bar + Milestone Roadmap ---
   if (goal && best) {
-    const pct = Math.min(100, best / goal * 100);
+    const pct = Math.min(100, (best / goal) * 100);
     html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
     html += `<div class="ld-goal-label">${pct.toFixed(0)}% of ${formatWeight(goal)} ${store.unit} goal</div>`;
     html += `<div class="ld-goal-bar"><div class="ld-goal-fill" style="width:${pct}%"></div></div>`;
@@ -121,14 +108,16 @@ export function showLiftDetail(lift) {
     const rm = calcMilestoneRoadmap(lift);
     if (rm) {
       html += `<div class="ld-roadmap">`;
-      rm.milestones.forEach(ms => {
+      rm.milestones.forEach((ms) => {
         const dotColor = ms.achieved ? COLORS[lift] : 'var(--border)';
         const textColor = ms.achieved ? 'var(--text)' : 'var(--text-dim)';
         const rightLabel = ms.achieved
           ? ms.achievedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
           : '~' + ms.estDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
         const targetStyle = ms.achieved ? 'text-decoration:line-through;opacity:0.7' : '';
-        const checkmark = ms.achieved ? ' <span style="color:' + COLORS[lift] + '">&#10003;</span>' : '';
+        const checkmark = ms.achieved
+          ? ' <span style="color:' + COLORS[lift] + '">&#10003;</span>'
+          : '';
         html += `<div class="ld-roadmap-item" style="color:${textColor}">`;
         html += `<span class="ld-roadmap-dot" style="background:${dotColor}"></span>`;
         html += `<span><strong style="${targetStyle}">${formatWeight(ms.target)}</strong> ${ms.label}${checkmark}</span>`;
@@ -148,21 +137,29 @@ export function showLiftDetail(lift) {
         sessionMap.set(e.date, { ...e });
       }
     }
-    const prDates = new Set(liftEntries.filter(e => e.isPR).map(e => e.date));
-    const sessionList = [...sessionMap.values()].sort((a, b) => a.timestamp - b.timestamp).slice(-10);
+    const prDates = new Set(liftEntries.filter((e) => e.isPR).map((e) => e.date));
+    const sessionList = [...sessionMap.values()]
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .slice(-10);
 
     if (sessionList.length >= 2) {
-      const e1rms = sessionList.map(s => s.e1rm);
-      const min = Math.min(...e1rms), max = Math.max(...e1rms), range = max - min || 1;
-      const svgW = 280, svgH = 60, padX = 8, padY = 6;
-      const plotW = svgW - padX * 2, plotH = svgH - padY * 2;
+      const e1rms = sessionList.map((s) => s.e1rm);
+      const min = Math.min(...e1rms),
+        max = Math.max(...e1rms),
+        range = max - min || 1;
+      const svgW = 280,
+        svgH = 60,
+        padX = 8,
+        padY = 6;
+      const plotW = svgW - padX * 2,
+        plotH = svgH - padY * 2;
       const color = COLORS[lift];
       const points = sessionList.map((s, i) => ({
         x: padX + (i / (sessionList.length - 1)) * plotW,
         y: padY + plotH - ((s.e1rm - min) / range) * plotH,
         isPR: prDates.has(s.date),
       }));
-      const lineStr = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+      const lineStr = points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
       const areaStr = `${points[0].x.toFixed(1)},${svgH - padY} ${lineStr} ${points[points.length - 1].x.toFixed(1)},${svgH - padY}`;
 
       html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
@@ -171,7 +168,10 @@ export function showLiftDetail(lift) {
       html += `<defs><linearGradient id="ld-grad-${lift}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity="0.35"/><stop offset="100%" stop-color="${color}" stop-opacity="0.03"/></linearGradient></defs>`;
       html += `<polygon points="${areaStr}" fill="url(#ld-grad-${lift})"/>`;
       html += `<polyline points="${lineStr}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
-      points.forEach(p => { if (p.isPR) html += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="var(--gold, #ffd700)" stroke="var(--surface)" stroke-width="1.5"/>`; });
+      points.forEach((p) => {
+        if (p.isPR)
+          html += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="var(--gold, #ffd700)" stroke="var(--surface)" stroke-width="1.5"/>`;
+      });
       html += `</svg>`;
       html += `<div class="ld-sparkline-labels"><span>${sessionList[0].date.slice(5)}</span><span>${sessionList[sessionList.length - 1].date.slice(5)}</span></div>`;
       html += `</div>`;
@@ -185,8 +185,8 @@ export function showLiftDetail(lift) {
     for (const e of liftEntries) {
       if (!seen.has(e.date)) {
         seen.add(e.date);
-        const dayEntries = liftEntries.filter(x => x.date === e.date);
-        const topSet = dayEntries.reduce((b, x) => x.e1rm > b.e1rm ? x : b, dayEntries[0]);
+        const dayEntries = liftEntries.filter((x) => x.date === e.date);
+        const topSet = dayEntries.reduce((b, x) => (x.e1rm > b.e1rm ? x : b), dayEntries[0]);
         sessions.push({ date: e.date, topSet, sets: dayEntries.length });
       }
       if (sessions.length >= 3) break;
@@ -194,7 +194,7 @@ export function showLiftDetail(lift) {
 
     html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
     html += `<div class="sheet-section-title">Recent</div>`;
-    sessions.forEach(s => {
+    sessions.forEach((s) => {
       html += `<div class="ld-compact-session">`;
       html += `<span class="ld-compact-date">${s.date.slice(5)}</span>`;
       html += `<span>${formatWeight(s.topSet.weight)} &times; ${s.topSet.reps}</span>`;
@@ -217,7 +217,7 @@ export function showLiftDetail(lift) {
   }
 
   // Feature 4: Wire session expand/collapse
-  document.querySelectorAll('.ld-session-expandable').forEach(card => {
+  document.querySelectorAll('.ld-session-expandable').forEach((card) => {
     card.querySelector('.ld-session-header').addEventListener('click', () => {
       card.classList.toggle('expanded');
     });
@@ -231,7 +231,7 @@ export function initLiftDetailSheet() {
   enableSheetSwipeDismiss('lift-detail-sheet', 'lift-detail-backdrop', closeLiftDetail);
 
   // Dashboard card click handlers
-  document.querySelectorAll('.card[data-lift]').forEach(card => {
+  document.querySelectorAll('.card[data-lift]').forEach((card) => {
     if (card.dataset.lift === 'total') return;
     card.addEventListener('click', () => showLiftDetail(card.dataset.lift));
   });

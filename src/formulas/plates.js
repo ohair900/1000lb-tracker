@@ -51,10 +51,10 @@ export function formatPlates(totalWeight) {
   const plates = calcPlatesPerSide(totalWeight);
   if (!plates || plates.length === 0) return '';
   const seen = [];
-  plates.forEach(p => {
-    const existing = seen.find(s => s.plate === p);
+  plates.forEach((p) => {
+    const existing = seen.find((s) => s.plate === p);
     if (existing) existing.count++;
     else seen.push({ plate: p, count: 1 });
   });
-  return seen.map(s => s.count > 1 ? `${s.plate}x${s.count}` : `${s.plate}`).join(' + ');
+  return seen.map((s) => (s.count > 1 ? `${s.plate}x${s.count}` : `${s.plate}`)).join(' + ');
 }

@@ -2,16 +2,24 @@
 
 /* Workout overlay */
 .workout-overlay {
-  position: fixed; inset: 0; z-index: 300;
-  background: var(--bg); display: flex; flex-direction: column;
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
   animation: slideUp 0.25s ease;
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 /* Builder overlay */
 .builder-overlay {
-  position: fixed; inset: 0; z-index: 300;
-  background: var(--bg); display: flex; flex-direction: column;
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
   animation: slideUp 0.25s ease;
 }
 

@@ -25,7 +25,7 @@ export function calcVolumeSummaries(period) {
   const keyFn = period === 'weekly' ? getWeekKey : getMonthKey;
   const byPeriod = {};
 
-  store.entries.forEach(e => {
+  store.entries.forEach((e) => {
     const k = keyFn(e.date);
     if (!byPeriod[k]) byPeriod[k] = { squat: 0, bench: 0, deadlift: 0, sets: 0, reps: 0, total: 0 };
     byPeriod[k][e.lift] += e.weight * e.reps;
@@ -39,7 +39,7 @@ export function calcVolumeSummaries(period) {
     const d = byPeriod[k];
     const prevKey = keys[i + 1];
     const prev = prevKey ? byPeriod[prevKey] : null;
-    const change = prev ? ((d.total - prev.total) / prev.total * 100) : null;
+    const change = prev ? ((d.total - prev.total) / prev.total) * 100 : null;
     return { key: k, ...d, change };
   });
 }
@@ -56,15 +56,14 @@ export function calcVolumeSummaries(period) {
  */
 export function getProjectedTotal() {
   const weeksAgo8 = Date.now() - 56 * MS_PER_DAY;
-  const recent = store.entries.filter(e => e.timestamp >= weeksAgo8);
+  const recent = store.entries.filter((e) => e.timestamp >= weeksAgo8);
   const proj = {};
-  LIFTS.forEach(l => {
-    const best = recent.filter(e => e.lift === l).reduce((m, e) => Math.max(m, e.e1rm), 0);
+  LIFTS.forEach((l) => {
+    const best = recent.filter((e) => e.lift === l).reduce((m, e) => Math.max(m, e.e1rm), 0);
     proj[l] = best > 0 ? Math.round(best * 0.95 * 10) / 10 : null;
   });
-  proj.total = (proj.squat && proj.bench && proj.deadlift)
-    ? proj.squat + proj.bench + proj.deadlift
-    : null;
+  proj.total =
+    proj.squat && proj.bench && proj.deadlift ? proj.squat + proj.bench + proj.deadlift : null;
   return proj;
 }
 
@@ -78,8 +77,8 @@ export function getProjectedTotal() {
  */
 export function suggestAttempts(opener) {
   return {
-    second: Math.round(opener * 1.025 / 2.5) * 2.5,
-    third: Math.round(opener * 1.065 / 2.5) * 2.5
+    second: Math.round((opener * 1.025) / 2.5) * 2.5,
+    third: Math.round((opener * 1.065) / 2.5) * 2.5,
   };
 }
 
@@ -107,8 +106,11 @@ export function groupSessions(filteredEntries) {
   const sessions = [];
   let current = null;
 
-  sorted.forEach(e => {
-    if (!current || (current.entries[current.entries.length - 1].timestamp - e.timestamp) > SAME_SESSION_MS) {
+  sorted.forEach((e) => {
+    if (
+      !current ||
+      current.entries[current.entries.length - 1].timestamp - e.timestamp > SAME_SESSION_MS
+    ) {
       current = { entries: [e], lifts: new Set([e.lift]) };
       sessions.push(current);
     } else {
@@ -117,12 +119,12 @@ export function groupSessions(filteredEntries) {
     }
   });
 
-  return sessions.map(s => ({
+  return sessions.map((s) => ({
     entries: s.entries,
     lifts: [...s.lifts],
     date: s.entries[0].date,
     timestamp: s.entries[0].timestamp,
     volume: s.entries.reduce((sum, e) => sum + e.weight * e.reps, 0),
-    sets: s.entries.length
+    sets: s.entries.length,
   }));
 }

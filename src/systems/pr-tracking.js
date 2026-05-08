@@ -42,16 +42,18 @@ export function rebuildPRs() {
   const achieved = { squat: new Set(), bench: new Set(), deadlift: new Set() };
   const repW = {};
   store.prs = [];
-  store.entries.forEach(e => { e.isPR = false; });
+  store.entries.forEach((e) => {
+    e.isPR = false;
+  });
 
-  sorted.forEach(e => {
+  sorted.forEach((e) => {
     if (e.e1rm > best[e.lift]) {
       best[e.lift] = e.e1rm;
       e.isPR = true;
-      const crossed = PLATE_MILESTONES.filter(m => e.e1rm >= m);
-      const fresh = crossed.filter(m => !achieved[e.lift].has(m));
+      const crossed = PLATE_MILESTONES.filter((m) => e.e1rm >= m);
+      const fresh = crossed.filter((m) => !achieved[e.lift].has(m));
       const milestone = fresh.length > 0 ? fresh[fresh.length - 1].toString() : null;
-      crossed.forEach(m => achieved[e.lift].add(m));
+      crossed.forEach((m) => achieved[e.lift].add(m));
       store.prs.push({
         lift: e.lift,
         e1rm: e.e1rm,
@@ -86,7 +88,7 @@ export function checkPR(lift, e1rm) {
     return e1rm > (_bestE1RM[lift] || 0);
   }
   const prev = store.entries
-    .filter(e => e.lift === lift)
+    .filter((e) => e.lift === lift)
     .reduce((mx, e) => Math.max(mx, e.e1rm), 0);
   return e1rm > prev;
 }
@@ -114,15 +116,15 @@ export function updateBestAfterAdd(lift, e1rm, weight, reps) {
  * @returns {string|null} The milestone value as a string, or null
  */
 export function getMilestone(lift, e1rm) {
-  const crossed = PLATE_MILESTONES.filter(m => e1rm >= m);
+  const crossed = PLATE_MILESTONES.filter((m) => e1rm >= m);
   const achieved = new Set(
     store.prs
-      .filter(p => p.lift === lift)
-      .map(p => p.milestone)
+      .filter((p) => p.lift === lift)
+      .map((p) => p.milestone)
       .filter(Boolean)
       .map(Number)
   );
-  const fresh = crossed.filter(m => !achieved.has(m));
+  const fresh = crossed.filter((m) => !achieved.has(m));
   return fresh.length > 0 ? fresh[fresh.length - 1].toString() : null;
 }
 
@@ -136,7 +138,7 @@ export function getMilestone(lift, e1rm) {
 export function getRepPRs() {
   const repBest = { squat: {}, bench: {}, deadlift: {} };
   const sorted = [...store.entries].sort((a, b) => a.timestamp - b.timestamp);
-  sorted.forEach(e => {
+  sorted.forEach((e) => {
     if (!repBest[e.lift]) return;
     // Entries can have AMRAP-style "5+" rep strings — coerce to int.
     const reps = parseInt(e.reps, 10);
@@ -144,7 +146,7 @@ export function getRepPRs() {
     // A set of `reps` at `weight` implicitly proves the lifter can do every
     // smaller rep count at that weight. Backfill all REP_RANGES slots <= reps,
     // but only if the entry weight beats whatever's currently in that slot.
-    REP_RANGES.forEach(r => {
+    REP_RANGES.forEach((r) => {
       if (r > reps) return;
       if (!repBest[e.lift][r] || e.weight > repBest[e.lift][r].weight) {
         repBest[e.lift][r] = { weight: e.weight, date: e.date, entryId: e.id };
@@ -167,7 +169,7 @@ export function checkRepPR(lift, weight, reps) {
     return weight > (_bestRepWeight[`${lift}:${reps}`] || 0);
   }
   const prev = store.entries
-    .filter(e => e.lift === lift && e.reps === reps)
+    .filter((e) => e.lift === lift && e.reps === reps)
     .reduce((mx, e) => Math.max(mx, e.weight), 0);
   return weight > prev;
 }

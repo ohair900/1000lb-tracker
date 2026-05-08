@@ -20,7 +20,13 @@ const { mockStore } = vi.hoisted(() => ({
     workoutConfig: { weakPoints: {}, setupComplete: true },
     unit: 'lbs',
     recoveryCalibration: {},
-    equipmentProfile: { barbell: true, dumbbell: true, cable: true, machine: true, bodyweight: true },
+    equipmentProfile: {
+      barbell: true,
+      dumbbell: true,
+      cable: true,
+      machine: true,
+      bodyweight: true,
+    },
     programConfig: { activeProgram: null },
     save: () => {},
     saveNow: () => {},
@@ -122,7 +128,9 @@ describe('calcWeeklyCoverage', () => {
   it('computes vsAvg percentage when avgVolume is provided', () => {
     mockStore.entries = [buildEntry({ lift: 'squat', weight: 225, reps: 5, daysAgo: 0 })];
     const avgVolume = {};
-    MUSCLE_GROUPS.forEach(mg => { avgVolume[mg] = 500; }); // baseline
+    MUSCLE_GROUPS.forEach((mg) => {
+      avgVolume[mg] = 500;
+    }); // baseline
     const coverage = calcWeeklyCoverage(getMonday(), avgVolume);
     expect(coverage.Quads.vsAvg).not.toBeNull();
     expect(typeof coverage.Quads.vsAvg).toBe('number');

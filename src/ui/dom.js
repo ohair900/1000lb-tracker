@@ -50,11 +50,11 @@ export let tooltip = null;
  */
 export function initDOMRefs() {
   weightInput = $('input-weight');
-  repsInput   = $('input-reps');
-  notesInput  = $('input-notes');
-  previewEl   = $('e1rm-preview');
-  logBtn      = $('log-btn');
-  canvas      = $('chart-canvas');
-  ctx         = canvas ? canvas.getContext('2d') : null;
-  tooltip     = $('chart-tooltip');
+  repsInput = $('input-reps');
+  notesInput = $('input-notes');
+  previewEl = $('e1rm-preview');
+  logBtn = $('log-btn');
+  canvas = $('chart-canvas');
+  ctx = canvas ? canvas.getContext('2d') : null;
+  tooltip = $('chart-tooltip');
 }

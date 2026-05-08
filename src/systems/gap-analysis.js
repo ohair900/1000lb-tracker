@@ -17,14 +17,20 @@ import {
   LIFT_REGION,
 } from '../data/muscle-groups.js';
 import { EXERCISE_CATALOG, MOVEMENT_PATTERNS } from '../data/exercise-catalog.js';
-import { resolveExercise, resolveCanonicalId, getExerciseHistory } from '../data/exercise-compat.js';
+import { resolveExercise } from '../data/exercise-compat.js';
 import { ACCESSORY_CAT_WEIGHTS } from '../data/muscle-groups.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
 import { MS_PER_DAY } from '../constants/time.js';
 
-let _volCache = null, _volEntryGen = -1, _volAccGen = -1;
-let _ppCache = null, _ppEntryGen = -1, _ppAccGen = -1;
-let _recCache = null, _recEntryGen = -1, _recAccGen = -1;
+let _volCache = null,
+  _volEntryGen = -1,
+  _volAccGen = -1;
+let _ppCache = null,
+  _ppEntryGen = -1,
+  _ppAccGen = -1;
+let _recCache = null,
+  _recEntryGen = -1,
+  _recAccGen = -1;
 
 // ---------------------------------------------------------------------------
 // Layer 1: Weekly set volume per muscle group
@@ -40,29 +46,39 @@ let _recCache = null, _recEntryGen = -1, _recAccGen = -1;
  * @returns {{ [muscleGroup: string]: { sets: number, target: { min: number, max: number }, status: 'under'|'optimal'|'over' } }}
  */
 export function analyzeWeeklyVolume() {
-  if (_volCache && typeof store._entryGen === 'number' && store._entryGen === _volEntryGen && store._accLogGen === _volAccGen) return _volCache;
+  if (
+    _volCache &&
+    typeof store._entryGen === 'number' &&
+    store._entryGen === _volEntryGen &&
+    store._accLogGen === _volAccGen
+  )
+    return _volCache;
 
   const now = Date.now();
   const weekAgo = now - 7 * MS_PER_DAY;
   const result = {};
 
-  MUSCLE_GROUPS.forEach(mg => {
-    result[mg] = { sets: 0, target: WEEKLY_SET_TARGETS[mg] || { min: 6, max: 16 }, status: 'under' };
+  MUSCLE_GROUPS.forEach((mg) => {
+    result[mg] = {
+      sets: 0,
+      target: WEEKLY_SET_TARGETS[mg] || { min: 6, max: 16 },
+      status: 'under',
+    };
   });
 
   // Count main lift sets
-  const recentEntries = store.entries.filter(e => e.timestamp >= weekAgo);
+  const recentEntries = store.entries.filter((e) => e.timestamp >= weekAgo);
   for (const entry of recentEntries) {
     const weights = MAIN_LIFT_WEIGHTS[entry.lift];
     if (!weights) continue;
     for (const mg of MUSCLE_GROUPS) {
-      if (weights[mg] >= 0.20) result[mg].sets += 1;
-      else if (weights[mg] >= 0.10) result[mg].sets += 0.5;
+      if (weights[mg] >= 0.2) result[mg].sets += 1;
+      else if (weights[mg] >= 0.1) result[mg].sets += 0.5;
     }
   }
 
   // Count accessory sets
-  const recentAccessories = store.accessoryLog.filter(l => l.timestamp >= weekAgo);
+  const recentAccessories = store.accessoryLog.filter((l) => l.timestamp >= weekAgo);
   for (const log of recentAccessories) {
     const setsCompleted = log.setsCompleted ? log.setsCompleted.length : 0;
     if (setsCompleted === 0) continue;
@@ -71,8 +87,8 @@ export function analyzeWeeklyVolume() {
     const catalogEx = resolveExercise(log.exerciseId);
     if (catalogEx && catalogEx.primaryMuscles) {
       for (const [mg, weight] of Object.entries(catalogEx.primaryMuscles)) {
-        if (weight >= 0.20) result[mg].sets += setsCompleted;
-        else if (weight >= 0.10) result[mg].sets += setsCompleted * 0.5;
+        if (weight >= 0.2) result[mg].sets += setsCompleted;
+        else if (weight >= 0.1) result[mg].sets += setsCompleted * 0.5;
       }
       continue;
     }
@@ -83,8 +99,8 @@ export function analyzeWeeklyVolume() {
       const catWeights = ACCESSORY_CAT_WEIGHTS[legacyEx.category];
       if (catWeights) {
         for (const mg of MUSCLE_GROUPS) {
-          if (catWeights[mg] >= 0.20) result[mg].sets += setsCompleted;
-          else if (catWeights[mg] >= 0.10) result[mg].sets += setsCompleted * 0.5;
+          if (catWeights[mg] >= 0.2) result[mg].sets += setsCompleted;
+          else if (catWeights[mg] >= 0.1) result[mg].sets += setsCompleted * 0.5;
         }
       }
     }
@@ -101,7 +117,9 @@ export function analyzeWeeklyVolume() {
     }
   }
 
-  _volCache = result; _volEntryGen = store._entryGen; _volAccGen = store._accLogGen;
+  _volCache = result;
+  _volEntryGen = store._entryGen;
+  _volAccGen = store._accLogGen;
   return result;
 }
 
@@ -115,7 +133,12 @@ export function analyzeWeeklyVolume() {
 // leg volume and causes bogus "push-heavy" warnings on people who row plenty.
 const UPPER_PUSH_PATTERNS = new Set(['horizontal-push', 'vertical-push']);
 const UPPER_PULL_PATTERNS = new Set(['horizontal-pull', 'vertical-pull']);
-const LEGACY_UPPER_PUSH_CATS = new Set(['press-variation', 'chest-accessory', 'tricep', 'shoulder']);
+const LEGACY_UPPER_PUSH_CATS = new Set([
+  'press-variation',
+  'chest-accessory',
+  'tricep',
+  'shoulder',
+]);
 const LEGACY_UPPER_PULL_CATS = new Set(['back']);
 
 /**
@@ -133,7 +156,13 @@ const LEGACY_UPPER_PULL_CATS = new Set(['back']);
  * @returns {{ pushSets: number, pullSets: number, ratio: number, target: number, status: 'balanced'|'push-heavy'|'pull-heavy' }}
  */
 export function analyzePushPullRatio() {
-  if (_ppCache && typeof store._entryGen === 'number' && store._entryGen === _ppEntryGen && store._accLogGen === _ppAccGen) return _ppCache;
+  if (
+    _ppCache &&
+    typeof store._entryGen === 'number' &&
+    store._entryGen === _ppEntryGen &&
+    store._accLogGen === _ppAccGen
+  )
+    return _ppCache;
 
   const now = Date.now();
   const weekAgo = now - 7 * MS_PER_DAY;
@@ -142,14 +171,14 @@ export function analyzePushPullRatio() {
 
   // Main lift contribution — upper-body only. Bench is a horizontal push.
   // Squat and deadlift don't participate in upper push:pull balance.
-  const recentEntries = store.entries.filter(e => e.timestamp >= weekAgo);
+  const recentEntries = store.entries.filter((e) => e.timestamp >= weekAgo);
   for (const entry of recentEntries) {
     if (entry.lift === 'bench') pushSets += 1;
     // squat and deadlift excluded — they're lower-body lifts
   }
 
   // Accessory contribution — upper-body push/pull patterns only.
-  const recentAccessories = store.accessoryLog.filter(l => l.timestamp >= weekAgo);
+  const recentAccessories = store.accessoryLog.filter((l) => l.timestamp >= weekAgo);
   for (const log of recentAccessories) {
     const setsCompleted = log.setsCompleted ? log.setsCompleted.length : 0;
     if (setsCompleted === 0) continue;
@@ -173,7 +202,7 @@ export function analyzePushPullRatio() {
     }
   }
 
-  const ratio = pullSets > 0 ? pushSets / pullSets : (pushSets > 0 ? Infinity : 1);
+  const ratio = pullSets > 0 ? pushSets / pullSets : pushSets > 0 ? Infinity : 1;
   let status = 'balanced';
   // Target: 1:1 to 1:1.5 push:pull (slight pull bias is ideal for shoulder health).
   // Flag push-heavy at ratio >= 1.5; pull-heavy at <= 0.67.
@@ -187,7 +216,8 @@ export function analyzePushPullRatio() {
     target: 1.0,
     status,
   };
-  _ppEntryGen = store._entryGen; _ppAccGen = store._accLogGen;
+  _ppEntryGen = store._entryGen;
+  _ppAccGen = store._accLogGen;
   return _ppCache;
 }
 
@@ -201,12 +231,18 @@ export function analyzePushPullRatio() {
  * @returns {{ [muscleGroup: string]: { daysSince: number, status: 'fresh'|'due'|'stale' } }}
  */
 export function analyzeRecencyGaps() {
-  if (_recCache && typeof store._entryGen === 'number' && store._entryGen === _recEntryGen && store._accLogGen === _recAccGen) return _recCache;
+  if (
+    _recCache &&
+    typeof store._entryGen === 'number' &&
+    store._entryGen === _recEntryGen &&
+    store._accLogGen === _recAccGen
+  )
+    return _recCache;
 
   const now = Date.now();
   const result = {};
 
-  MUSCLE_GROUPS.forEach(mg => {
+  MUSCLE_GROUPS.forEach((mg) => {
     result[mg] = { daysSince: Infinity, status: 'stale' };
   });
 
@@ -230,7 +266,7 @@ export function analyzeRecencyGaps() {
     const catalogEx = resolveExercise(log.exerciseId);
     if (catalogEx && catalogEx.primaryMuscles) {
       for (const [mg, weight] of Object.entries(catalogEx.primaryMuscles)) {
-        if (weight >= 0.20 && days < result[mg].daysSince) {
+        if (weight >= 0.2 && days < result[mg].daysSince) {
           result[mg].daysSince = days;
         }
       }
@@ -242,7 +278,7 @@ export function analyzeRecencyGaps() {
       const catWeights = ACCESSORY_CAT_WEIGHTS[legacyEx.category];
       if (catWeights) {
         for (const mg of MUSCLE_GROUPS) {
-          if (catWeights[mg] >= 0.20 && days < result[mg].daysSince) {
+          if (catWeights[mg] >= 0.2 && days < result[mg].daysSince) {
             result[mg].daysSince = days;
           }
         }
@@ -258,7 +294,9 @@ export function analyzeRecencyGaps() {
     else result[mg].status = 'stale';
   }
 
-  _recCache = result; _recEntryGen = store._entryGen; _recAccGen = store._accLogGen;
+  _recCache = result;
+  _recEntryGen = store._entryGen;
+  _recAccGen = store._accLogGen;
   return result;
 }
 
@@ -388,8 +426,8 @@ function isChronicallyUnderVolume(muscleGroup) {
       if (entry.timestamp < startMs || entry.timestamp >= endMs) continue;
       const w = MAIN_LIFT_WEIGHTS[entry.lift];
       if (!w) continue;
-      if (w[muscleGroup] >= 0.20) sets += 1;
-      else if (w[muscleGroup] >= 0.10) sets += 0.5;
+      if (w[muscleGroup] >= 0.2) sets += 1;
+      else if (w[muscleGroup] >= 0.1) sets += 0.5;
     }
     for (const log of store.accessoryLog) {
       if (log.timestamp < startMs || log.timestamp >= endMs) continue;
@@ -398,8 +436,8 @@ function isChronicallyUnderVolume(muscleGroup) {
       const ex = resolveExercise(log.exerciseId);
       if (ex && ex.primaryMuscles) {
         const mw = ex.primaryMuscles[muscleGroup] || 0;
-        if (mw >= 0.20) sets += count;
-        else if (mw >= 0.10) sets += count * 0.5;
+        if (mw >= 0.2) sets += count;
+        else if (mw >= 0.1) sets += count * 0.5;
         continue;
       }
       const legacy = ACCESSORY_DB[log.exerciseId];
@@ -407,8 +445,8 @@ function isChronicallyUnderVolume(muscleGroup) {
         const cw = ACCESSORY_CAT_WEIGHTS[legacy.category];
         if (cw) {
           const mw = cw[muscleGroup] || 0;
-          if (mw >= 0.20) sets += count;
-          else if (mw >= 0.10) sets += count * 0.5;
+          if (mw >= 0.2) sets += count;
+          else if (mw >= 0.1) sets += count * 0.5;
         }
       }
     }
@@ -445,7 +483,7 @@ function findExerciseForMuscle(muscleGroup, mainLift) {
     // Hard filter — must directly support today's main lift.
     if (!ex.supportsLifts.includes(mainLift)) continue;
     const muscleWeight = ex.primaryMuscles[muscleGroup] || 0;
-    if (muscleWeight < 0.20) continue;
+    if (muscleWeight < 0.2) continue;
     if (equip[ex.equipment] === false) continue;
 
     const score = muscleWeight * 100;
@@ -501,7 +539,7 @@ export function estimateWorkoutDuration(exercises) {
     if (ex.type === 'main') minutes += 20;
     else {
       const catalogEx = resolveExercise(ex.exerciseId || ex.id);
-      const pType = catalogEx ? catalogEx.progressionType : (ex.progressionType || 'compound');
+      const pType = catalogEx ? catalogEx.progressionType : ex.progressionType || 'compound';
       if (pType === 'close-variation') minutes += 12;
       else if (pType === 'compound') minutes += 8;
       else minutes += 5; // isolation, bodyweight, time

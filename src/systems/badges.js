@@ -42,13 +42,13 @@ export function checkBadges() {
 
   const newBadges = [];
 
-  BADGE_DEFINITIONS.forEach(badge => {
+  BADGE_DEFINITIONS.forEach((badge) => {
     if (store.unlockedBadges[badge.id]) return;
     try {
       if (badge.check(ctx)) {
         store.unlockedBadges[badge.id] = {
           date: new Date().toISOString().split('T')[0],
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
         newBadges.push(badge);
       }

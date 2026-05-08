@@ -139,7 +139,7 @@ export function goalProgress(pct, color) {
  */
 export function tagChips(tags) {
   if (!tags || tags.length === 0) return '';
-  return tags.map(t => `<span class="tag-chip">${escapeHTML(t)}</span>`).join('');
+  return tags.map((t) => `<span class="tag-chip">${escapeHTML(t)}</span>`).join('');
 }
 
 // ---------------------------------------------------------------------------

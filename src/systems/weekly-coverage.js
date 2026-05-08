@@ -25,14 +25,20 @@ export function calcWeeklyCoverage(weekStart, avgVolume) {
   const startMs = weekStart.getTime();
   const endMs = weekEnd.getTime();
 
-  const weekEntries = store.entries.filter(e => e.timestamp >= startMs && e.timestamp < endMs);
-  const weekAccessories = store.accessoryLog.filter(l => l.timestamp >= startMs && l.timestamp < endMs);
+  const weekEntries = store.entries.filter((e) => e.timestamp >= startMs && e.timestamp < endMs);
+  const weekAccessories = store.accessoryLog.filter(
+    (l) => l.timestamp >= startMs && l.timestamp < endMs
+  );
 
   // Count sets AND volume per muscle
   const muscleSets = {};
   const muscleVolume = {};
   const muscleExercises = {};
-  MUSCLE_GROUPS.forEach(mg => { muscleSets[mg] = 0; muscleVolume[mg] = 0; muscleExercises[mg] = []; });
+  MUSCLE_GROUPS.forEach((mg) => {
+    muscleSets[mg] = 0;
+    muscleVolume[mg] = 0;
+    muscleExercises[mg] = [];
+  });
 
   for (const entry of weekEntries) {
     const weights = MAIN_LIFT_WEIGHTS[entry.lift];
@@ -52,7 +58,7 @@ export function calcWeeklyCoverage(weekStart, avgVolume) {
     if (setsCompleted.length === 0) continue;
     const catalogEx = resolveExercise(log.exerciseId);
     const legacyEx = !catalogEx ? ACCESSORY_DB[log.exerciseId] : null;
-    const name = catalogEx ? catalogEx.name : (legacyEx ? legacyEx.name : null);
+    const name = catalogEx ? catalogEx.name : legacyEx ? legacyEx.name : null;
 
     if (catalogEx && catalogEx.primaryMuscles) {
       for (const [mg, weight] of Object.entries(catalogEx.primaryMuscles)) {
@@ -82,22 +88,41 @@ export function calcWeeklyCoverage(weekStart, avgVolume) {
 
   // Derive status from volume relative to average
   const result = {};
-  MUSCLE_GROUPS.forEach(mg => {
+  MUSCLE_GROUPS.forEach((mg) => {
     const sets = Math.round(muscleSets[mg] * 10) / 10;
     const volume = Math.round(muscleVolume[mg]);
-    const avg = avgVolume ? (avgVolume[mg] || 0) : 0;
-    const ratio = avg > 0 ? volume / avg : (volume > 0 ? 2.0 : 0);
+    const avg = avgVolume ? avgVolume[mg] || 0 : 0;
+    const ratio = avg > 0 ? volume / avg : volume > 0 ? 2.0 : 0;
 
     let status, displayStatus;
-    if (volume === 0) { status = 'Skipped'; displayStatus = 'red'; }
-    else if (ratio > 1.20) { status = 'Worked hard'; displayStatus = 'green'; }
-    else if (ratio >= 0.80) { status = 'On target'; displayStatus = 'green'; }
-    else if (ratio >= 0.40) { status = 'Light'; displayStatus = 'yellow'; }
-    else { status = 'Needs more'; displayStatus = 'orange'; }
+    if (volume === 0) {
+      status = 'Skipped';
+      displayStatus = 'red';
+    } else if (ratio > 1.2) {
+      status = 'Worked hard';
+      displayStatus = 'green';
+    } else if (ratio >= 0.8) {
+      status = 'On target';
+      displayStatus = 'green';
+    } else if (ratio >= 0.4) {
+      status = 'Light';
+      displayStatus = 'yellow';
+    } else {
+      status = 'Needs more';
+      displayStatus = 'orange';
+    }
 
     const vsAvg = avg > 0 ? Math.round((ratio - 1) * 100) : null;
 
-    result[mg] = { displayStatus, displayLabel: `${Math.round(sets)}`, sets, volume, status, vsAvg, exercises: muscleExercises[mg] };
+    result[mg] = {
+      displayStatus,
+      displayLabel: `${Math.round(sets)}`,
+      sets,
+      volume,
+      status,
+      vsAvg,
+      exercises: muscleExercises[mg],
+    };
   });
 
   return result;
@@ -112,14 +137,16 @@ export function calcAverageMuscleCoverage() {
   thisMonday.setHours(0, 0, 0, 0);
 
   const totals = {};
-  MUSCLE_GROUPS.forEach(mg => { totals[mg] = 0; });
+  MUSCLE_GROUPS.forEach((mg) => {
+    totals[mg] = 0;
+  });
   let weekCount = 0;
 
   for (let w = 2; w <= 5; w++) {
     const weekStart = new Date(thisMonday.getTime() - w * 7 * MS_PER_DAY);
     const cov = calcWeeklyCoverage(weekStart, null); // no avg needed for baseline calc
     let hasData = false;
-    MUSCLE_GROUPS.forEach(mg => {
+    MUSCLE_GROUPS.forEach((mg) => {
       if (cov[mg] && cov[mg].volume > 0) hasData = true;
       totals[mg] += cov[mg] ? cov[mg].volume : 0;
     });
@@ -128,7 +155,9 @@ export function calcAverageMuscleCoverage() {
 
   if (weekCount === 0) return null;
   const avg = {};
-  MUSCLE_GROUPS.forEach(mg => { avg[mg] = Math.round(totals[mg] / weekCount); });
+  MUSCLE_GROUPS.forEach((mg) => {
+    avg[mg] = Math.round(totals[mg] / weekCount);
+  });
   return avg;
 }
 
@@ -144,15 +173,15 @@ export function calcWeeklyFocus(coverage, weekStart) {
   weekEnd.setDate(weekEnd.getDate() + 7);
   const startMs = weekStart.getTime();
   const endMs = weekEnd.getTime();
-  const weekEntries = store.entries.filter(e => e.timestamp >= startMs && e.timestamp < endMs);
+  const weekEntries = store.entries.filter((e) => e.timestamp >= startMs && e.timestamp < endMs);
 
   // Check which lifts were trained
-  const liftsTrained = new Set(weekEntries.map(e => e.lift));
-  const missedLifts = LIFTS.filter(l => !liftsTrained.has(l));
+  const liftsTrained = new Set(weekEntries.map((e) => e.lift));
+  const missedLifts = LIFTS.filter((l) => !liftsTrained.has(l));
 
   // Find muscle gaps (0-1 sets, Tier 1 only for suggestions)
   const tier1 = ['Quads', 'Chest', 'Glutes', 'Hams', 'Upper Back'];
-  const gaps = tier1.filter(mg => coverage[mg] && coverage[mg].sets < 2);
+  const gaps = tier1.filter((mg) => coverage[mg] && coverage[mg].sets < 2);
 
   if (missedLifts.length === 0 && gaps.length === 0) {
     return 'Great balance last week — keep it up';
@@ -160,11 +189,13 @@ export function calcWeeklyFocus(coverage, weekStart) {
 
   const parts = [];
   if (missedLifts.length > 0) {
-    parts.push(...missedLifts.map(l => LIFT_NAMES[l]));
+    parts.push(...missedLifts.map((l) => LIFT_NAMES[l]));
   }
   if (gaps.length > 0 && parts.length < 3) {
     const remaining = 3 - parts.length;
-    const newGaps = gaps.filter(g => !parts.some(p => p.toLowerCase().includes(g.toLowerCase())));
+    const newGaps = gaps.filter(
+      (g) => !parts.some((p) => p.toLowerCase().includes(g.toLowerCase()))
+    );
     parts.push(...newGaps.slice(0, remaining));
   }
 
@@ -187,8 +218,10 @@ export function calcPriorWeekReview() {
 
   const startMs = lastWeekStart.getTime();
   const endMs = lastWeekEnd.getTime();
-  const weekEntries = store.entries.filter(e => e.timestamp >= startMs && e.timestamp < endMs);
-  const weekAccessories = store.accessoryLog.filter(l => l.timestamp >= startMs && l.timestamp < endMs);
+  const weekEntries = store.entries.filter((e) => e.timestamp >= startMs && e.timestamp < endMs);
+  const weekAccessories = store.accessoryLog.filter(
+    (l) => l.timestamp >= startMs && l.timestamp < endMs
+  );
 
   if (weekEntries.length === 0 && weekAccessories.length === 0) return null;
 
@@ -198,66 +231,88 @@ export function calcPriorWeekReview() {
 
   // Per-lift stats
   const liftStats = {};
-  LIFTS.forEach(l => {
-    const liftEntries = weekEntries.filter(e => e.lift === l);
+  LIFTS.forEach((l) => {
+    const liftEntries = weekEntries.filter((e) => e.lift === l);
     const sets = liftEntries.length;
     const volume = liftEntries.reduce((s, e) => s + e.weight * e.reps, 0);
-    const prs = liftEntries.filter(e => e.isPR).length;
+    const prs = liftEntries.filter((e) => e.isPR).length;
     let avgIntensity = 0;
     if (sets > 0) {
-      avgIntensity = Math.round(liftEntries.reduce((s, e) => s + (e.e1rm > 0 ? e.weight / e.e1rm : 0), 0) / sets * 100);
+      avgIntensity = Math.round(
+        (liftEntries.reduce((s, e) => s + (e.e1rm > 0 ? e.weight / e.e1rm : 0), 0) / sets) * 100
+      );
     }
     liftStats[l] = { sets, volume, prs, avgIntensity };
   });
 
   const totalSets = weekEntries.length;
   const totalVolume = weekEntries.reduce((s, e) => s + e.weight * e.reps, 0);
-  const prs = weekEntries.filter(e => e.isPR);
+  const prs = weekEntries.filter((e) => e.isPR);
 
   // Prior-prior week for comparison (W-2)
   const priorPriorStart = new Date(lastWeekStart.getTime() - 7 * day);
   const priorPriorEnd = lastWeekStart;
-  const ppEntries = store.entries.filter(e => e.timestamp >= priorPriorStart.getTime() && e.timestamp < priorPriorEnd.getTime());
+  const ppEntries = store.entries.filter(
+    (e) => e.timestamp >= priorPriorStart.getTime() && e.timestamp < priorPriorEnd.getTime()
+  );
   const priorCoverage = calcWeeklyCoverage(priorPriorStart);
   const priorTotalSets = ppEntries.length;
   const priorTotalVolume = ppEntries.reduce((s, e) => s + e.weight * e.reps, 0);
-  const priorDays = new Set(ppEntries.map(e => e.date)).size;
+  const priorDays = new Set(ppEntries.map((e) => e.date)).size;
   // Compute prior week avg intensity
-  let ppIntSum = 0, ppIntCount = 0;
-  ppEntries.forEach(e => {
-    if (e.e1rm > 0) { ppIntSum += e.weight / e.e1rm; ppIntCount++; }
+  let ppIntSum = 0,
+    ppIntCount = 0;
+  ppEntries.forEach((e) => {
+    if (e.e1rm > 0) {
+      ppIntSum += e.weight / e.e1rm;
+      ppIntCount++;
+    }
   });
-  const priorAvgInt = ppIntCount > 0 ? Math.round(ppIntSum / ppIntCount * 100) : 0;
+  const priorAvgInt = ppIntCount > 0 ? Math.round((ppIntSum / ppIntCount) * 100) : 0;
 
   // Prior week per-lift stats
   const priorLiftStats = {};
-  LIFTS.forEach(l => {
-    priorLiftStats[l] = { sets: ppEntries.filter(e => e.lift === l).length };
+  LIFTS.forEach((l) => {
+    priorLiftStats[l] = { sets: ppEntries.filter((e) => e.lift === l).length };
   });
 
   // Training days (which weekdays had training)
-  const trainingDays = new Set(weekEntries.map(e => e.date)).size;
+  const trainingDays = new Set(weekEntries.map((e) => e.date)).size;
   const trainingDaysList = [];
   for (let d = 0; d < 7; d++) {
     const dayDate = new Date(lastWeekStart.getTime() + d * day);
     const dateStr = dayDate.toISOString().split('T')[0];
-    trainingDaysList.push(weekEntries.some(e => e.date === dateStr) || weekAccessories.some(l => {
-      const lDate = l.date || new Date(l.timestamp).toISOString().split('T')[0];
-      return lDate === dateStr;
-    }));
+    trainingDaysList.push(
+      weekEntries.some((e) => e.date === dateStr) ||
+        weekAccessories.some((l) => {
+          const lDate = l.date || new Date(l.timestamp).toISOString().split('T')[0];
+          return lDate === dateStr;
+        })
+    );
   }
 
   // Avg intensity for last week
-  let lwIntSum = 0, lwIntCount = 0;
-  weekEntries.forEach(e => {
-    if (e.e1rm > 0) { lwIntSum += e.weight / e.e1rm; lwIntCount++; }
+  let lwIntSum = 0,
+    lwIntCount = 0;
+  weekEntries.forEach((e) => {
+    if (e.e1rm > 0) {
+      lwIntSum += e.weight / e.e1rm;
+      lwIntCount++;
+    }
   });
-  const avgIntensity = lwIntCount > 0 ? Math.round(lwIntSum / lwIntCount * 100) : 0;
+  const avgIntensity = lwIntCount > 0 ? Math.round((lwIntSum / lwIntCount) * 100) : 0;
 
   return {
-    coverage, liftStats, focus,
+    coverage,
+    liftStats,
+    focus,
     weekLabel: lastWeekStart.toISOString().split('T')[0],
-    totalSets, totalVolume, prs, trainingDays, trainingDaysList, avgIntensity,
+    totalSets,
+    totalVolume,
+    prs,
+    trainingDays,
+    trainingDaysList,
+    avgIntensity,
     prior: {
       coverage: priorCoverage,
       totalSets: priorTotalSets,
@@ -265,6 +320,6 @@ export function calcPriorWeekReview() {
       days: priorDays,
       avgIntensity: priorAvgInt,
       liftStats: priorLiftStats,
-    }
+    },
   };
 }

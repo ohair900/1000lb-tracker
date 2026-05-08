@@ -23,10 +23,19 @@ const { mockStore } = vi.hoisted(() => ({
     workoutSession: null,
     goals: { squat: 405, bench: 315, deadlift: 495 },
     profile: { bodyweight: 180, gender: 'male', bodyweightHistory: [] },
-    workoutConfig: { weakPoints: { squat: 'quads', bench: 'lockout', deadlift: 'floor' }, setupComplete: true },
+    workoutConfig: {
+      weakPoints: { squat: 'quads', bench: 'lockout', deadlift: 'floor' },
+      setupComplete: true,
+    },
     unit: 'lbs',
     recoveryCalibration: {},
-    equipmentProfile: { barbell: true, dumbbell: true, cable: true, machine: true, bodyweight: true },
+    equipmentProfile: {
+      barbell: true,
+      dumbbell: true,
+      cable: true,
+      machine: true,
+      bodyweight: true,
+    },
     programConfig: {
       activeProgram: null,
       trainingMaxes: { squat: 350, bench: 250, deadlift: 400 },
@@ -40,7 +49,7 @@ const { mockStore } = vi.hoisted(() => ({
 }));
 vi.mock('../state/store.js', () => ({ default: mockStore }));
 
-import { resetMockStore, buildEntry, buildAccessoryLog } from './helpers/fixtures.js';
+import { resetMockStore, buildAccessoryLog } from './helpers/fixtures.js';
 import {
   computeSetWeights,
   scoreAccessories,
@@ -82,7 +91,6 @@ describe('computeSetWeights', () => {
   });
 
   it('honors fatigue status by selecting a tempered ramp', () => {
-    const normal = computeSetWeights(200, 3);
     const fatigued = computeSetWeights(200, 3, 'red');
     // Fatigued ramp should have different distribution (not necessarily lower top set)
     expect(fatigued).toHaveLength(3);
@@ -91,7 +99,7 @@ describe('computeSetWeights', () => {
   it('handles negative working weight (assisted bodyweight)', () => {
     const weights = computeSetWeights(-50, 3);
     expect(weights).toHaveLength(3);
-    weights.forEach(w => expect(w).toBeLessThanOrEqual(0));
+    weights.forEach((w) => expect(w).toBeLessThanOrEqual(0));
   });
 });
 
@@ -100,7 +108,7 @@ describe('scoreAccessories', () => {
     const scored = scoreAccessories('squat');
     expect(Array.isArray(scored)).toBe(true);
     expect(scored.length).toBeGreaterThan(0);
-    scored.forEach(ex => {
+    scored.forEach((ex) => {
       expect(ex).toHaveProperty('score');
       expect(typeof ex.score).toBe('number');
     });
@@ -115,7 +123,7 @@ describe('scoreAccessories', () => {
 
   it('includes exercises for different equipment types', () => {
     const scored = scoreAccessories('squat');
-    const equipTypes = new Set(scored.map(ex => ex.equipment));
+    const equipTypes = new Set(scored.map((ex) => ex.equipment));
     expect(equipTypes.size).toBeGreaterThan(1);
   });
 
@@ -124,7 +132,7 @@ describe('scoreAccessories', () => {
     const firstId = before[0].id;
     mockStore.disabledAccessories = [firstId];
     const after = scoreAccessories('squat');
-    expect(after.find(ex => ex.id === firstId)).toBeUndefined();
+    expect(after.find((ex) => ex.id === firstId)).toBeUndefined();
   });
 });
 
@@ -143,7 +151,7 @@ describe('selectAccessories / selectSmartAccessories', () => {
 
   it('returned accessories have required fields', () => {
     const result = selectSmartAccessories('squat', 3);
-    result.forEach(ex => {
+    result.forEach((ex) => {
       expect(ex).toHaveProperty('id');
       expect(ex).toHaveProperty('name');
       expect(ex).toHaveProperty('sets');

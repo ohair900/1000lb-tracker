@@ -17,7 +17,7 @@ let _showAddForm = false;
 
 // --- Helpers ---
 
-function getMainLift(ex, id) {
+function getMainLift(ex, _id) {
   if (ex.supportsLifts) return ex.supportsLifts[0];
   if (ex.mainLift) return ex.mainLift;
   return 'other';
@@ -63,8 +63,8 @@ export function renderExercisesTab() {
   }
 
   // Apply filters
-  const filtered = exercises.filter(e =>
-    matchesLiftFilter(e.ex) && matchesEquipFilter(e.ex) && matchesSearch(e.ex)
+  const filtered = exercises.filter(
+    (e) => matchesLiftFilter(e.ex) && matchesEquipFilter(e.ex) && matchesSearch(e.ex)
   );
 
   // Group by lift
@@ -93,7 +93,14 @@ export function renderExercisesTab() {
   }
   html += `</div>`;
   html += `<div class="exercises-filter-row">`;
-  for (const [val, label] of [['all','All'],['barbell','Barbell'],['dumbbell','DB'],['machine','Machine'],['cable','Cable'],['bodyweight','BW']]) {
+  for (const [val, label] of [
+    ['all', 'All'],
+    ['barbell', 'Barbell'],
+    ['dumbbell', 'DB'],
+    ['machine', 'Machine'],
+    ['cable', 'Cable'],
+    ['bodyweight', 'BW'],
+  ]) {
     html += `<button class="filter-pill${_equipFilter === val ? ' active' : ''}" data-equip-filter="${val}">${label}</button>`;
   }
   html += `</div>`;
@@ -105,7 +112,7 @@ export function renderExercisesTab() {
   for (const lift of liftOrder) {
     const items = groups[lift];
     if (items.length === 0) continue;
-    const enabledCount = items.filter(i => !i.disabled).length;
+    const enabledCount = items.filter((i) => !i.disabled).length;
     html += `<div class="exercise-section-label">${lift.charAt(0).toUpperCase() + lift.slice(1)} (${enabledCount}/${items.length})</div>`;
     html += renderExerciseRows(items);
   }
@@ -139,9 +146,14 @@ function renderExerciseRows(items) {
   for (const { id, ex, disabled } of items) {
     const isExpanded = _expandedId === id;
     const isCustom = id.startsWith('custom-');
-    const hasOverrides = !isCustom && store.accessoryOverrides?.[id] && Object.keys(store.accessoryOverrides[id]).length > 0;
+    const hasOverrides =
+      !isCustom &&
+      store.accessoryOverrides?.[id] &&
+      Object.keys(store.accessoryOverrides[id]).length > 0;
     const repRange = ex.repRange ? `${ex.repRange[0]}-${ex.repRange[1]}` : '';
-    const meta = [ex.equipment, ex.sets ? `${ex.sets}x${repRange}` : '', getPctDisplay(ex)].filter(Boolean).join(' \u00B7 ');
+    const meta = [ex.equipment, ex.sets ? `${ex.sets}x${repRange}` : '', getPctDisplay(ex)]
+      .filter(Boolean)
+      .join(' \u00B7 ');
 
     html += `<div class="exercise-row${disabled ? ' disabled' : ''}${isExpanded ? ' expanded' : ''}" data-exercise-id="${id}">`;
     html += `<label class="exercise-row-toggle" onclick="event.stopPropagation()"><input type="checkbox" ${disabled ? '' : 'checked'} data-toggle-id="${id}"></label>`;
@@ -153,7 +165,6 @@ function renderExerciseRows(items) {
     html += `</div>`;
 
     // Edit form (always rendered, shown via CSS when expanded)
-    const origEx = isCustom ? ex : (EXERCISE_CATALOG[id] || ex);
     const pctVal = getPctNumeric(ex);
     html += `<div class="exercise-edit-form" data-edit-id="${id}">`;
     html += `<div class="exercise-edit-grid">`;
@@ -188,14 +199,14 @@ function renderAddForm() {
   html += `<div class="exercise-edit-grid">`;
   html += `<div><label>Name</label><input type="text" id="add-ex-name" placeholder="Exercise name" style="width:100%;padding:6px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:var(--text-sm)"></div>`;
   html += `<div><label>Equipment</label><select id="add-ex-equip" style="width:100%;padding:6px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:var(--text-sm)">`;
-  for (const eq of ['barbell','dumbbell','cable','machine','bodyweight']) {
+  for (const eq of ['barbell', 'dumbbell', 'cable', 'machine', 'bodyweight']) {
     html += `<option value="${eq}">${eq.charAt(0).toUpperCase() + eq.slice(1)}</option>`;
   }
   html += `</select></div>`;
   html += `</div>`;
   html += `<div class="exercises-filter-row" style="margin-top:8px">`;
   html += `<span style="font-size:0.65rem;font-weight:600;text-transform:uppercase;color:var(--text-dim);margin-right:4px">Lift:</span>`;
-  for (const l of ['squat','bench','deadlift']) {
+  for (const l of ['squat', 'bench', 'deadlift']) {
     html += `<button class="filter-pill add-ex-lift" data-add-lift="${l}">${l.charAt(0).toUpperCase() + l.slice(1)}</button>`;
   }
   html += `</div>`;
@@ -210,10 +221,11 @@ function renderAddForm() {
   html += `<div style="font-size:0.65rem;font-weight:600;text-transform:uppercase;color:var(--text-dim);letter-spacing:0.04em;margin-bottom:6px">Target Muscles (%)</div>`;
   html += `<div class="exercise-add-muscles" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px 8px">`;
   for (const mg of MUSCLE_GROUPS) {
-    html += `<label style="display:flex;align-items:center;gap:6px;font-size:var(--text-xs);color:var(--text)">`
-      + `<span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${mg}</span>`
-      + `<input type="number" min="0" max="100" step="5" value="0" data-add-muscle="${mg}" style="width:44px;padding:3px 4px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:var(--text-xs);text-align:center">`
-      + `</label>`;
+    html +=
+      `<label style="display:flex;align-items:center;gap:6px;font-size:var(--text-xs);color:var(--text)">` +
+      `<span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${mg}</span>` +
+      `<input type="number" min="0" max="100" step="5" value="0" data-add-muscle="${mg}" style="width:44px;padding:3px 4px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:var(--text-xs);text-align:center">` +
+      `</label>`;
   }
   html += `</div></div>`;
   html += `<div class="exercise-add-form-actions">`;
@@ -228,7 +240,7 @@ function renderAddForm() {
 
 export function attachExercisesListeners(container) {
   // Filter pills — lift
-  container.querySelectorAll('[data-lift-filter]').forEach(btn => {
+  container.querySelectorAll('[data-lift-filter]').forEach((btn) => {
     btn.addEventListener('click', () => {
       _liftFilter = btn.dataset.liftFilter;
       rerender(container);
@@ -236,7 +248,7 @@ export function attachExercisesListeners(container) {
   });
 
   // Filter pills — equipment
-  container.querySelectorAll('[data-equip-filter]').forEach(btn => {
+  container.querySelectorAll('[data-equip-filter]').forEach((btn) => {
     btn.addEventListener('click', () => {
       _equipFilter = btn.dataset.equipFilter;
       rerender(container);
@@ -253,12 +265,12 @@ export function attachExercisesListeners(container) {
   }
 
   // Toggle enable/disable
-  container.querySelectorAll('[data-toggle-id]').forEach(cb => {
+  container.querySelectorAll('[data-toggle-id]').forEach((cb) => {
     cb.addEventListener('change', () => {
       const id = cb.dataset.toggleId;
       const disabled = store.disabledAccessories || [];
       if (cb.checked) {
-        store.disabledAccessories = disabled.filter(d => d !== id);
+        store.disabledAccessories = disabled.filter((d) => d !== id);
       } else {
         if (!disabled.includes(id)) store.disabledAccessories = [...disabled, id];
       }
@@ -268,7 +280,7 @@ export function attachExercisesListeners(container) {
   });
 
   // Row expand/collapse (click on info area)
-  container.querySelectorAll('.exercise-row').forEach(row => {
+  container.querySelectorAll('.exercise-row').forEach((row) => {
     row.addEventListener('click', (e) => {
       if (e.target.closest('.exercise-row-toggle')) return;
       const id = row.dataset.exerciseId;
@@ -278,7 +290,7 @@ export function attachExercisesListeners(container) {
   });
 
   // Edit fields
-  container.querySelectorAll('[data-edit-field]').forEach(input => {
+  container.querySelectorAll('[data-edit-field]').forEach((input) => {
     input.addEventListener('change', () => {
       const id = input.dataset.editEx;
       const field = input.dataset.editField;
@@ -288,7 +300,7 @@ export function attachExercisesListeners(container) {
       const isCustom = id.startsWith('custom-');
 
       if (isCustom) {
-        const custom = (store.customAccessories || []).find(c => c.id === id);
+        const custom = (store.customAccessories || []).find((c) => c.id === id);
         if (!custom) return;
         if (field === 'sets') custom.sets = val;
         else if (field === 'repMin') custom.repRange = [val, custom.repRange?.[1] || val];
@@ -326,7 +338,7 @@ export function attachExercisesListeners(container) {
   });
 
   // Reset to defaults
-  container.querySelectorAll('[data-reset-id]').forEach(btn => {
+  container.querySelectorAll('[data-reset-id]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = btn.dataset.resetId;
@@ -339,12 +351,12 @@ export function attachExercisesListeners(container) {
   });
 
   // Delete custom exercise
-  container.querySelectorAll('[data-delete-id]').forEach(btn => {
+  container.querySelectorAll('[data-delete-id]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = btn.dataset.deleteId;
-      store.customAccessories = (store.customAccessories || []).filter(c => c.id !== id);
-      store.disabledAccessories = (store.disabledAccessories || []).filter(d => d !== id);
+      store.customAccessories = (store.customAccessories || []).filter((c) => c.id !== id);
+      store.disabledAccessories = (store.disabledAccessories || []).filter((d) => d !== id);
       store.saveCustomAccessories();
       store.saveDisabledAccessories();
       _expandedId = null;
@@ -363,9 +375,9 @@ export function attachExercisesListeners(container) {
 
   // Add form — lift selection
   let _addLift = null;
-  container.querySelectorAll('.add-ex-lift').forEach(btn => {
+  container.querySelectorAll('.add-ex-lift').forEach((btn) => {
     btn.addEventListener('click', () => {
-      container.querySelectorAll('.add-ex-lift').forEach(b => b.classList.remove('active'));
+      container.querySelectorAll('.add-ex-lift').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       _addLift = btn.dataset.addLift;
     });
@@ -392,13 +404,19 @@ export function attachExercisesListeners(container) {
       const pctRaw = parseFloat(container.querySelector('#add-ex-pct')?.value);
       const lift = _addLift || container.querySelector('.add-ex-lift.active')?.dataset.addLift;
 
-      if (!name) { alert('Please enter an exercise name'); return; }
-      if (!lift) { alert('Please select a lift'); return; }
+      if (!name) {
+        alert('Please enter an exercise name');
+        return;
+      }
+      if (!lift) {
+        alert('Please select a lift');
+        return;
+      }
 
       // Build primaryMuscles map from the muscle % inputs so custom exercises
       // participate in gap-analysis and fatigue calculations.
       const primaryMuscles = {};
-      container.querySelectorAll('[data-add-muscle]').forEach(inp => {
+      container.querySelectorAll('[data-add-muscle]').forEach((inp) => {
         const mg = inp.dataset.addMuscle;
         const pct = parseFloat(inp.value) || 0;
         if (pct > 0) primaryMuscles[mg] = pct / 100;
@@ -432,7 +450,10 @@ function rerender(container) {
   // Restore focus to search if it was active
   if (_searchQuery) {
     const input = container.querySelector('.exercise-search');
-    if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+    if (input) {
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
   }
 }
 

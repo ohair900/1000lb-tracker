@@ -25,11 +25,13 @@ import { AVAILABLE_TAGS } from '../data/milestones.js';
 
 const expandedSessions = new Set();
 let _scrollObserver = null;
-let _deps = {};
+const _deps = {};
 let selectionMode = false;
 const selectedIds = new Set();
 
-export function injectHistoryDeps(deps) { Object.assign(_deps, deps); }
+export function injectHistoryDeps(deps) {
+  Object.assign(_deps, deps);
+}
 
 // ---------------------------------------------------------------------------
 // Bulk select helpers
@@ -51,7 +53,8 @@ function updateBulkBar() {
   const bar = document.getElementById('bulk-action-bar');
   if (!bar) return;
   const n = selectedIds.size;
-  bar.innerHTML = `<span class="bulk-count">${n} selected</span>` +
+  bar.innerHTML =
+    `<span class="bulk-count">${n} selected</span>` +
     `<button class="bulk-delete-btn" id="bulk-delete"${n === 0 ? ' disabled' : ''}>Delete</button>` +
     `<button class="bulk-cancel-btn" id="bulk-cancel">Cancel</button>`;
 }
@@ -75,40 +78,54 @@ function exitSelectionMode() {
 export function renderHistory() {
   const container = $('history-list');
   let filtered = [...store.entries];
-  if (store.historyFilter !== 'all') filtered = filtered.filter(e => e.lift === store.historyFilter);
-  if (store.historyFrom) filtered = filtered.filter(e => e.date >= store.historyFrom);
-  if (store.historyTo) filtered = filtered.filter(e => e.date <= store.historyTo);
+  if (store.historyFilter !== 'all')
+    filtered = filtered.filter((e) => e.lift === store.historyFilter);
+  if (store.historyFrom) filtered = filtered.filter((e) => e.date >= store.historyFrom);
+  if (store.historyTo) filtered = filtered.filter((e) => e.date <= store.historyTo);
 
   // Search filter
   if (store.historySearch) {
     const q = store.historySearch;
     const rangeMatch = q.match(/^(\d+)-(\d+)$/);
     const rpeMatch = q.match(/^rpe\s*(\d+\.?\d*)$/);
-    filtered = filtered.filter(e => {
+    filtered = filtered.filter((e) => {
       if (rangeMatch) {
-        const lo = parseFloat(rangeMatch[1]), hi = parseFloat(rangeMatch[2]);
+        const lo = parseFloat(rangeMatch[1]),
+          hi = parseFloat(rangeMatch[2]);
         const w = displayWeight(e.weight);
         return w >= lo && w <= hi;
       }
       if (rpeMatch) return e.rpe !== null && e.rpe === parseFloat(rpeMatch[1]);
-      const searchStr = `${LIFT_NAMES[e.lift]} ${e.lift} ${formatWeight(e.weight)} ${e.notes || ''} ${(e.tags || []).join(' ')}`.toLowerCase();
+      const searchStr =
+        `${LIFT_NAMES[e.lift]} ${e.lift} ${formatWeight(e.weight)} ${e.notes || ''} ${(e.tags || []).join(' ')}`.toLowerCase();
       return searchStr.includes(q);
     });
   }
 
   if (filtered.length === 0) {
-    const hasFilters = store.historyFilter !== 'all' || store.historyFrom || store.historyTo || store.historySearch;
-    container.innerHTML = '<div class="empty-state"><div class="icon">&#127947;&#65039;</div>No entries' +
-      (hasFilters ? ' match filters.<button class="clear-filters-btn" id="clear-all-filters">Clear all filters</button>' : ' yet.<br>Log your first set!') + '</div>';
+    const hasFilters =
+      store.historyFilter !== 'all' || store.historyFrom || store.historyTo || store.historySearch;
+    container.innerHTML =
+      '<div class="empty-state"><div class="icon">&#127947;&#65039;</div>No entries' +
+      (hasFilters
+        ? ' match filters.<button class="clear-filters-btn" id="clear-all-filters">Clear all filters</button>'
+        : ' yet.<br>Log your first set!') +
+      '</div>';
     if (hasFilters) {
       $('clear-all-filters').addEventListener('click', () => {
-        store.historyFilter = 'all'; store.historySearch = ''; store.historyFrom = ''; store.historyTo = ''; store.historyPage = 1;
+        store.historyFilter = 'all';
+        store.historySearch = '';
+        store.historyFrom = '';
+        store.historyTo = '';
+        store.historyPage = 1;
         $('history-search').value = '';
         $('filter-from').value = '';
         $('filter-to').value = '';
-        $('history-filter-pills').querySelectorAll('.filter-pill').forEach(b => {
-          b.classList.toggle('active', b.dataset.filter === 'all');
-        });
+        $('history-filter-pills')
+          .querySelectorAll('.filter-pill')
+          .forEach((b) => {
+            b.classList.toggle('active', b.dataset.filter === 'all');
+          });
         renderHistory();
       });
     }
@@ -117,8 +134,8 @@ export function renderHistory() {
 
   // Precompute best e1RM per lift for strength indicator
   const bestE1rm = {};
-  LIFTS.forEach(l => {
-    const vals = store.entries.filter(e => e.lift === l).map(e => e.e1rm);
+  LIFTS.forEach((l) => {
+    const vals = store.entries.filter((e) => e.lift === l).map((e) => e.e1rm);
     bestE1rm[l] = vals.length > 0 ? Math.max(...vals) : 0;
   });
 
@@ -127,9 +144,9 @@ export function renderHistory() {
 
   // Attach accessory log entries to their sessions (within SAME_SESSION_MS of session timestamp)
   const accLog = store.accessoryLog || [];
-  const remainingAcc = new Set(accLog.map(a => a.id));
-  allSessions.forEach(session => {
-    session.accessories = accLog.filter(a => {
+  const remainingAcc = new Set(accLog.map((a) => a.id));
+  allSessions.forEach((session) => {
+    session.accessories = accLog.filter((a) => {
       // Match by date first (fast), then by time proximity
       if (a.date !== session.date) return false;
       const timeDelta = Math.abs(a.timestamp - session.timestamp);
@@ -138,17 +155,21 @@ export function renderHistory() {
       if (store.historyFilter !== 'all' && a.mainLift !== store.historyFilter) return false;
       return true;
     });
-    session.accessories.forEach(a => remainingAcc.delete(a.id));
+    session.accessories.forEach((a) => remainingAcc.delete(a.id));
   });
 
   // Create accessory-only sessions for orphans (accessories logged without a main lift session)
-  const orphanAcc = accLog.filter(a => remainingAcc.has(a.id));
+  const orphanAcc = accLog.filter((a) => remainingAcc.has(a.id));
   if (orphanAcc.length > 0 && store.historyFilter === 'all') {
     // Group orphans by date + time window
     const sortedOrphans = [...orphanAcc].sort((a, b) => b.timestamp - a.timestamp);
     let currentGroup = null;
-    sortedOrphans.forEach(a => {
-      if (!currentGroup || (currentGroup.accessories[currentGroup.accessories.length - 1].timestamp - a.timestamp) > SAME_SESSION_MS) {
+    sortedOrphans.forEach((a) => {
+      if (
+        !currentGroup ||
+        currentGroup.accessories[currentGroup.accessories.length - 1].timestamp - a.timestamp >
+          SAME_SESSION_MS
+      ) {
         currentGroup = {
           entries: [],
           lifts: [],
@@ -170,8 +191,8 @@ export function renderHistory() {
     allSessions.reverse();
   } else if (store.historySort === 'heaviest') {
     allSessions.sort((a, b) => {
-      const aMax = Math.max(...a.entries.map(e => e.e1rm));
-      const bMax = Math.max(...b.entries.map(e => e.e1rm));
+      const aMax = Math.max(...a.entries.map((e) => e.e1rm));
+      const bMax = Math.max(...b.entries.map((e) => e.e1rm));
       return bMax - aMax;
     });
   } else if (store.historySort === 'volume') {
@@ -182,7 +203,7 @@ export function renderHistory() {
   const visibleCount = store.historyPage * HISTORY_PAGE_SIZE;
   const sessions = allSessions.slice(0, visibleCount);
   const hasMore = allSessions.length > visibleCount;
-  const maxSessionVol = allSessions.length > 0 ? Math.max(...allSessions.map(s => s.volume)) : 1;
+  const maxSessionVol = allSessions.length > 0 ? Math.max(...allSessions.map((s) => s.volume)) : 1;
   const showDateSeps = store.historySort === 'newest' || store.historySort === 'oldest';
 
   let html = '';
@@ -193,23 +214,36 @@ export function renderHistory() {
     if (showDateSeps && session.date !== lastDate) {
       lastDate = session.date;
       const sepDate = new Date(session.date + 'T12:00:00');
-      const sepLabel = sepDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+      const sepLabel = sepDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      });
       html += `<div class="date-separator">${sepLabel}</div>`;
     }
 
     const d = new Date(session.date + 'T12:00:00');
-    const time = new Date(session.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    const liftTags = session.lifts.map(l => `<span class="session-tag ${l}">${LIFT_SHORT[l]}</span>`).join('');
+    const time = new Date(session.timestamp).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+    const liftTags = session.lifts
+      .map((l) => `<span class="session-tag ${l}">${LIFT_SHORT[l]}</span>`)
+      .join('');
     const volStr = fmtNum(displayWeight(session.volume)) + ' ' + store.unit;
     const isExpanded = expandedSessions.has(session.timestamp);
     const expanded = isExpanded ? ' expanded' : '';
 
     // Richer header stats (guarded for accessory-only sessions)
-    const sessionBest = session.entries.length > 0 ? Math.max(...session.entries.map(e => e.e1rm)) : 0;
-    const prCount = session.entries.filter(e => e.isPR).length;
-    const rpEntries = session.entries.filter(e => e.rpe !== null && e.rpe !== undefined);
-    const avgRpe = rpEntries.length > 0 ? (rpEntries.reduce((s, e) => s + e.rpe, 0) / rpEntries.length).toFixed(1) : null;
-    const firstNote = session.entries.find(e => e.notes)?.notes || '';
+    const sessionBest =
+      session.entries.length > 0 ? Math.max(...session.entries.map((e) => e.e1rm)) : 0;
+    const prCount = session.entries.filter((e) => e.isPR).length;
+    const rpEntries = session.entries.filter((e) => e.rpe !== null && e.rpe !== undefined);
+    const avgRpe =
+      rpEntries.length > 0
+        ? (rpEntries.reduce((s, e) => s + e.rpe, 0) / rpEntries.length).toFixed(1)
+        : null;
+    const firstNote = session.entries.find((e) => e.notes)?.notes || '';
     const accSetCount = (session.accessories || []).reduce((s, a) => s + a.setsCompleted.length, 0);
     const totalSetCount = session.sets + accSetCount;
 
@@ -236,11 +270,14 @@ export function renderHistory() {
       </div>
       <div class="session-entries">`;
 
-    session.entries.forEach(e => {
+    session.entries.forEach((e) => {
       const metaParts = [];
       if (e.rpe !== null && e.rpe !== undefined) metaParts.push(`RPE ${e.rpe}`);
       if (e.notes) metaParts.push(`"${escapeHTML(e.notes)}"`);
-      const repPRBadgeHtml = (e.repPRs && e.repPRs.length > 0) ? ' <span class="pr-badge" style="font-size:0.55rem">REP PR</span>' : '';
+      const repPRBadgeHtml =
+        e.repPRs && e.repPRs.length > 0
+          ? ' <span class="pr-badge" style="font-size:0.55rem">REP PR</span>'
+          : '';
 
       // Strength indicator
       const pct = bestE1rm[e.lift] > 0 ? Math.round((e.e1rm / bestE1rm[e.lift]) * 100) : 0;
@@ -263,12 +300,16 @@ export function renderHistory() {
             <span class="strength-pct">${pct}%</span>
             ${e.isPR ? ' <span class="pr-badge">PR</span>' : ''}${repPRBadgeHtml}</div>
             ${metaParts.length ? `<div class="history-meta" style="font-size:0.65rem">${metaParts.join(' &middot; ')}</div>` : ''}
-            ${(e.tags && e.tags.length) ? e.tags.map(t => `<span class="tag-chip">${escapeHTML(t)}</span>`).join('') : ''}
+            ${e.tags && e.tags.length ? e.tags.map((t) => `<span class="tag-chip">${escapeHTML(t)}</span>`).join('') : ''}
           </div>
-          ${!selectionMode ? `<div class="history-actions">
+          ${
+            !selectionMode
+              ? `<div class="history-actions">
             <button class="edit-btn" data-id="${e.id}" title="Edit">&#9998;</button>
             <button class="delete-btn" data-id="${e.id}">Del</button>
-          </div>` : ''}
+          </div>`
+              : ''
+          }
         </div>
       </div>`;
     });
@@ -277,8 +318,12 @@ export function renderHistory() {
     let dominantLift = session.lifts[0] || 'deadlift';
     if (session.entries.length > 0) {
       const liftCounts = {};
-      session.entries.forEach(e => { liftCounts[e.lift] = (liftCounts[e.lift] || 0) + 1; });
-      dominantLift = Object.keys(liftCounts).reduce((a, b) => liftCounts[a] >= liftCounts[b] ? a : b);
+      session.entries.forEach((e) => {
+        liftCounts[e.lift] = (liftCounts[e.lift] || 0) + 1;
+      });
+      dominantLift = Object.keys(liftCounts).reduce((a, b) =>
+        liftCounts[a] >= liftCounts[b] ? a : b
+      );
     }
 
     // Render accessory entries for this session
@@ -286,18 +331,22 @@ export function renderHistory() {
       if (session.entries.length > 0) {
         html += `<div class="session-acc-separator">Accessories</div>`;
       }
-      session.accessories.forEach(a => {
+      session.accessories.forEach((a) => {
         const legacyEx = ACCESSORY_DB[a.exerciseId];
         const catalogEx = resolveExercise(a.exerciseId);
-        const isTimeBased = !!((legacyEx && legacyEx.timeBased) || (catalogEx && catalogEx.progressionType === 'time'));
+        const isTimeBased = !!(
+          (legacyEx && legacyEx.timeBased) ||
+          (catalogEx && catalogEx.progressionType === 'time')
+        );
         const setsStr = a.setsCompleted.join('/') + (isTimeBased ? 's' : '');
-        const hasWeight = a.setWeights && a.setWeights.some(w => w > 0);
+        const hasWeight = a.setWeights && a.setWeights.some((w) => w > 0);
         let weightDisplay = '';
         if (hasWeight) {
           const unique = new Set(a.setWeights);
-          const weightStr = unique.size === 1
-            ? `${a.setWeights.length}&times;${formatWeight(a.setWeights[0])} ${store.unit}`
-            : a.setWeights.map(v => formatWeight(v)).join('/') + ' ' + store.unit;
+          const weightStr =
+            unique.size === 1
+              ? `${a.setWeights.length}&times;${formatWeight(a.setWeights[0])} ${store.unit}`
+              : a.setWeights.map((v) => formatWeight(v)).join('/') + ' ' + store.unit;
           weightDisplay = `${weightStr} &times; `;
         }
         const mainLiftColor = a.mainLift ? COLORS[a.mainLift] : 'var(--text-dim)';
@@ -310,10 +359,14 @@ export function renderHistory() {
               <div><span class="history-main" style="font-size:0.75rem">${escapeHTML(a.name)}</span></div>
               <div class="history-meta" style="font-size:0.65rem">${weightDisplay}${setsStr}</div>
             </div>
-            ${!selectionMode ? `<div class="history-actions">
+            ${
+              !selectionMode
+                ? `<div class="history-actions">
               <button class="edit-btn" data-acc-id="${a.id}" title="Edit">&#9998;</button>
               <button class="delete-btn" data-acc-id="${a.id}">Del</button>
-            </div>` : ''}
+            </div>`
+                : ''
+            }
           </div>
         </div>`;
       });
@@ -339,12 +392,15 @@ export function renderHistory() {
   if (hasMore) {
     const sentinel = document.getElementById('history-sentinel');
     if (sentinel) {
-      _scrollObserver = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting) {
-          store.historyPage++;
-          renderHistory();
-        }
-      }, { rootMargin: `${INFINITE_SCROLL_MARGIN_PX}px` });
+      _scrollObserver = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting) {
+            store.historyPage++;
+            renderHistory();
+          }
+        },
+        { rootMargin: `${INFINITE_SCROLL_MARGIN_PX}px` }
+      );
       _scrollObserver.observe(sentinel);
     }
   }
@@ -358,15 +414,16 @@ export function renderHistory() {
 // ---------------------------------------------------------------------------
 
 function openEditModal(id) {
-  const entry = store.entries.find(e => e.id === id);
+  const entry = store.entries.find((e) => e.id === id);
   if (!entry) return;
   store.editingEntryId = id;
   const body = $('edit-body');
 
   body.innerHTML = `
     <div class="lift-selector" id="edit-lift-selector">
-      ${LIFTS.map(l =>
-        `<button class="lift-btn${entry.lift === l ? ' active' : ''}" data-lift="${l}">${LIFT_NAMES[l]}</button>`
+      ${LIFTS.map(
+        (l) =>
+          `<button class="lift-btn${entry.lift === l ? ' active' : ''}" data-lift="${l}">${LIFT_NAMES[l]}</button>`
       ).join('')}
     </div>
     <div class="input-row">
@@ -381,9 +438,12 @@ function openEditModal(id) {
       <label class="rpe-label">RPE <span class="optional">(optional)</span></label>
       <div class="rpe-row" id="edit-rpe-row">
         <button class="rpe-pill${entry.rpe === null ? ' active' : ''}" data-rpe="">--</button>
-        ${[6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map(v =>
-          `<button class="rpe-pill${entry.rpe === v ? ' active' : ''}" data-rpe="${v}">${v}</button>`
-        ).join('')}
+        ${[6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10]
+          .map(
+            (v) =>
+              `<button class="rpe-pill${entry.rpe === v ? ' active' : ''}" data-rpe="${v}">${v}</button>`
+          )
+          .join('')}
       </div>
     </div>
     <div class="input-group" style="margin-top:12px">
@@ -409,8 +469,9 @@ function openAddToSessionModal(sessionTs, sessionDate, dominantLift) {
   body.innerHTML = `
     <div class="section-label" style="margin-bottom:8px">Add Set to Session</div>
     <div class="lift-selector" id="add-lift-selector">
-      ${LIFTS.map(l =>
-        `<button class="lift-btn${dominantLift === l ? ' active' : ''}" data-lift="${l}">${LIFT_NAMES[l]}</button>`
+      ${LIFTS.map(
+        (l) =>
+          `<button class="lift-btn${dominantLift === l ? ' active' : ''}" data-lift="${l}">${LIFT_NAMES[l]}</button>`
       ).join('')}
     </div>
     <div class="input-row">
@@ -425,17 +486,17 @@ function openAddToSessionModal(sessionTs, sessionDate, dominantLift) {
       <label class="rpe-label">RPE <span class="optional">(optional)</span></label>
       <div class="rpe-row" id="add-rpe-row">
         <button class="rpe-pill active" data-rpe="">--</button>
-        ${[6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map(v =>
-          `<button class="rpe-pill" data-rpe="${v}">${v}</button>`
-        ).join('')}
+        ${[6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10]
+          .map((v) => `<button class="rpe-pill" data-rpe="${v}">${v}</button>`)
+          .join('')}
       </div>
     </div>
     <div class="input-group" style="margin-top:12px">
       <label>Tags <span class="optional">(tap to toggle)</span></label>
       <div class="rpe-row" id="add-tags" style="flex-wrap:wrap">
-        ${AVAILABLE_TAGS.map(t =>
-          `<button class="tag-pill" data-tag="${t}">${t}</button>`
-        ).join('')}
+        ${AVAILABLE_TAGS.map((t) => `<button class="tag-pill" data-tag="${t}">${t}</button>`).join(
+          ''
+        )}
       </div>
     </div>
     <div class="input-group" style="margin-top:12px">
@@ -452,21 +513,23 @@ function openAddToSessionModal(sessionTs, sessionDate, dominantLift) {
 // ---------------------------------------------------------------------------
 
 function openAccessoryEditModal(id) {
-  const entry = store.accessoryLog.find(a => a.id === id);
+  const entry = store.accessoryLog.find((a) => a.id === id);
   if (!entry) return;
   store.editingEntryId = null;
   store.editingAccId = id;
   const body = $('edit-body');
   const legacyEx = ACCESSORY_DB[entry.exerciseId];
   const catalogEx = resolveExercise(entry.exerciseId);
-  const isTimeBased = !!((legacyEx && legacyEx.timeBased) || (catalogEx && catalogEx.progressionType === 'time'));
-  const numSets = entry.setsCompleted.length;
+  const isTimeBased = !!(
+    (legacyEx && legacyEx.timeBased) ||
+    (catalogEx && catalogEx.progressionType === 'time')
+  );
   const uniformWeight = entry.setWeights && entry.setWeights.length > 0 ? entry.setWeights[0] : 0;
-  const allSameWeight = (entry.setWeights || []).every(w => w === uniformWeight);
 
-  const setRows = entry.setsCompleted.map((val, i) => {
-    const w = entry.setWeights?.[i] ?? uniformWeight;
-    return `<div class="input-row" style="margin-bottom:6px">
+  const setRows = entry.setsCompleted
+    .map((val, i) => {
+      const w = entry.setWeights?.[i] ?? uniformWeight;
+      return `<div class="input-row" style="margin-bottom:6px">
       <div class="input-group">
         <label>Set ${i + 1} weight</label>
         <input type="number" class="edit-acc-weight" data-idx="${i}" value="${displayWeight(w)}" inputmode="decimal" step="any">
@@ -476,7 +539,8 @@ function openAccessoryEditModal(id) {
         <input type="number" class="edit-acc-val" data-idx="${i}" value="${val}" inputmode="numeric" min="1" step="1">
       </div>
     </div>`;
-  }).join('');
+    })
+    .join('');
 
   body.innerHTML = `
     <div class="section-label" style="margin-bottom:8px">${escapeHTML(entry.name)} (${isTimeBased ? 'time-based' : 'reps'})</div>
@@ -514,11 +578,15 @@ function handleHistoryClick(e) {
     // Accessory delete
     const accId = del.dataset.accId;
     if (accId) {
-      const accEntry = store.accessoryLog.find(a => a.id === accId);
+      const accEntry = store.accessoryLog.find((a) => a.id === accId);
       if (!accEntry) return;
       const body = $('edit-body');
       body.dataset.deleteAccId = accId;
-      const dateStr = new Date(accEntry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const dateStr = new Date(accEntry.date + 'T12:00:00').toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
       body.innerHTML = `<div class="confirm-dialog">
         <div style="font-size:1.3rem">&#128465;&#65039;</div>
         <p>Delete this accessory entry?</p>
@@ -534,11 +602,15 @@ function handleHistoryClick(e) {
     }
     // Main lift delete
     const id = del.dataset.id;
-    const entry = store.entries.find(en => en.id === id);
+    const entry = store.entries.find((en) => en.id === id);
     if (!entry) return;
     const body = $('edit-body');
     body.dataset.deleteId = id;
-    const dateStr = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const dateStr = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
     body.innerHTML = `<div class="confirm-dialog">
       <div style="font-size:1.3rem">&#128465;&#65039;</div>
       <p>Delete this entry?</p>
@@ -554,8 +626,11 @@ function handleHistoryClick(e) {
   }
   const edit = e.target.closest('.edit-btn');
   if (edit) {
-    if (edit.dataset.accId) { openAccessoryEditModal(edit.dataset.accId); }
-    else { openEditModal(edit.dataset.id); }
+    if (edit.dataset.accId) {
+      openAccessoryEditModal(edit.dataset.accId);
+    } else {
+      openEditModal(edit.dataset.id);
+    }
     return;
   }
 
@@ -602,7 +677,8 @@ export function initHistoryTab() {
     const sortSelect = document.createElement('select');
     sortSelect.id = 'history-sort';
     sortSelect.className = 'history-sort';
-    sortSelect.innerHTML = '<option value="newest">Newest</option><option value="oldest">Oldest</option><option value="heaviest">Heaviest</option><option value="volume">Most Vol</option>';
+    sortSelect.innerHTML =
+      '<option value="newest">Newest</option><option value="oldest">Oldest</option><option value="heaviest">Heaviest</option><option value="volume">Most Vol</option>';
     filterBar.appendChild(sortSelect);
   }
 
@@ -612,17 +688,20 @@ export function initHistoryTab() {
     const chips = document.createElement('div');
     chips.className = 'quick-date-chips';
     chips.id = 'quick-date-chips';
-    chips.innerHTML = '<button class="quick-date-chip" data-range="week">This Week</button>' +
+    chips.innerHTML =
+      '<button class="quick-date-chip" data-range="week">This Week</button>' +
       '<button class="quick-date-chip" data-range="month">This Month</button>' +
       '<button class="quick-date-chip" data-range="30">Last 30d</button>';
     dateFilters.appendChild(chips);
   }
 
   // Filter pills
-  $('history-filter-pills').addEventListener('click', e => {
+  $('history-filter-pills').addEventListener('click', (e) => {
     const btn = e.target.closest('.filter-pill');
     if (!btn) return;
-    $('history-filter-pills').querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+    $('history-filter-pills')
+      .querySelectorAll('.filter-pill')
+      .forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     store.historyFilter = btn.dataset.filter;
     store.historyPage = 1;
@@ -630,14 +709,17 @@ export function initHistoryTab() {
   });
 
   // History search
-  $('history-search').addEventListener('input', debounce(e => {
-    store.historySearch = e.target.value.trim().toLowerCase();
-    store.historyPage = 1;
-    renderHistory();
-  }, 200));
+  $('history-search').addEventListener(
+    'input',
+    debounce((e) => {
+      store.historySearch = e.target.value.trim().toLowerCase();
+      store.historyPage = 1;
+      renderHistory();
+    }, 200)
+  );
 
   // Sort select
-  document.getElementById('history-sort')?.addEventListener('change', e => {
+  document.getElementById('history-sort')?.addEventListener('change', (e) => {
     store.historySort = e.target.value;
     store.historyPage = 1;
     renderHistory();
@@ -649,18 +731,33 @@ export function initHistoryTab() {
     $('date-filters').style.display = store.showDateFilters ? 'flex' : 'none';
     $('date-toggle-btn').classList.toggle('active', store.showDateFilters);
   });
-  $('filter-from').addEventListener('change', e => { store.historyFrom = e.target.value; store.historyPage = 1; renderHistory(); });
-  $('filter-to').addEventListener('change', e => { store.historyTo = e.target.value; store.historyPage = 1; renderHistory(); });
+  $('filter-from').addEventListener('change', (e) => {
+    store.historyFrom = e.target.value;
+    store.historyPage = 1;
+    renderHistory();
+  });
+  $('filter-to').addEventListener('change', (e) => {
+    store.historyTo = e.target.value;
+    store.historyPage = 1;
+    renderHistory();
+  });
 
   // Quick date chips
-  document.getElementById('quick-date-chips')?.addEventListener('click', e => {
+  document.getElementById('quick-date-chips')?.addEventListener('click', (e) => {
     const chip = e.target.closest('.quick-date-chip');
     if (!chip) return;
     const range = chip.dataset.range;
     const today = new Date().toISOString().split('T')[0];
-    if (range === 'week') { store.historyFrom = getMonday(); store.historyTo = today; }
-    else if (range === 'month') { store.historyFrom = getFirstOfMonth(); store.historyTo = today; }
-    else if (range === '30') { store.historyFrom = getDaysAgo(30); store.historyTo = ''; }
+    if (range === 'week') {
+      store.historyFrom = getMonday();
+      store.historyTo = today;
+    } else if (range === 'month') {
+      store.historyFrom = getFirstOfMonth();
+      store.historyTo = today;
+    } else if (range === '30') {
+      store.historyFrom = getDaysAgo(30);
+      store.historyTo = '';
+    }
     $('filter-from').value = store.historyFrom;
     $('filter-to').value = store.historyTo;
     store.historyPage = 1;
@@ -706,7 +803,7 @@ export function initHistoryTab() {
   document.addEventListener('click', (e) => {
     if (e.target.closest('#bulk-delete')) {
       if (selectedIds.size === 0) return;
-      selectedIds.forEach(id => deleteEntry(id));
+      selectedIds.forEach((id) => deleteEntry(id));
       _deps.updateDashboard?.();
       showToastWithUndo(`${selectedIds.size} entries deleted`);
       exitSelectionMode();
@@ -720,102 +817,136 @@ export function initHistoryTab() {
   // Swipe-to-delete (left) and swipe-to-edit (right) for touch
   (function initSwipeGestures() {
     const list = $('history-list');
-    let startX = 0, startY = 0, currentContainer = null, dirLocked = false, isHorizontal = false;
+    let startX = 0,
+      startY = 0,
+      currentContainer = null,
+      dirLocked = false,
+      isHorizontal = false;
     let longPressTimer = null;
 
-    list.addEventListener('touchstart', (e) => {
-      const container = e.target.closest('.swipe-container');
-      if (!container) return;
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      currentContainer = container;
-      dirLocked = false;
-      isHorizontal = false;
+    list.addEventListener(
+      'touchstart',
+      (e) => {
+        const container = e.target.closest('.swipe-container');
+        if (!container) return;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        currentContainer = container;
+        dirLocked = false;
+        isHorizontal = false;
 
-      // Long-press for bulk select
-      if (!selectionMode) {
-        longPressTimer = setTimeout(() => {
+        // Long-press for bulk select
+        if (!selectionMode) {
+          longPressTimer = setTimeout(() => {
+            longPressTimer = null;
+            selectionMode = true;
+            const id = container.dataset.id;
+            if (id) selectedIds.add(id);
+            renderHistory();
+            showBulkBar();
+            // Prevent further swipe processing
+            currentContainer = null;
+          }, LONG_PRESS_MS);
+        }
+      },
+      { passive: true }
+    );
+
+    list.addEventListener(
+      'touchmove',
+      (e) => {
+        // Cancel long-press on any movement
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
           longPressTimer = null;
-          selectionMode = true;
-          const id = container.dataset.id;
-          if (id) selectedIds.add(id);
-          renderHistory();
-          showBulkBar();
-          // Prevent further swipe processing
+        }
+
+        if (!currentContainer || selectionMode) return;
+        const dx = e.touches[0].clientX - startX;
+        const dy = e.touches[0].clientY - startY;
+
+        if (!dirLocked) {
+          if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+          dirLocked = true;
+          isHorizontal = Math.abs(dx) > Math.abs(dy);
+        }
+        if (!isHorizontal) return;
+
+        e.preventDefault();
+        const entry = currentContainer.querySelector('.session-entry');
+        if (!entry) return;
+
+        if (dx < 0) {
+          // Swipe left — delete
+          entry.style.transform = `translateX(${Math.min(0, dx)}px)`;
+          if (dx < -10) currentContainer.classList.add('swiping');
+          currentContainer.classList.remove('swiping-right');
+        } else {
+          // Swipe right — edit
+          entry.style.transform = `translateX(${Math.max(0, dx)}px)`;
+          if (dx > 10) currentContainer.classList.add('swiping-right');
+          currentContainer.classList.remove('swiping');
+        }
+      },
+      { passive: false }
+    );
+
+    list.addEventListener(
+      'touchend',
+      () => {
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+        if (!currentContainer || selectionMode) {
           currentContainer = null;
-        }, LONG_PRESS_MS);
-      }
-    }, { passive: true });
+          return;
+        }
 
-    list.addEventListener('touchmove', (e) => {
-      // Cancel long-press on any movement
-      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+        const entry = currentContainer.querySelector('.session-entry');
+        if (!entry) {
+          currentContainer = null;
+          return;
+        }
 
-      if (!currentContainer || selectionMode) return;
-      const dx = e.touches[0].clientX - startX;
-      const dy = e.touches[0].clientY - startY;
-
-      if (!dirLocked) {
-        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-        dirLocked = true;
-        isHorizontal = Math.abs(dx) > Math.abs(dy);
-      }
-      if (!isHorizontal) return;
-
-      e.preventDefault();
-      const entry = currentContainer.querySelector('.session-entry');
-      if (!entry) return;
-
-      if (dx < 0) {
-        // Swipe left — delete
-        entry.style.transform = `translateX(${Math.min(0, dx)}px)`;
-        if (dx < -10) currentContainer.classList.add('swiping');
-        currentContainer.classList.remove('swiping-right');
-      } else {
-        // Swipe right — edit
-        entry.style.transform = `translateX(${Math.max(0, dx)}px)`;
-        if (dx > 10) currentContainer.classList.add('swiping-right');
+        const currentX = parseFloat(entry.style.transform.replace(/[^-\d.]/g, '')) || 0;
         currentContainer.classList.remove('swiping');
-      }
-    }, { passive: false });
+        currentContainer.classList.remove('swiping-right');
 
-    list.addEventListener('touchend', () => {
-      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-      if (!currentContainer || selectionMode) { currentContainer = null; return; }
-
-      const entry = currentContainer.querySelector('.session-entry');
-      if (!entry) { currentContainer = null; return; }
-
-      const currentX = parseFloat(entry.style.transform.replace(/[^-\d.]/g, '')) || 0;
-      currentContainer.classList.remove('swiping');
-      currentContainer.classList.remove('swiping-right');
-
-      if (currentX <= -80) {
-        // Swipe left — delete
-        recentSwipe = true;
-        setTimeout(() => { recentSwipe = false; }, 300);
-        const id = currentContainer.dataset.id;
-        currentContainer.classList.add('removing');
-        currentContainer.style.maxHeight = currentContainer.offsetHeight + 'px';
-        requestAnimationFrame(() => { currentContainer.style.maxHeight = '0'; });
-        setTimeout(() => {
-          deleteEntry(id);
-          renderHistory();
-          showToastWithUndo('Entry deleted');
-        }, 350);
-      } else if (currentX >= 80) {
-        // Swipe right — edit
-        recentSwipe = true;
-        setTimeout(() => { recentSwipe = false; }, 300);
-        entry.style.transform = '';
-        const id = currentContainer.dataset.id;
-        openEditModal(id);
-      } else {
-        // Snap back
-        entry.style.transform = '';
-      }
-      currentContainer = null;
-    }, { passive: true });
+        if (currentX <= -80) {
+          // Swipe left — delete
+          recentSwipe = true;
+          setTimeout(() => {
+            recentSwipe = false;
+          }, 300);
+          const id = currentContainer.dataset.id;
+          currentContainer.classList.add('removing');
+          currentContainer.style.maxHeight = currentContainer.offsetHeight + 'px';
+          requestAnimationFrame(() => {
+            currentContainer.style.maxHeight = '0';
+          });
+          setTimeout(() => {
+            deleteEntry(id);
+            renderHistory();
+            showToastWithUndo('Entry deleted');
+          }, 350);
+        } else if (currentX >= 80) {
+          // Swipe right — edit
+          recentSwipe = true;
+          setTimeout(() => {
+            recentSwipe = false;
+          }, 300);
+          entry.style.transform = '';
+          const id = currentContainer.dataset.id;
+          openEditModal(id);
+        } else {
+          // Snap back
+          entry.style.transform = '';
+        }
+        currentContainer = null;
+      },
+      { passive: true }
+    );
   })();
 
   // Edit-body delegation — handles confirm dialog + edit modal
@@ -829,7 +960,7 @@ export function initHistoryTab() {
       if (e.target.closest('#confirm-delete-btn')) {
         const accId = body.dataset.deleteAccId;
         if (accId) {
-          store.accessoryLog = store.accessoryLog.filter(a => a.id !== accId);
+          store.accessoryLog = store.accessoryLog.filter((a) => a.id !== accId);
           store.saveNow('accessoryLog');
           delete body.dataset.deleteAccId;
           closeModal('edit-modal');
@@ -851,26 +982,34 @@ export function initHistoryTab() {
       }
       const liftBtn = e.target.closest('#edit-lift-selector .lift-btn');
       if (liftBtn) {
-        body.querySelectorAll('#edit-lift-selector .lift-btn').forEach(b => b.classList.remove('active'));
+        body
+          .querySelectorAll('#edit-lift-selector .lift-btn')
+          .forEach((b) => b.classList.remove('active'));
         liftBtn.classList.add('active');
         return;
       }
       const rpeBtn = e.target.closest('#edit-rpe-row .rpe-pill');
       if (rpeBtn) {
-        body.querySelectorAll('#edit-rpe-row .rpe-pill').forEach(b => b.classList.remove('active'));
+        body
+          .querySelectorAll('#edit-rpe-row .rpe-pill')
+          .forEach((b) => b.classList.remove('active'));
         rpeBtn.classList.add('active');
         return;
       }
       // Add Set modal: lift selector, RPE, tag toggles
       const addLiftBtn = e.target.closest('#add-lift-selector .lift-btn');
       if (addLiftBtn) {
-        body.querySelectorAll('#add-lift-selector .lift-btn').forEach(b => b.classList.remove('active'));
+        body
+          .querySelectorAll('#add-lift-selector .lift-btn')
+          .forEach((b) => b.classList.remove('active'));
         addLiftBtn.classList.add('active');
         return;
       }
       const addRpeBtn = e.target.closest('#add-rpe-row .rpe-pill');
       if (addRpeBtn) {
-        body.querySelectorAll('#add-rpe-row .rpe-pill').forEach(b => b.classList.remove('active'));
+        body
+          .querySelectorAll('#add-rpe-row .rpe-pill')
+          .forEach((b) => b.classList.remove('active'));
         addRpeBtn.classList.add('active');
         return;
       }
@@ -890,7 +1029,9 @@ export function initHistoryTab() {
         const rpePill = body.querySelector('#add-rpe-row .rpe-pill.active');
         const rpe = rpePill && rpePill.dataset.rpe ? parseFloat(rpePill.dataset.rpe) : null;
         const notes = $('add-notes').value.trim();
-        const tags = [...body.querySelectorAll('#add-tags .tag-pill.active')].map(t => t.dataset.tag);
+        const tags = [...body.querySelectorAll('#add-tags .tag-pill.active')].map(
+          (t) => t.dataset.tag
+        );
 
         const result = addEntry(activeLift, inputToLbs(w), r, rpe, notes, tags);
         if (result?.entry && sessionDate) {
@@ -926,7 +1067,7 @@ export function initHistoryTab() {
       if (e.target.closest('#edit-acc-save')) {
         const accId = store.editingAccId;
         if (!accId) return;
-        const entry = store.accessoryLog.find(a => a.id === accId);
+        const entry = store.accessoryLog.find((a) => a.id === accId);
         if (!entry) return;
         const weightInputs = body.querySelectorAll('.edit-acc-weight');
         const valInputs = body.querySelectorAll('.edit-acc-val');

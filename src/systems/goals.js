@@ -35,7 +35,7 @@ export function calcGoalProjection(lift) {
     const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
     if (tmpl && tmpl.progression) {
       const prog = tmpl.progression;
-      const increment = (lift === 'bench') ? prog.upperIncrement : prog.lowerIncrement;
+      const increment = lift === 'bench' ? prog.upperIncrement : prog.lowerIncrement;
       const cycleWeeks = prog.cycleWeeks;
       const cyclesNeeded = Math.ceil(gap / increment);
       const weeksNeeded = cyclesNeeded * cycleWeeks;
@@ -52,13 +52,21 @@ export function calcGoalProjection(lift) {
         tmProgression.push({ tm: tmVal, date: d });
       }
 
-      return { currentE1RM: cur, goal, gap, program: tmpl.name, weeksNeeded, estDate, tmProgression };
+      return {
+        currentE1RM: cur,
+        goal,
+        gap,
+        program: tmpl.name,
+        weeksNeeded,
+        estDate,
+        tmProgression,
+      };
     }
   }
 
   // Fallback: historical e1RM progression rate
   const liftEntries = store.entries
-    .filter(e => e.lift === lift)
+    .filter((e) => e.lift === lift)
     .sort((a, b) => a.timestamp - b.timestamp);
   if (liftEntries.length < 2) return null;
 
@@ -143,7 +151,7 @@ export function checkMilestonesAchieved(lift, newE1RM, entryId) {
   if (!data || !data.milestones) return [];
 
   const hit = [];
-  data.milestones.forEach(ms => {
+  data.milestones.forEach((ms) => {
     if (!ms.achievedAt && newE1RM >= ms.target) {
       ms.achievedAt = Date.now();
       ms.achievedEntryId = entryId;
@@ -170,7 +178,7 @@ export function calcMilestoneRoadmap(lift) {
   if (!data || !data.milestones || data.milestones.length === 0) return null;
 
   // Hide once all milestones (including Goal) are achieved
-  const allAchieved = data.milestones.every(ms => ms.achievedAt);
+  const allAchieved = data.milestones.every((ms) => ms.achievedAt);
   if (allAchieved) return null;
 
   // Use the current projection for estDate on unachieved milestones
@@ -179,7 +187,7 @@ export function calcMilestoneRoadmap(lift) {
   const goal = data.goal;
   const gap = goal - cur;
 
-  const milestones = data.milestones.map(ms => {
+  const milestones = data.milestones.map((ms) => {
     const achieved = !!ms.achievedAt;
     const achievedDate = achieved ? new Date(ms.achievedAt) : null;
     let weeksAway = 0;

@@ -20,7 +20,13 @@ const { mockStore } = vi.hoisted(() => ({
     workoutConfig: { weakPoints: {}, setupComplete: true },
     unit: 'lbs',
     recoveryCalibration: {},
-    equipmentProfile: { barbell: true, dumbbell: true, cable: true, machine: true, bodyweight: true },
+    equipmentProfile: {
+      barbell: true,
+      dumbbell: true,
+      cable: true,
+      machine: true,
+      bodyweight: true,
+    },
     programConfig: { activeProgram: null },
     save: () => {},
     saveNow: () => {},
@@ -29,7 +35,11 @@ const { mockStore } = vi.hoisted(() => ({
 vi.mock('../state/store.js', () => ({ default: mockStore }));
 
 import { resetMockStore, buildEntry, buildAccessoryLog } from './helpers/fixtures.js';
-import { analyzeWeeklyVolume, analyzePushPullRatio, analyzeRecencyGaps } from '../systems/gap-analysis.js';
+import {
+  analyzeWeeklyVolume,
+  analyzePushPullRatio,
+  analyzeRecencyGaps,
+} from '../systems/gap-analysis.js';
 import { MUSCLE_GROUPS, WEEKLY_SET_TARGETS } from '../data/muscle-groups.js';
 
 beforeEach(() => {
@@ -181,7 +191,11 @@ describe('analyzePushPullRatio', () => {
   it('flags push-heavy at ratio >= 1.5, not the old 2.0 threshold', () => {
     // 6 push sets vs 4 pull sets → ratio 1.5 → push-heavy
     mockStore.accessoryLog = [
-      buildAccessoryLog({ exerciseId: 'incline-bench', setsCompleted: [8, 8, 8, 8, 8, 8], daysAgo: 2 }),
+      buildAccessoryLog({
+        exerciseId: 'incline-bench',
+        setsCompleted: [8, 8, 8, 8, 8, 8],
+        daysAgo: 2,
+      }),
       buildAccessoryLog({ exerciseId: 'barbell-row', setsCompleted: [8, 8, 8, 8], daysAgo: 2 }),
     ];
     const result = analyzePushPullRatio();

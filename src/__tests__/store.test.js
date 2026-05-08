@@ -28,8 +28,8 @@ async function initClean(store) {
   store.init();
   // Migration on fresh localStorage calls saveAll() which marks every store
   // dirty. Drain that flush before testing the save queue itself.
-  await new Promise(resolve => queueMicrotask(resolve));
-  await new Promise(resolve => queueMicrotask(resolve));
+  await new Promise((resolve) => queueMicrotask(resolve));
+  await new Promise((resolve) => queueMicrotask(resolve));
   // Explicitly clear any residual dirty state from migration
   store._dirtyStores.clear();
   store._flushScheduled = false;
@@ -67,10 +67,22 @@ describe('store: batched save flow', () => {
   it('flush writes to localStorage', async () => {
     const store = await freshStore();
     await initClean(store);
-    store.entries = [{ id: 'e1', lift: 'squat', weight: 225, reps: 5, timestamp: Date.now(), date: '2026-01-01', e1rm: 262.5, isPR: false, tags: [] }];
+    store.entries = [
+      {
+        id: 'e1',
+        lift: 'squat',
+        weight: 225,
+        reps: 5,
+        timestamp: Date.now(),
+        date: '2026-01-01',
+        e1rm: 262.5,
+        isPR: false,
+        tags: [],
+      },
+    ];
     store.save('entries');
     // Wait for microtask flush
-    await new Promise(resolve => queueMicrotask(resolve));
+    await new Promise((resolve) => queueMicrotask(resolve));
     const raw = localStorage.getItem('sbd-tracker-data');
     expect(raw).not.toBeNull();
     const parsed = JSON.parse(raw);
@@ -92,7 +104,7 @@ describe('store: batched save flow', () => {
     const store = await freshStore();
     await initClean(store);
     store.save('entries');
-    await new Promise(resolve => queueMicrotask(resolve));
+    await new Promise((resolve) => queueMicrotask(resolve));
     expect(store._dirtyStores.size).toBe(0);
   });
 
@@ -104,7 +116,7 @@ describe('store: batched save flow', () => {
     store.save('entries');
     store.save('prs');
     expect(store._dirtyStores.size).toBe(2);
-    await new Promise(resolve => queueMicrotask(resolve));
+    await new Promise((resolve) => queueMicrotask(resolve));
     expect(store._dirtyStores.size).toBe(0);
     expect(localStorage.getItem('sbd-tracker-data')).not.toBeNull();
     expect(localStorage.getItem('sbd-tracker-prs')).not.toBeNull();
@@ -138,10 +150,20 @@ describe('store: load roundtrip', () => {
     const store1 = await freshStore();
     store1.init();
     store1.entries = [
-      { id: 'e1', lift: 'squat', weight: 225, reps: 5, timestamp: Date.now(), date: '2026-01-01', e1rm: 262.5, isPR: true, tags: [] },
+      {
+        id: 'e1',
+        lift: 'squat',
+        weight: 225,
+        reps: 5,
+        timestamp: Date.now(),
+        date: '2026-01-01',
+        e1rm: 262.5,
+        isPR: true,
+        tags: [],
+      },
     ];
     store1.save('entries');
-    await new Promise(resolve => queueMicrotask(resolve));
+    await new Promise((resolve) => queueMicrotask(resolve));
 
     // Second store: should find the persisted data
     const store2 = await freshStore();
@@ -165,9 +187,11 @@ describe('store: onAfterFlush callback', () => {
     const store = await freshStore();
     await initClean(store);
     let called = false;
-    store.onAfterFlush = () => { called = true; };
+    store.onAfterFlush = () => {
+      called = true;
+    };
     store.save('entries');
-    await new Promise(resolve => queueMicrotask(resolve));
+    await new Promise((resolve) => queueMicrotask(resolve));
     expect(called).toBe(true);
   });
 });

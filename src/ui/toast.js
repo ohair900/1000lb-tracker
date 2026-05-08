@@ -19,9 +19,11 @@ import { PLATE_MILESTONES } from '../constants/lift-config.js';
 // Dependency injection — set by the boot / wiring layer
 // ---------------------------------------------------------------------------
 
-let _deps = {};
+const _deps = {};
 
-export function setToastDeps(deps) { Object.assign(_deps, deps); }
+export function setToastDeps(deps) {
+  Object.assign(_deps, deps);
+}
 
 // ---------------------------------------------------------------------------
 // Undo helpers
@@ -37,7 +39,9 @@ export function setToastDeps(deps) { Object.assign(_deps, deps); }
 export function pushUndo(type, data) {
   clearTimeout(store.undoTimer);
   store.undoStack = { type, data };
-  store.undoTimer = setTimeout(() => { store.undoStack = null; }, 10000);
+  store.undoTimer = setTimeout(() => {
+    store.undoStack = null;
+  }, 10000);
 }
 
 /**

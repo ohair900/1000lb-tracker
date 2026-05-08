@@ -34,9 +34,9 @@ export function checkComeback() {
   const lastSession = groupSessions(sorted)[0];
   if (!lastSession) return null;
 
-  const lastSessionLifts = lastSession.lifts.map(l => {
-    const liftEntries = lastSession.entries.filter(e => e.lift === l);
-    const best = Math.max(...liftEntries.map(e => e.e1rm));
+  const lastSessionLifts = lastSession.lifts.map((l) => {
+    const liftEntries = lastSession.entries.filter((e) => e.lift === l);
+    const best = Math.max(...liftEntries.map((e) => e.e1rm));
     return { lift: l, name: LIFT_NAMES[l], bestE1RM: best };
   });
 

@@ -70,7 +70,7 @@ export function renderCoachingCard(plan) {
 function buildCoachRows(plan) {
   const rows = [];
 
-  (plan.insights || []).forEach(ins => {
+  (plan.insights || []).forEach((ins) => {
     const priority = priorityClass(ins.priority);
     let action = null;
 
@@ -118,9 +118,9 @@ function renderCoachRow(row) {
   // "Add" for exercise additions, "Accept" for everything else (BBB reduction, etc.)
   const label = row.action && row.action.kind === 'swap' ? 'Add' : 'Accept';
   const buttonHtml = row.action
-    ? (row.accepted
-        ? `<span class="coach-row-applied">Added</span>`
-        : `<button class="coach-row-accept" ${row.action.attr}>${label}</button>`)
+    ? row.accepted
+      ? `<span class="coach-row-applied">Added</span>`
+      : `<button class="coach-row-accept" ${row.action.attr}>${label}</button>`
     : '';
 
   return `
@@ -144,9 +144,12 @@ function renderCoachRow(row) {
 export function renderSetEvaluationChip(evaluation) {
   if (!evaluation || evaluation.drift === 'on-track') return '';
 
-  const severityClass = evaluation.severity === 'alert' ? 'coach-chip-alert'
-    : evaluation.severity === 'warn' ? 'coach-chip-warn'
-      : 'coach-chip-info';
+  const severityClass =
+    evaluation.severity === 'alert'
+      ? 'coach-chip-alert'
+      : evaluation.severity === 'warn'
+        ? 'coach-chip-warn'
+        : 'coach-chip-info';
 
   const hasAdjustments = evaluation.adjustments && evaluation.adjustments.length > 0;
 
@@ -164,12 +167,16 @@ export function renderSetEvaluationChip(evaluation) {
     <div class="coach-chip ${severityClass}" data-eval-idx="${evaluation.setIndex}">
       <p class="coach-chip-text">${evaluation.message}</p>
       ${adjustDetail}
-      ${hasAdjustments ? `
+      ${
+        hasAdjustments
+          ? `
         <div class="coach-chip-actions">
           <button class="coach-chip-btn coach-chip-apply" data-coach-apply="${evaluation.setIndex}">Apply</button>
           <button class="coach-chip-btn coach-chip-dismiss" data-coach-dismiss="${evaluation.setIndex}" aria-label="Dismiss">&times;</button>
         </div>
-      ` : ''}
+      `
+          : ''
+      }
     </div>`;
 }
 
@@ -178,22 +185,26 @@ export function renderSetEvaluationChip(evaluation) {
 // ---------------------------------------------------------------------------
 
 const GRADE_COLORS = {
-  'A+': 'var(--green)', A: 'var(--green)',
-  'B+': 'var(--gold)', B: 'var(--gold)',
-  'C+': 'var(--yellow)', C: 'var(--yellow)',
-  D: 'var(--red)', F: 'var(--red)',
+  'A+': 'var(--green)',
+  A: 'var(--green)',
+  'B+': 'var(--gold)',
+  B: 'var(--gold)',
+  'C+': 'var(--yellow)',
+  C: 'var(--yellow)',
+  D: 'var(--red)',
+  F: 'var(--red)',
 };
 
 // Grade-tier headlines. Congratulatory for A/B, terse diagnostic for C/D/F.
 const GRADE_HEADLINES = {
   'A+': { headline: 'Strong session', sub: 'RPE on target, volume hit.' },
-  A:    { headline: 'Strong session', sub: 'RPE on target, volume hit.' },
-  'B+': { headline: 'Solid work',     sub: 'Hit the numbers cleanly.' },
-  B:    { headline: 'Solid work',     sub: 'Hit the numbers cleanly.' },
-  'C+': { headline: 'Rough patches',  sub: 'A few sets missed target.' },
-  C:    { headline: 'Rough patches',  sub: 'A few sets missed target.' },
-  D:    { headline: 'Off day',        sub: 'Miss was real — review recovery.' },
-  F:    { headline: 'Incomplete',     sub: 'Most of the work didn\u2019t happen.' },
+  A: { headline: 'Strong session', sub: 'RPE on target, volume hit.' },
+  'B+': { headline: 'Solid work', sub: 'Hit the numbers cleanly.' },
+  B: { headline: 'Solid work', sub: 'Hit the numbers cleanly.' },
+  'C+': { headline: 'Rough patches', sub: 'A few sets missed target.' },
+  C: { headline: 'Rough patches', sub: 'A few sets missed target.' },
+  D: { headline: 'Off day', sub: 'Miss was real — review recovery.' },
+  F: { headline: 'Incomplete', sub: 'Most of the work didn\u2019t happen.' },
 };
 
 /**
@@ -211,22 +222,20 @@ export function renderSessionGrade(sessionGrade) {
   const head = GRADE_HEADLINES[sessionGrade.grade] || { headline: '', sub: '' };
 
   const driftSign = sessionGrade.rpeDrift.avg > 0 ? '+' : '';
-  const driftStr = sessionGrade.rpeDrift.avg !== 0
-    ? `${driftSign}${sessionGrade.rpeDrift.avg}`
-    : '0';
+  const driftStr =
+    sessionGrade.rpeDrift.avg !== 0 ? `${driftSign}${sessionGrade.rpeDrift.avg}` : '0';
 
-  const tonnage = sessionGrade.tonnage > 0
-    ? Math.round(sessionGrade.tonnage).toLocaleString()
-    : '—';
+  const tonnage =
+    sessionGrade.tonnage > 0 ? Math.round(sessionGrade.tonnage).toLocaleString() : '—';
   const tonnageUnit = sessionGrade.tonnage > 0 ? store.unit : '';
 
   let impactHtml = '';
   if (sessionGrade.impacts && sessionGrade.impacts.length > 0) {
     impactHtml = `
       <ul class="coach-grade-impacts">
-        ${sessionGrade.impacts.map(imp =>
-          `<li data-kind="${imp.icon || 'info'}">${imp.message}</li>`
-        ).join('')}
+        ${sessionGrade.impacts
+          .map((imp) => `<li data-kind="${imp.icon || 'info'}">${imp.message}</li>`)
+          .join('')}
       </ul>`;
   }
 

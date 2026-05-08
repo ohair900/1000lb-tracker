@@ -7,14 +7,18 @@ import store from '../state/store.js';
 import { $ } from '../utils/helpers.js';
 import { LIFTS, COLORS, LIFT_NAMES } from '../constants/lift-config.js';
 import {
-  UNIT_KEY, BADGES_KEY, DASH_WIDGETS_KEY, ACCENT_KEY, VERSION_KEY,
-  TOTAL_CELEBRATED_KEY, ALL_DATA_KEYS
+  UNIT_KEY,
+  BADGES_KEY,
+  DASH_WIDGETS_KEY,
+  ACCENT_KEY,
+  VERSION_KEY,
+  TOTAL_CELEBRATED_KEY,
+  ALL_DATA_KEYS,
 } from '../constants/storage-keys.js';
 import { WEAK_POINT_OPTIONS } from '../data/accessories.js';
 import { CURRENT_VERSION } from '../constants/time.js';
-import { bestE1RM, getTotal } from '../formulas/e1rm.js';
-import { displayWeight, formatWeight, inputToLbs } from '../formulas/units.js';
-import { getWeightClass } from '../formulas/standards.js';
+import { getTotal } from '../formulas/e1rm.js';
+import { formatWeight, inputToLbs } from '../formulas/units.js';
 import { rebuildPRs } from '../systems/pr-tracking.js';
 import { lockMilestones } from '../systems/goals.js';
 import { showToast } from '../ui/toast.js';
@@ -22,15 +26,26 @@ import { openModal, closeModal } from '../ui/modal.js';
 import { isRouterResolving, pushRoute, clearOverlayState } from '../ui/router.js';
 import { applyAccentColor } from '../ui/theme.js';
 import { buildProfileHTML, buildGoalsHTML } from './stats.js';
-import { buildWeeklyReviewPrompt, buildProgramCheckPrompt, buildLiftDeepDivePrompt, shareCoachingPrompt } from '../systems/ai-export.js';
-import { renderExercisesTab, attachExercisesListeners, resetExercisesTabState } from './exercises-tab.js';
+import {
+  buildWeeklyReviewPrompt,
+  buildProgramCheckPrompt,
+  buildLiftDeepDivePrompt,
+  shareCoachingPrompt,
+} from '../systems/ai-export.js';
+import {
+  renderExercisesTab,
+  attachExercisesListeners,
+  resetExercisesTabState,
+} from './exercises-tab.js';
 
 // ---------------------------------------------------------------------------
 // Late-bound callbacks
 // ---------------------------------------------------------------------------
 
-let _deps = {};
-export function setSettingsDeps(deps) { Object.assign(_deps, deps); }
+const _deps = {};
+export function setSettingsDeps(deps) {
+  Object.assign(_deps, deps);
+}
 
 function scheduleCloudSync() {
   _deps.scheduleCloudSync?.();
@@ -40,7 +55,7 @@ function scheduleCloudSync() {
 // Settings body renderer
 // ---------------------------------------------------------------------------
 
-const sectionLabel = text => `<div class="section-label-lg">${text}</div>`;
+const sectionLabel = (text) => `<div class="section-label-lg">${text}</div>`;
 const settingsDivider = '<hr style="border:none;border-top:1px solid var(--border);margin:14px 0">';
 
 let _settingsTab = 'profile';
@@ -61,13 +76,13 @@ function renderPrefsTab() {
   html += sectionLabel('Weak Points');
   html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:10px">Targets accessory selection toward your weaknesses</div>`;
   const wp = store.workoutConfig?.weakPoints || {};
-  LIFTS.forEach(lift => {
+  LIFTS.forEach((lift) => {
     const current = wp[lift];
     html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <span style="font-size:var(--text-sm);font-weight:700;color:${COLORS[lift]};min-width:70px">${LIFT_NAMES[lift]}</span>
       <select class="wp-select" data-lift="${lift}" style="flex:1;padding:8px 10px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--text-sm)">
         <option value=""${!current ? ' selected' : ''}>None</option>
-        ${WEAK_POINT_OPTIONS[lift].map(opt => `<option value="${opt.id}"${current === opt.id ? ' selected' : ''}>${opt.label}</option>`).join('')}
+        ${WEAK_POINT_OPTIONS[lift].map((opt) => `<option value="${opt.id}"${current === opt.id ? ' selected' : ''}>${opt.label}</option>`).join('')}
       </select>
     </div>`;
   });
@@ -193,9 +208,20 @@ function exportData() {
 }
 
 function exportCSV() {
-  const headers = ['Date', 'Lift', 'Weight', 'Reps', 'e1RM', 'RPE', 'Notes', 'Tags', 'PR', 'Bodyweight'];
+  const headers = [
+    'Date',
+    'Lift',
+    'Weight',
+    'Reps',
+    'e1RM',
+    'RPE',
+    'Notes',
+    'Tags',
+    'PR',
+    'Bodyweight',
+  ];
   const sorted = [...store.entries].sort((a, b) => a.timestamp - b.timestamp);
-  const rows = sorted.map(e => {
+  const rows = sorted.map((e) => {
     const notes = (e.notes || '').replace(/"/g, '""');
     const tags = (e.tags || []).join('; ');
     return [
@@ -208,7 +234,7 @@ function exportCSV() {
       `"${notes}"`,
       `"${tags}"`,
       e.isPR ? 'Yes' : '',
-      e.bodyweight ? formatWeight(e.bodyweight) : ''
+      e.bodyweight ? formatWeight(e.bodyweight) : '',
     ].join(',');
   });
   const csv = [headers.join(','), ...rows].join('\n');
@@ -228,33 +254,80 @@ function handleImport(ev) {
     if (!data.entries || !Array.isArray(data.entries)) throw new Error('Invalid format');
     store.entries = data.entries;
     // Mark every imported entry dirty so v2 push writes them to the subcollection
-    data.entries.forEach(e => { if (e?.id) store.onEntryDirty?.(e.id); });
+    data.entries.forEach((e) => {
+      if (e?.id) store.onEntryDirty?.(e.id);
+    });
     if (data.profile) store.profile = data.profile;
     if (data.goals) store.goals = data.goals;
     if (data.prs) store.prs = data.prs;
     if (data.cycles) store.cycles = data.cycles;
-    if (data.programs) { store.programConfig = data.programs; store._patchProgramConfig(); store.saveProgramConfig(); }
-    if (data.unit) { store.unit = data.unit; localStorage.setItem(UNIT_KEY, store.unit); }
-    if (data.badges) { store.unlockedBadges = data.badges; localStorage.setItem(BADGES_KEY, JSON.stringify(store.unlockedBadges)); }
-    if (data.dashboardWidgets) { store.dashboardWidgets = { ...store.dashboardWidgets, ...data.dashboardWidgets }; localStorage.setItem(DASH_WIDGETS_KEY, JSON.stringify(store.dashboardWidgets)); }
-    if (data.accentColor) { store.accentColor = data.accentColor; localStorage.setItem(ACCENT_KEY, store.accentColor); applyAccentColor(); }
-    if (data.celebratedTotals) { localStorage.setItem(TOTAL_CELEBRATED_KEY, JSON.stringify(data.celebratedTotals)); }
-    if (data.workoutConfig) { store.workoutConfig = data.workoutConfig; store.save('workoutConfig'); }
-    if (data.accessoryLog) { store.accessoryLog = data.accessoryLog; store.saveAccessoryLog(); }
-    if (data.customTemplates) { store.customTemplates = data.customTemplates; store.saveCustomTemplates(); }
-    if (data.activeMesocycle) { store.activeMesocycle = data.activeMesocycle; store.saveMesocycle(); }
-    if (data.mesocycleHistory) { store.mesocycleHistory = data.mesocycleHistory; store.saveMesocycleHistory(); }
-    if (data.accessoryOverrides) { store.accessoryOverrides = data.accessoryOverrides; store.saveAccessoryOverrides(); }
-    if (data.customAccessories) { store.customAccessories = data.customAccessories; store.saveCustomAccessories(); }
-    if (data.disabledAccessories) { store.disabledAccessories = data.disabledAccessories; store.saveDisabledAccessories(); }
+    if (data.programs) {
+      store.programConfig = data.programs;
+      store._patchProgramConfig();
+      store.saveProgramConfig();
+    }
+    if (data.unit) {
+      store.unit = data.unit;
+      localStorage.setItem(UNIT_KEY, store.unit);
+    }
+    if (data.badges) {
+      store.unlockedBadges = data.badges;
+      localStorage.setItem(BADGES_KEY, JSON.stringify(store.unlockedBadges));
+    }
+    if (data.dashboardWidgets) {
+      store.dashboardWidgets = { ...store.dashboardWidgets, ...data.dashboardWidgets };
+      localStorage.setItem(DASH_WIDGETS_KEY, JSON.stringify(store.dashboardWidgets));
+    }
+    if (data.accentColor) {
+      store.accentColor = data.accentColor;
+      localStorage.setItem(ACCENT_KEY, store.accentColor);
+      applyAccentColor();
+    }
+    if (data.celebratedTotals) {
+      localStorage.setItem(TOTAL_CELEBRATED_KEY, JSON.stringify(data.celebratedTotals));
+    }
+    if (data.workoutConfig) {
+      store.workoutConfig = data.workoutConfig;
+      store.save('workoutConfig');
+    }
+    if (data.accessoryLog) {
+      store.accessoryLog = data.accessoryLog;
+      store.saveAccessoryLog();
+    }
+    if (data.customTemplates) {
+      store.customTemplates = data.customTemplates;
+      store.saveCustomTemplates();
+    }
+    if (data.activeMesocycle) {
+      store.activeMesocycle = data.activeMesocycle;
+      store.saveMesocycle();
+    }
+    if (data.mesocycleHistory) {
+      store.mesocycleHistory = data.mesocycleHistory;
+      store.saveMesocycleHistory();
+    }
+    if (data.accessoryOverrides) {
+      store.accessoryOverrides = data.accessoryOverrides;
+      store.saveAccessoryOverrides();
+    }
+    if (data.customAccessories) {
+      store.customAccessories = data.customAccessories;
+      store.saveCustomAccessories();
+    }
+    if (data.disabledAccessories) {
+      store.disabledAccessories = data.disabledAccessories;
+      store.saveDisabledAccessories();
+    }
     if (!store.profile.bodyweightHistory) store.profile.bodyweightHistory = [];
-    store.activeCycleId = (store.cycles.find(c => c.active) || {}).id || null;
+    store.activeCycleId = (store.cycles.find((c) => c.active) || {}).id || null;
     localStorage.setItem(VERSION_KEY, CURRENT_VERSION.toString());
     rebuildPRs();
     store.saveAll();
     // Re-init UI
-    document.querySelectorAll('.unit-btn').forEach(b => b.classList.toggle('active', b.dataset.unit === store.unit));
-    document.querySelectorAll('.unit-label').forEach(el => el.textContent = store.unit);
+    document
+      .querySelectorAll('.unit-btn')
+      .forEach((b) => b.classList.toggle('active', b.dataset.unit === store.unit));
+    document.querySelectorAll('.unit-label').forEach((el) => (el.textContent = store.unit));
     _deps.updateDashboard?.();
     _deps.renderCycleBar?.();
     _deps.renderProgramSection?.();
@@ -282,13 +355,13 @@ export function attachSettingsListeners() {
   const body = $('settings-body');
 
   // Settings tab switching
-  body.querySelectorAll('[data-settings-tab]').forEach(btn => {
+  body.querySelectorAll('[data-settings-tab]').forEach((btn) => {
     btn.addEventListener('click', () => {
       _settingsTab = btn.dataset.settingsTab;
-      body.querySelectorAll('[data-settings-tab]').forEach(b =>
-        b.classList.toggle('active', b === btn)
-      );
-      body.querySelectorAll('.settings-tab-panel').forEach(p => p.classList.remove('active'));
+      body
+        .querySelectorAll('[data-settings-tab]')
+        .forEach((b) => b.classList.toggle('active', b === btn));
+      body.querySelectorAll('.settings-tab-panel').forEach((p) => p.classList.remove('active'));
       const panel = body.querySelector('#stab-' + _settingsTab);
       if (panel) panel.classList.add('active');
       // Reset scroll
@@ -308,9 +381,9 @@ export function attachSettingsListeners() {
   }
 
   // Gender pills
-  body.querySelectorAll('.gender-pill').forEach(btn => {
+  body.querySelectorAll('.gender-pill').forEach((btn) => {
     btn.addEventListener('click', () => {
-      body.querySelectorAll('.gender-pill').forEach(b => b.classList.remove('active'));
+      body.querySelectorAll('.gender-pill').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       store.profile.gender = btn.dataset.gender;
       store.saveProfile();
@@ -330,7 +403,7 @@ export function attachSettingsListeners() {
       store.profile.bodyweightHistory.push({
         date: now.toISOString().split('T')[0],
         weight: bwLbs,
-        timestamp: now.getTime()
+        timestamp: now.getTime(),
       });
       store.saveProfile();
       _deps.updateDashboard?.();
@@ -339,7 +412,7 @@ export function attachSettingsListeners() {
   }
 
   // Goal inputs
-  body.querySelectorAll('.goal-input').forEach(input => {
+  body.querySelectorAll('.goal-input').forEach((input) => {
     input.addEventListener('change', () => {
       const lift = input.dataset.lift;
       const v = parseFloat(input.value);
@@ -357,7 +430,7 @@ export function attachSettingsListeners() {
   });
 
   // Weak point dropdowns
-  body.querySelectorAll('.wp-select').forEach(sel => {
+  body.querySelectorAll('.wp-select').forEach((sel) => {
     sel.addEventListener('change', () => {
       store.workoutConfig.weakPoints[sel.dataset.lift] = sel.value || null;
       store.save('workoutConfig');
@@ -366,7 +439,7 @@ export function attachSettingsListeners() {
   });
 
   // Dashboard widget toggles
-  body.querySelectorAll('[data-widget]').forEach(cb => {
+  body.querySelectorAll('[data-widget]').forEach((cb) => {
     cb.addEventListener('change', () => {
       store.dashboardWidgets[cb.dataset.widget] = cb.checked;
       localStorage.setItem(DASH_WIDGETS_KEY, JSON.stringify(store.dashboardWidgets));
@@ -376,7 +449,7 @@ export function attachSettingsListeners() {
   });
 
   // Equipment profile toggles
-  body.querySelectorAll('[data-equip]').forEach(cb => {
+  body.querySelectorAll('[data-equip]').forEach((cb) => {
     cb.addEventListener('change', () => {
       if (!store.equipmentProfile) store.equipmentProfile = {};
       store.equipmentProfile[cb.dataset.equip] = cb.checked;
@@ -392,7 +465,7 @@ export function attachSettingsListeners() {
       store.leaderboardOptedIn = lbCheckbox.checked;
       store.save('leaderboard');
       scheduleCloudSync();
-      import('../firebase/sync.js').then(m => {
+      import('../firebase/sync.js').then((m) => {
         m.invalidateLeaderboardCache();
         if (!lbCheckbox.checked) m.removeFromLeaderboard();
       });
@@ -401,11 +474,21 @@ export function attachSettingsListeners() {
 
   // AI Coaching
   const aiNotes = () => ($('ai-notes')?.value || '').trim();
-  $('ai-weekly')?.addEventListener('click', () => shareCoachingPrompt(buildWeeklyReviewPrompt(aiNotes()), 'Weekly Training Review'));
-  $('ai-program')?.addEventListener('click', () => shareCoachingPrompt(buildProgramCheckPrompt(aiNotes()), '90-Day Program Check'));
-  $('ai-squat')?.addEventListener('click', () => shareCoachingPrompt(buildLiftDeepDivePrompt('squat', aiNotes()), 'Squat Deep-Dive'));
-  $('ai-bench')?.addEventListener('click', () => shareCoachingPrompt(buildLiftDeepDivePrompt('bench', aiNotes()), 'Bench Deep-Dive'));
-  $('ai-deadlift')?.addEventListener('click', () => shareCoachingPrompt(buildLiftDeepDivePrompt('deadlift', aiNotes()), 'Deadlift Deep-Dive'));
+  $('ai-weekly')?.addEventListener('click', () =>
+    shareCoachingPrompt(buildWeeklyReviewPrompt(aiNotes()), 'Weekly Training Review')
+  );
+  $('ai-program')?.addEventListener('click', () =>
+    shareCoachingPrompt(buildProgramCheckPrompt(aiNotes()), '90-Day Program Check')
+  );
+  $('ai-squat')?.addEventListener('click', () =>
+    shareCoachingPrompt(buildLiftDeepDivePrompt('squat', aiNotes()), 'Squat Deep-Dive')
+  );
+  $('ai-bench')?.addEventListener('click', () =>
+    shareCoachingPrompt(buildLiftDeepDivePrompt('bench', aiNotes()), 'Bench Deep-Dive')
+  );
+  $('ai-deadlift')?.addEventListener('click', () =>
+    shareCoachingPrompt(buildLiftDeepDivePrompt('deadlift', aiNotes()), 'Deadlift Deep-Dive')
+  );
 
   // Data management
   $('s-export').addEventListener('click', exportData);
@@ -417,26 +500,58 @@ export function attachSettingsListeners() {
       this.textContent = 'Are you sure? Click again to confirm';
       return;
     }
-    ALL_DATA_KEYS.forEach(k => localStorage.removeItem(k));
-    store.entries = []; store.prs = []; store.cycles = [];
+    ALL_DATA_KEYS.forEach((k) => localStorage.removeItem(k));
+    store.entries = [];
+    store.prs = [];
+    store.cycles = [];
     store.statsCollapsed = {};
     store.timerDuration = 180;
     store.profile = { gender: null, bodyweight: null, bodyweightHistory: [] };
     store.goals = { squat: null, bench: null, deadlift: null, total: null };
-    store.activeCycleId = null; store.lastLoggedSet = null;
-    store.programConfig = { activeProgram: null, trainingMaxes: {}, liftWeeks: { squat: 1, bench: 1, deadlift: 1 }, completedSets: {}, completedSetData: {}, amrapResults: {}, tmHistory: [], autoProgressEnabled: true, completedWeeks: {}, weekStreak: 0, progressedCycles: {}, completedSetDataMigrated: false, completedSetDataMigrationVersion: 0, completedSetDataUnrecoveredKeys: [], completedSetDataReviewDismissed: false };
+    store.activeCycleId = null;
+    store.lastLoggedSet = null;
+    store.programConfig = {
+      activeProgram: null,
+      trainingMaxes: {},
+      liftWeeks: { squat: 1, bench: 1, deadlift: 1 },
+      completedSets: {},
+      completedSetData: {},
+      amrapResults: {},
+      tmHistory: [],
+      autoProgressEnabled: true,
+      completedWeeks: {},
+      weekStreak: 0,
+      progressedCycles: {},
+      completedSetDataMigrated: false,
+      completedSetDataMigrationVersion: 0,
+      completedSetDataUnrecoveredKeys: [],
+      completedSetDataReviewDismissed: false,
+    };
     store.unlockedBadges = {};
-    store.workoutConfig = { weakPoints: { squat: null, bench: null, deadlift: null }, setupComplete: false };
-    store.accessoryLog = []; store.workoutSession = null;
-    store.customTemplates = []; store.activeMesocycle = null; store.mesocycleHistory = [];
+    store.workoutConfig = {
+      weakPoints: { squat: null, bench: null, deadlift: null },
+      setupComplete: false,
+    };
+    store.accessoryLog = [];
+    store.workoutSession = null;
+    store.customTemplates = [];
+    store.activeMesocycle = null;
+    store.mesocycleHistory = [];
     store.leaderboardOptedIn = true;
     store.accessoryOverrides = {};
     store.customAccessories = [];
     store.disabledAccessories = [];
     store._deletedEntryRecords = [];
     store.deletedEntryIds = new Set();
-    store.dashboardWidgets = { ratios: true, fatigue: true, streak: true, recap: true, prStreak: true };
-    store.accentColor = 'gold'; applyAccentColor();
+    store.dashboardWidgets = {
+      ratios: true,
+      fatigue: true,
+      streak: true,
+      recap: true,
+      prStreak: true,
+    };
+    store.accentColor = 'gold';
+    applyAccentColor();
     // Delete cloud data if signed in
     try {
       const { clearCloudData } = await import('../firebase/sync.js');
@@ -446,7 +561,11 @@ export function attachSettingsListeners() {
       showToast('Local data cleared (cloud clear failed — retry or sign out)');
     }
     // Clear v2 migration flag so a fresh sign-in re-migrates correctly
-    try { localStorage.removeItem('sbd-migration-v2-done'); } catch {}
+    try {
+      localStorage.removeItem('sbd-migration-v2-done');
+    } catch (_e) {
+      // noop
+    }
     closeModal('settings-modal');
     clearOverlayState('#' + store.currentTab);
     _deps.updateDashboard?.();
@@ -475,10 +594,11 @@ export function openSettings() {
   body.innerHTML = renderSettingsBody();
   openModal('settings-modal');
   attachSettingsListeners();
-  if (!isRouterResolving()) pushRoute('#settings', 'settings', () => {
-    closeModal('settings-modal');
-    clearOverlayState('#' + store.currentTab);
-  });
+  if (!isRouterResolving())
+    pushRoute('#settings', 'settings', () => {
+      closeModal('settings-modal');
+      clearOverlayState('#' + store.currentTab);
+    });
 }
 
 export function initSettingsListeners() {
@@ -487,11 +607,11 @@ export function initSettingsListeners() {
   // initModalListeners() wires these for closeModal; we add a second listener
   // to sync the router.
   $('settings-close').addEventListener('click', () => clearOverlayState('#' + store.currentTab));
-  $('settings-modal').addEventListener('click', e => {
+  $('settings-modal').addEventListener('click', (e) => {
     if (e.target === $('settings-modal')) clearOverlayState('#' + store.currentTab);
   });
 
-  $('import-file').addEventListener('change', e => {
+  $('import-file').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();

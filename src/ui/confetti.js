@@ -13,10 +13,15 @@
 import { $ } from '../utils/helpers.js';
 import store from '../state/store.js';
 import {
-  CONFETTI_COUNT, CELEBRATION_DISMISS_MS,
-  CONFETTI_SIZE_MIN, CONFETTI_SIZE_RANGE,
-  CONFETTI_DURATION_BASE_S, CONFETTI_DURATION_RANGE_S, CONFETTI_DELAY_RANGE_S,
-  MINI_CONFETTI_COUNT, MINI_CONFETTI_CLEANUP_MS
+  CONFETTI_COUNT,
+  CELEBRATION_DISMISS_MS,
+  CONFETTI_SIZE_MIN,
+  CONFETTI_SIZE_RANGE,
+  CONFETTI_DURATION_BASE_S,
+  CONFETTI_DURATION_RANGE_S,
+  CONFETTI_DELAY_RANGE_S,
+  MINI_CONFETTI_COUNT,
+  MINI_CONFETTI_CLEANUP_MS,
 } from '../constants/ui.js';
 import { COLORS, LIFT_NAMES } from '../constants/lift-config.js';
 import { TOTAL_MILESTONE_THEMES } from '../data/milestones.js';
@@ -27,9 +32,11 @@ import { bestE1RM } from '../formulas/e1rm.js';
 // Dependency injection
 // ---------------------------------------------------------------------------
 
-let _deps = {};
+const _deps = {};
 
-export function setConfettiDeps(deps) { Object.assign(_deps, deps); }
+export function setConfettiDeps(deps) {
+  Object.assign(_deps, deps);
+}
 
 // ---------------------------------------------------------------------------
 // Full milestone celebration overlay
@@ -57,8 +64,9 @@ export function showCelebration(total, msTheme) {
     p.style.height = (Math.random() > 0.5 ? size : size * 2.5) + 'px';
     p.style.background = confettiColors[Math.floor(Math.random() * confettiColors.length)];
     p.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
-    p.style.animationDuration = (CONFETTI_DURATION_BASE_S + Math.random() * CONFETTI_DURATION_RANGE_S) + 's';
-    p.style.animationDelay = (Math.random() * CONFETTI_DELAY_RANGE_S) + 's';
+    p.style.animationDuration =
+      CONFETTI_DURATION_BASE_S + Math.random() * CONFETTI_DURATION_RANGE_S + 's';
+    p.style.animationDelay = Math.random() * CONFETTI_DELAY_RANGE_S + 's';
     overlay.appendChild(p);
   }
 
@@ -103,7 +111,9 @@ export function showCelebration(total, msTheme) {
   }
 
   content.querySelector('.celebration-close').addEventListener('click', dismiss);
-  overlay.addEventListener('click', e => { if (e.target === overlay) dismiss(); });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) dismiss();
+  });
   const autoDismiss = setTimeout(dismiss, CELEBRATION_DISMISS_MS);
 
   content.querySelector('.celebration-share-btn').addEventListener('click', () => {
@@ -127,7 +137,7 @@ export function triggerWeekCompleteCelebration() {
   // Checkmark cascade
   const checks = document.querySelectorAll('.program-set-check');
   checks.forEach((el, i) => {
-    el.style.animationDelay = (i * 80) + 'ms';
+    el.style.animationDelay = i * 80 + 'ms';
     el.classList.add('cascade');
   });
 
@@ -144,12 +154,12 @@ export function triggerWeekCompleteCelebration() {
     particle.style.left = Math.random() * 100 + '%';
     particle.style.top = '-8px';
     particle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-    particle.style.animationDuration = (1.5 + Math.random() * 1.5) + 's';
-    particle.style.animationDelay = (Math.random() * 0.5) + 's';
+    particle.style.animationDuration = 1.5 + Math.random() * 1.5 + 's';
+    particle.style.animationDelay = Math.random() * 0.5 + 's';
     section.appendChild(particle);
   }
   setTimeout(() => {
-    section.querySelectorAll('.mini-confetti').forEach(p => p.remove());
+    section.querySelectorAll('.mini-confetti').forEach((p) => p.remove());
     section.style.overflow = prevOverflow;
     section.style.position = prevPosition;
   }, MINI_CONFETTI_CLEANUP_MS);
@@ -173,7 +183,8 @@ export function burstMilestoneConfetti(lift) {
   const colors = [liftColor, '#ffd700', '#ffffff', liftColor, '#fff176'];
   const container = document.createElement('div');
   container.className = 'milestone-confetti-layer';
-  container.style.cssText = 'position:fixed;left:0;right:0;top:0;height:100vh;pointer-events:none;z-index:9998;overflow:hidden';
+  container.style.cssText =
+    'position:fixed;left:0;right:0;top:0;height:100vh;pointer-events:none;z-index:9998;overflow:hidden';
   document.body.appendChild(container);
 
   const count = 30;
@@ -188,8 +199,8 @@ export function burstMilestoneConfetti(lift) {
     p.style.height = (Math.random() > 0.5 ? size : size * 2.2) + 'px';
     p.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
     p.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
-    p.style.animationDuration = (1.6 + Math.random() * 1.0) + 's';
-    p.style.animationDelay = (Math.random() * 0.2) + 's';
+    p.style.animationDuration = 1.6 + Math.random() * 1.0 + 's';
+    p.style.animationDelay = Math.random() * 0.2 + 's';
     container.appendChild(p);
   }
   setTimeout(() => container.remove(), 2800);
@@ -204,7 +215,7 @@ export function triggerLiftCompleteCelebration() {
   // Checkmark cascade (reuse same animation)
   const checks = document.querySelectorAll('.program-set-check');
   checks.forEach((el, i) => {
-    el.style.animationDelay = (i * 80) + 'ms';
+    el.style.animationDelay = i * 80 + 'ms';
     el.classList.add('cascade');
   });
 

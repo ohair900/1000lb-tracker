@@ -23,7 +23,13 @@ const { mockStore } = vi.hoisted(() => ({
     workoutConfig: { weakPoints: {}, setupComplete: true },
     unit: 'lbs',
     recoveryCalibration: {},
-    equipmentProfile: { barbell: true, dumbbell: true, cable: true, machine: true, bodyweight: true },
+    equipmentProfile: {
+      barbell: true,
+      dumbbell: true,
+      cable: true,
+      machine: true,
+      bodyweight: true,
+    },
     programConfig: { activeProgram: null, completedSets: {}, amrapResults: {}, liftWeeks: {} },
     save: () => {},
     saveNow: () => {},
@@ -115,7 +121,7 @@ describe('migrateAccessoryIds: customTemplates', () => {
 
   it('skips templates without exercises safely', () => {
     mockStore.customTemplates = [
-      { id: 'tmpl-1', name: 'Empty' },  // no exercises field
+      { id: 'tmpl-1', name: 'Empty' }, // no exercises field
       { id: 'tmpl-2', name: 'Also empty', exercises: [] },
     ];
     expect(() => migrateAccessoryIds()).not.toThrow();
@@ -127,9 +133,7 @@ describe('migrateAccessoryIds: workoutSession', () => {
     mockStore.workoutSession = {
       id: 'ws1',
       mainLift: 'squat',
-      accessories: [
-        { exerciseId: 'sq-rdl', setWeights: [135], targetSets: 3, setsCompleted: [] },
-      ],
+      accessories: [{ exerciseId: 'sq-rdl', setWeights: [135], targetSets: 3, setsCompleted: [] }],
     };
     migrateAccessoryIds();
     expect(mockStore.workoutSession.accessories[0].exerciseId).toBe('rdl');
@@ -179,7 +183,7 @@ describe('migrateAccessoryIds: disabledAccessories', () => {
     expect(mockStore.disabledAccessories).toContain('barbell-row');
     expect(mockStore.disabledAccessories).not.toContain('sq-front');
     // Dedupe — front-squat should appear only once
-    expect(mockStore.disabledAccessories.filter(id => id === 'front-squat')).toHaveLength(1);
+    expect(mockStore.disabledAccessories.filter((id) => id === 'front-squat')).toHaveLength(1);
   });
 });
 
@@ -217,9 +221,7 @@ describe('migrateAccessoryIds: edge cases', () => {
   });
 
   it('unknown IDs (neither legacy nor canonical) pass through unchanged', () => {
-    mockStore.accessoryLog = [
-      buildAccessoryLog({ exerciseId: 'totally-made-up' }),
-    ];
+    mockStore.accessoryLog = [buildAccessoryLog({ exerciseId: 'totally-made-up' })];
     migrateAccessoryIds();
     expect(mockStore.accessoryLog[0].exerciseId).toBe('totally-made-up');
   });

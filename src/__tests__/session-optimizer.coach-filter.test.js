@@ -21,7 +21,13 @@ const { mockStore, mockFatigueLift, mockFatigueByMuscle, mockGapReport } = vi.ho
     profile: { bodyweight: 180, gender: 'male', bodyweightHistory: [] },
     workoutConfig: { weakPoints: {}, setupComplete: true },
     unit: 'lbs',
-    equipmentProfile: { barbell: true, dumbbell: true, cable: true, machine: true, bodyweight: true },
+    equipmentProfile: {
+      barbell: true,
+      dumbbell: true,
+      cable: true,
+      machine: true,
+      bodyweight: true,
+    },
     programConfig: { activeProgram: null },
     _sessionOptimizer: null,
     save: () => {},
@@ -92,9 +98,7 @@ describe('generateSessionPlan — calf-on-bench never surfaces as swap', () => {
 
     expect(plan.accessorySwaps).toHaveLength(0);
     // But the deferred FYI should show up as an insight (up to 1).
-    const deferredInsights = plan.insights.filter(i =>
-      i.type === 'gap' && !i.actionable
-    );
+    const deferredInsights = plan.insights.filter((i) => i.type === 'gap' && !i.actionable);
     expect(deferredInsights.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -119,7 +123,7 @@ describe('generateSessionPlan — calf-on-bench never surfaces as swap', () => {
     expect(plan.accessorySwaps).toHaveLength(1);
     expect(plan.accessorySwaps[0].suggestedId).toBe('incline-db-press');
 
-    const actionable = plan.insights.find(i => i.type === 'gap' && i.actionable);
+    const actionable = plan.insights.find((i) => i.type === 'gap' && i.actionable);
     expect(actionable).toBeDefined();
     expect(actionable.swapIndex).toBe(0);
   });
@@ -149,7 +153,7 @@ describe('generateSessionPlan — calf-on-bench never surfaces as swap', () => {
     expect(plan.lift).toBe('bench');
     // The ratio gap should still produce an actionable insight with a
     // reasonable message (not one containing "null" or "undefined").
-    const ratioInsight = plan.insights.find(i => i.type === 'gap' && i.actionable);
+    const ratioInsight = plan.insights.find((i) => i.type === 'gap' && i.actionable);
     expect(ratioInsight).toBeDefined();
     expect(ratioInsight.text).not.toMatch(/null|undefined/);
     expect(plan.accessorySwaps).toHaveLength(1);
@@ -180,61 +184,85 @@ describe('generateSessionPlan — calf-on-bench never surfaces as swap', () => {
     const plan = generateSessionPlan('bench', session);
 
     expect(plan.accessorySwaps).toHaveLength(0);
-    const softInsight = plan.insights.find(i =>
-      i.type === 'gap' && /fatigue is elevated/i.test(i.text)
+    const softInsight = plan.insights.find(
+      (i) => i.type === 'gap' && /fatigue is elevated/i.test(i.text)
     );
     expect(softInsight).toBeDefined();
   });
 });
 
-describe('generateSessionPlan — coverage filter (don\'t recommend what\'s already there)', () => {
+describe("generateSessionPlan — coverage filter (don't recommend what's already there)", () => {
   it('skips a gap whose target muscle is already covered by session accessories', () => {
-    mockGapReport.current = [{
-      type: 'volume', muscleGroup: 'Upper Back', severity: 'high',
-      message: 'Upper Back: 0/10 sets',
-      suggestedExercise: { id: 'barbell-row', name: 'Barbell Row', equipment: 'barbell' },
-    }];
+    mockGapReport.current = [
+      {
+        type: 'volume',
+        muscleGroup: 'Upper Back',
+        severity: 'high',
+        message: 'Upper Back: 0/10 sets',
+        suggestedExercise: { id: 'barbell-row', name: 'Barbell Row', equipment: 'barbell' },
+      },
+    ];
 
     const session = buildBenchSession();
     // Session already has barbell-row loaded
-    session.accessories = [{
-      exerciseId: 'barbell-row', name: 'Barbell Row',
-      setWeights: [135, 135, 135], targetSets: 3, repRange: [8, 12],
-      equipment: 'barbell', setsCompleted: [],
-    }];
+    session.accessories = [
+      {
+        exerciseId: 'barbell-row',
+        name: 'Barbell Row',
+        setWeights: [135, 135, 135],
+        targetSets: 3,
+        repRange: [8, 12],
+        equipment: 'barbell',
+        setsCompleted: [],
+      },
+    ];
 
     const plan = generateSessionPlan('bench', session);
     expect(plan.accessorySwaps).toHaveLength(0);
-    const actionable = plan.insights.filter(i => i.type === 'gap' && i.actionable);
+    const actionable = plan.insights.filter((i) => i.type === 'gap' && i.actionable);
     expect(actionable).toHaveLength(0);
   });
 
   it('skips a ratio gap when session already has an upper-body pull accessory', () => {
-    mockGapReport.current = [{
-      type: 'ratio', muscleGroup: null, severity: 'high',
-      message: 'Push:Pull 6:0',
-      suggestedExercise: { id: 'barbell-row', name: 'Barbell Row', equipment: 'barbell' },
-    }];
+    mockGapReport.current = [
+      {
+        type: 'ratio',
+        muscleGroup: null,
+        severity: 'high',
+        message: 'Push:Pull 6:0',
+        suggestedExercise: { id: 'barbell-row', name: 'Barbell Row', equipment: 'barbell' },
+      },
+    ];
 
     const session = buildBenchSession();
     // Session has a horizontal-pull accessory (resolveExercise('barbell-row')
     // returns an object with movementPattern='horizontal-pull')
-    session.accessories = [{
-      exerciseId: 'barbell-row', name: 'Barbell Row',
-      setWeights: [135, 135, 135], targetSets: 3, repRange: [8, 12],
-      equipment: 'barbell', setsCompleted: [],
-    }];
+    session.accessories = [
+      {
+        exerciseId: 'barbell-row',
+        name: 'Barbell Row',
+        setWeights: [135, 135, 135],
+        targetSets: 3,
+        repRange: [8, 12],
+        equipment: 'barbell',
+        setsCompleted: [],
+      },
+    ];
 
     const plan = generateSessionPlan('bench', session);
     expect(plan.accessorySwaps).toHaveLength(0);
   });
 
   it('shows a gap recommendation when the muscle is NOT covered by session accessories', () => {
-    mockGapReport.current = [{
-      type: 'volume', muscleGroup: 'Biceps', severity: 'high',
-      message: 'Biceps: 0/4 sets',
-      suggestedExercise: { id: 'preacher-curl', name: 'Preacher Curl', equipment: 'dumbbell' },
-    }];
+    mockGapReport.current = [
+      {
+        type: 'volume',
+        muscleGroup: 'Biceps',
+        severity: 'high',
+        message: 'Biceps: 0/4 sets',
+        suggestedExercise: { id: 'preacher-curl', name: 'Preacher Curl', equipment: 'dumbbell' },
+      },
+    ];
 
     const session = buildBenchSession();
     session.accessories = []; // no accessories at all
@@ -242,7 +270,7 @@ describe('generateSessionPlan — coverage filter (don\'t recommend what\'s alre
     const plan = generateSessionPlan('bench', session);
     expect(plan.accessorySwaps).toHaveLength(1);
     expect(plan.accessorySwaps[0].suggestedId).toBe('preacher-curl');
-    const actionable = plan.insights.find(i => i.type === 'gap' && i.actionable);
+    const actionable = plan.insights.find((i) => i.type === 'gap' && i.actionable);
     expect(actionable).toBeDefined();
     expect(actionable.text).toMatch(/Add/); // "Add Preacher Curl" not "Swap in"
   });
@@ -255,8 +283,10 @@ describe('applyCoachAddition', () => {
       accessories: [],
     };
     const result = applyCoachAddition({
-      suggestedId: 'barbell-row', suggestedName: 'Barbell Row',
-      reason: 'Push:Pull 6:0', muscleGroup: 'Upper Back',
+      suggestedId: 'barbell-row',
+      suggestedName: 'Barbell Row',
+      reason: 'Push:Pull 6:0',
+      muscleGroup: 'Upper Back',
     });
     expect(result).toBe('added');
     expect(mockStore.workoutSession.accessories).toHaveLength(1);
@@ -267,15 +297,23 @@ describe('applyCoachAddition', () => {
   it('returns "already-present" when the exercise is already loaded', () => {
     mockStore.workoutSession = {
       mainLift: 'bench',
-      accessories: [{
-        exerciseId: 'barbell-row', name: 'Barbell Row',
-        setWeights: [135], targetSets: 1, repRange: [8, 12],
-        equipment: 'barbell', setsCompleted: [],
-      }],
+      accessories: [
+        {
+          exerciseId: 'barbell-row',
+          name: 'Barbell Row',
+          setWeights: [135],
+          targetSets: 1,
+          repRange: [8, 12],
+          equipment: 'barbell',
+          setsCompleted: [],
+        },
+      ],
     };
     const result = applyCoachAddition({
-      suggestedId: 'barbell-row', suggestedName: 'Barbell Row',
-      reason: 'Push:Pull 6:0', muscleGroup: 'Upper Back',
+      suggestedId: 'barbell-row',
+      suggestedName: 'Barbell Row',
+      reason: 'Push:Pull 6:0',
+      muscleGroup: 'Upper Back',
     });
     expect(result).toBe('already-present');
     // Did not duplicate

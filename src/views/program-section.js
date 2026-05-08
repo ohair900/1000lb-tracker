@@ -31,9 +31,11 @@ import { showToast } from '../ui/toast.js';
 // Dependency injection
 // ---------------------------------------------------------------------------
 
-let _deps = {};
+const _deps = {};
 
-export function setProgramSectionDeps(deps) { Object.assign(_deps, deps); }
+export function setProgramSectionDeps(deps) {
+  Object.assign(_deps, deps);
+}
 
 // ---------------------------------------------------------------------------
 // Render
@@ -44,7 +46,7 @@ export function setProgramSectionDeps(deps) { Object.assign(_deps, deps); }
  * 0-2 days = green, 3-4 = yellow, 5+ = red, no entries = red with "-".
  */
 export function updateLiftDaysBadges() {
-  document.querySelectorAll('.lift-btn').forEach(btn => {
+  document.querySelectorAll('.lift-btn').forEach((btn) => {
     const lift = btn.dataset.lift;
     if (!lift || lift === 'total') return;
     const days = daysSinceLastLift(lift);
@@ -85,7 +87,8 @@ export function renderProgramSection() {
     const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
     $('program-title').textContent = tmpl ? tmpl.name : store.programConfig.activeProgram;
     $('program-week').textContent = '';
-    $('program-sets').innerHTML = `<div class="empty-msg">Set a training max for ${LIFT_NAMES[store.currentLift]} in Setup</div>`;
+    $('program-sets').innerHTML =
+      `<div class="empty-msg">Set a training max for ${LIFT_NAMES[store.currentLift]} in Setup</div>`;
     el.classList.remove('week-complete');
     el.classList.remove('lift-complete');
     updateLiftDaysBadges();
@@ -98,26 +101,43 @@ export function renderProgramSection() {
   const firstSentence = desc.split('.')[0];
   const absWeek = getLiftWeek(store.currentLift);
   const cycleNum = Math.ceil(absWeek / tmpl.weeks);
-  const cycleLabel = (tmpl.weeks > 1 && cycleNum > 1) ? ` \u2014 Cycle ${cycleNum}` : '';
-  $('program-week').innerHTML = workout.label + cycleLabel + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
+  const cycleLabel = tmpl.weeks > 1 && cycleNum > 1 ? ` \u2014 Cycle ${cycleNum}` : '';
+  $('program-week').innerHTML =
+    workout.label +
+    cycleLabel +
+    (firstSentence
+      ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>`
+      : '');
   const setsEl = $('program-sets');
   // Filter BBB supplemental sets — they only show in the workout overlay
-  const displaySets = workout.sets.filter(s => s.tier !== 'BBB');
-  const hasBBB = workout.sets.some(s => s.tier === 'BBB');
-  setsEl.innerHTML = displaySets.map(s => {
-    const tierLabel = s.tier ? `<span style="font-size:var(--text-xs);color:var(--text-dim);margin-right:4px">${s.tier}</span>` : '';
-    const dayLabel = s.day ? `<span style="font-size:var(--text-xs);color:var(--text-dim);margin-right:4px">${s.day}</span>` : '';
-    const isAmrap = typeof s.reps === 'string' && s.reps.includes('+');
-    const amrapBadge = isAmrap ? `<span style="font-size:var(--text-xs);color:var(--gold);font-weight:600;margin-left:4px">AMRAP</span>` : '';
-    const checkmark = s.completed ? '<span class="program-set-check">&#10003;</span>' : '';
-    const plateStr = formatPlates(s.weight);
-    return `<div class="program-set-row${s.completed ? ' completed' : ''}" data-set-idx="${s.num - 1}">
+  const displaySets = workout.sets.filter((s) => s.tier !== 'BBB');
+  const hasBBB = workout.sets.some((s) => s.tier === 'BBB');
+  setsEl.innerHTML =
+    displaySets
+      .map((s) => {
+        const tierLabel = s.tier
+          ? `<span style="font-size:var(--text-xs);color:var(--text-dim);margin-right:4px">${s.tier}</span>`
+          : '';
+        const dayLabel = s.day
+          ? `<span style="font-size:var(--text-xs);color:var(--text-dim);margin-right:4px">${s.day}</span>`
+          : '';
+        const isAmrap = typeof s.reps === 'string' && s.reps.includes('+');
+        const amrapBadge = isAmrap
+          ? `<span style="font-size:var(--text-xs);color:var(--gold);font-weight:600;margin-left:4px">AMRAP</span>`
+          : '';
+        const checkmark = s.completed ? '<span class="program-set-check">&#10003;</span>' : '';
+        const plateStr = formatPlates(s.weight);
+        return `<div class="program-set-row${s.completed ? ' completed' : ''}" data-set-idx="${s.num - 1}">
       ${checkmark}<span class="program-set-num">${s.num}</span>
       ${dayLabel}${tierLabel}<span class="program-set-weight">${formatWeight(s.weight)} ${store.unit} &times; ${s.reps}</span>${amrapBadge}
       <span class="program-set-pct">${s.pct}%</span>
       ${plateStr ? `<div class="plate-display">${plateStr} /side</div>` : ''}
     </div>`;
-  }).join('') + (hasBBB ? '<div style="font-size:var(--text-xs);color:var(--text-dim);margin-top:6px;opacity:0.7">+ 5\u00d710 BBB supplemental (shown in workout)</div>' : '');
+      })
+      .join('') +
+    (hasBBB
+      ? '<div style="font-size:var(--text-xs);color:var(--text-dim);margin-top:6px;opacity:0.7">+ 5\u00d710 BBB supplemental (shown in workout)</div>'
+      : '');
 
   // Week/lift completion visual state
   const weekComplete = isWeekComplete(store.currentLift);
@@ -125,11 +145,23 @@ export function renderProgramSection() {
   if (weekComplete) {
     el.classList.add('week-complete');
     el.classList.remove('lift-complete');
-    $('program-week').innerHTML = workout.label + cycleLabel + ' \u2014 Complete! \u2713' + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
+    $('program-week').innerHTML =
+      workout.label +
+      cycleLabel +
+      ' \u2014 Complete! \u2713' +
+      (firstSentence
+        ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>`
+        : '');
   } else if (liftComplete) {
     el.classList.remove('week-complete');
     el.classList.add('lift-complete');
-    $('program-week').innerHTML = workout.label + cycleLabel + ' \u2014 Complete! \u2713' + (firstSentence ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>` : '');
+    $('program-week').innerHTML =
+      workout.label +
+      cycleLabel +
+      ' \u2014 Complete! \u2713' +
+      (firstSentence
+        ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>`
+        : '');
   } else {
     el.classList.remove('week-complete');
     el.classList.remove('lift-complete');
@@ -139,11 +171,12 @@ export function renderProgramSection() {
   updateLiftDaysBadges();
 
   // Week progress summary
-  const liftsWithTM = LIFTS.filter(l => store.programConfig.trainingMaxes[l]);
-  const doneCount = liftsWithTM.filter(l => isLiftComplete(l)).length;
+  const liftsWithTM = LIFTS.filter((l) => store.programConfig.trainingMaxes[l]);
+  const doneCount = liftsWithTM.filter((l) => isLiftComplete(l)).length;
   if (liftsWithTM.length > 1 && doneCount > 0 && !weekComplete) {
     const progress = ` (${doneCount}/${liftsWithTM.length} lifts)`;
-    $('program-week').innerHTML += `<span style="font-size:0.65rem;color:var(--text-dim);margin-left:4px">${progress}</span>`;
+    $('program-week').innerHTML +=
+      `<span style="font-size:0.65rem;color:var(--text-dim);margin-left:4px">${progress}</span>`;
   }
 
   // Streak badge
@@ -159,7 +192,7 @@ export function renderProgramSection() {
   // Click to auto-fill
   const currentLift = store.currentLift;
   const lw = getLiftWeek(currentLift);
-  setsEl.querySelectorAll('.program-set-row').forEach(row => {
+  setsEl.querySelectorAll('.program-set-row').forEach((row) => {
     row.addEventListener('click', () => {
       const idx = parseInt(row.dataset.setIdx);
       const set = workout.sets[idx];
@@ -197,8 +230,10 @@ export function renderProgramSection() {
           if (result) {
             store.saveProgramConfig();
             renderProgramSection();
-            if (!wasComplete && isWeekComplete(currentLift)) _deps.triggerWeekCompleteCelebration?.();
-            else if (!wasLiftComplete && isLiftComplete(currentLift)) _deps.triggerLiftCompleteCelebration?.();
+            if (!wasComplete && isWeekComplete(currentLift))
+              _deps.triggerWeekCompleteCelebration?.();
+            else if (!wasLiftComplete && isLiftComplete(currentLift))
+              _deps.triggerLiftCompleteCelebration?.();
             setTimeout(() => applyProgression(result), 300);
             return;
           }
@@ -242,7 +277,7 @@ export function showProgramSetupModal() {
   let html = `<div class="input-group" style="margin-bottom:8px"><label>Program</label>
     <select id="program-select" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-size:0.9rem">
       <option value="">None (disable)</option>
-      ${programs.map(p => `<option value="${p}"${p === current ? ' selected' : ''}>${PROGRAM_TEMPLATES[p].name}</option>`).join('')}
+      ${programs.map((p) => `<option value="${p}"${p === current ? ' selected' : ''}>${PROGRAM_TEMPLATES[p].name}</option>`).join('')}
     </select>
   </div>`;
 
@@ -251,7 +286,7 @@ export function showProgramSetupModal() {
   html += `<div id="program-desc" style="font-size:0.75rem;color:var(--text-dim);line-height:1.4;margin-bottom:12px;min-height:20px">${initDesc}</div>`;
 
   html += `<div class="section-label-lg" style="margin-bottom:8px">Training Maxes <span style="font-size:0.65rem;color:var(--text-dim);font-weight:normal">(auto-updated)</span></div>`;
-  LIFTS.forEach(lift => {
+  LIFTS.forEach((lift) => {
     if (lift === 'total') return;
     const best = bestE1RM(lift);
     const suggestedTM = best ? Math.round(best * 0.9) : '';
@@ -282,11 +317,11 @@ export function showProgramSetupModal() {
   // Update description on program change
   $('program-select').addEventListener('change', () => {
     const sel = $('program-select').value;
-    $('program-desc').textContent = sel ? (PROGRAM_TEMPLATES[sel].description || '') : '';
+    $('program-desc').textContent = sel ? PROGRAM_TEMPLATES[sel].description || '' : '';
   });
 
   // Suggest TM buttons
-  body.querySelectorAll('[data-suggest]').forEach(btn => {
+  body.querySelectorAll('[data-suggest]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const lift = btn.dataset.suggest;
       const best2 = bestE1RM(lift);
@@ -312,7 +347,7 @@ export function showProgramSetupModal() {
       });
     }
     store.programConfig.activeProgram = sel || null;
-    LIFTS.forEach(lift => {
+    LIFTS.forEach((lift) => {
       if (lift === 'total') return;
       const v = parseFloat($('tm-' + lift).value);
       if (v > 0 && v < 2000) store.programConfig.trainingMaxes[lift] = inputToLbs(v);
@@ -366,15 +401,21 @@ export function initProgramSection() {
     const newCycle = tmpl ? Math.ceil((oldWeek + 1) / tmpl.weeks) : 0;
 
     // Cycle-boundary auto-progression for amrap-type programs
-    if (tmpl && newCycle > oldCycle && tmpl.progression?.type === 'amrap'
-        && store.programConfig.autoProgressEnabled) {
+    if (
+      tmpl &&
+      newCycle > oldCycle &&
+      tmpl.progression?.type === 'amrap' &&
+      store.programConfig.autoProgressEnabled
+    ) {
       const cycleKey = `${lift}-${oldCycle}`;
       if (!store.programConfig.progressedCycles[cycleKey]) {
         const result = checkCycleBoundaryProgression(lift, oldWeek, tmpl);
         if (result) {
           applyProgression(result);
           const name = LIFT_NAMES[lift];
-          showToast(`${name} TM: ${formatWeight(result.oldTM)} \u2192 ${formatWeight(result.newTM)} ${store.unit}`);
+          showToast(
+            `${name} TM: ${formatWeight(result.oldTM)} \u2192 ${formatWeight(result.newTM)} ${store.unit}`
+          );
         }
         store.programConfig.progressedCycles[cycleKey] = true;
       }

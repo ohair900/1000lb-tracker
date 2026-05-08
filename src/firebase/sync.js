@@ -51,23 +51,23 @@ export const syncState = {
   syncDebounceTimer: null,
   unsubSnapshot: null,
   status: 'disconnected', // disconnected | syncing | synced | error
-  lastPushHash: null,               // #5: skip push if unchanged
-  lastLeaderboardScores: null,      // #2: skip leaderboard if scores unchanged
-  lastLeaderboardFetch: 0,          // #3: cache leaderboard reads
-  cachedLeaderboard: [],            // #3: cached data
-  isMergeOriginated: false,         // #6: prevent merge → resync loop
+  lastPushHash: null, // #5: skip push if unchanged
+  lastLeaderboardScores: null, // #2: skip leaderboard if scores unchanged
+  lastLeaderboardFetch: 0, // #3: cache leaderboard reads
+  cachedLeaderboard: [], // #3: cached data
+  isMergeOriginated: false, // #6: prevent merge → resync loop
   // Release 2: subcollection migration
-  isMigrating: false,               // blocks all pushes during migration
-  migrationState: 'idle',           // idle|pre_check|snapshot|writing|updating|verifying|done|error
-  dirtyEntries: new Set(),          // entry IDs modified since last v2 push
-  lastAccLogPushGen: 0,             // tracks store._accLogGen at last v2 push
+  isMigrating: false, // blocks all pushes during migration
+  migrationState: 'idle', // idle|pre_check|snapshot|writing|updating|verifying|done|error
+  dirtyEntries: new Set(), // entry IDs modified since last v2 push
+  lastAccLogPushGen: 0, // tracks store._accLogGen at last v2 push
 };
 
-const SYNC_DEBOUNCE_MS = 10000;     // #1: 10s debounce (was 1.5s)
+const SYNC_DEBOUNCE_MS = 10000; // #1: 10s debounce (was 1.5s)
 const LEADERBOARD_CACHE_MS = 300000; // #3: 5-minute cache TTL
 const SCHEMA_VERSION = 2;
 const V2_MIGRATION_KEY = 'sbd-migration-v2-done';
-const BATCH_LIMIT = 450;            // Firestore caps at 500; leave room for parent doc ops
+const BATCH_LIMIT = 450; // Firestore caps at 500; leave room for parent doc ops
 
 // ===== Schema version guard =====
 // Prevents this code from overwriting data written by a newer schema version.
@@ -77,8 +77,12 @@ const BATCH_LIMIT = 450;            // Firestore caps at 500; leave room for par
 let _schemaBlocked = false;
 let _onSchemaBlocked = null;
 
-export function setOnSchemaBlocked(cb) { _onSchemaBlocked = cb; }
-export function isSchemaBlocked() { return _schemaBlocked; }
+export function setOnSchemaBlocked(cb) {
+  _onSchemaBlocked = cb;
+}
+export function isSchemaBlocked() {
+  return _schemaBlocked;
+}
 
 function checkAndBlockIfNewerSchema(cloudData) {
   if (!cloudData) return false;
@@ -95,12 +99,17 @@ function checkAndBlockIfNewerSchema(cloudData) {
 // Fired when the pre-migration rules-access check fails, so the UI
 // can prompt the user to update their Firestore security rules.
 let _onMigrationNeedsRules = null;
-export function setOnMigrationNeedsRules(cb) { _onMigrationNeedsRules = cb; }
+export function setOnMigrationNeedsRules(cb) {
+  _onMigrationNeedsRules = cb;
+}
 
 // Returns true if local has completed the v2 subcollection migration.
 function _isV2() {
-  try { return localStorage.getItem(V2_MIGRATION_KEY) != null; }
-  catch { return false; }
+  try {
+    return localStorage.getItem(V2_MIGRATION_KEY) != null;
+  } catch {
+    return false;
+  }
 }
 
 // ===== Callbacks (set by UI layer to avoid circular deps) =====
@@ -178,7 +187,7 @@ function computeDataHash(data) {
   // separately via generation counters. Exclude them from the parent-doc hash
   // so entry-only changes don't invalidate the parent-doc push skip.
   if (_isV2()) {
-    const { entries, accessoryLog, ...parentFields } = data;
+    const { entries: _entries, accessoryLog: _accessoryLog, ...parentFields } = data;
     return JSON.stringify(parentFields);
   }
   return JSON.stringify(data);
@@ -217,7 +226,7 @@ export async function pushToCloud() {
       const scoreKey = `${s}|${b}|${d}`;
       if (scoreKey !== syncState.lastLeaderboardScores) {
         syncState.lastLeaderboardScores = scoreKey;
-        updateLeaderboard(s, b, d).catch(err => console.warn('Leaderboard update failed:', err));
+        updateLeaderboard(s, b, d).catch((err) => console.warn('Leaderboard update failed:', err));
       }
     }
 
@@ -299,9 +308,9 @@ export function mergeCloudData(cloudData) {
   try {
     // Merge entries: union by ID, newer updatedAt/timestamp wins for edits
     if (cloudData.entries && Array.isArray(cloudData.entries)) {
-      const localMap = new Map(store.entries.map(e => [e.id, e]));
+      const localMap = new Map(store.entries.map((e) => [e.id, e]));
       const localDeletedIds = store.deletedEntryIds;
-      cloudData.entries.forEach(ce => {
+      cloudData.entries.forEach((ce) => {
         if (localDeletedIds.has(ce.id)) return; // locally deleted
         const local = localMap.get(ce.id);
         if (!local) {
@@ -317,10 +326,10 @@ export function mergeCloudData(cloudData) {
 
       // Remove local entries deleted on cloud side
       if (cloudData.deletedEntryIds && Array.isArray(cloudData.deletedEntryIds)) {
-        const cloudDeleted = new Set(cloudData.deletedEntryIds.map(r => r.id || r));
-        store.entries = store.entries.filter(e => !cloudDeleted.has(e.id));
+        const cloudDeleted = new Set(cloudData.deletedEntryIds.map((r) => r.id || r));
+        store.entries = store.entries.filter((e) => !cloudDeleted.has(e.id));
         // Merge cloud deletions into local set
-        cloudData.deletedEntryIds.forEach(r => {
+        cloudData.deletedEntryIds.forEach((r) => {
           const id = r.id || r;
           if (!store.deletedEntryIds.has(id)) {
             const rec = typeof r === 'object' ? r : { id: r, deletedAt: Date.now() };
@@ -336,9 +345,14 @@ export function mergeCloudData(cloudData) {
     if (cloudData.profile) {
       if (cloudData.profile.gender) store.profile.gender = cloudData.profile.gender;
       if (cloudData.profile.bodyweight) store.profile.bodyweight = cloudData.profile.bodyweight;
-      if (cloudData.profile.bodyweightHistory && Array.isArray(cloudData.profile.bodyweightHistory)) {
-        const localBWMap = new Map((store.profile.bodyweightHistory || []).map(b => [b.timestamp, b]));
-        cloudData.profile.bodyweightHistory.forEach(cb => {
+      if (
+        cloudData.profile.bodyweightHistory &&
+        Array.isArray(cloudData.profile.bodyweightHistory)
+      ) {
+        const localBWMap = new Map(
+          (store.profile.bodyweightHistory || []).map((b) => [b.timestamp, b])
+        );
+        cloudData.profile.bodyweightHistory.forEach((cb) => {
           if (!localBWMap.has(cb.timestamp)) {
             store.profile.bodyweightHistory.push(cb);
           }
@@ -352,15 +366,15 @@ export function mergeCloudData(cloudData) {
 
     // Cycles: merge by ID
     if (cloudData.cycles && Array.isArray(cloudData.cycles)) {
-      const localCycleMap = new Map(store.cycles.map(c => [c.id, c]));
-      cloudData.cycles.forEach(cc => {
+      const localCycleMap = new Map(store.cycles.map((c) => [c.id, c]));
+      cloudData.cycles.forEach((cc) => {
         if (!localCycleMap.has(cc.id)) {
           store.cycles.push(cc);
         } else {
           Object.assign(localCycleMap.get(cc.id), cc);
         }
       });
-      store.activeCycleId = (store.cycles.find(c => c.active) || {}).id || null;
+      store.activeCycleId = (store.cycles.find((c) => c.active) || {}).id || null;
     }
 
     // Programs: cloud wins EXCEPT local-sensitive fields (union/local-wins merge)
@@ -373,13 +387,31 @@ export function mergeCloudData(cloudData) {
       const localLiftWeeks = { ...store.programConfig.liftWeeks };
       store.programConfig = { ...store.programConfig, ...cloudData.programs };
       // Union merge — never lose a local completion
-      store.programConfig.completedSets = { ...(store.programConfig.completedSets || {}), ...localCompleted };
-      store.programConfig.completedSetData = { ...(store.programConfig.completedSetData || {}), ...localCompletedSetData };
-      store.programConfig.amrapResults = { ...(store.programConfig.amrapResults || {}), ...localAmrap };
-      store.programConfig.completedWeeks = { ...(store.programConfig.completedWeeks || {}), ...localCompletedWeeks };
+      store.programConfig.completedSets = {
+        ...(store.programConfig.completedSets || {}),
+        ...localCompleted,
+      };
+      store.programConfig.completedSetData = {
+        ...(store.programConfig.completedSetData || {}),
+        ...localCompletedSetData,
+      };
+      store.programConfig.amrapResults = {
+        ...(store.programConfig.amrapResults || {}),
+        ...localAmrap,
+      };
+      store.programConfig.completedWeeks = {
+        ...(store.programConfig.completedWeeks || {}),
+        ...localCompletedWeeks,
+      };
       // Local wins for TMs and week numbers — prevents stale cloud from reverting progression
-      store.programConfig.trainingMaxes = { ...(store.programConfig.trainingMaxes || {}), ...localTMs };
-      store.programConfig.liftWeeks = { ...(store.programConfig.liftWeeks || {}), ...localLiftWeeks };
+      store.programConfig.trainingMaxes = {
+        ...(store.programConfig.trainingMaxes || {}),
+        ...localTMs,
+      };
+      store.programConfig.liftWeeks = {
+        ...(store.programConfig.liftWeeks || {}),
+        ...localLiftWeeks,
+      };
       store._patchProgramConfig();
       store.save('programs');
     }
@@ -396,7 +428,10 @@ export function mergeCloudData(cloudData) {
     // Merge badges (union, keep earliest unlock date)
     if (cloudData.badges) {
       Object.entries(cloudData.badges).forEach(([id, data]) => {
-        if (!store.unlockedBadges[id] || (data.timestamp && data.timestamp < (store.unlockedBadges[id].timestamp || Infinity))) {
+        if (
+          !store.unlockedBadges[id] ||
+          (data.timestamp && data.timestamp < (store.unlockedBadges[id].timestamp || Infinity))
+        ) {
           store.unlockedBadges[id] = data;
         }
       });
@@ -416,7 +451,11 @@ export function mergeCloudData(cloudData) {
     // Merge celebrated totals (union, keep earliest)
     if (cloudData.celebratedTotals) {
       let localCelebrated = {};
-      try { localCelebrated = JSON.parse(localStorage.getItem(TOTAL_CELEBRATED_KEY)) || {}; } catch {}
+      try {
+        localCelebrated = JSON.parse(localStorage.getItem(TOTAL_CELEBRATED_KEY)) || {};
+      } catch (_e) {
+        // noop — invalid JSON
+      }
       Object.entries(cloudData.celebratedTotals).forEach(([ms, ts]) => {
         if (!localCelebrated[ms] || (ts && Number(ts) < Number(localCelebrated[ms]))) {
           localCelebrated[ms] = ts;
@@ -433,8 +472,8 @@ export function mergeCloudData(cloudData) {
 
     // Merge accessory log (union by ID)
     if (cloudData.accessoryLog && Array.isArray(cloudData.accessoryLog)) {
-      const localAccMap = new Map(store.accessoryLog.map(a => [a.id, a]));
-      cloudData.accessoryLog.forEach(ca => {
+      const localAccMap = new Map(store.accessoryLog.map((a) => [a.id, a]));
+      cloudData.accessoryLog.forEach((ca) => {
         if (!localAccMap.has(ca.id)) store.accessoryLog.push(ca);
       });
       store.save('accessoryLog');
@@ -442,8 +481,8 @@ export function mergeCloudData(cloudData) {
 
     // Merge custom templates (union by ID, latest wins)
     if (cloudData.customTemplates && Array.isArray(cloudData.customTemplates)) {
-      const localTmplMap = new Map(store.customTemplates.map(t => [t.id, t]));
-      cloudData.customTemplates.forEach(ct => {
+      const localTmplMap = new Map(store.customTemplates.map((t) => [t.id, t]));
+      cloudData.customTemplates.forEach((ct) => {
         const local = localTmplMap.get(ct.id);
         if (!local) store.customTemplates.push(ct);
         else if (ct.lastUsed > (local.lastUsed || 0)) Object.assign(local, ct);
@@ -453,7 +492,10 @@ export function mergeCloudData(cloudData) {
 
     // Merge mesocycle (last-write-wins)
     if (cloudData.activeMesocycle) {
-      if (!store.activeMesocycle || (cloudData.activeMesocycle.createdAt > store.activeMesocycle.createdAt)) {
+      if (
+        !store.activeMesocycle ||
+        cloudData.activeMesocycle.createdAt > store.activeMesocycle.createdAt
+      ) {
         store.activeMesocycle = cloudData.activeMesocycle;
         store.save('mesocycle');
       }
@@ -461,8 +503,8 @@ export function mergeCloudData(cloudData) {
 
     // Merge mesocycle history (union by ID)
     if (cloudData.mesocycleHistory && Array.isArray(cloudData.mesocycleHistory)) {
-      const localMesoMap = new Map(store.mesocycleHistory.map(m => [m.id, m]));
-      cloudData.mesocycleHistory.forEach(cm => {
+      const localMesoMap = new Map(store.mesocycleHistory.map((m) => [m.id, m]));
+      cloudData.mesocycleHistory.forEach((cm) => {
         if (!localMesoMap.has(cm.id)) store.mesocycleHistory.push(cm);
       });
       store.save('mesocycleHistory');
@@ -485,7 +527,9 @@ export function mergeCloudData(cloudData) {
   } finally {
     syncState.isMergingFromCloud = false;
     // #6: Clear merge flag after microtask (so the batched save's afterFlush sees it)
-    queueMicrotask(() => { syncState.isMergeOriginated = false; });
+    queueMicrotask(() => {
+      syncState.isMergeOriginated = false;
+    });
   }
 }
 
@@ -553,29 +597,29 @@ async function migrateToV2() {
     for (let i = 0; i < entriesSnapshot.length; i += BATCH_LIMIT) {
       const chunk = entriesSnapshot.slice(i, i + BATCH_LIMIT);
       const batch = writeBatch(db);
-      chunk.forEach(e => batch.set(doc(db, 'users', currentUser.uid, 'entries', e.id), e));
+      chunk.forEach((e) => batch.set(doc(db, 'users', currentUser.uid, 'entries', e.id), e));
       await batch.commit();
     }
     for (let i = 0; i < accLogSnapshot.length; i += BATCH_LIMIT) {
       const chunk = accLogSnapshot.slice(i, i + BATCH_LIMIT);
       const batch = writeBatch(db);
-      chunk.forEach(a => batch.set(doc(db, 'users', currentUser.uid, 'accLog', a.id), a));
+      chunk.forEach((a) => batch.set(doc(db, 'users', currentUser.uid, 'accLog', a.id), a));
       await batch.commit();
     }
 
     // 4. Capture anything added DURING migration (by diff against snapshot)
-    const snapIds = new Set(entriesSnapshot.map(e => e.id));
-    const newEntries = store.entries.filter(e => !snapIds.has(e.id));
+    const snapIds = new Set(entriesSnapshot.map((e) => e.id));
+    const newEntries = store.entries.filter((e) => !snapIds.has(e.id));
     if (newEntries.length > 0) {
       const batch = writeBatch(db);
-      newEntries.forEach(e => batch.set(doc(db, 'users', currentUser.uid, 'entries', e.id), e));
+      newEntries.forEach((e) => batch.set(doc(db, 'users', currentUser.uid, 'entries', e.id), e));
       await batch.commit();
     }
-    const snapAccIds = new Set(accLogSnapshot.map(a => a.id));
-    const newAccLog = store.accessoryLog.filter(a => !snapAccIds.has(a.id));
+    const snapAccIds = new Set(accLogSnapshot.map((a) => a.id));
+    const newAccLog = store.accessoryLog.filter((a) => !snapAccIds.has(a.id));
     if (newAccLog.length > 0) {
       const batch = writeBatch(db);
-      newAccLog.forEach(a => batch.set(doc(db, 'users', currentUser.uid, 'accLog', a.id), a));
+      newAccLog.forEach((a) => batch.set(doc(db, 'users', currentUser.uid, 'accLog', a.id), a));
       await batch.commit();
     }
 
@@ -593,13 +637,20 @@ async function migrateToV2() {
     // 6. VERIFY — spot-check first entry exists in subcollection
     syncState.migrationState = 'verifying';
     if (entriesSnapshot.length > 0) {
-      const checkSnap = await getDoc(doc(db, 'users', currentUser.uid, 'entries', entriesSnapshot[0].id));
-      if (!checkSnap.exists()) throw new Error('Verification failed: first entry missing in subcollection');
+      const checkSnap = await getDoc(
+        doc(db, 'users', currentUser.uid, 'entries', entriesSnapshot[0].id)
+      );
+      if (!checkSnap.exists())
+        throw new Error('Verification failed: first entry missing in subcollection');
     }
 
     // 7. DONE
     syncState.migrationState = 'done';
-    try { localStorage.setItem(V2_MIGRATION_KEY, Date.now().toString()); } catch { /* quota — migration is idempotent, will retry */ }
+    try {
+      localStorage.setItem(V2_MIGRATION_KEY, Date.now().toString());
+    } catch {
+      /* quota — migration is idempotent, will retry */
+    }
     syncState.dirtyEntries.clear();
     syncState.lastAccLogPushGen = store._accLogGen;
     syncState.lastPushHash = null; // Reset so next push computes v2 hash cleanly
@@ -621,7 +672,14 @@ async function migrateToV2() {
  * _accLogGen changes (changes are rare and accLog is small).
  */
 async function pushToCloudV2() {
-  if (!currentUser || !db || syncState.isMergingFromCloud || _schemaBlocked || syncState.isMigrating) return;
+  if (
+    !currentUser ||
+    !db ||
+    syncState.isMergingFromCloud ||
+    _schemaBlocked ||
+    syncState.isMigrating
+  )
+    return;
 
   try {
     syncState.status = 'syncing';
@@ -643,7 +701,7 @@ async function pushToCloudV2() {
     // 2. Dirty entries → subcollection (also handles deletes)
     const dirtyIds = syncState.dirtyEntries;
     if (dirtyIds.size > 0) {
-      const currentById = new Map(store.entries.map(e => [e.id, e]));
+      const currentById = new Map(store.entries.map((e) => [e.id, e]));
       const toWrite = [];
       const toDelete = [];
       for (const id of dirtyIds) {
@@ -654,13 +712,13 @@ async function pushToCloudV2() {
       for (let i = 0; i < toWrite.length; i += BATCH_LIMIT) {
         const chunk = toWrite.slice(i, i + BATCH_LIMIT);
         const batch = writeBatch(db);
-        chunk.forEach(e => batch.set(doc(db, 'users', currentUser.uid, 'entries', e.id), e));
+        chunk.forEach((e) => batch.set(doc(db, 'users', currentUser.uid, 'entries', e.id), e));
         await batch.commit();
       }
       for (let i = 0; i < toDelete.length; i += BATCH_LIMIT) {
         const chunk = toDelete.slice(i, i + BATCH_LIMIT);
         const batch = writeBatch(db);
-        chunk.forEach(id => batch.delete(doc(db, 'users', currentUser.uid, 'entries', id)));
+        chunk.forEach((id) => batch.delete(doc(db, 'users', currentUser.uid, 'entries', id)));
         await batch.commit();
       }
       // Update sentinel so other devices know to re-fetch
@@ -676,7 +734,7 @@ async function pushToCloudV2() {
       for (let i = 0; i < store.accessoryLog.length; i += BATCH_LIMIT) {
         const chunk = store.accessoryLog.slice(i, i + BATCH_LIMIT);
         const batch = writeBatch(db);
-        chunk.forEach(a => batch.set(doc(db, 'users', currentUser.uid, 'accLog', a.id), a));
+        chunk.forEach((a) => batch.set(doc(db, 'users', currentUser.uid, 'accLog', a.id), a));
         await batch.commit();
       }
       syncState.lastAccLogPushGen = store._accLogGen;
@@ -690,7 +748,7 @@ async function pushToCloudV2() {
       const scoreKey = `${s}|${b}|${d}`;
       if (scoreKey !== syncState.lastLeaderboardScores) {
         syncState.lastLeaderboardScores = scoreKey;
-        updateLeaderboard(s, b, d).catch(err => console.warn('Leaderboard update failed:', err));
+        updateLeaderboard(s, b, d).catch((err) => console.warn('Leaderboard update failed:', err));
       }
     }
 
@@ -712,14 +770,14 @@ async function pullEntriesFromSubcollection() {
     const entriesRef = collection(db, 'users', currentUser.uid, 'entries');
     const snap = await getDocs(entriesRef);
     const cloudEntries = [];
-    snap.forEach(d => {
+    snap.forEach((d) => {
       const data = d.data();
       if (data && !data._test) cloudEntries.push(data);
     });
 
-    const localMap = new Map(store.entries.map(e => [e.id, e]));
+    const localMap = new Map(store.entries.map((e) => [e.id, e]));
     const localDeleted = store.deletedEntryIds;
-    cloudEntries.forEach(ce => {
+    cloudEntries.forEach((ce) => {
       if (localDeleted.has(ce.id)) return;
       const local = localMap.get(ce.id);
       if (!local) {
@@ -745,10 +803,13 @@ async function pullAccLogFromSubcollection() {
     const ref = collection(db, 'users', currentUser.uid, 'accLog');
     const snap = await getDocs(ref);
     const cloud = [];
-    snap.forEach(d => { const data = d.data(); if (data) cloud.push(data); });
+    snap.forEach((d) => {
+      const data = d.data();
+      if (data) cloud.push(data);
+    });
 
-    const localMap = new Map(store.accessoryLog.map(a => [a.id, a]));
-    cloud.forEach(ca => {
+    const localMap = new Map(store.accessoryLog.map((a) => [a.id, a]));
+    cloud.forEach((ca) => {
       if (!localMap.has(ca.id)) store.accessoryLog.push(ca);
     });
     store.saveAccessoryLog();
@@ -772,9 +833,14 @@ function mergeCloudDataV2(cloudData) {
     if (cloudData.profile) {
       if (cloudData.profile.gender) store.profile.gender = cloudData.profile.gender;
       if (cloudData.profile.bodyweight) store.profile.bodyweight = cloudData.profile.bodyweight;
-      if (cloudData.profile.bodyweightHistory && Array.isArray(cloudData.profile.bodyweightHistory)) {
-        const localBWMap = new Map((store.profile.bodyweightHistory || []).map(b => [b.timestamp, b]));
-        cloudData.profile.bodyweightHistory.forEach(cb => {
+      if (
+        cloudData.profile.bodyweightHistory &&
+        Array.isArray(cloudData.profile.bodyweightHistory)
+      ) {
+        const localBWMap = new Map(
+          (store.profile.bodyweightHistory || []).map((b) => [b.timestamp, b])
+        );
+        cloudData.profile.bodyweightHistory.forEach((cb) => {
           if (!localBWMap.has(cb.timestamp)) store.profile.bodyweightHistory.push(cb);
         });
         store.profile.bodyweightHistory.sort((a, b) => a.timestamp - b.timestamp);
@@ -782,12 +848,12 @@ function mergeCloudDataV2(cloudData) {
     }
     if (cloudData.goals) store.goals = { ...store.goals, ...cloudData.goals };
     if (cloudData.cycles && Array.isArray(cloudData.cycles)) {
-      const localCycleMap = new Map(store.cycles.map(c => [c.id, c]));
-      cloudData.cycles.forEach(cc => {
+      const localCycleMap = new Map(store.cycles.map((c) => [c.id, c]));
+      cloudData.cycles.forEach((cc) => {
         if (!localCycleMap.has(cc.id)) store.cycles.push(cc);
         else Object.assign(localCycleMap.get(cc.id), cc);
       });
-      store.activeCycleId = (store.cycles.find(c => c.active) || {}).id || null;
+      store.activeCycleId = (store.cycles.find((c) => c.active) || {}).id || null;
     }
     if (cloudData.programs) {
       const localCompleted = { ...store.programConfig.completedSets };
@@ -796,19 +862,43 @@ function mergeCloudDataV2(cloudData) {
       const localTMs = { ...store.programConfig.trainingMaxes };
       const localLiftWeeks = { ...store.programConfig.liftWeeks };
       store.programConfig = { ...store.programConfig, ...cloudData.programs };
-      store.programConfig.completedSets = { ...(store.programConfig.completedSets || {}), ...localCompleted };
-      store.programConfig.amrapResults = { ...(store.programConfig.amrapResults || {}), ...localAmrap };
-      store.programConfig.completedWeeks = { ...(store.programConfig.completedWeeks || {}), ...localCompletedWeeks };
-      store.programConfig.trainingMaxes = { ...(store.programConfig.trainingMaxes || {}), ...localTMs };
-      store.programConfig.liftWeeks = { ...(store.programConfig.liftWeeks || {}), ...localLiftWeeks };
+      store.programConfig.completedSets = {
+        ...(store.programConfig.completedSets || {}),
+        ...localCompleted,
+      };
+      store.programConfig.amrapResults = {
+        ...(store.programConfig.amrapResults || {}),
+        ...localAmrap,
+      };
+      store.programConfig.completedWeeks = {
+        ...(store.programConfig.completedWeeks || {}),
+        ...localCompletedWeeks,
+      };
+      store.programConfig.trainingMaxes = {
+        ...(store.programConfig.trainingMaxes || {}),
+        ...localTMs,
+      };
+      store.programConfig.liftWeeks = {
+        ...(store.programConfig.liftWeeks || {}),
+        ...localLiftWeeks,
+      };
       store._patchProgramConfig();
       store.save('programs');
     }
-    if (cloudData.unit) { store.unit = cloudData.unit; localStorage.setItem(UNIT_KEY, store.unit); }
-    if (cloudData.timer) { store.timerDuration = cloudData.timer; localStorage.setItem(TIMER_KEY, store.timerDuration.toString()); }
+    if (cloudData.unit) {
+      store.unit = cloudData.unit;
+      localStorage.setItem(UNIT_KEY, store.unit);
+    }
+    if (cloudData.timer) {
+      store.timerDuration = cloudData.timer;
+      localStorage.setItem(TIMER_KEY, store.timerDuration.toString());
+    }
     if (cloudData.badges) {
       Object.entries(cloudData.badges).forEach(([id, data]) => {
-        if (!store.unlockedBadges[id] || (data.timestamp && data.timestamp < (store.unlockedBadges[id].timestamp || Infinity))) {
+        if (
+          !store.unlockedBadges[id] ||
+          (data.timestamp && data.timestamp < (store.unlockedBadges[id].timestamp || Infinity))
+        ) {
           store.unlockedBadges[id] = data;
         }
       });
@@ -818,12 +908,20 @@ function mergeCloudDataV2(cloudData) {
       store.dashboardWidgets = { ...store.dashboardWidgets, ...cloudData.dashboardWidgets };
       localStorage.setItem(DASH_WIDGETS_KEY, JSON.stringify(store.dashboardWidgets));
     }
-    if (cloudData.accentColor) { store.accentColor = cloudData.accentColor; localStorage.setItem(ACCENT_KEY, store.accentColor); }
+    if (cloudData.accentColor) {
+      store.accentColor = cloudData.accentColor;
+      localStorage.setItem(ACCENT_KEY, store.accentColor);
+    }
     if (cloudData.celebratedTotals) {
       let localCelebrated = {};
-      try { localCelebrated = JSON.parse(localStorage.getItem(TOTAL_CELEBRATED_KEY)) || {}; } catch {}
+      try {
+        localCelebrated = JSON.parse(localStorage.getItem(TOTAL_CELEBRATED_KEY)) || {};
+      } catch (_e) {
+        // noop — invalid JSON
+      }
       Object.entries(cloudData.celebratedTotals).forEach(([ms, ts]) => {
-        if (!localCelebrated[ms] || (ts && Number(ts) < Number(localCelebrated[ms]))) localCelebrated[ms] = ts;
+        if (!localCelebrated[ms] || (ts && Number(ts) < Number(localCelebrated[ms])))
+          localCelebrated[ms] = ts;
       });
       localStorage.setItem(TOTAL_CELEBRATED_KEY, JSON.stringify(localCelebrated));
     }
@@ -832,8 +930,8 @@ function mergeCloudDataV2(cloudData) {
       store.save('workoutConfig');
     }
     if (cloudData.customTemplates && Array.isArray(cloudData.customTemplates)) {
-      const localTmplMap = new Map(store.customTemplates.map(t => [t.id, t]));
-      cloudData.customTemplates.forEach(ct => {
+      const localTmplMap = new Map(store.customTemplates.map((t) => [t.id, t]));
+      cloudData.customTemplates.forEach((ct) => {
         const local = localTmplMap.get(ct.id);
         if (!local) store.customTemplates.push(ct);
         else if (ct.lastUsed > (local.lastUsed || 0)) Object.assign(local, ct);
@@ -841,14 +939,17 @@ function mergeCloudDataV2(cloudData) {
       store.save('customTemplates');
     }
     if (cloudData.activeMesocycle) {
-      if (!store.activeMesocycle || (cloudData.activeMesocycle.createdAt > store.activeMesocycle.createdAt)) {
+      if (
+        !store.activeMesocycle ||
+        cloudData.activeMesocycle.createdAt > store.activeMesocycle.createdAt
+      ) {
         store.activeMesocycle = cloudData.activeMesocycle;
         store.save('mesocycle');
       }
     }
     if (cloudData.mesocycleHistory && Array.isArray(cloudData.mesocycleHistory)) {
-      const localMesoMap = new Map(store.mesocycleHistory.map(m => [m.id, m]));
-      cloudData.mesocycleHistory.forEach(cm => {
+      const localMesoMap = new Map(store.mesocycleHistory.map((m) => [m.id, m]));
+      cloudData.mesocycleHistory.forEach((cm) => {
         if (!localMesoMap.has(cm.id)) store.mesocycleHistory.push(cm);
       });
       store.save('mesocycleHistory');
@@ -860,9 +961,9 @@ function mergeCloudDataV2(cloudData) {
 
     // Handle cross-device deletes (deletedEntryIds still in parent doc)
     if (cloudData.deletedEntryIds && Array.isArray(cloudData.deletedEntryIds)) {
-      const cloudDeleted = new Set(cloudData.deletedEntryIds.map(r => r.id || r));
-      store.entries = store.entries.filter(e => !cloudDeleted.has(e.id));
-      cloudData.deletedEntryIds.forEach(r => {
+      const cloudDeleted = new Set(cloudData.deletedEntryIds.map((r) => r.id || r));
+      store.entries = store.entries.filter((e) => !cloudDeleted.has(e.id));
+      cloudData.deletedEntryIds.forEach((r) => {
         const id = r.id || r;
         if (!store.deletedEntryIds.has(id)) {
           const rec = typeof r === 'object' ? r : { id: r, deletedAt: Date.now() };
@@ -878,7 +979,9 @@ function mergeCloudDataV2(cloudData) {
     onSyncComplete?.();
   } finally {
     syncState.isMergingFromCloud = false;
-    queueMicrotask(() => { syncState.isMergeOriginated = false; });
+    queueMicrotask(() => {
+      syncState.isMergeOriginated = false;
+    });
   }
 }
 
@@ -895,30 +998,38 @@ function startRealtimeSyncV2() {
   }
   let lastKnownEntryModified = null;
   const userDocRef = doc(db, 'users', currentUser.uid);
-  syncState.unsubSnapshot = onSnapshot(userDocRef, async (snapshot) => {
-    if (!snapshot.exists()) return;
-    const cloudData = snapshot.data();
-    if (checkAndBlockIfNewerSchema(cloudData)) { stopRealtimeSync(); return; }
-    if (syncState.isMergingFromCloud || syncState.isMigrating) return;
-    if (syncState.syncDebounceTimer) return;
+  syncState.unsubSnapshot = onSnapshot(
+    userDocRef,
+    async (snapshot) => {
+      if (!snapshot.exists()) return;
+      const cloudData = snapshot.data();
+      if (checkAndBlockIfNewerSchema(cloudData)) {
+        stopRealtimeSync();
+        return;
+      }
+      if (syncState.isMergingFromCloud || syncState.isMigrating) return;
+      if (syncState.syncDebounceTimer) return;
 
-    mergeCloudDataV2(cloudData);
+      mergeCloudDataV2(cloudData);
 
-    // If entries changed on another device, fetch them from subcollection
-    const cloudEntryMod = cloudData.lastEntryModified?.toMillis?.() || cloudData.lastEntryModified || 0;
-    if (lastKnownEntryModified !== null && cloudEntryMod > lastKnownEntryModified) {
-      await pullEntriesFromSubcollection();
-      await pullAccLogFromSubcollection();
+      // If entries changed on another device, fetch them from subcollection
+      const cloudEntryMod =
+        cloudData.lastEntryModified?.toMillis?.() || cloudData.lastEntryModified || 0;
+      if (lastKnownEntryModified !== null && cloudEntryMod > lastKnownEntryModified) {
+        await pullEntriesFromSubcollection();
+        await pullAccLogFromSubcollection();
+      }
+      lastKnownEntryModified = cloudEntryMod;
+
+      syncState.status = 'synced';
+      notifyStatusChange();
+    },
+    (err) => {
+      console.error('Snapshot listener error (v2):', err);
+      syncState.status = 'error';
+      notifyStatusChange();
     }
-    lastKnownEntryModified = cloudEntryMod;
-
-    syncState.status = 'synced';
-    notifyStatusChange();
-  }, (err) => {
-    console.error('Snapshot listener error (v2):', err);
-    syncState.status = 'error';
-    notifyStatusChange();
-  });
+  );
 }
 
 /**
@@ -930,11 +1041,11 @@ async function deleteSubcollection(name) {
   const colRef = collection(db, 'users', currentUser.uid, name);
   const snap = await getDocs(colRef);
   const refs = [];
-  snap.forEach(d => refs.push(d.ref));
+  snap.forEach((d) => refs.push(d.ref));
   for (let i = 0; i < refs.length; i += BATCH_LIMIT) {
     const chunk = refs.slice(i, i + BATCH_LIMIT);
     const batch = writeBatch(db);
-    chunk.forEach(r => batch.delete(r));
+    chunk.forEach((r) => batch.delete(r));
     await batch.commit();
   }
 }
@@ -953,23 +1064,30 @@ export function startRealtimeSync() {
     syncState.unsubSnapshot = null;
   }
   const userDocRef = doc(db, 'users', currentUser.uid);
-  syncState.unsubSnapshot = onSnapshot(userDocRef, (snapshot) => {
-    if (!snapshot.exists()) return;
-    const cloudData = snapshot.data();
-    // Block if cloud has a newer schema than we understand
-    if (checkAndBlockIfNewerSchema(cloudData)) { stopRealtimeSync(); return; }
-    // Skip if this was triggered by our own write
-    if (syncState.isMergingFromCloud) return;
-    // Skip if we have pending local changes not yet pushed
-    if (syncState.syncDebounceTimer) return;
-    mergeCloudData(cloudData);
-    syncState.status = 'synced';
-    notifyStatusChange();
-  }, (err) => {
-    console.error('Snapshot listener error:', err);
-    syncState.status = 'error';
-    notifyStatusChange();
-  });
+  syncState.unsubSnapshot = onSnapshot(
+    userDocRef,
+    (snapshot) => {
+      if (!snapshot.exists()) return;
+      const cloudData = snapshot.data();
+      // Block if cloud has a newer schema than we understand
+      if (checkAndBlockIfNewerSchema(cloudData)) {
+        stopRealtimeSync();
+        return;
+      }
+      // Skip if this was triggered by our own write
+      if (syncState.isMergingFromCloud) return;
+      // Skip if we have pending local changes not yet pushed
+      if (syncState.syncDebounceTimer) return;
+      mergeCloudData(cloudData);
+      syncState.status = 'synced';
+      notifyStatusChange();
+    },
+    (err) => {
+      console.error('Snapshot listener error:', err);
+      syncState.status = 'error';
+      notifyStatusChange();
+    }
+  );
 }
 
 /**
@@ -991,19 +1109,19 @@ export function stopRealtimeSync() {
 async function updateLeaderboard(s, b, d) {
   if (!currentUser || !db) return;
 
-  const total = (s && b && d) ? s + b + d : 0;
+  const total = s && b && d ? s + b + d : 0;
 
   // Don't publish if user has no lifts
   if (total === 0) return;
 
   // Build best 3 sets per lift (highest e1RM)
   const bestByLift = {};
-  ['squat', 'bench', 'deadlift'].forEach(lift => {
+  ['squat', 'bench', 'deadlift'].forEach((lift) => {
     bestByLift[lift] = [...store.entries]
-      .filter(e => e.lift === lift)
+      .filter((e) => e.lift === lift)
       .sort((a, b) => b.e1rm - a.e1rm)
       .slice(0, 3)
-      .map(e => ({ weight: e.weight, reps: e.reps, e1rm: e.e1rm, date: e.date }));
+      .map((e) => ({ weight: e.weight, reps: e.reps, e1rm: e.e1rm, date: e.date }));
   });
 
   // Pre-compute strength classifications
@@ -1019,13 +1137,13 @@ async function updateLeaderboard(s, b, d) {
   const gender = store.profile?.gender || null;
   const bwKg = bodyweight ? Math.round((bodyweight / LBS_PER_KG) * 10) / 10 : null;
   const totalKg = total / LBS_PER_KG;
-  const weightClass = (bwKg && gender && IPF_CLASSES[gender])
-    ? _resolveWeightClass(bwKg, IPF_CLASSES[gender])
-    : null;
+  const weightClass =
+    bwKg && gender && IPF_CLASSES[gender] ? _resolveWeightClass(bwKg, IPF_CLASSES[gender]) : null;
 
   // Wilks / DOTS — null if missing bodyweight/gender
-  const wilks = (bwKg && gender) ? Math.round((calcWilks(totalKg, bwKg, gender) || 0) * 10) / 10 : null;
-  const dots = (bwKg && gender) ? Math.round((calcDOTS(totalKg, bwKg, gender) || 0) * 10) / 10 : null;
+  const wilks =
+    bwKg && gender ? Math.round((calcWilks(totalKg, bwKg, gender) || 0) * 10) / 10 : null;
+  const dots = bwKg && gender ? Math.round((calcDOTS(totalKg, bwKg, gender) || 0) * 10) / 10 : null;
 
   // Streaks
   const streak = calcStreak();
@@ -1039,7 +1157,7 @@ async function updateLeaderboard(s, b, d) {
   // 7-day tonnage (for future weekly volume contests)
   const sevenDaysAgo = Date.now() - 7 * MS_PER_DAY;
   const volume7d = store.entries
-    .filter(e => e.timestamp >= sevenDaysAgo)
+    .filter((e) => e.timestamp >= sevenDaysAgo)
     .reduce((sum, e) => sum + e.weight * e.reps, 0);
 
   // Hall of Fame: first time the user crossed each total milestone.
@@ -1047,9 +1165,8 @@ async function updateLeaderboard(s, b, d) {
   const milestones = _computeTotalMilestones();
 
   // Last training timestamp (for "active in last 7d" filter)
-  const lastTrainedAt = store.entries.length > 0
-    ? Math.max(...store.entries.map(e => e.timestamp))
-    : null;
+  const lastTrainedAt =
+    store.entries.length > 0 ? Math.max(...store.entries.map((e) => e.timestamp)) : null;
 
   const leaderboardDoc = {
     displayName: currentUser.displayName?.split(' ')[0] || 'Lifter',
@@ -1128,14 +1245,26 @@ export async function clearCloudData() {
   try {
     // Firestore does not cascade subcollection deletes — clear them first
     if (_isV2()) {
-      try { await deleteSubcollection('entries'); } catch (e) { console.warn('[clear] entries subcollection:', e); }
-      try { await deleteSubcollection('accLog'); } catch (e) { console.warn('[clear] accLog subcollection:', e); }
+      try {
+        await deleteSubcollection('entries');
+      } catch (e) {
+        console.warn('[clear] entries subcollection:', e);
+      }
+      try {
+        await deleteSubcollection('accLog');
+      } catch (e) {
+        console.warn('[clear] accLog subcollection:', e);
+      }
     }
     await deleteDoc(doc(db, 'users', currentUser.uid));
     await removeFromLeaderboard();
     syncState.lastPushHash = null;
     syncState.lastLeaderboardScores = null;
-    try { localStorage.removeItem(V2_MIGRATION_KEY); } catch {}
+    try {
+      localStorage.removeItem(V2_MIGRATION_KEY);
+    } catch (_e) {
+      // noop
+    }
   } catch (err) {
     console.warn('Failed to clear cloud data:', err);
   }
@@ -1172,14 +1301,17 @@ export async function fetchLeaderboard() {
   if (!db) return [];
 
   // #3: Return cached data if still fresh
-  if (Date.now() - syncState.lastLeaderboardFetch < LEADERBOARD_CACHE_MS && syncState.cachedLeaderboard.length > 0) {
+  if (
+    Date.now() - syncState.lastLeaderboardFetch < LEADERBOARD_CACHE_MS &&
+    syncState.cachedLeaderboard.length > 0
+  ) {
     return syncState.cachedLeaderboard;
   }
 
   try {
     const q = query(collection(db, 'leaderboard'), orderBy('total', 'desc'), limit(100));
     const snapshot = await getDocs(q);
-    syncState.cachedLeaderboard = snapshot.docs.map(d => ({ uid: d.id, ...d.data() }));
+    syncState.cachedLeaderboard = snapshot.docs.map((d) => ({ uid: d.id, ...d.data() }));
     syncState.lastLeaderboardFetch = Date.now();
     return syncState.cachedLeaderboard;
   } catch (err) {
@@ -1224,7 +1356,11 @@ export async function handleFirstSignIn() {
 
       // Mark local as v2 if not already
       if (!_isV2()) {
-        try { localStorage.setItem(V2_MIGRATION_KEY, Date.now().toString()); } catch {}
+        try {
+          localStorage.setItem(V2_MIGRATION_KEY, Date.now().toString());
+        } catch (_e) {
+          // noop
+        }
         syncState.dirtyEntries.clear();
         syncState.lastAccLogPushGen = store._accLogGen;
         syncState.lastPushHash = null;
@@ -1262,20 +1398,24 @@ export function runDataIntegrityChecks() {
   const issues = [];
 
   // Entries: missing IDs
-  const noId = store.entries.filter(e => !e.id);
+  const noId = store.entries.filter((e) => !e.id);
   if (noId.length > 0) {
-    noId.forEach(e => { e.id = generateId(); });
+    noId.forEach((e) => {
+      e.id = generateId();
+    });
     store.saveEntries();
     issues.push({ type: 'entries-missing-id', count: noId.length, fixed: true });
   }
 
   // Entries: duplicate IDs
   const idCounts = {};
-  store.entries.forEach(e => { idCounts[e.id] = (idCounts[e.id] || 0) + 1; });
+  store.entries.forEach((e) => {
+    idCounts[e.id] = (idCounts[e.id] || 0) + 1;
+  });
   const dupes = Object.entries(idCounts).filter(([, c]) => c > 1);
   if (dupes.length > 0) {
     const seen = new Set();
-    store.entries.forEach(e => {
+    store.entries.forEach((e) => {
       if (seen.has(e.id)) e.id = generateId();
       seen.add(e.id);
     });
@@ -1284,20 +1424,24 @@ export function runDataIntegrityChecks() {
   }
 
   // AccessoryLog: missing IDs
-  const noAccId = store.accessoryLog.filter(a => !a.id);
+  const noAccId = store.accessoryLog.filter((a) => !a.id);
   if (noAccId.length > 0) {
-    noAccId.forEach(a => { a.id = generateId(); });
+    noAccId.forEach((a) => {
+      a.id = generateId();
+    });
     store.saveAccessoryLog();
     issues.push({ type: 'acclog-missing-id', count: noAccId.length, fixed: true });
   }
 
   // AccessoryLog: duplicate IDs
   const accIdCounts = {};
-  store.accessoryLog.forEach(a => { accIdCounts[a.id] = (accIdCounts[a.id] || 0) + 1; });
+  store.accessoryLog.forEach((a) => {
+    accIdCounts[a.id] = (accIdCounts[a.id] || 0) + 1;
+  });
   const accDupes = Object.entries(accIdCounts).filter(([, c]) => c > 1);
   if (accDupes.length > 0) {
     const seen = new Set();
-    store.accessoryLog.forEach(a => {
+    store.accessoryLog.forEach((a) => {
       if (seen.has(a.id)) a.id = generateId();
       seen.add(a.id);
     });
@@ -1311,7 +1455,7 @@ export function runDataIntegrityChecks() {
 // ===== Crews (invite-only groups) =====
 
 // Cache crew docs to avoid refetching on every Ranks tab open.
-let _crewCache = { ts: 0, byId: {} };
+const _crewCache = { ts: 0, byId: {} };
 const CREW_CACHE_MS = 5 * 60 * 1000;
 
 const CREW_LIMIT_PER_USER = 5;
@@ -1332,7 +1476,7 @@ function _genInviteCode() {
  */
 export async function createCrew(name) {
   if (!currentUser || !db) throw new Error('Not signed in');
-  const userCrews = (store.userCrews || []);
+  const userCrews = store.userCrews || [];
   if (userCrews.length >= CREW_LIMIT_PER_USER) {
     throw new Error(`Max ${CREW_LIMIT_PER_USER} crews per user`);
   }
@@ -1350,7 +1494,10 @@ export async function createCrew(name) {
   await setDoc(doc(db, 'crews', crewId), crewDoc);
 
   // Update local user list
-  store.userCrews = [...userCrews, { id: crewId, ...crewDoc, createdAt: Date.now(), updatedAt: Date.now() }];
+  store.userCrews = [
+    ...userCrews,
+    { id: crewId, ...crewDoc, createdAt: Date.now(), updatedAt: Date.now() },
+  ];
   _crewCache.byId[crewId] = store.userCrews[store.userCrews.length - 1];
   return { id: crewId, name: crewDoc.name, inviteCode };
 }
@@ -1363,10 +1510,13 @@ export async function createCrew(name) {
  */
 export async function joinCrew(code) {
   if (!currentUser || !db) throw new Error('Not signed in');
-  const cleanCode = String(code).toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
+  const cleanCode = String(code)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .trim();
   if (cleanCode.length !== 8) throw new Error('Invalid invite code');
 
-  const userCrews = (store.userCrews || []);
+  const userCrews = store.userCrews || [];
   if (userCrews.length >= CREW_LIMIT_PER_USER) {
     throw new Error(`Max ${CREW_LIMIT_PER_USER} crews per user`);
   }
@@ -1375,7 +1525,7 @@ export async function joinCrew(code) {
   const q = query(collection(db, 'crews'));
   const snap = await getDocs(q);
   let match = null;
-  snap.forEach(d => {
+  snap.forEach((d) => {
     const data = d.data();
     if (data.inviteCode === cleanCode) match = { id: d.id, ...data };
   });
@@ -1411,7 +1561,7 @@ export async function leaveCrew(crewId) {
   const snap = await getDoc(ref);
   if (!snap.exists()) throw new Error('Crew not found');
   const data = snap.data();
-  const remaining = data.memberUids.filter(u => u !== currentUser.uid);
+  const remaining = data.memberUids.filter((u) => u !== currentUser.uid);
   if (remaining.length === 0) {
     await deleteDoc(ref);
   } else {
@@ -1419,7 +1569,7 @@ export async function leaveCrew(crewId) {
     const ownerUid = data.ownerUid === currentUser.uid ? remaining[0] : data.ownerUid;
     await setDoc(ref, { ...data, memberUids: remaining, ownerUid, updatedAt: serverTimestamp() });
   }
-  store.userCrews = (store.userCrews || []).filter(c => c.id !== crewId);
+  store.userCrews = (store.userCrews || []).filter((c) => c.id !== crewId);
   delete _crewCache.byId[crewId];
 }
 
@@ -1436,14 +1586,14 @@ export async function fetchUserCrews() {
   // Could optimize later with a per-user crewIds index.
   const snap = await getDocs(query(collection(db, 'crews')));
   const mine = [];
-  snap.forEach(d => {
+  snap.forEach((d) => {
     const data = d.data();
     if (data.memberUids && data.memberUids.includes(currentUser.uid)) {
       mine.push({ id: d.id, ...data });
     }
   });
   _crewCache.ts = Date.now();
-  _crewCache.byId = Object.fromEntries(mine.map(c => [c.id, c]));
+  _crewCache.byId = Object.fromEntries(mine.map((c) => [c.id, c]));
   store.userCrews = mine;
   return mine;
 }

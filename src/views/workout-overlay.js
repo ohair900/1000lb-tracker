@@ -7,15 +7,23 @@
 
 import store from '../state/store.js';
 import { $ } from '../utils/helpers.js';
-import { LIFTS, LIFT_NAMES } from '../constants/lift-config.js';
+import { LIFT_NAMES } from '../constants/lift-config.js';
 import { WEIGHT_INCREMENT_KG, WEIGHT_INCREMENT_LBS } from '../constants/thresholds.js';
 import { LBS_PER_KG } from '../constants/formulas.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
-import { EXERCISE_CATALOG, MOVEMENT_PATTERNS, PROGRESSION_MODELS } from '../data/exercise-catalog.js';
-import { resolveExercise, resolveCanonicalId, getExerciseHistory } from '../data/exercise-compat.js';
+import {
+  EXERCISE_CATALOG,
+  MOVEMENT_PATTERNS,
+  PROGRESSION_MODELS,
+} from '../data/exercise-catalog.js';
+import {
+  resolveExercise,
+  resolveCanonicalId,
+  getExerciseHistory,
+} from '../data/exercise-compat.js';
 import { PROGRAM_TEMPLATES } from '../data/programs.js';
 import { SUPPLEMENTAL_TIERS } from '../constants/program-tiers.js';
-import { formatWeight, displayWeight } from '../formulas/units.js';
+import { formatWeight } from '../formulas/units.js';
 import { formatPlates, roundToPlate } from '../formulas/plates.js';
 import {
   getProgramWorkout,
@@ -28,10 +36,7 @@ import {
   selectSmartAccessories,
   computeSetWeights,
   getAccessoryWeight,
-  checkAccessoryProgression,
   scoreAccessories,
-  getNextTier,
-  getWeightForTier,
 } from '../systems/workout-builder.js';
 import { computeNextTarget } from '../systems/accessory-progression.js';
 import { REP_TIERS } from '../constants/rotation.js';
@@ -43,7 +48,7 @@ import {
   applySupplementalAdjustment,
   applyCoachAddition,
 } from '../systems/session-optimizer.js';
-import { renderCoachingCard, renderSetEvaluationChip, renderSessionGrade } from '../views/session-coach-ui.js';
+import { renderCoachingCard, renderSetEvaluationChip } from '../views/session-coach-ui.js';
 import { showToast } from '../ui/toast.js';
 import { burstMilestoneConfetti } from '../ui/confetti.js';
 import { confirmSheet } from '../ui/confirm-sheet.js';
@@ -71,7 +76,8 @@ function getProgressionBadgeText(acc) {
   const model = PROGRESSION_MODELS[pType];
   if (!model) return 'WEIGHT UP';
 
-  if (pType === 'close-variation') return `${Math.round((catalogEx.pctOfTM[store.workoutSession?.mainLift] || 0.65) * 100)}% TM`;
+  if (pType === 'close-variation')
+    return `${Math.round((catalogEx.pctOfTM[store.workoutSession?.mainLift] || 0.65) * 100)}% TM`;
   if (pType === 'isolation') {
     const inc = store.unit === 'kg' ? model.increment.kg : model.increment.lbs;
     return `+${inc}${store.unit}`;
@@ -99,12 +105,14 @@ function getProgressionBadgeText(acc) {
 // Dependency injection
 // ---------------------------------------------------------------------------
 
-let _deps = {};
+const _deps = {};
 
 /**
  * Inject dependencies to avoid circular imports.
  */
-export function setWorkoutOverlayDeps(deps) { Object.assign(_deps, deps); }
+export function setWorkoutOverlayDeps(deps) {
+  Object.assign(_deps, deps);
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -117,7 +125,7 @@ export function setWorkoutOverlayDeps(deps) { Object.assign(_deps, deps); }
 function _renderMusclePills(ex) {
   const muscles = ex.primaryMuscles || {};
   return Object.entries(muscles)
-    .filter(([, w]) => w >= 0.20)
+    .filter(([, w]) => w >= 0.2)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([mg]) => `<span class="muscle-pill">${mg}</span>`)
@@ -126,7 +134,7 @@ function _renderMusclePills(ex) {
 
 function _renderExercisePicker(tab, query) {
   const mainLift = store.workoutSession.mainLift;
-  const usedIds = new Set(store.workoutSession.accessories.map(a => a.exerciseId));
+  const usedIds = new Set(store.workoutSession.accessories.map((a) => a.exerciseId));
   const equip = store.equipmentProfile || {};
   const list = document.getElementById('workout-ex-list');
   if (!list) return;
@@ -135,18 +143,20 @@ function _renderExercisePicker(tab, query) {
 
   if (tab === 'suggested') {
     // Top 12 scored exercises, grouped by movement pattern
-    const scored = scoreAccessories(mainLift)
-      .filter(ex => !usedIds.has(ex.id) && ex.equipAvailable !== false);
+    const scored = scoreAccessories(mainLift).filter(
+      (ex) => !usedIds.has(ex.id) && ex.equipAvailable !== false
+    );
     const filtered = query
-      ? scored.filter(ex => ex.name.toLowerCase().includes(query.toLowerCase()))
+      ? scored.filter((ex) => ex.name.toLowerCase().includes(query.toLowerCase()))
       : scored;
     const picks = filtered.slice(0, 12);
 
     if (picks.length === 0) {
-      html = '<div style="padding:16px;text-align:center;color:var(--text-dim);font-size:var(--text-sm)">No exercises found</div>';
+      html =
+        '<div style="padding:16px;text-align:center;color:var(--text-dim);font-size:var(--text-sm)">No exercises found</div>';
     } else {
       const groups = {};
-      picks.forEach(ex => {
+      picks.forEach((ex) => {
         const p = ex.movementPattern || 'other';
         if (!groups[p]) groups[p] = [];
         groups[p].push(ex);
@@ -173,7 +183,8 @@ function _renderExercisePicker(tab, query) {
     }
 
     if (Object.keys(groups).length === 0) {
-      html = '<div style="padding:16px;text-align:center;color:var(--text-dim);font-size:var(--text-sm)">No exercises found</div>';
+      html =
+        '<div style="padding:16px;text-align:center;color:var(--text-dim);font-size:var(--text-sm)">No exercises found</div>';
     } else {
       for (const [pattern, exercises] of Object.entries(groups).sort()) {
         const info = MOVEMENT_PATTERNS[pattern] || { label: pattern, pushPull: 'neutral' };
@@ -196,7 +207,9 @@ function _renderExercisePicker(tab, query) {
 // ---------------------------------------------------------------------------
 
 function getLastMainPerformance(lift) {
-  const recent = store.entries.filter(e => e.lift === lift).sort((a, b) => b.timestamp - a.timestamp)[0];
+  const recent = store.entries
+    .filter((e) => e.lift === lift)
+    .sort((a, b) => b.timestamp - a.timestamp)[0];
   if (!recent) return null;
   return { weight: recent.weight, reps: recent.reps, e1rm: recent.e1rm, date: recent.date };
 }
@@ -206,7 +219,12 @@ function getLastAccPerformance(exerciseId) {
   const history = getExerciseHistory(canonId, store.accessoryLog);
   const recent = history[0];
   if (!recent) return null;
-  return { weight: recent.weight, setWeights: recent.setWeights, setsCompleted: recent.setsCompleted, date: recent.date };
+  return {
+    weight: recent.weight,
+    setWeights: recent.setWeights,
+    setsCompleted: recent.setsCompleted,
+    date: recent.date,
+  };
 }
 
 function createWorkoutSession(mainLift) {
@@ -216,10 +234,12 @@ function createWorkoutSession(mainLift) {
   // Programs that prescribe supplemental volume (BBB, T2, etc.) leave less
   // room for accessories — cut the default accessory count.
   const hasSupplemental = workout
-    ? workout.sets.some(s => SUPPLEMENTAL_TIERS.includes(s.tier))
+    ? workout.sets.some((s) => SUPPLEMENTAL_TIERS.includes(s.tier))
     : false;
   const accCount = hasSupplemental ? 3 : 5;
-  const accessories = hasSupplemental ? selectSmartAccessories(mainLift, accCount) : selectAccessories(mainLift);
+  const accessories = hasSupplemental
+    ? selectSmartAccessories(mainLift, accCount)
+    : selectAccessories(mainLift);
 
   const session = {
     id: now.getTime().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -231,7 +251,7 @@ function createWorkoutSession(mainLift) {
     // `bbbSets` is the historical field name but holds ALL supplemental tiers
     // (BBB, T2, etc.) — preserved for back-compat with in-flight sessions.
     bbbSets: [],
-    accessories: accessories.map(ex => {
+    accessories: accessories.map((ex) => {
       const px = computeNextTarget(ex.id, mainLift);
       const repsLow = px.targetReps[0];
       const repsHigh = px.targetReps[px.targetReps.length - 1] ?? repsLow;
@@ -249,20 +269,28 @@ function createWorkoutSession(mainLift) {
         _progressionAction: px.action,
       };
     }),
-    completed: false
+    completed: false,
   };
   // Clone program sets if active, peeling all supplemental tiers out of mainSets.
   if (workout) {
-    const mainOnly = workout.sets.filter(s => !SUPPLEMENTAL_TIERS.includes(s.tier));
-    const suppOnly = workout.sets.filter(s => SUPPLEMENTAL_TIERS.includes(s.tier));
-    session.mainSets = mainOnly.map(s => ({
-      num: s.num, weight: s.weight, reps: s.reps, pct: s.pct,
-      tier: s.tier, day: s.day, completed: s.completed
+    const mainOnly = workout.sets.filter((s) => !SUPPLEMENTAL_TIERS.includes(s.tier));
+    const suppOnly = workout.sets.filter((s) => SUPPLEMENTAL_TIERS.includes(s.tier));
+    session.mainSets = mainOnly.map((s) => ({
+      num: s.num,
+      weight: s.weight,
+      reps: s.reps,
+      pct: s.pct,
+      tier: s.tier,
+      day: s.day,
+      completed: s.completed,
     }));
     session.bbbSets = suppOnly.map((s, i) => ({
-      num: i + 1, weight: s.weight, reps: s.reps, pct: s.pct,
-      tier: s.tier,            // preserve original tier ('T2' or 'BBB')
-      completed: false
+      num: i + 1,
+      weight: s.weight,
+      reps: s.reps,
+      pct: s.pct,
+      tier: s.tier, // preserve original tier ('T2' or 'BBB')
+      completed: false,
     }));
   }
   store.workoutSession = session;
@@ -275,7 +303,10 @@ function createWorkoutSession(mainLift) {
   try {
     generateSessionPlan(mainLift, session);
   } catch (err) {
-    console.error('[coach] generateSessionPlan failed in createWorkoutSession for ' + mainLift + ':', err);
+    console.error(
+      '[coach] generateSessionPlan failed in createWorkoutSession for ' + mainLift + ':',
+      err
+    );
     store._sessionOptimizer = null;
   }
 
@@ -284,10 +315,15 @@ function createWorkoutSession(mainLift) {
 
 function updateCompleteButton() {
   const btn = $('workout-complete-btn');
-  if (!store.workoutSession) { btn.disabled = true; return; }
-  const hasProgress = store.workoutSession.mainSets.some(s => s.completed) ||
-    (store.workoutSession.bbbSets && store.workoutSession.bbbSets.some(s => s.completed && !s._dropped)) ||
-    store.workoutSession.accessories.some(a => a.setsCompleted.length > 0);
+  if (!store.workoutSession) {
+    btn.disabled = true;
+    return;
+  }
+  const hasProgress =
+    store.workoutSession.mainSets.some((s) => s.completed) ||
+    (store.workoutSession.bbbSets &&
+      store.workoutSession.bbbSets.some((s) => s.completed && !s._dropped)) ||
+    store.workoutSession.accessories.some((a) => a.setsCompleted.length > 0);
   btn.disabled = !hasProgress;
 }
 
@@ -301,14 +337,18 @@ let _lastMainEntryId = null;
 function _completeMainSet(idx) {
   const set = store.workoutSession.mainSets[idx];
   if (!set || set.completed) return;
-  const week = store.workoutSession.programWeek || (store.programConfig.liftWeeks?.[store.workoutSession.mainLift] || 1);
+  const week =
+    store.workoutSession.programWeek ||
+    store.programConfig.liftWeeks?.[store.workoutSession.mainLift] ||
+    1;
   const isAmrap = typeof set.reps === 'string' && set.reps.toString().includes('+');
   let repsToLog = typeof set.reps === 'string' ? parseInt(set.reps) : set.reps;
   if (isAmrap) {
     const amrapInput = document.querySelector(`[data-main-amrap="${idx}"]`);
     if (amrapInput && amrapInput.value) repsToLog = parseInt(amrapInput.value);
   }
-  const result = _deps.addEntry?.(store.workoutSession.mainLift, set.weight, repsToLog, null, '', []) ?? null;
+  const result =
+    _deps.addEntry?.(store.workoutSession.mainLift, set.weight, repsToLog, null, '', []) ?? null;
   _lastMainEntryId = result ? result.entry.id : null;
   // Track entry for discard rollback
   if (result && result.entry) {
@@ -318,15 +358,18 @@ function _completeMainSet(idx) {
   // Goal milestone celebration — toast + inline confetti per hit milestone
   if (result && result.hitMilestones && result.hitMilestones.length > 0) {
     result.hitMilestones.forEach((ms, i) => {
-      setTimeout(() => {
-        const isGoal = ms.label === 'Goal';
-        const emoji = isGoal ? '\uD83C\uDFC6' : '\uD83C\uDFAF';
-        const msg = isGoal
-          ? `${emoji} GOAL REACHED! ${LIFT_NAMES[ms.lift]} ${formatWeight(ms.target)} ${store.unit}`
-          : `${emoji} ${ms.label}: ${LIFT_NAMES[ms.lift]} ${formatWeight(ms.target)} ${store.unit}`;
-        showToast(msg);
-        burstMilestoneConfetti(ms.lift);
-      }, 500 + i * 1500);
+      setTimeout(
+        () => {
+          const isGoal = ms.label === 'Goal';
+          const emoji = isGoal ? '\uD83C\uDFC6' : '\uD83C\uDFAF';
+          const msg = isGoal
+            ? `${emoji} GOAL REACHED! ${LIFT_NAMES[ms.lift]} ${formatWeight(ms.target)} ${store.unit}`
+            : `${emoji} ${ms.label}: ${LIFT_NAMES[ms.lift]} ${formatWeight(ms.target)} ${store.unit}`;
+          showToast(msg);
+          burstMilestoneConfetti(ms.lift);
+        },
+        500 + i * 1500
+      );
     });
   }
   _deps.updateDashboard?.();
@@ -369,7 +412,9 @@ export function renderWorkoutView() {
   const body = $('workout-body');
   const lift = store.workoutSession.mainLift;
   $('workout-title').textContent = LIFT_NAMES[lift] + ' Workout';
-  const weekLabel = store.workoutSession.programWeek ? ` \u2014 Week ${store.workoutSession.programWeek}` : '';
+  const weekLabel = store.workoutSession.programWeek
+    ? ` \u2014 Week ${store.workoutSession.programWeek}`
+    : '';
   $('workout-subtitle').textContent = store.workoutSession.date + weekLabel;
   let html = '';
 
@@ -407,20 +452,26 @@ export function renderWorkoutView() {
     const errMsg = coachError
       ? String(coachError && coachError.message ? coachError.message : coachError)
       : 'Plan was missing after regen — unknown cause';
-    const errStack = coachError && coachError.stack
-      ? String(coachError.stack).split('\n').slice(0, 4).join('\n')
-      : '';
+    const errStack =
+      coachError && coachError.stack
+        ? String(coachError.stack).split('\n').slice(0, 4).join('\n')
+        : '';
     // Escape angle brackets so the error text doesn't break the HTML
-    const escape = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const escape = (s) =>
+      String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     html += `<section class="coach-note coach-note-empty" id="coach-card" data-lift="${sessionLift}">
       <header class="coach-note-head"><span class="coach-note-label">${LIFT_NAMES[sessionLift]} notes</span></header>
       <ul class="coach-note-list">
         <li class="coach-row" data-priority="high">
           <p class="coach-row-text"><strong>Coach error:</strong> ${escape(errMsg)}</p>
         </li>
-        ${errStack ? `<li class="coach-row" data-priority="low">
+        ${
+          errStack
+            ? `<li class="coach-row" data-priority="low">
           <p class="coach-row-text" style="font-family:var(--font-mono);font-size:0.65rem;white-space:pre-wrap;word-break:break-all;">${escape(errStack)}</p>
-        </li>` : ''}
+        </li>`
+            : ''
+        }
       </ul>
     </section>`;
   }
@@ -464,7 +515,7 @@ export function renderWorkoutView() {
     const suppLabel = suppTier === 'BBB' ? 'Boring But Big' : `Supplemental (${suppTier})`;
     html += `<div class="workout-exercise bbb-section">`;
     html += `<div class="workout-exercise-name" style="color:var(--text-dim)">${suppLabel}</div>`;
-    const activeBBB = store.workoutSession.bbbSets.filter(s => !s._dropped);
+    const activeBBB = store.workoutSession.bbbSets.filter((s) => !s._dropped);
     html += `<div class="workout-exercise-meta">${activeBBB.length}&times;${store.workoutSession.bbbSets[0].reps} at ${store.workoutSession.bbbSets[0].pct}%</div>`;
     activeBBB.forEach((s, i) => {
       const plateStr = formatPlates(s.weight);
@@ -485,33 +536,39 @@ export function renderWorkoutView() {
   // Accessory sections — #20: group supersets visually
   store.workoutSession.accessories.forEach((acc, ai) => {
     const prevAcc = ai > 0 ? store.workoutSession.accessories[ai - 1] : null;
-    const nextAcc = ai < store.workoutSession.accessories.length - 1 ? store.workoutSession.accessories[ai + 1] : null;
+    const nextAcc =
+      ai < store.workoutSession.accessories.length - 1
+        ? store.workoutSession.accessories[ai + 1]
+        : null;
     if (acc.groupId && (!prevAcc || prevAcc.groupId !== acc.groupId)) {
       html += `<div class="superset-group"><div class="superset-label">Superset</div>`;
     }
     const ex = ACCESSORY_DB[acc.exerciseId];
     const catalogEx = resolveExercise(acc.exerciseId);
-    const isBodyweight = catalogEx ? catalogEx.progressionType === 'bodyweight' : (!ex || ex.pctOfTM === 0);
+    const isBodyweight = catalogEx
+      ? catalogEx.progressionType === 'bodyweight'
+      : !ex || ex.pctOfTM === 0;
     const isTimeBased = catalogEx ? !!catalogEx.timeBased : !!(ex && ex.timeBased);
     const targetReps = acc.repRange[1];
     html += `<div class="workout-exercise">`;
-    const tierBadge = acc._tier && REP_TIERS[acc._tier]
-      ? `<span class="acc-tier-badge ${acc._tier}">${REP_TIERS[acc._tier].label}</span>`
-      : '';
+    const tierBadge =
+      acc._tier && REP_TIERS[acc._tier]
+        ? `<span class="acc-tier-badge ${acc._tier}">${REP_TIERS[acc._tier].label}</span>`
+        : '';
     html += `<div class="workout-exercise-name" data-exid="${acc.exerciseId}" data-acc-toggle="${ai}">${acc.name}${tierBadge}${acc.progressed ? `<span class="acc-progression-badge">${getProgressionBadgeText(acc)}</span>` : ''}</div>`;
     html += `<div class="acc-action-bar" id="acc-action-bar-${ai}" style="display:none">
       <button class="acc-swap-btn" data-acc-swap="${ai}">&#8644; Swap</button>
       <button class="acc-remove-btn" data-acc-remove="${ai}">&times; Remove</button>
     </div>`;
-    const accLogs = store.accessoryLog.filter(l => l.exerciseId === acc.exerciseId);
-    const accLogCount = new Set(accLogs.map(l => l.date)).size;
+    const accLogs = store.accessoryLog.filter((l) => l.exerciseId === acc.exerciseId);
+    const accLogCount = new Set(accLogs.map((l) => l.date)).size;
     const accBestWeight = isBodyweight
       ? accLogs.reduce((best, l) => Math.max(best, l.weight), -Infinity)
       : accLogs.reduce((max, l) => Math.max(max, l.weight), 0);
     const hasBestWeight = accLogs.length > 0 && (isBodyweight || accBestWeight > 0);
     const currentTopWeight = acc.setWeights ? acc.setWeights[acc.setWeights.length - 1] : 0;
     const isNewHigh = hasBestWeight && currentTopWeight > accBestWeight;
-    let metaParts = [acc.equipment];
+    const metaParts = [acc.equipment];
     if (acc._progressionMessage) {
       metaParts.push(acc._progressionMessage);
     } else {
@@ -520,7 +577,12 @@ export function renderWorkoutView() {
     if (accLogCount > 0) metaParts.push(`${accLogCount} session${accLogCount !== 1 ? 's' : ''}`);
     if (hasBestWeight && !isNewHigh) {
       if (isBodyweight) {
-        const bestLabel = accBestWeight < 0 ? `Assisted ${formatWeight(Math.abs(accBestWeight))}` : accBestWeight === 0 ? 'BW' : `BW +${formatWeight(accBestWeight)}`;
+        const bestLabel =
+          accBestWeight < 0
+            ? `Assisted ${formatWeight(Math.abs(accBestWeight))}`
+            : accBestWeight === 0
+              ? 'BW'
+              : `BW +${formatWeight(accBestWeight)}`;
         metaParts.push(`best: ${bestLabel} ${store.unit}`);
       } else {
         metaParts.push(`best: ${formatWeight(accBestWeight)} ${store.unit}`);
@@ -538,8 +600,12 @@ export function renderWorkoutView() {
         lastWeight = `BW +${formatWeight(lastAcc.weight)} ${store.unit}`;
       } else if (lastAcc.weight === 0) {
         lastWeight = 'BW';
-      } else if (lastAcc.setWeights && lastAcc.setWeights.length > 1 && new Set(lastAcc.setWeights).size > 1) {
-        lastWeight = lastAcc.setWeights.map(w => formatWeight(w)).join('/') + ' ' + store.unit;
+      } else if (
+        lastAcc.setWeights &&
+        lastAcc.setWeights.length > 1 &&
+        new Set(lastAcc.setWeights).size > 1
+      ) {
+        lastWeight = lastAcc.setWeights.map((w) => formatWeight(w)).join('/') + ' ' + store.unit;
       } else {
         lastWeight = formatWeight(lastAcc.weight) + ' ' + store.unit;
       }
@@ -551,9 +617,8 @@ export function renderWorkoutView() {
     for (let si = 0; si < acc.targetSets; si++) {
       const done = si < acc.setsCompleted.length;
       const repsVal = done ? acc.setsCompleted[si] : '';
-      const perSetTarget = (acc._targetReps && acc._targetReps[si] !== undefined)
-        ? acc._targetReps[si]
-        : targetReps;
+      const perSetTarget =
+        acc._targetReps && acc._targetReps[si] !== undefined ? acc._targetReps[si] : targetReps;
       const repTarget = isTimeBased ? `${perSetTarget}s` : perSetTarget;
       let setWeight;
       if (isBodyweight) {
@@ -564,37 +629,58 @@ export function renderWorkoutView() {
       } else {
         setWeight = `${formatWeight(acc.setWeights[si])} ${store.unit}`;
       }
-      const isCountingDown = isTimeBased && store.exerciseTimer && store.exerciseTimer.accIdx === ai && store.exerciseTimer.setIdx === si;
+      const isCountingDown =
+        isTimeBased &&
+        store.exerciseTimer &&
+        store.exerciseTimer.accIdx === ai &&
+        store.exerciseTimer.setIdx === si;
       html += `<div class="workout-set-row${done ? ' completed' : ''}${isCountingDown ? ' counting-down' : ''}" data-type="acc" data-acc="${ai}" data-set="${si}"${isTimeBased ? ' data-time-based="true"' : ''}>
         <div class="workout-set-check">${done ? '&#10003;' : ''}</div>
         <div class="workout-set-info">
-          Set ${si + 1}: ${isTimeBased
-            ? (isBodyweight
-              ? (done ? repsVal + 's' : repTarget)
-              : (acc.setWeights[si] > 0
-                ? `${setWeight} &times; ${done ? repsVal + 's' : repTarget}`
-                : (done ? repsVal + 's' : repTarget)))
-            : `${setWeight} &times; ${done ? repsVal : repTarget}${done ? ' reps' : ''}`}
+          Set ${si + 1}: ${
+            isTimeBased
+              ? isBodyweight
+                ? done
+                  ? repsVal + 's'
+                  : repTarget
+                : acc.setWeights[si] > 0
+                  ? `${setWeight} &times; ${done ? repsVal + 's' : repTarget}`
+                  : done
+                    ? repsVal + 's'
+                    : repTarget
+              : `${setWeight} &times; ${done ? repsVal : repTarget}${done ? ' reps' : ''}`
+          }
         </div>
-        ${!done && isTimeBased ? (isCountingDown
-          ? `<div class="exercise-countdown">
+        ${
+          !done && isTimeBased
+            ? isCountingDown
+              ? `<div class="exercise-countdown">
               <span class="exercise-countdown-display" id="exercise-cd-${ai}-${si}">${store.exerciseTimer.remaining}s</span>
               <button class="exercise-countdown-cancel">&times;</button>
             </div>`
-          : `${acc.setWeights[si] > 0 ? `<div class="acc-set-weight-controls">
+              : `${
+                  acc.setWeights[si] > 0
+                    ? `<div class="acc-set-weight-controls">
               <button class="acc-set-weight-btn" data-acc="${ai}" data-set="${si}" data-dir="-1">&minus;wt</button>
               <button class="acc-set-weight-btn" data-acc="${ai}" data-set="${si}" data-dir="1">+wt</button>
-            </div>` : ''}
+            </div>`
+                    : ''
+                }
             <button class="exercise-start-btn">&#9201; Start</button>
             <div class="acc-set-weight-controls">
               <button class="acc-time-adj-btn" data-acc="${ai}" data-dir="-1">&minus;s</button>
               <button class="acc-time-adj-btn" data-acc="${ai}" data-dir="1">+s</button>
-            </div>`)
-        : ''}
-        ${!done && !isTimeBased ? `<div class="acc-set-weight-controls">
+            </div>`
+            : ''
+        }
+        ${
+          !done && !isTimeBased
+            ? `<div class="acc-set-weight-controls">
           <button class="acc-set-weight-btn" data-acc="${ai}" data-set="${si}" data-dir="-1">&minus;</button>
           <button class="acc-set-weight-btn" data-acc="${ai}" data-set="${si}" data-dir="1">+</button>
-        </div>` : ''}
+        </div>`
+            : ''
+        }
         ${!done && !isTimeBased ? `<input type="number" class="workout-set-input" data-acc-input="${ai}-${si}" placeholder="${perSetTarget}" min="1" inputmode="numeric">` : ''}
       </div>`;
     }
@@ -636,19 +722,28 @@ export async function openWorkoutView(mainLift) {
     return;
   }
   // Resume or create session
-  if (store.workoutSession && store.workoutSession.mainLift === mainLift && !store.workoutSession.completed) {
+  if (
+    store.workoutSession &&
+    store.workoutSession.mainLift === mainLift &&
+    !store.workoutSession.completed
+  ) {
     // Sync main set completion state
-    const sessionWeek = store.workoutSession.programWeek || (store.programConfig.liftWeeks?.[mainLift] || 1);
+    const sessionWeek =
+      store.workoutSession.programWeek || store.programConfig.liftWeeks?.[mainLift] || 1;
     if (store.workoutSession.mainSets.length > 0) {
       store.workoutSession.mainSets.forEach((s, i) => {
         s.completed = !!store.programConfig.completedSets[`${mainLift}-${sessionWeek}-${i}`];
       });
     }
     // Clear _dropped on uncompleted sets so the user can re-engage them on resume
-    store.workoutSession.mainSets.forEach(s => { if (!s.completed) s._dropped = false; });
-    store.workoutSession.bbbSets?.forEach(s => { if (!s.completed) s._dropped = false; });
+    store.workoutSession.mainSets.forEach((s) => {
+      if (!s.completed) s._dropped = false;
+    });
+    store.workoutSession.bbbSets?.forEach((s) => {
+      if (!s.completed) s._dropped = false;
+    });
     // Migrate old-format sessions
-    store.workoutSession.accessories.forEach(acc => {
+    store.workoutSession.accessories.forEach((acc) => {
       if (acc.weight !== undefined && !acc.setWeights) {
         acc.setWeights = computeSetWeights(acc.weight, acc.targetSets);
         delete acc.weight;
@@ -656,9 +751,14 @@ export async function openWorkoutView(mainLift) {
     });
   } else {
     // Warn if there's an in-progress session for a different lift
-    if (store.workoutSession && !store.workoutSession.completed && store.workoutSession.mainLift !== mainLift) {
-      const hasProgress = store.workoutSession.mainSets.some(s => s.completed) ||
-        store.workoutSession.accessories.some(a => a.setsCompleted.length > 0);
+    if (
+      store.workoutSession &&
+      !store.workoutSession.completed &&
+      store.workoutSession.mainLift !== mainLift
+    ) {
+      const hasProgress =
+        store.workoutSession.mainSets.some((s) => s.completed) ||
+        store.workoutSession.accessories.some((a) => a.setsCompleted.length > 0);
       if (hasProgress) {
         const ok = await confirmSheet({
           title: `Switch to ${LIFT_NAMES[mainLift]}?`,
@@ -717,7 +817,7 @@ export function completeWorkout() {
   // #18: Track source and template in accessory log
   const sessionSource = store.workoutSession.source || 'quick';
   const sessionTemplateId = store.workoutSession.templateId || null;
-  store.workoutSession.accessories.forEach(acc => {
+  store.workoutSession.accessories.forEach((acc) => {
     if (acc.setsCompleted.length === 0) return;
     store.accessoryLog.push({
       id: now.getTime().toString(36) + Math.random().toString(36).slice(2, 6) + acc.exerciseId,
@@ -739,24 +839,30 @@ export function completeWorkout() {
 
   // #16: Offer weight updates back to template
   if (sessionTemplateId) {
-    const template = store.customTemplates.find(t => t.id === sessionTemplateId);
+    const template = store.customTemplates.find((t) => t.id === sessionTemplateId);
     if (template) {
-      const changed = store.workoutSession.accessories.filter(acc => {
-        const tmplEx = template.exercises.find(e => e.exerciseId === acc.exerciseId);
-        return tmplEx && tmplEx.weightMode === 'manual' && acc.setWeights
-          && Math.abs(tmplEx.weightValue - acc.setWeights[acc.setWeights.length - 1]) > 0.1;
+      const changed = store.workoutSession.accessories.filter((acc) => {
+        const tmplEx = template.exercises.find((e) => e.exerciseId === acc.exerciseId);
+        return (
+          tmplEx &&
+          tmplEx.weightMode === 'manual' &&
+          acc.setWeights &&
+          Math.abs(tmplEx.weightValue - acc.setWeights[acc.setWeights.length - 1]) > 0.1
+        );
       });
       if (changed.length > 0) {
         setTimeout(() => {
           showToast(`${changed.length} weight${changed.length > 1 ? 's' : ''} changed`, {
-            action: 'Update Template', onAction: () => {
-              changed.forEach(acc => {
-                const tmplEx = template.exercises.find(e => e.exerciseId === acc.exerciseId);
+            action: 'Update Template',
+            onAction: () => {
+              changed.forEach((acc) => {
+                const tmplEx = template.exercises.find((e) => e.exerciseId === acc.exerciseId);
                 if (tmplEx) tmplEx.weightValue = acc.setWeights[acc.setWeights.length - 1];
               });
               store.saveCustomTemplates();
               showToast('Template weights updated');
-            }, duration: 8000,
+            },
+            duration: 8000,
           });
         }, 2000);
       }
@@ -766,7 +872,11 @@ export function completeWorkout() {
   // Mesocycle performance recording & adaptation
   let mesoAdaptation = null;
   const completedSession = store.workoutSession;
-  if (store.workoutSession.source === 'mesocycle' && store.activeMesocycle && store.activeMesocycle.status === 'active') {
+  if (
+    store.workoutSession.source === 'mesocycle' &&
+    store.activeMesocycle &&
+    store.activeMesocycle.status === 'active'
+  ) {
     _deps.recordMesocyclePerformance?.(store.workoutSession);
     mesoAdaptation = _deps.adaptRemainingWeeks?.(store.workoutSession.mainLift) ?? null;
   }
@@ -796,13 +906,19 @@ export function completeWorkout() {
 export function updateWorkoutButton() {
   const btn = $('create-workout-btn');
   if (!btn) return;
-  if (store.workoutSession && !store.workoutSession.completed && store.workoutSession.mainLift === store.currentLift) {
+  if (
+    store.workoutSession &&
+    !store.workoutSession.completed &&
+    store.workoutSession.mainLift === store.currentLift
+  ) {
     btn.textContent = `Resume ${LIFT_NAMES[store.currentLift]} Workout`;
     btn.classList.add('has-session');
   } else if (store.activeMesocycle && store.activeMesocycle.status === 'active') {
     const week = store.activeMesocycle.weeks[store.activeMesocycle.currentWeek - 1];
     const liftDone = week && week.performance[store.currentLift];
-    btn.textContent = liftDone ? `${LIFT_NAMES[store.currentLift]} - Week ${store.activeMesocycle.currentWeek} Done` : `Start ${LIFT_NAMES[store.currentLift]} Workout`;
+    btn.textContent = liftDone
+      ? `${LIFT_NAMES[store.currentLift]} - Week ${store.activeMesocycle.currentWeek} Done`
+      : `Start ${LIFT_NAMES[store.currentLift]} Workout`;
     btn.classList.remove('has-session');
   } else {
     btn.textContent = `Start ${LIFT_NAMES[store.currentLift]} Workout`;
@@ -848,7 +964,7 @@ export function initWorkoutOverlay() {
       const evalIdx = parseInt(e.target.closest('[data-coach-apply]').dataset.coachApply);
       const optimizer = store._sessionOptimizer;
       if (optimizer && optimizer.evaluations) {
-        const evaluation = optimizer.evaluations.find(ev => ev.setIndex === evalIdx);
+        const evaluation = optimizer.evaluations.find((ev) => ev.setIndex === evalIdx);
         if (evaluation) {
           applyAdjustments(evaluation);
           renderWorkoutView();
@@ -865,7 +981,7 @@ export function initWorkoutOverlay() {
         applySupplementalAdjustment(plan.supplementalAdjustment);
         plan.supplementalAdjustment._accepted = true;
         // Mark the corresponding insight row so the re-render shows it as applied
-        (plan.insights || []).forEach(ins => {
+        (plan.insights || []).forEach((ins) => {
           if (ins.type === 'volume') ins._accepted = true;
         });
         renderWorkoutView();
@@ -883,7 +999,7 @@ export function initWorkoutOverlay() {
         if (!swap._accepted) {
           const result = applyCoachAddition(swap);
           swap._accepted = true;
-          (plan.insights || []).forEach(ins => {
+          (plan.insights || []).forEach((ins) => {
             if (ins.type === 'gap' && ins.swapIndex === idx) ins._accepted = true;
           });
           renderWorkoutView();
@@ -913,10 +1029,10 @@ export function initWorkoutOverlay() {
       const bar = $('acc-action-bar-' + ai);
       if (bar) {
         // Close any other open action bars and alternatives
-        body.querySelectorAll('.acc-action-bar').forEach(b => {
+        body.querySelectorAll('.acc-action-bar').forEach((b) => {
           if (b.id !== 'acc-action-bar-' + ai) b.style.display = 'none';
         });
-        body.querySelectorAll('.acc-swap-alternatives').forEach(el => el.remove());
+        body.querySelectorAll('.acc-swap-alternatives').forEach((el) => el.remove());
         bar.style.display = bar.style.display === 'none' ? '' : 'none';
       }
       return;
@@ -961,22 +1077,27 @@ export function initWorkoutOverlay() {
       const acc = store.workoutSession.accessories[ai];
       const catalogExForSwap = resolveExercise(acc.exerciseId);
       const ex = ACCESSORY_DB[acc.exerciseId];
-      const equipment = catalogExForSwap?.equipment ?? (ex?.equipment ?? null);
+      const equipment = catalogExForSwap?.equipment ?? ex?.equipment ?? null;
       const container = swapBtn.closest('.workout-exercise');
       // Toggle off if already showing
       const existing = container.querySelector('.acc-swap-alternatives');
-      if (existing) { existing.remove(); return; }
+      if (existing) {
+        existing.remove();
+        return;
+      }
       // Get alternatives excluding current equipment
-      const allScored = scoreAccessories(store.workoutSession.mainLift, { excludeEquipment: equipment });
-      const usedIds = new Set(store.workoutSession.accessories.map(a => a.exerciseId));
-      const alternatives = allScored.filter(a => !usedIds.has(a.id)).slice(0, 5);
+      const allScored = scoreAccessories(store.workoutSession.mainLift, {
+        excludeEquipment: equipment,
+      });
+      const usedIds = new Set(store.workoutSession.accessories.map((a) => a.exerciseId));
+      const alternatives = allScored.filter((a) => !usedIds.has(a.id)).slice(0, 5);
       if (alternatives.length === 0) {
         showToast('No alternatives available');
         return;
       }
       const altDiv = document.createElement('div');
       altDiv.className = 'acc-swap-alternatives';
-      alternatives.forEach(alt => {
+      alternatives.forEach((alt) => {
         const item = document.createElement('div');
         item.className = 'acc-swap-alt-item';
         const lastPerf = getLastAccPerformance(alt.id);
@@ -986,15 +1107,17 @@ export function initWorkoutOverlay() {
           const w = lastPerf.weight === 0 ? 'BW' : formatWeight(lastPerf.weight) + ' ' + store.unit;
           const reps = lastPerf.setsCompleted.join('/');
           const perfDate = new Date(lastPerf.date + 'T12:00:00');
-          const todayMid = new Date(); todayMid.setHours(0,0,0,0);
+          const todayMid = new Date();
+          todayMid.setHours(0, 0, 0, 0);
           const perfMid = new Date(perfDate.getFullYear(), perfDate.getMonth(), perfDate.getDate());
           const days = Math.round((todayMid - perfMid) / 86400000);
           const ago = days === 0 ? 'today' : days === 1 ? 'yesterday' : days + 'd ago';
           perfHtml = `<span class="acc-swap-alt-perf">${w} &times; ${reps} &bull; ${ago}</span>`;
         } else {
-          perfHtml = estWeight > 0
-            ? `<span class="acc-swap-alt-perf">No history &mdash; est. ${formatWeight(estWeight)} ${store.unit}</span>`
-            : `<span class="acc-swap-alt-perf">No history</span>`;
+          perfHtml =
+            estWeight > 0
+              ? `<span class="acc-swap-alt-perf">No history &mdash; est. ${formatWeight(estWeight)} ${store.unit}</span>`
+              : `<span class="acc-swap-alt-perf">No history</span>`;
         }
         item.innerHTML = `<div><span>${alt.name}</span><span class="acc-swap-alt-meta">${alt.equipment}</span></div><div>${perfHtml}</div>`;
         item.addEventListener('click', () => {
@@ -1032,11 +1155,14 @@ export function initWorkoutOverlay() {
       const si = parseInt(weightBtn.dataset.set);
       const dir = parseInt(weightBtn.dataset.dir);
       const acc = store.workoutSession.accessories[ai];
-      const increment = store.unit === 'kg' ? WEIGHT_INCREMENT_KG * LBS_PER_KG : WEIGHT_INCREMENT_LBS;
+      const increment =
+        store.unit === 'kg' ? WEIGHT_INCREMENT_KG * LBS_PER_KG : WEIGHT_INCREMENT_LBS;
       const accCatalogEx = resolveExercise(acc.exerciseId);
       const isBWExercise = accCatalogEx ? accCatalogEx.progressionType === 'bodyweight' : false;
       const newWeight = acc.setWeights[si] + dir * increment;
-      acc.setWeights[si] = isBWExercise ? roundToPlate(newWeight) : roundToPlate(Math.max(0, newWeight));
+      acc.setWeights[si] = isBWExercise
+        ? roundToPlate(newWeight)
+        : roundToPlate(Math.max(0, newWeight));
       store.saveWorkoutSession();
       renderWorkoutView();
       return;
@@ -1053,7 +1179,7 @@ export function initWorkoutOverlay() {
       acc.repRange[1] = Math.max(5, acc.repRange[1] + delta);
       acc.repRange[0] = Math.max(5, Math.min(acc.repRange[0] + delta, acc.repRange[1]));
       if (Array.isArray(acc._targetReps)) {
-        acc._targetReps = acc._targetReps.map(t => Math.max(5, t + delta));
+        acc._targetReps = acc._targetReps.map((t) => Math.max(5, t + delta));
       }
       store.saveWorkoutSession();
       renderWorkoutView();
@@ -1119,7 +1245,9 @@ export function initWorkoutOverlay() {
     const tabBtn = e.target.closest('[data-wk-tab]');
     if (tabBtn) {
       const tab = tabBtn.dataset.wkTab;
-      document.querySelectorAll('[data-wk-tab]').forEach(b => b.classList.toggle('active', b.dataset.wkTab === tab));
+      document
+        .querySelectorAll('[data-wk-tab]')
+        .forEach((b) => b.classList.toggle('active', b.dataset.wkTab === tab));
       const query = (document.getElementById('workout-ex-search') || {}).value || '';
       _renderExercisePicker(tab, query);
       return;
@@ -1133,7 +1261,7 @@ export function initWorkoutOverlay() {
       const catalogEx = EXERCISE_CATALOG[exId];
       if (!catalogEx) return;
       // Already in session? Skip.
-      if (store.workoutSession.accessories.some(a => a.exerciseId === exId)) {
+      if (store.workoutSession.accessories.some((a) => a.exerciseId === exId)) {
         showToast('Already in your workout');
         return;
       }
@@ -1168,7 +1296,10 @@ export function initWorkoutOverlay() {
     if (mainRow) {
       const idx = parseInt(mainRow.dataset.idx);
       const set = store.workoutSession.mainSets[idx];
-      const week = store.workoutSession.programWeek || (store.programConfig.liftWeeks?.[store.workoutSession.mainLift] || 1);
+      const week =
+        store.workoutSession.programWeek ||
+        store.programConfig.liftWeeks?.[store.workoutSession.mainLift] ||
+        1;
       if (set.completed) {
         const key = `${store.workoutSession.mainLift}-${week}-${idx}`;
         if (set.entryId) _deps.deleteEntry?.(set.entryId);
@@ -1202,12 +1333,15 @@ export function initWorkoutOverlay() {
         renderWorkoutView();
         _deps.renderProgramSection?.();
         // Insert slider after the now-completed row
-        const completedRow = document.querySelector(`.workout-set-row[data-type="main"][data-idx="${idx}"]`);
+        const completedRow = document.querySelector(
+          `.workout-set-row[data-type="main"][data-idx="${idx}"]`
+        );
         if (completedRow) {
           const rpeRow = document.createElement('div');
           rpeRow.className = 'workout-rpe-row';
           rpeRow.dataset.idx = idx;
-          rpeRow.innerHTML = `<span class="rpe-row-label">1</span>` +
+          rpeRow.innerHTML =
+            `<span class="rpe-row-label">1</span>` +
             `<input type="range" class="rpe-slider" min="1" max="10" step="1" value="8">` +
             `<span class="rpe-row-label">10</span>` +
             `<span class="rpe-slider-value">8</span>`;
@@ -1221,20 +1355,26 @@ export function initWorkoutOverlay() {
             // Update the entry's RPE
             set.rpe = rpeVal;
             if (set.entryId) {
-              const entry = store.entries.find(e => e.id === set.entryId);
-              if (entry) { entry.rpe = rpeVal; store.saveEntries(); }
+              const entry = store.entries.find((e) => e.id === set.entryId);
+              if (entry) {
+                entry.rpe = rpeVal;
+                store.saveEntries();
+              }
             }
             store.saveWorkoutSession();
             // Update the set row display
             const infoEl = completedRow.querySelector('.workout-set-info');
             if (infoEl) {
-              infoEl.innerHTML = infoEl.innerHTML.replace(/ @ RPE \d+/g, '').replace(/(×\s*\d+)/,  `$1 @ RPE ${rpeVal}`);
+              infoEl.innerHTML = infoEl.innerHTML
+                .replace(/ @ RPE \d+/g, '')
+                .replace(/(×\s*\d+)/, `$1 @ RPE ${rpeVal}`);
             }
           });
           // Session Optimizer: evaluate after RPE is set (debounced on change)
           slider.addEventListener('change', () => {
             const rpeVal = parseInt(slider.value);
-            const reps = set.actualReps ?? (typeof set.reps === 'string' ? parseInt(set.reps) : set.reps);
+            const reps =
+              set.actualReps ?? (typeof set.reps === 'string' ? parseInt(set.reps) : set.reps);
             const evaluation = evaluateSetCompletion(idx, rpeVal, reps, set.weight);
             if (evaluation && evaluation.drift !== 'on-track') {
               // Remove any existing chip for this set
@@ -1265,7 +1405,9 @@ export function initWorkoutOverlay() {
         set.completed = true;
         // Log as an entry for volume tracking
         const reps = typeof set.reps === 'string' ? parseInt(set.reps) : set.reps;
-        const bbbResult = _deps.addEntry?.(store.workoutSession.mainLift, set.weight, reps, null, '', ['BBB']) ?? null;
+        const bbbResult =
+          _deps.addEntry?.(store.workoutSession.mainLift, set.weight, reps, null, '', ['BBB']) ??
+          null;
         if (bbbResult && bbbResult.entry) {
           if (!store.workoutSession.loggedEntryIds) store.workoutSession.loggedEntryIds = [];
           store.workoutSession.loggedEntryIds.push(bbbResult.entry.id);
@@ -1312,9 +1454,10 @@ export function initWorkoutOverlay() {
         }
       } else if (si === acc.setsCompleted.length) {
         const input = accRow.querySelector('.workout-set-input');
-        const perSetTarget = (acc._targetReps && acc._targetReps[si] !== undefined)
-          ? acc._targetReps[si]
-          : acc.repRange[1];
+        const perSetTarget =
+          acc._targetReps && acc._targetReps[si] !== undefined
+            ? acc._targetReps[si]
+            : acc.repRange[1];
         const reps = input && input.value ? parseInt(input.value) : perSetTarget;
         acc.setsCompleted.push(reps);
         startTimer(store.timerDuration);
@@ -1334,8 +1477,8 @@ export function initWorkoutOverlay() {
     const session = store.workoutSession;
     let summary = 'Nothing logged yet.';
     if (session) {
-      const mainDone = session.mainSets.filter(s => s.completed).length;
-      const bbbDone = (session.bbbSets || []).filter(s => s.completed).length;
+      const mainDone = session.mainSets.filter((s) => s.completed).length;
+      const bbbDone = (session.bbbSets || []).filter((s) => s.completed).length;
       const accDone = session.accessories.reduce((n, a) => n + a.setsCompleted.length, 0);
       const total = mainDone + bbbDone + accDone;
       if (total > 0) {
@@ -1358,15 +1501,15 @@ export function initWorkoutOverlay() {
     // Remove any entries logged during this session
     if (store.workoutSession && store.workoutSession.loggedEntryIds) {
       const idsToRemove = new Set(store.workoutSession.loggedEntryIds);
-      store.entries = store.entries.filter(e => !idsToRemove.has(e.id));
-      store.prs = store.prs.filter(p => !idsToRemove.has(p.entryId));
+      store.entries = store.entries.filter((e) => !idsToRemove.has(e.id));
+      store.prs = store.prs.filter((p) => !idsToRemove.has(p.entryId));
       store.saveEntries();
       store.savePRs();
     }
     // Undo any completed set flags in program config
     if (store.workoutSession && store.workoutSession.mainSets) {
       const lift = store.workoutSession.mainLift;
-      const week = store.workoutSession.programWeek || (store.programConfig.liftWeeks?.[lift] || 1);
+      const week = store.workoutSession.programWeek || store.programConfig.liftWeeks?.[lift] || 1;
       store.workoutSession.mainSets.forEach((s, i) => {
         if (s.completed) {
           const dKey = `${lift}-${week}-${i}`;

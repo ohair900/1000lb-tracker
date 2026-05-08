@@ -20,7 +20,13 @@ const { mockStore } = vi.hoisted(() => ({
     workoutConfig: { weakPoints: {}, setupComplete: true },
     unit: 'lbs',
     recoveryCalibration: {},
-    equipmentProfile: { barbell: true, dumbbell: true, cable: true, machine: true, bodyweight: true },
+    equipmentProfile: {
+      barbell: true,
+      dumbbell: true,
+      cable: true,
+      machine: true,
+      bodyweight: true,
+    },
     programConfig: { activeProgram: null, completedSets: {}, amrapResults: {}, liftWeeks: {} },
     save: () => {},
     saveNow: () => {},
@@ -29,7 +35,7 @@ const { mockStore } = vi.hoisted(() => ({
 }));
 vi.mock('../state/store.js', () => ({ default: mockStore }));
 
-import { resetMockStore, buildEntry, MS_PER_DAY } from './helpers/fixtures.js';
+import { resetMockStore, buildEntry } from './helpers/fixtures.js';
 import { calcStreak } from '../systems/streak.js';
 
 beforeEach(() => {
@@ -81,9 +87,7 @@ describe('calcStreak', () => {
   });
 
   it('returns current=0 if the most recent entry is >2 days old', () => {
-    mockStore.entries = [
-      buildEntry({ lift: 'squat', weight: 225, reps: 5, daysAgo: 5 }),
-    ];
+    mockStore.entries = [buildEntry({ lift: 'squat', weight: 225, reps: 5, daysAgo: 5 })];
     const s = calcStreak();
     expect(s.current).toBe(0);
   });
@@ -114,7 +118,7 @@ describe('calcStreak', () => {
   it('counts weeksActive in the last 4 weeks', () => {
     mockStore.entries = [
       buildEntry({ lift: 'squat', weight: 225, reps: 5, daysAgo: 0 }),
-      buildEntry({ lift: 'squat', weight: 225, reps: 5, daysAgo: 8 }),  // ~1 week ago
+      buildEntry({ lift: 'squat', weight: 225, reps: 5, daysAgo: 8 }), // ~1 week ago
       buildEntry({ lift: 'squat', weight: 225, reps: 5, daysAgo: 15 }), // ~2 weeks ago
     ];
     const s = calcStreak();

@@ -96,7 +96,9 @@ describe('calcDOTS', () => {
 // roundToPlate
 // ---------------------------------------------------------------------------
 describe('roundToPlate', () => {
-  beforeEach(() => { store.unit = 'lbs'; });
+  beforeEach(() => {
+    store.unit = 'lbs';
+  });
 
   it('rounds 227 to 225 in lbs', () => {
     expect(roundToPlate(227)).toBe(225);
@@ -124,7 +126,9 @@ describe('roundToPlate', () => {
 // calcPlatesPerSide
 // ---------------------------------------------------------------------------
 describe('calcPlatesPerSide', () => {
-  beforeEach(() => { store.unit = 'lbs'; });
+  beforeEach(() => {
+    store.unit = 'lbs';
+  });
 
   it('returns null for bar-only weight (lbs)', () => {
     expect(calcPlatesPerSide(45)).toBeNull();
@@ -174,7 +178,9 @@ describe('calcPlatesPerSide', () => {
 // displayWeight
 // ---------------------------------------------------------------------------
 describe('displayWeight', () => {
-  beforeEach(() => { store.unit = 'lbs'; });
+  beforeEach(() => {
+    store.unit = 'lbs';
+  });
 
   it('returns 225 in lbs mode', () => {
     expect(displayWeight(225)).toBe(225);

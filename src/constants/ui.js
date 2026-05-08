@@ -9,7 +9,7 @@ export const ACCENT_COLORS = {
   red: '#e53935',
   purple: '#ab47bc',
   green: '#43a047',
-  orange: '#ff9800'
+  orange: '#ff9800',
 };
 
 export const SWIPE_THRESHOLD_PX = 50;

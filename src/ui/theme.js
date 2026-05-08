@@ -12,9 +12,11 @@ import { ACCENT_COLORS } from '../constants/ui.js';
 // Dependency injection — optional cloud-sync trigger
 // ---------------------------------------------------------------------------
 
-let _deps = {};
+const _deps = {};
 
-export function setThemeDeps(deps) { Object.assign(_deps, deps); }
+export function setThemeDeps(deps) {
+  Object.assign(_deps, deps);
+}
 
 // ---------------------------------------------------------------------------
 // Accent color

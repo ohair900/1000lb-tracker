@@ -29,7 +29,7 @@ export function renderSmartAccCard(acc, accIdx) {
       <div class="builder-exercise-name" data-exid="${acc.exerciseId || ''}">${acc.name}</div>
       <div class="builder-exercise-meta">${acc.equipment} &bull; ${acc.sets}x${Array.isArray(acc.repRange) ? acc.repRange.join('-') : acc.reps}</div>
       ${acc._score != null ? `<div class="smart-score-bar"><div class="smart-score-fill" style="width:${acc._score}%"></div></div>` : ''}
-      ${acc._reasons ? `<div style="margin-top:2px">${acc._reasons.map(r => `<span class="smart-reason">${r}</span>`).join('')}</div>` : ''}
+      ${acc._reasons ? `<div style="margin-top:2px">${acc._reasons.map((r) => `<span class="smart-reason">${r}</span>`).join('')}</div>` : ''}
     </div>
     <div style="display:flex;gap:4px;flex-shrink:0">
       <button class="smart-swap-btn" data-swap="${accIdx}">Swap</button>
@@ -48,11 +48,9 @@ export function renderSmartAccCard(acc, accIdx) {
  */
 export function openSmartRecommendation() {
   const suggestion = suggestMainLift();
-  let selectedLift = store.currentLift;
   let lastSmartLift = null;
 
   function render(lift) {
-    selectedLift = lift;
     const intensity = suggestIntensity(lift);
 
     // Only rebuild exercises when lift changes or first render
@@ -60,16 +58,33 @@ export function openSmartRecommendation() {
       lastSmartLift = lift;
       const smartAccs = selectSmartAccessories(lift, 5);
       store.builderExercises = [
-        { type: 'main', exerciseId: lift, name: LIFT_NAMES[lift],
-          sets: intensity.sets, reps: intensity.reps, weightMode: 'program', weightValue: 0,
-          equipment: 'barbell', repRange: [1, intensity.reps], order: 0 }
+        {
+          type: 'main',
+          exerciseId: lift,
+          name: LIFT_NAMES[lift],
+          sets: intensity.sets,
+          reps: intensity.reps,
+          weightMode: 'program',
+          weightValue: 0,
+          equipment: 'barbell',
+          repRange: [1, intensity.reps],
+          order: 0,
+        },
       ];
       smartAccs.forEach((acc, i) => {
         store.builderExercises.push({
-          type: 'accessory', exerciseId: acc.id, name: acc.name,
-          sets: acc.sets, reps: acc.repRange[1], weightMode: 'auto', weightValue: 0,
-          equipment: acc.equipment, repRange: [...acc.repRange], order: i + 1,
-          _score: acc.score, _reasons: acc.reasons
+          type: 'accessory',
+          exerciseId: acc.id,
+          name: acc.name,
+          sets: acc.sets,
+          reps: acc.repRange[1],
+          weightMode: 'auto',
+          weightValue: 0,
+          equipment: acc.equipment,
+          repRange: [...acc.repRange],
+          order: i + 1,
+          _score: acc.score,
+          _reasons: acc.reasons,
         });
       });
     }
@@ -79,7 +94,7 @@ export function openSmartRecommendation() {
 
     // Lift selector
     html += '<div class="smart-lift-selector">';
-    LIFTS.forEach(l => {
+    LIFTS.forEach((l) => {
       const isSuggested = l === suggestion.lift;
       const isActive = l === lift;
       html += `<button class="smart-lift-btn${isActive ? ' active' : ''}${isSuggested && !isActive ? ' suggested' : ''}" data-smart-lift="${l}">
@@ -92,13 +107,17 @@ export function openSmartRecommendation() {
     // Reasons for suggested lift
     if (suggestion.reasons[lift].length > 0) {
       html += '<div style="margin-bottom:var(--space-3)">';
-      suggestion.reasons[lift].forEach(r => { html += `<span class="smart-reason">${r}</span>`; });
+      suggestion.reasons[lift].forEach((r) => {
+        html += `<span class="smart-reason">${r}</span>`;
+      });
       html += '</div>';
     }
 
     // Intensity suggestion
-    const tm = store.programConfig.trainingMaxes[lift] || (bestE1RM(lift) ? Math.round(bestE1RM(lift) * 0.9) : 0);
-    const suggestedWeight = tm ? roundToPlate(tm * intensity.pctTM / 100) : 0;
+    const tm =
+      store.programConfig.trainingMaxes[lift] ||
+      (bestE1RM(lift) ? Math.round(bestE1RM(lift) * 0.9) : 0);
+    const suggestedWeight = tm ? roundToPlate((tm * intensity.pctTM) / 100) : 0;
     html += `<div class="builder-exercise main-lift ${lift}">
       <div class="builder-exercise-info">
         <div class="builder-exercise-name">${LIFT_NAMES[lift]}</div>
@@ -118,12 +137,12 @@ export function openSmartRecommendation() {
     body.innerHTML = html;
 
     // Lift selector clicks
-    body.querySelectorAll('[data-smart-lift]').forEach(btn => {
+    body.querySelectorAll('[data-smart-lift]').forEach((btn) => {
       btn.addEventListener('click', () => render(btn.dataset.smartLift));
     });
 
     // Remove accessory
-    body.querySelectorAll('[data-smart-remove]').forEach(btn => {
+    body.querySelectorAll('[data-smart-remove]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const idx = parseInt(btn.dataset.smartRemove);
         store.builderExercises.splice(idx, 1);
@@ -132,30 +151,41 @@ export function openSmartRecommendation() {
     });
 
     // Swap accessory
-    body.querySelectorAll('[data-swap]').forEach(btn => {
+    body.querySelectorAll('[data-swap]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const idx = parseInt(btn.dataset.swap);
         const allScored = scoreAccessories(lift);
-        const usedIds = new Set(store.builderExercises.map(ex => ex.exerciseId));
-        const alternatives = allScored.filter(a => !usedIds.has(a.id)).slice(0, 5);
+        const usedIds = new Set(store.builderExercises.map((ex) => ex.exerciseId));
+        const alternatives = allScored.filter((a) => !usedIds.has(a.id)).slice(0, 5);
 
         const container = btn.closest('.builder-exercise');
         let altEl = container.querySelector('.smart-alternatives');
-        if (altEl) { altEl.remove(); return; }
+        if (altEl) {
+          altEl.remove();
+          return;
+        }
 
         altEl = document.createElement('div');
         altEl.className = 'smart-alternatives';
-        alternatives.forEach(alt => {
+        alternatives.forEach((alt) => {
           const item = document.createElement('div');
           item.className = 'smart-alt-item';
           item.innerHTML = `<span style="font-size:var(--text-sm)">${alt.name}</span><span style="font-size:var(--text-xs);color:var(--text-dim)">${alt.score}pts</span>`;
           item.addEventListener('click', () => {
             store.builderExercises[idx] = {
-              type: 'accessory', exerciseId: alt.id, name: alt.name,
-              sets: alt.sets, reps: alt.repRange[1], weightMode: 'auto', weightValue: 0,
-              equipment: alt.equipment, repRange: [...alt.repRange], order: idx,
-              _score: alt.score, _reasons: alt.reasons
+              type: 'accessory',
+              exerciseId: alt.id,
+              name: alt.name,
+              sets: alt.sets,
+              reps: alt.repRange[1],
+              weightMode: 'auto',
+              weightValue: 0,
+              equipment: alt.equipment,
+              repRange: [...alt.repRange],
+              order: idx,
+              _score: alt.score,
+              _reasons: alt.reasons,
             };
             render(lift);
           });
@@ -170,14 +200,22 @@ export function openSmartRecommendation() {
     if (addMoreBtn) {
       addMoreBtn.addEventListener('click', () => {
         const allScored = scoreAccessories(lift);
-        const usedIds = new Set(store.builderExercises.map(ex => ex.exerciseId));
-        const next = allScored.find(a => !usedIds.has(a.id));
+        const usedIds = new Set(store.builderExercises.map((ex) => ex.exerciseId));
+        const next = allScored.find((a) => !usedIds.has(a.id));
         if (next) {
           store.builderExercises.push({
-            type: 'accessory', exerciseId: next.id, name: next.name,
-            sets: next.sets, reps: next.repRange[1], weightMode: 'auto', weightValue: 0,
-            equipment: next.equipment, repRange: [...next.repRange], order: store.builderExercises.length,
-            _score: next.score, _reasons: next.reasons
+            type: 'accessory',
+            exerciseId: next.id,
+            name: next.name,
+            sets: next.sets,
+            reps: next.repRange[1],
+            weightMode: 'auto',
+            weightValue: 0,
+            equipment: next.equipment,
+            repRange: [...next.repRange],
+            order: store.builderExercises.length,
+            _score: next.score,
+            _reasons: next.reasons,
           });
           render(lift);
         } else {

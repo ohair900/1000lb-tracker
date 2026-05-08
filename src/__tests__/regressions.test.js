@@ -31,8 +31,20 @@ const { mockStore } = vi.hoisted(() => ({
     workoutConfig: { weakPoints: {}, setupComplete: true },
     unit: 'lbs',
     recoveryCalibration: {},
-    equipmentProfile: { barbell: true, dumbbell: true, cable: true, machine: true, bodyweight: true },
-    programConfig: { activeProgram: null, trainingMaxes: { squat: 350, bench: 250, deadlift: 400 }, completedSets: {}, amrapResults: {}, liftWeeks: {} },
+    equipmentProfile: {
+      barbell: true,
+      dumbbell: true,
+      cable: true,
+      machine: true,
+      bodyweight: true,
+    },
+    programConfig: {
+      activeProgram: null,
+      trainingMaxes: { squat: 350, bench: 250, deadlift: 400 },
+      completedSets: {},
+      amrapResults: {},
+      liftWeeks: {},
+    },
     save: () => {},
     saveNow: () => {},
     saveEntries: () => {},
@@ -42,7 +54,7 @@ const { mockStore } = vi.hoisted(() => ({
 }));
 vi.mock('../state/store.js', () => ({ default: mockStore }));
 
-import { resetMockStore, buildEntry, buildAccessoryLog } from './helpers/fixtures.js';
+import { resetMockStore, buildAccessoryLog } from './helpers/fixtures.js';
 import { MUSCLE_GROUPS, MAIN_LIFT_WEIGHTS, ACCESSORY_CAT_WEIGHTS } from '../data/muscle-groups.js';
 import { EXERCISE_CATALOG } from '../data/exercise-catalog.js';
 import { LEGACY_ID_MAP, resolveExercise, getLegacyIds } from '../data/exercise-compat.js';
@@ -69,9 +81,9 @@ describe('5c56583 — accessory migration idempotence', () => {
       buildAccessoryLog({ exerciseId: 'bn-row' }),
     ];
     migrateAccessoryIds();
-    const afterFirst = mockStore.accessoryLog.map(e => e.exerciseId);
+    const afterFirst = mockStore.accessoryLog.map((e) => e.exerciseId);
     migrateAccessoryIds();
-    const afterSecond = mockStore.accessoryLog.map(e => e.exerciseId);
+    const afterSecond = mockStore.accessoryLog.map((e) => e.exerciseId);
     expect(afterSecond).toEqual(afterFirst);
     expect(afterSecond).toEqual(['front-squat', 'barbell-row']);
   });
@@ -107,7 +119,7 @@ describe('cffb2f8 — Forearms/Calves rebalance', () => {
   it('calf-raise has Calves as its dominant primary muscle', () => {
     // Pre-fix: calf-raise had { Quads: 0.30, Hams: 0.30, Glutes: 0.40 }
     const calfRaise = EXERCISE_CATALOG['calf-raise'];
-    expect(calfRaise.primaryMuscles.Calves).toBeGreaterThanOrEqual(0.80);
+    expect(calfRaise.primaryMuscles.Calves).toBeGreaterThanOrEqual(0.8);
     expect(calfRaise.primaryMuscles.Quads || 0).toBeLessThan(0.15);
     expect(calfRaise.primaryMuscles.Hams || 0).toBeLessThan(0.15);
   });
@@ -124,7 +136,7 @@ describe('cffb2f8 — Forearms/Calves rebalance', () => {
     // which was wrong — farmer's walks are grip/forearms, not abs
     const grip = ACCESSORY_CAT_WEIGHTS['grip'];
     expect(grip.Forearms).toBeGreaterThan(grip.Core);
-    expect(grip.Forearms).toBeGreaterThanOrEqual(0.30);
+    expect(grip.Forearms).toBeGreaterThanOrEqual(0.3);
   });
 });
 

@@ -1,35 +1,62 @@
 /* ===== Charts Tab ===== */
 
 .chart-type-selector {
-  display: flex; gap: 4px; margin-bottom: 10px;
-  background: var(--surface); border-radius: 10px; padding: 4px;
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 4px;
 }
 
 .chart-filters {
-  display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap;
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 
 .chart-date-range {
-  display: flex; gap: 6px; margin-bottom: var(--space-2); flex-wrap: wrap;
+  display: flex;
+  gap: 6px;
+  margin-bottom: var(--space-2);
+  flex-wrap: wrap;
 }
 
 /* Heatmap metric toggle */
 .heatmap-metric-toggle {
-  display: flex; gap: 4px; margin-bottom: 8px;
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
 }
 .heatmap-metric-btn {
-  font-size: 0.7rem; font-weight: 600; padding: 4px 12px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-pill);
-  color: var(--text-dim); cursor: pointer; transition: all var(--transition-fast);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 .heatmap-metric-btn.active {
-  background: var(--gold-bg); color: var(--gold); border-color: rgba(255,215,0,0.3);
+  background: var(--gold-bg);
+  color: var(--gold);
+  border-color: rgba(255, 215, 0, 0.3);
 }
 
 /* Larger, bolder controls (overrides pills.css base) */
-.chart-type-btn { padding: 8px 0; }
-.chart-filter-btn { padding: 8px 16px; }
-.chart-date-range .range-pill { padding: 6px 14px; font-size: 0.75rem; }
+.chart-type-btn {
+  padding: 8px 0;
+}
+.chart-filter-btn {
+  padding: 8px 16px;
+}
+.chart-date-range .range-pill {
+  padding: 6px 14px;
+  font-size: 0.75rem;
+}
 
 /* Active accent underline on type selector */
 .chart-type-btn.active {
@@ -45,19 +72,22 @@
 
 /* Chart container */
 .chart-container {
-  position: relative; background: var(--surface);
-  border-radius: var(--radius-lg); padding: var(--space-4);
+  position: relative;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
   box-shadow: var(--shadow-sm);
 }
 .chart-container canvas {
-  width: 100%; display: block;
+  width: 100%;
+  display: block;
   transition: opacity 0.3s ease-out;
 }
 
 /* Volume histogram: horizontal pan affordance */
 .chart-container.chart-pannable canvas {
   cursor: grab;
-  touch-action: pan-y;       /* let the page scroll vertically, but we own horizontal */
+  touch-action: pan-y; /* let the page scroll vertically, but we own horizontal */
 }
 .chart-container.chart-pannable canvas:active {
   cursor: grabbing;
@@ -66,7 +96,8 @@
 .chart-container.chart-pannable::after {
   content: '';
   position: absolute;
-  top: var(--space-4); bottom: var(--space-4);
+  top: var(--space-4);
+  bottom: var(--space-4);
   width: 18px;
   pointer-events: none;
   z-index: 4;
@@ -83,7 +114,8 @@
 /* "← Today" reset chip, floats top-right of the chart when panned back */
 .chart-today-chip {
   position: absolute;
-  top: 8px; right: 10px;
+  top: 8px;
+  right: 10px;
   padding: 4px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
@@ -93,73 +125,147 @@
   font-weight: 600;
   cursor: pointer;
   z-index: 11;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
-.chart-today-chip:active { transform: scale(0.96); }
+.chart-today-chip:active {
+  transform: scale(0.96);
+}
 .chart-tooltip {
-  position: absolute; background: var(--surface2);
-  border: 1px solid var(--border); border-radius: 8px;
-  padding: 8px 12px; font-size: 0.75rem;
-  pointer-events: none; opacity: 0; transition: opacity 0.1s;
-  z-index: 10; white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  position: absolute;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+  z-index: 10;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   line-height: 1.4;
 }
 
 /* Crosshair */
 .chart-crosshair {
   position: absolute;
-  top: var(--space-4); bottom: var(--space-4);
+  top: var(--space-4);
+  bottom: var(--space-4);
   width: 1px;
-  background: rgba(255,255,255,0.12);
+  background: rgba(255, 255, 255, 0.12);
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.1s, left 0.05s ease-out;
+  transition:
+    opacity 0.1s,
+    left 0.05s ease-out;
   z-index: 5;
 }
 
 /* Summary header */
 .chart-summary {
-  display: flex; align-items: baseline; gap: 8px;
-  min-height: 28px; margin-bottom: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 28px;
+  margin-bottom: 8px;
   flex-wrap: wrap;
 }
 .chart-summary .summary-value {
-  font-size: 1.2rem; font-weight: 700; color: var(--text-strong, #fff);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-strong, #fff);
 }
 .chart-summary .summary-delta {
-  font-size: 0.75rem; font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
-.chart-summary .summary-delta.positive { color: var(--green, #43a047); }
-.chart-summary .summary-delta.negative { color: var(--red, #e53935); }
-.chart-summary .summary-delta.up { color: var(--text-dim, #888); }
-.chart-summary .summary-delta.down { color: var(--text-dim, #888); }
+.chart-summary .summary-delta.positive {
+  color: var(--green, #43a047);
+}
+.chart-summary .summary-delta.negative {
+  color: var(--red, #e53935);
+}
+.chart-summary .summary-delta.up {
+  color: var(--text-dim, #888);
+}
+.chart-summary .summary-delta.down {
+  color: var(--text-dim, #888);
+}
 .chart-summary .summary-label {
-  font-size: 0.7rem; color: var(--text-dim, #888);
+  font-size: 0.7rem;
+  color: var(--text-dim, #888);
 }
 
 /* Training calendar */
 .calendar-nav {
-  display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
 .calendar-nav-btn {
-  background: transparent; border: 1px solid var(--border); color: var(--text);
-  border-radius: var(--radius-sm); padding: 4px 10px; cursor: pointer; font-size: var(--text-sm);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: var(--text-sm);
 }
-.calendar-month-label { font-weight: 700; font-size: var(--text-base); color: var(--text); }
+.calendar-month-label {
+  font-weight: 700;
+  font-size: var(--text-base);
+  color: var(--text);
+}
 .calendar-grid {
-  display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
-  font-size: var(--text-xs); text-align: center;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  font-size: var(--text-xs);
+  text-align: center;
 }
-.calendar-day-header { color: var(--text-dim); font-weight: 600; padding: 4px 0; }
+.calendar-day-header {
+  color: var(--text-dim);
+  font-weight: 600;
+  padding: 4px 0;
+}
 .calendar-cell {
-  aspect-ratio: 1; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; border-radius: var(--radius-sm); cursor: default;
-  position: relative; padding: 2px; font-size: var(--text-2xs); color: var(--text-dim);
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  cursor: default;
+  position: relative;
+  padding: 2px;
+  font-size: var(--text-2xs);
+  color: var(--text-dim);
 }
-.calendar-cell.has-data { background: var(--surface2); cursor: pointer; }
-.calendar-cell.has-data:hover { outline: 1px solid var(--text-dim); }
-.calendar-cell.today { outline: 2px solid var(--gold); }
-.calendar-dots { display: flex; gap: 2px; margin-top: 1px; }
-.calendar-dot { width: 4px; height: 4px; border-radius: 50%; }
-.calendar-pr-star { color: var(--gold); font-size: 0.5rem; position: absolute; top: 1px; right: 2px; }
+.calendar-cell.has-data {
+  background: var(--surface2);
+  cursor: pointer;
+}
+.calendar-cell.has-data:hover {
+  outline: 1px solid var(--text-dim);
+}
+.calendar-cell.today {
+  outline: 2px solid var(--gold);
+}
+.calendar-dots {
+  display: flex;
+  gap: 2px;
+  margin-top: 1px;
+}
+.calendar-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+}
+.calendar-pr-star {
+  color: var(--gold);
+  font-size: 0.5rem;
+  position: absolute;
+  top: 1px;
+  right: 2px;
+}

@@ -3,7 +3,6 @@
  * Firebase setup wizard.
  */
 
-import store from '../state/store.js';
 import { $, escapeHTML } from '../utils/helpers.js';
 import { currentUser, signInWithGoogle, signOutUser, setCurrentUser } from '../firebase/auth.js';
 import {
@@ -13,10 +12,7 @@ import {
   firebaseSignOut,
   resetFirebaseInstances,
 } from '../firebase/init.js';
-import {
-  saveFirebaseConfig,
-  clearFirebaseConfig,
-} from '../firebase/config.js';
+import { saveFirebaseConfig, clearFirebaseConfig } from '../firebase/config.js';
 import { syncState, pushToCloud } from '../firebase/sync.js';
 import { setupAuthListener } from '../firebase/auth.js';
 import { openModal, closeModal } from '../ui/modal.js';
@@ -35,7 +31,8 @@ export function showSchemaBlockedBanner(cloudVersion) {
   if (document.getElementById('schema-blocked-banner')) return;
   const banner = document.createElement('div');
   banner.id = 'schema-blocked-banner';
-  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:var(--danger,#d32f2f);color:#fff;padding:12px 16px;text-align:center;font-size:0.85rem;line-height:1.4';
+  banner.style.cssText =
+    'position:fixed;top:0;left:0;right:0;z-index:9999;background:var(--danger,#d32f2f);color:#fff;padding:12px 16px;text-align:center;font-size:0.85rem;line-height:1.4';
   banner.innerHTML = `
     <strong>App update required</strong><br>
     Your cloud data uses a newer format (v${cloudVersion}).
@@ -50,7 +47,10 @@ export function showSchemaBlockedBanner(cloudVersion) {
  * the user to update their rules via Settings → Firebase setup.
  */
 export function showMigrationRulesPrompt() {
-  showToast('Sync upgrade needs an update to your Firestore rules. Open Settings → Firebase setup for the new rules.', 8000);
+  showToast(
+    'Sync upgrade needs an update to your Firestore rules. Open Settings → Firebase setup for the new rules.',
+    8000
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -65,7 +65,17 @@ export function updateSyncButton() {
   if (!btn) return;
   const user = currentUser;
   const status = syncState.status;
-  btn.className = 'sync-btn' + (user ? (status === 'synced' ? ' synced' : status === 'syncing' ? ' syncing' : status === 'error' ? ' error' : '') : '');
+  btn.className =
+    'sync-btn' +
+    (user
+      ? status === 'synced'
+        ? ' synced'
+        : status === 'syncing'
+          ? ' syncing'
+          : status === 'error'
+            ? ' error'
+            : ''
+      : '');
   btn.title = user ? `Synced as ${user.displayName || user.email}` : 'Cloud sync (sign in)';
 }
 
@@ -232,12 +242,31 @@ export function initSyncUI() {
 
   // Delegate sync menu actions
   document.addEventListener('click', (e) => {
-    if (e.target.closest('#sync-setup-btn')) { $('sync-menu').classList.remove('open'); showSetupWizard(); return; }
-    if (e.target.closest('#sync-signin-btn')) { signInWithGoogle(); $('sync-menu').classList.remove('open'); return; }
-    if (e.target.closest('#sync-signout-btn')) { signOutUser(); $('sync-menu').classList.remove('open'); return; }
-    if (e.target.closest('#sync-now-btn')) { pushToCloud(); $('sync-menu').classList.remove('open'); return; }
+    if (e.target.closest('#sync-setup-btn')) {
+      $('sync-menu').classList.remove('open');
+      showSetupWizard();
+      return;
+    }
+    if (e.target.closest('#sync-signin-btn')) {
+      signInWithGoogle();
+      $('sync-menu').classList.remove('open');
+      return;
+    }
+    if (e.target.closest('#sync-signout-btn')) {
+      signOutUser();
+      $('sync-menu').classList.remove('open');
+      return;
+    }
+    if (e.target.closest('#sync-now-btn')) {
+      pushToCloud();
+      $('sync-menu').classList.remove('open');
+      return;
+    }
     if (e.target.closest('#sync-disconnect-btn')) {
-      if (syncState.unsubSnapshot) { syncState.unsubSnapshot(); syncState.unsubSnapshot = null; }
+      if (syncState.unsubSnapshot) {
+        syncState.unsubSnapshot();
+        syncState.unsubSnapshot = null;
+      }
       if (auth && currentUser) firebaseSignOut(auth).catch(() => {});
       setCurrentUser(null);
       resetFirebaseInstances().then(() => {

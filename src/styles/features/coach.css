@@ -44,10 +44,12 @@
   gap: var(--space-2);
   padding: var(--space-1) 0 var(--space-1) var(--space-2);
   border-left: 2px solid transparent;
-  transition: opacity 180ms ease, border-color 180ms ease;
+  transition:
+    opacity 180ms ease,
+    border-color 180ms ease;
 }
 
-.coach-row[data-priority="high"] {
+.coach-row[data-priority='high'] {
   border-left-color: var(--orange);
 }
 
@@ -72,7 +74,9 @@
   transition: opacity var(--transition-fast);
 }
 
-.coach-row-accept:active { opacity: 0.7; }
+.coach-row-accept:active {
+  opacity: 0.7;
+}
 
 .coach-row-applied {
   flex-shrink: 0;
@@ -116,9 +120,15 @@
   animation: chipSlideIn 0.2s ease;
 }
 
-.coach-chip-info  { border-left-color: var(--text-dim); }
-.coach-chip-warn  { border-left-color: var(--yellow); }
-.coach-chip-alert { border-left-color: var(--orange); }
+.coach-chip-info {
+  border-left-color: var(--text-dim);
+}
+.coach-chip-warn {
+  border-left-color: var(--yellow);
+}
+.coach-chip-alert {
+  border-left-color: var(--orange);
+}
 
 .coach-chip-text {
   margin: 0;
@@ -151,7 +161,9 @@
   transition: opacity var(--transition-fast);
 }
 
-.coach-chip-btn:active { opacity: 0.7; }
+.coach-chip-btn:active {
+  opacity: 0.7;
+}
 
 .coach-chip-apply {
   background: var(--gold);
@@ -167,8 +179,14 @@
 }
 
 @keyframes chipSlideIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -199,15 +217,21 @@
 }
 
 /* Single restrained celebration moment for A / A+ — one pulse, 400ms */
-.coach-grade[data-grade="A"] .coach-grade-letter,
-.coach-grade[data-grade="A+"] .coach-grade-letter {
+.coach-grade[data-grade='A'] .coach-grade-letter,
+.coach-grade[data-grade='A+'] .coach-grade-letter {
   animation: coachGradePulse 400ms ease-out 1;
 }
 
 @keyframes coachGradePulse {
-  0%   { box-shadow: 0 0 0 0 currentColor; }
-  50%  { box-shadow: 0 0 12px 0 currentColor; }
-  100% { box-shadow: 0 0 0 0 currentColor; }
+  0% {
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  50% {
+    box-shadow: 0 0 12px 0 currentColor;
+  }
+  100% {
+    box-shadow: 0 0 0 0 currentColor;
+  }
 }
 
 .coach-grade-meta {
@@ -289,11 +313,11 @@
   border-left: 2px solid transparent;
 }
 
-.coach-grade-impacts li[data-kind="warn"],
-.coach-grade-impacts li[data-kind="fatigue"] {
+.coach-grade-impacts li[data-kind='warn'],
+.coach-grade-impacts li[data-kind='fatigue'] {
   border-left-color: var(--orange);
 }
 
-.coach-grade-impacts li[data-kind="plateau"] {
+.coach-grade-impacts li[data-kind='plateau'] {
   border-left-color: var(--yellow);
 }

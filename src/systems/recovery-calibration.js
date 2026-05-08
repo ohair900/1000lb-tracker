@@ -11,13 +11,7 @@
 
 import store from '../state/store.js';
 import { MS_PER_DAY, SAME_SESSION_MS } from '../constants/time.js';
-import {
-  MUSCLE_GROUPS,
-  MUSCLE_RECOVERY_HOURS,
-  MAIN_LIFT_WEIGHTS,
-  ACCESSORY_CAT_WEIGHTS,
-} from '../data/muscle-groups.js';
-import { ACCESSORY_DB } from '../data/accessories.js';
+import { MUSCLE_GROUPS, MUSCLE_RECOVERY_HOURS, MAIN_LIFT_WEIGHTS } from '../data/muscle-groups.js';
 
 const SIX_WEEKS_MS = 42 * MS_PER_DAY;
 const FULL_CONFIDENCE_SAMPLES = 24;
@@ -40,20 +34,20 @@ function calibrateRecovery(mg) {
 
   const now = Date.now();
   const oldest = entries.reduce((min, e) => Math.min(min, e.timestamp), Infinity);
-  if ((now - oldest) < SIX_WEEKS_MS) return null;
+  if (now - oldest < SIX_WEEKS_MS) return null;
 
   // Find sessions that target this muscle group, ordered chronologically
   const sessions = [];
   entries
-    .filter(e => {
+    .filter((e) => {
       const w = MAIN_LIFT_WEIGHTS[e.lift];
       return w && w[mg];
     })
     .sort((a, b) => a.timestamp - b.timestamp)
-    .forEach(e => {
+    .forEach((e) => {
       // Group entries within 2 hours as same session
       const last = sessions[sessions.length - 1];
-      if (last && (e.timestamp - last.timestamp) < SAME_SESSION_MS) {
+      if (last && e.timestamp - last.timestamp < SAME_SESSION_MS) {
         // Update session with best e1rm
         if (e.e1rm > last.e1rm) {
           last.e1rm = e.e1rm;
@@ -80,9 +74,7 @@ function calibrateRecovery(mg) {
     // Performance delta: positive = maintained or improved
     const delta = sessions[i].e1rm - sessions[i - 1].e1rm;
     // Normalize: percentage change relative to baseline
-    const pctDelta = sessions[i - 1].e1rm > 0
-      ? delta / sessions[i - 1].e1rm
-      : 0;
+    const pctDelta = sessions[i - 1].e1rm > 0 ? delta / sessions[i - 1].e1rm : 0;
     pairs.push({ interval: intervalHours, delta: pctDelta });
   }
 
@@ -90,7 +82,7 @@ function calibrateRecovery(mg) {
 
   // Find median interval where performance was maintained or improved (delta >= -0.02)
   // Using -2% threshold to account for normal day-to-day variation
-  const goodPairs = pairs.filter(p => p.delta >= -0.02);
+  const goodPairs = pairs.filter((p) => p.delta >= -0.02);
   if (goodPairs.length === 0) {
     return {
       hours: MUSCLE_RECOVERY_HOURS[mg],
@@ -100,11 +92,12 @@ function calibrateRecovery(mg) {
   }
 
   // Median of intervals with good performance
-  const sortedIntervals = goodPairs.map(p => p.interval).sort((a, b) => a - b);
+  const sortedIntervals = goodPairs.map((p) => p.interval).sort((a, b) => a - b);
   const medianIdx = Math.floor(sortedIntervals.length / 2);
-  const calibratedHours = sortedIntervals.length % 2 === 0
-    ? (sortedIntervals[medianIdx - 1] + sortedIntervals[medianIdx]) / 2
-    : sortedIntervals[medianIdx];
+  const calibratedHours =
+    sortedIntervals.length % 2 === 0
+      ? (sortedIntervals[medianIdx - 1] + sortedIntervals[medianIdx]) / 2
+      : sortedIntervals[medianIdx];
 
   // Clamp to reasonable bounds (12h - 168h / 1 week)
   const clampedHours = Math.max(12, Math.min(168, calibratedHours));
@@ -174,13 +167,13 @@ export function runCalibration() {
   const now = Date.now();
 
   // Throttle: skip if last calibration was recent
-  const anyRecent = MUSCLE_GROUPS.some(mg =>
-    cal[mg] && cal[mg].lastCalibrated && (now - cal[mg].lastCalibrated) < THROTTLE_MS
+  const anyRecent = MUSCLE_GROUPS.some(
+    (mg) => cal[mg] && cal[mg].lastCalibrated && now - cal[mg].lastCalibrated < THROTTLE_MS
   );
   if (anyRecent) return;
 
   const updated = {};
-  MUSCLE_GROUPS.forEach(mg => {
+  MUSCLE_GROUPS.forEach((mg) => {
     const result = calibrateRecovery(mg);
     if (result) {
       updated[mg] = {

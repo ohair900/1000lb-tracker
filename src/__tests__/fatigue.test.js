@@ -25,7 +25,13 @@ const { mockStore } = vi.hoisted(() => ({
     workoutConfig: { weakPoints: {}, setupComplete: true },
     unit: 'lbs',
     recoveryCalibration: {},
-    equipmentProfile: { barbell: true, dumbbell: true, cable: true, machine: true, bodyweight: true },
+    equipmentProfile: {
+      barbell: true,
+      dumbbell: true,
+      cable: true,
+      machine: true,
+      bodyweight: true,
+    },
     programConfig: { activeProgram: null },
     save: () => {},
     saveNow: () => {},
@@ -81,7 +87,12 @@ describe('calcFatigueByMuscle', () => {
     mockStore.entries = buildSeededHistory();
     // Seed some grip work to make Forearms appear
     mockStore.accessoryLog = Array.from({ length: 4 }).map((_, i) =>
-      buildAccessoryLog({ exerciseId: 'barbell-row', weight: 135, setsCompleted: [8, 8, 8], daysAgo: i * 5 + 2 })
+      buildAccessoryLog({
+        exerciseId: 'barbell-row',
+        weight: 135,
+        setsCompleted: [8, 8, 8],
+        daysAgo: i * 5 + 2,
+      })
     );
     const result = calcFatigueByMuscle();
     expect(result).not.toBeNull();
@@ -132,7 +143,8 @@ describe('calcFatigueLift', () => {
     const result = calcFatigueLift('squat');
     // Should not throw and should have sensible defaults
     expect(result).toBeDefined();
-    if (result) expect(['green', 'lime', 'yellow', 'orange', 'red']).toContain(result.displayStatus);
+    if (result)
+      expect(['green', 'lime', 'yellow', 'orange', 'red']).toContain(result.displayStatus);
   });
 });
 

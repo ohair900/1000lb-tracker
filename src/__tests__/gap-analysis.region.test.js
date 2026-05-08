@@ -21,7 +21,13 @@ const { mockStore } = vi.hoisted(() => ({
     workoutConfig: { weakPoints: {}, setupComplete: true },
     unit: 'lbs',
     recoveryCalibration: {},
-    equipmentProfile: { barbell: true, dumbbell: true, cable: true, machine: true, bodyweight: true },
+    equipmentProfile: {
+      barbell: true,
+      dumbbell: true,
+      cable: true,
+      machine: true,
+      bodyweight: true,
+    },
     programConfig: { activeProgram: null },
     save: () => {},
     saveNow: () => {},
@@ -29,7 +35,7 @@ const { mockStore } = vi.hoisted(() => ({
 }));
 vi.mock('../state/store.js', () => ({ default: mockStore }));
 
-import { resetMockStore, buildEntry, buildAccessoryLog, MS_PER_DAY } from './helpers/fixtures.js';
+import { resetMockStore, buildEntry, buildAccessoryLog } from './helpers/fixtures.js';
 import { getGapReport } from '../systems/gap-analysis.js';
 
 beforeEach(() => {
@@ -41,9 +47,7 @@ describe('getGapReport — region-aware filtering', () => {
     // Zero lower-body training, zero upper-body training — calves are at 0/8.
     // Historically the coach would have recommended a calf raise.
     const gaps = getGapReport('bench');
-    const calfGaps = gaps.filter(g =>
-      g.muscleGroup === 'Calves' && g.suggestedExercise
-    );
+    const calfGaps = gaps.filter((g) => g.muscleGroup === 'Calves' && g.suggestedExercise);
     expect(calfGaps).toHaveLength(0);
   });
 
@@ -51,7 +55,7 @@ describe('getGapReport — region-aware filtering', () => {
     const gaps = getGapReport('bench');
     // Every actionable (non-deferred) gap must have a null OR non-lower-body
     // suggested exercise.
-    const actionable = gaps.filter(g => g.suggestedExercise);
+    const actionable = gaps.filter((g) => g.suggestedExercise);
     for (const g of actionable) {
       // The suggested exercise must be a bench-supporting one. 'calf-raise'
       // is tagged supportsLifts: ['squat','deadlift'] — it must never appear.
@@ -68,7 +72,7 @@ describe('getGapReport — region-aware filtering', () => {
       buildEntry({ lift: 'bench', weight: 225, reps: 5, daysAgo: 8 }),
     ];
     const gaps = getGapReport('bench');
-    const deferred = gaps.filter(g => g.type === 'deferred-gap' && g.muscleGroup === 'Calves');
+    const deferred = gaps.filter((g) => g.type === 'deferred-gap' && g.muscleGroup === 'Calves');
     // Chronic calves (zero sets for 2+ weeks) → exactly one passive insight.
     expect(deferred.length).toBeGreaterThanOrEqual(1);
     expect(deferred[0].suggestedExercise).toBeNull();
@@ -81,11 +85,11 @@ describe('getGapReport — region-aware filtering', () => {
       buildAccessoryLog({
         exerciseId: 'calf-raise',
         setsCompleted: [15, 15, 15, 15, 15, 15, 15, 15],
-        daysAgo: 10,  // last week
+        daysAgo: 10, // last week
       }),
     ];
     const gaps = getGapReport('bench');
-    const deferred = gaps.filter(g => g.type === 'deferred-gap' && g.muscleGroup === 'Calves');
+    const deferred = gaps.filter((g) => g.type === 'deferred-gap' && g.muscleGroup === 'Calves');
     expect(deferred).toHaveLength(0);
   });
 });
@@ -101,7 +105,7 @@ describe('getGapReport — MEV tolerance', () => {
       }),
     ];
     const gaps = getGapReport('bench');
-    const chestGap = gaps.find(g => g.muscleGroup === 'Chest' && g.type === 'volume');
+    const chestGap = gaps.find((g) => g.muscleGroup === 'Chest' && g.type === 'volume');
     // At 2/8, ratio = 0.25 < 0.5 — should be high severity.
     expect(chestGap).toBeDefined();
     expect(chestGap.severity).toBe('high');
@@ -117,7 +121,7 @@ describe('getGapReport — MEV tolerance', () => {
       }),
     ];
     const gaps = getGapReport('bench');
-    const chestGap = gaps.find(g => g.muscleGroup === 'Chest' && g.type === 'volume');
+    const chestGap = gaps.find((g) => g.muscleGroup === 'Chest' && g.type === 'volume');
     // At 6/8, ratio = 0.75 — not < 0.75, so falls into the low bucket.
     expect(chestGap).toBeDefined();
     expect(chestGap.severity).toBe('low');

@@ -14,61 +14,61 @@ import store from '../state/store.js';
 
 export const LEGACY_ID_MAP = {
   // Squat accessories
-  'sq-pause':      'pause-squat',
-  'sq-front':      'front-squat',
-  'sq-legpress':   'leg-press',
-  'sq-goodmorning':'good-morning',
-  'sq-hipthrust':  'hip-thrust',
-  'sq-glutebridge':'glute-bridge',
-  'sq-rdl':        'rdl',
-  'sq-legext':     'leg-extension',
-  'sq-bss':        'bulgarian-split-squat',
-  'sq-lunge':      'lunges',
-  'sq-abwheel':    'ab-wheel',
-  'sq-pallof':     'pallof-press',
-  'sq-plank':      'plank',
-  'sq-wallsit':    'wall-sit',
-  'sq-calfraise':  'calf-raise',
+  'sq-pause': 'pause-squat',
+  'sq-front': 'front-squat',
+  'sq-legpress': 'leg-press',
+  'sq-goodmorning': 'good-morning',
+  'sq-hipthrust': 'hip-thrust',
+  'sq-glutebridge': 'glute-bridge',
+  'sq-rdl': 'rdl',
+  'sq-legext': 'leg-extension',
+  'sq-bss': 'bulgarian-split-squat',
+  'sq-lunge': 'lunges',
+  'sq-abwheel': 'ab-wheel',
+  'sq-pallof': 'pallof-press',
+  'sq-plank': 'plank',
+  'sq-wallsit': 'wall-sit',
+  'sq-calfraise': 'calf-raise',
 
   // Bench accessories
-  'bn-pause':      'pause-bench',
-  'bn-spoto':      'spoto-press',
-  'bn-dbpress':    'dumbbell-press',
-  'bn-flies':      'chest-flies',
-  'bn-cgbp':       'close-grip-bench',
-  'bn-tricepext':  'tricep-extension',
-  'bn-skulls':     'skull-crushers',
-  'bn-jmpress':    'jm-press',
-  'bn-ohp':        'overhead-press',
-  'bn-incline':    'incline-bench',
-  'bn-latraise':   'lateral-raises',
-  'bn-facepull':   'face-pull',
-  'bn-row':        'barbell-row',
-  'bn-dbrow':      'dumbbell-row',
-  'bn-reardelt':   'rear-delt-flies',
-  'bn-pullup':     'pullup',
+  'bn-pause': 'pause-bench',
+  'bn-spoto': 'spoto-press',
+  'bn-dbpress': 'dumbbell-press',
+  'bn-flies': 'chest-flies',
+  'bn-cgbp': 'close-grip-bench',
+  'bn-tricepext': 'tricep-extension',
+  'bn-skulls': 'skull-crushers',
+  'bn-jmpress': 'jm-press',
+  'bn-ohp': 'overhead-press',
+  'bn-incline': 'incline-bench',
+  'bn-latraise': 'lateral-raises',
+  'bn-facepull': 'face-pull',
+  'bn-row': 'barbell-row',
+  'bn-dbrow': 'dumbbell-row',
+  'bn-reardelt': 'rear-delt-flies',
+  'bn-pullup': 'pullup',
   'bn-widepullup': 'wide-pullup',
-  'bn-chinup':     'chinup',
+  'bn-chinup': 'chinup',
 
   // Deadlift accessories
-  'dl-deficit':    'deficit-deadlift',
+  'dl-deficit': 'deficit-deadlift',
   'dl-frontsquat': 'front-squat',
-  'dl-legpress':   'leg-press',
-  'dl-blockpull':  'block-pull',
-  'dl-hipthrust':  'hip-thrust',
-  'dl-goodmorning':'good-morning',
-  'dl-glutebridge':'glute-bridge',
+  'dl-legpress': 'leg-press',
+  'dl-blockpull': 'block-pull',
+  'dl-hipthrust': 'hip-thrust',
+  'dl-goodmorning': 'good-morning',
+  'dl-glutebridge': 'glute-bridge',
   'dl-farmerwalk': 'farmers-walk',
-  'dl-deadhang':   'dead-hang',
-  'dl-shrugs':     'barbell-shrugs',
-  'dl-row':        'barbell-row',
-  'dl-latpulldown':'lat-pulldown',
-  'dl-facepull':   'face-pull',
-  'dl-dbshrugs':   'dumbbell-shrugs',
-  'dl-pullup':     'pullup',
-  'dl-calfraise':  'calf-raise',
+  'dl-deadhang': 'dead-hang',
+  'dl-shrugs': 'barbell-shrugs',
+  'dl-row': 'barbell-row',
+  'dl-latpulldown': 'lat-pulldown',
+  'dl-facepull': 'face-pull',
+  'dl-dbshrugs': 'dumbbell-shrugs',
+  'dl-pullup': 'pullup',
+  'dl-calfraise': 'calf-raise',
   'dl-widepullup': 'wide-pullup',
-  'dl-chinup':     'chinup',
+  'dl-chinup': 'chinup',
 };
 
 // ---------------------------------------------------------------------------
@@ -121,7 +121,7 @@ export function resolveExercise(id) {
  * @returns {Object|null} Merged exercise entry or null
  */
 export function resolveAccessory(id) {
-  const custom = (store.customAccessories || []).find(c => c.id === id);
+  const custom = (store.customAccessories || []).find((c) => c.id === id);
   if (custom) return { ...custom, ...(store.accessoryOverrides?.[id] || {}) };
 
   const canonical = resolveCanonicalId(id);
@@ -141,7 +141,7 @@ export function resolveAccessory(id) {
  */
 export function getAllExerciseIds() {
   const ids = new Set(Object.keys(EXERCISE_CATALOG));
-  for (const c of (store.customAccessories || [])) ids.add(c.id);
+  for (const c of store.customAccessories || []) ids.add(c.id);
   return [...ids];
 }
 
@@ -156,6 +156,6 @@ export function getAllExerciseIds() {
 export function getExerciseHistory(canonicalId, accessoryLog) {
   const allIds = new Set([canonicalId, ...getLegacyIds(canonicalId)]);
   return accessoryLog
-    .filter(entry => allIds.has(entry.exerciseId))
+    .filter((entry) => allIds.has(entry.exerciseId))
     .sort((a, b) => b.timestamp - a.timestamp);
 }

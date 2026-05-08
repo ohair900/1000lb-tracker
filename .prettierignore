@@ -1,0 +1,6 @@
+dist/
+assets/
+index.html
+node_modules/
+*.min.js
+tests.js

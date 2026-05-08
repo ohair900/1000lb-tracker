@@ -10,11 +10,7 @@ import { MESO_GOALS } from '../data/meso-goals.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
 import { bestE1RM } from '../formulas/e1rm.js';
 import { formatWeight } from '../formulas/units.js';
-import {
-  generateMesocycle,
-  recordMesocyclePerformance,
-  adaptRemainingWeeks,
-} from '../systems/mesocycle.js';
+import { generateMesocycle } from '../systems/mesocycle.js';
 import {
   computeSetWeights,
   getAccessoryWeight,
@@ -28,9 +24,11 @@ import { showToast } from '../ui/toast.js';
 // Dependency injection
 // ---------------------------------------------------------------------------
 
-let _deps = {};
+const _deps = {};
 
-export function setMesocycleUIDeps(deps) { Object.assign(_deps, deps); }
+export function setMesocycleUIDeps(deps) {
+  Object.assign(_deps, deps);
+}
 
 // ---------------------------------------------------------------------------
 // Mesocycle generator modal
@@ -41,21 +39,23 @@ export function setMesocycleUIDeps(deps) { Object.assign(_deps, deps); }
  */
 export function showMesocycleGenerator() {
   const body = $('edit-body');
-  let selectedGoal = 'strength', selectedModel = 'linear', selectedDuration = 6;
+  let selectedGoal = 'strength',
+    selectedModel = 'linear',
+    selectedDuration = 6;
   let includeOptional = false;
 
   function renderGenUI() {
-    const hasTMs = LIFTS.every(l => store.programConfig.trainingMaxes[l] || bestE1RM(l));
+    const hasTMs = LIFTS.every((l) => store.programConfig.trainingMaxes[l] || bestE1RM(l));
     let html = '<div class="section-label-lg">Goal</div>';
     html += '<div class="meso-pills">';
-    ['hypertrophy', 'strength', 'peaking', 'deload'].forEach(g => {
+    ['hypertrophy', 'strength', 'peaking', 'deload'].forEach((g) => {
       html += `<button class="meso-pill${selectedGoal === g ? ' active' : ''}" data-goal="${g}">${MESO_GOALS[g].label}</button>`;
     });
     html += '</div>';
 
     html += '<div class="section-label-lg">Model</div>';
     html += '<div class="meso-pills">';
-    ['linear', 'dup', 'block'].forEach(m => {
+    ['linear', 'dup', 'block'].forEach((m) => {
       const labels = { linear: 'Linear', dup: 'DUP', block: 'Block' };
       html += `<button class="meso-pill${selectedModel === m ? ' active' : ''}" data-model="${m}">${labels[m]}</button>`;
     });
@@ -63,13 +63,13 @@ export function showMesocycleGenerator() {
 
     html += '<div class="section-label-lg">Duration</div>';
     html += '<div class="meso-pills">';
-    [4, 6, 8].forEach(d => {
+    [4, 6, 8].forEach((d) => {
       html += `<button class="meso-pill${selectedDuration === d ? ' active' : ''}" data-duration="${d}">${d} weeks</button>`;
     });
     html += '</div>';
 
     html += '<div class="section-label-lg" style="margin-top:var(--space-3)">Training Maxes</div>';
-    LIFTS.forEach(l => {
+    LIFTS.forEach((l) => {
       const tm = store.programConfig.trainingMaxes[l];
       const best = bestE1RM(l);
       const val = tm || (best ? Math.round(best * 0.9) : 0);
@@ -92,7 +92,7 @@ export function showMesocycleGenerator() {
     body.innerHTML = html;
 
     // Pill clicks
-    body.querySelectorAll('[data-goal]').forEach(btn => {
+    body.querySelectorAll('[data-goal]').forEach((btn) => {
       btn.addEventListener('click', () => {
         selectedGoal = btn.dataset.goal;
         if (selectedGoal === 'deload') selectedDuration = 1;
@@ -100,21 +100,38 @@ export function showMesocycleGenerator() {
         renderGenUI();
       });
     });
-    body.querySelectorAll('[data-model]').forEach(btn => {
-      btn.addEventListener('click', () => { selectedModel = btn.dataset.model; renderGenUI(); });
+    body.querySelectorAll('[data-model]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        selectedModel = btn.dataset.model;
+        renderGenUI();
+      });
     });
-    body.querySelectorAll('[data-duration]').forEach(btn => {
-      btn.addEventListener('click', () => { selectedDuration = parseInt(btn.dataset.duration); renderGenUI(); });
+    body.querySelectorAll('[data-duration]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        selectedDuration = parseInt(btn.dataset.duration);
+        renderGenUI();
+      });
     });
     const optToggle = $('meso-optional-days');
-    if (optToggle) optToggle.addEventListener('change', () => { includeOptional = optToggle.checked; });
+    if (optToggle)
+      optToggle.addEventListener('change', () => {
+        includeOptional = optToggle.checked;
+      });
 
     // Generate button
     const genBtn = $('meso-generate-btn');
     if (genBtn) {
       genBtn.addEventListener('click', () => {
-        const meso = generateMesocycle(selectedGoal, selectedModel, selectedDuration, includeOptional);
-        if (!meso) { showToast('Set training maxes first'); return; }
+        const meso = generateMesocycle(
+          selectedGoal,
+          selectedModel,
+          selectedDuration,
+          includeOptional
+        );
+        if (!meso) {
+          showToast('Set training maxes first');
+          return;
+        }
         store.activeMesocycle = meso;
         store.saveMesocycle();
         closeModal('edit-modal');
@@ -138,7 +155,10 @@ export function showMesocycleGenerator() {
  * @param {string} lift
  */
 export function openMesocycleWorkout(lift) {
-  if (!store.activeMesocycle || store.activeMesocycle.status !== 'active') { showToast('No active mesocycle'); return; }
+  if (!store.activeMesocycle || store.activeMesocycle.status !== 'active') {
+    showToast('No active mesocycle');
+    return;
+  }
   const weekIdx = store.activeMesocycle.currentWeek - 1;
   const week = store.activeMesocycle.weeks[weekIdx];
   if (!week) return;
@@ -158,21 +178,29 @@ export function openMesocycleWorkout(lift) {
     date: now.toISOString().split('T')[0],
     startTime: now.getTime(),
     mainSets: liftWorkout.mainSets.map((s, i) => ({
-      num: i + 1, weight: s.weight, reps: s.reps, pct: s.pct, completed: false
+      num: i + 1,
+      weight: s.weight,
+      reps: s.reps,
+      pct: s.pct,
+      completed: false,
     })),
-    accessories: liftWorkout.accessories.map(a => {
+    accessories: liftWorkout.accessories.map((a) => {
       const dbEx = ACCESSORY_DB[a.exerciseId];
       return {
-        exerciseId: a.exerciseId, name: a.name,
+        exerciseId: a.exerciseId,
+        name: a.name,
         setWeights: computeSetWeights(dbEx ? getAccessoryWeight(a.exerciseId, lift) : 0, a.sets),
-        targetSets: a.sets, repRange: [...a.repRange], equipment: a.equipment,
-        setsCompleted: [], progressed: dbEx ? checkAccessoryProgression(a.exerciseId, lift) : false
+        targetSets: a.sets,
+        repRange: [...a.repRange],
+        equipment: a.equipment,
+        setsCompleted: [],
+        progressed: dbEx ? checkAccessoryProgression(a.exerciseId, lift) : false,
       };
     }),
     completed: false,
     source: 'mesocycle',
     mesocycleId: store.activeMesocycle.id,
-    mesocycleWeek: store.activeMesocycle.currentWeek
+    mesocycleWeek: store.activeMesocycle.currentWeek,
   };
   store.workoutSession = session;
   store.saveWorkoutSession();
@@ -213,13 +241,12 @@ export function showMesoWeekDetail(weekIdx) {
   const week = store.activeMesocycle.weeks[weekIdx];
   if (!week) return;
 
-  const body = $('fatigue-sheet-body');
   $('fatigue-sheet-title').textContent = `${store.activeMesocycle.name} - ${week.label}`;
   let html = `<div class="fatigue-detail-banner ${week.phase === 'Deload' ? 'green' : 'blue'}" style="background:rgba(30,136,229,0.12);color:var(--bench)">
     <span>${week.phase}</span><span style="margin-left:auto">RPE ${week.targetRPE}</span>
   </div>`;
 
-  LIFTS.forEach(l => {
+  LIFTS.forEach((l) => {
     const w = week.workouts[l];
     if (!w) return;
     const perf = week.performance[l];
@@ -229,7 +256,7 @@ export function showMesoWeekDetail(weekIdx) {
       html += `<div class="meso-detail-set">Set ${i + 1}: ${formatWeight(s.weight)} ${store.unit} x ${s.reps} (${s.pct}%)</div>`;
     });
     if (w.accessories.length > 0) {
-      html += `<div class="meso-detail-acc">Accessories: ${w.accessories.map(a => a.name).join(', ')}</div>`;
+      html += `<div class="meso-detail-acc">Accessories: ${w.accessories.map((a) => a.name).join(', ')}</div>`;
     }
     if (perf) {
       html += `<div class="meso-detail-perf">RPE ${perf.actualRPE} &bull; ${perf.completedSets} sets &bull; ${perf.totalReps} reps</div>`;
@@ -238,10 +265,10 @@ export function showMesoWeekDetail(weekIdx) {
   });
 
   // Adaptation log for this week
-  const adaptations = store.activeMesocycle.adaptationLog.filter(a => a.weekNum === week.weekNum);
+  const adaptations = store.activeMesocycle.adaptationLog.filter((a) => a.weekNum === week.weekNum);
   if (adaptations.length > 0) {
     html += '<div class="section-label-lg" style="margin:8px 0 4px">Adaptations</div>';
-    adaptations.forEach(a => {
+    adaptations.forEach((a) => {
       html += `<div style="font-size:var(--text-xs);color:var(--gold);padding:2px 0">${LIFT_NAMES[a.lift]}: ${a.adjustment} - ${a.reason}</div>`;
     });
   }

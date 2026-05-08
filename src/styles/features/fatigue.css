@@ -1,131 +1,328 @@
 /* ===== Fatigue Indicator ===== */
 
-.fatigue-container { margin-bottom: 8px; }
+.fatigue-container {
+  margin-bottom: 8px;
+}
 .fatigue-header {
-  font-size: var(--text-xs); text-transform: uppercase; color: var(--text-dim);
-  font-weight: 700; margin-bottom: 4px; letter-spacing: 0.5px;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-weight: 700;
+  margin-bottom: 4px;
+  letter-spacing: 0.5px;
 }
 .fatigue-row {
-  display: flex; flex-direction: column; gap: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .fatigue-cards-toggle {
-  display: flex; align-items: center; justify-content: center; gap: 4px;
-  font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
-  color: var(--text-dim); opacity: 0.5; cursor: pointer; padding: 6px 0 2px;
-  user-select: none; -webkit-tap-highlight-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-dim);
+  opacity: 0.5;
+  cursor: pointer;
+  padding: 6px 0 2px;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
-.fatigue-cards-toggle:active { opacity: 0.7; }
-.fatigue-cards-toggle-icon { font-size: 0.5rem; }
+.fatigue-cards-toggle:active {
+  opacity: 0.7;
+}
+.fatigue-cards-toggle-icon {
+  font-size: 0.5rem;
+}
 .fatigue-cards-content {
-  overflow: hidden; max-height: 0; opacity: 0;
-  transition: max-height 0.3s ease, opacity 0.25s ease;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition:
+    max-height 0.3s ease,
+    opacity 0.25s ease;
 }
 .fatigue-cards-content.expanded {
-  max-height: 300px; opacity: 1;
+  max-height: 300px;
+  opacity: 1;
 }
 .fatigue-group-label {
-  font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.8px;
-  color: var(--text-dim); opacity: 0.5; font-weight: 700; margin-top: 4px;
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-dim);
+  opacity: 0.5;
+  font-weight: 700;
+  margin-top: 4px;
 }
 .fatigue-group-row {
-  display: flex; gap: 6px; flex-wrap: wrap;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 .fatigue-card {
-  flex: 1 1 0; background: var(--surface); border-radius: var(--radius-md);
-  padding: var(--space-2); text-align: center; min-width: 0;
-  cursor: pointer; transition: transform var(--transition-fast);
+  flex: 1 1 0;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  text-align: center;
+  min-width: 0;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
 }
-.fatigue-card:active { transform: scale(0.96); }
+.fatigue-card:active {
+  transform: scale(0.96);
+}
 .fatigue-card-label {
-  font-size: var(--text-xs); text-transform: uppercase; font-weight: 700; margin-bottom: 2px;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-bottom: 2px;
 }
 .fatigue-card-status {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 .fatigue-dot {
-  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
-.fatigue-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
-.fatigue-dot.lime { background: var(--lime); box-shadow: 0 0 6px var(--lime); }
-.fatigue-dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
-.fatigue-dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
-.fatigue-dot.orange { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
-.fatigue-dot.none { background: var(--text-dim); opacity: 0.3; }
+.fatigue-dot.green {
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+.fatigue-dot.lime {
+  background: var(--lime);
+  box-shadow: 0 0 6px var(--lime);
+}
+.fatigue-dot.yellow {
+  background: var(--yellow);
+  box-shadow: 0 0 6px var(--yellow);
+}
+.fatigue-dot.red {
+  background: var(--red);
+  box-shadow: 0 0 6px var(--red);
+}
+.fatigue-dot.orange {
+  background: var(--orange);
+  box-shadow: 0 0 6px var(--orange);
+}
+.fatigue-dot.none {
+  background: var(--text-dim);
+  opacity: 0.3;
+}
 .fatigue-level {
-  font-size: var(--text-sm); font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: 700;
 }
-.fatigue-level.green { color: var(--green); }
-.fatigue-level.lime { color: var(--lime); }
-.fatigue-level.yellow { color: var(--yellow); }
-.fatigue-level.red { color: var(--red); }
-.fatigue-level.orange { color: var(--orange); }
-.fatigue-level.none { color: var(--text-dim); opacity: 0.4; }
+.fatigue-level.green {
+  color: var(--green);
+}
+.fatigue-level.lime {
+  color: var(--lime);
+}
+.fatigue-level.yellow {
+  color: var(--yellow);
+}
+.fatigue-level.red {
+  color: var(--red);
+}
+.fatigue-level.orange {
+  color: var(--orange);
+}
+.fatigue-level.none {
+  color: var(--text-dim);
+  opacity: 0.4;
+}
 
 /* Mini recovery bar on dashboard cards */
 .fatigue-card-recovery {
-  height: 3px; border-radius: 1.5px; background: var(--surface2);
-  margin-top: 4px; overflow: hidden;
+  height: 3px;
+  border-radius: 1.5px;
+  background: var(--surface2);
+  margin-top: 4px;
+  overflow: hidden;
 }
 .fatigue-card-recovery-fill {
-  height: 100%; border-radius: 1.5px; transition: width 0.3s ease;
+  height: 100%;
+  border-radius: 1.5px;
+  transition: width 0.3s ease;
 }
-.fatigue-card-recovery-fill.green { background: var(--green); }
-.fatigue-card-recovery-fill.lime { background: var(--lime); }
-.fatigue-card-recovery-fill.yellow { background: var(--yellow); }
-.fatigue-card-recovery-fill.red { background: var(--red); }
-.fatigue-card-recovery-fill.orange { background: var(--orange); }
+.fatigue-card-recovery-fill.green {
+  background: var(--green);
+}
+.fatigue-card-recovery-fill.lime {
+  background: var(--lime);
+}
+.fatigue-card-recovery-fill.yellow {
+  background: var(--yellow);
+}
+.fatigue-card-recovery-fill.red {
+  background: var(--red);
+}
+.fatigue-card-recovery-fill.orange {
+  background: var(--orange);
+}
 
 /* Fatigue detail sheet content */
 .fatigue-detail-banner {
-  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
-  border-radius: var(--radius-md); margin-bottom: 12px; font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  font-weight: 700;
 }
-.fatigue-detail-banner.green { background: rgba(67,160,71,0.12); color: var(--green); }
-.fatigue-detail-banner.lime { background: rgba(124,179,66,0.12); color: var(--lime); }
-.fatigue-detail-banner.yellow { background: rgba(253,216,53,0.12); color: var(--yellow); }
-.fatigue-detail-banner.red { background: rgba(229,57,53,0.12); color: var(--red); }
-.fatigue-detail-banner.orange { background: rgba(251,140,0,0.12); color: var(--orange); }
+.fatigue-detail-banner.green {
+  background: rgba(67, 160, 71, 0.12);
+  color: var(--green);
+}
+.fatigue-detail-banner.lime {
+  background: rgba(124, 179, 66, 0.12);
+  color: var(--lime);
+}
+.fatigue-detail-banner.yellow {
+  background: rgba(253, 216, 53, 0.12);
+  color: var(--yellow);
+}
+.fatigue-detail-banner.red {
+  background: rgba(229, 57, 53, 0.12);
+  color: var(--red);
+}
+.fatigue-detail-banner.orange {
+  background: rgba(251, 140, 0, 0.12);
+  color: var(--orange);
+}
 
 .fatigue-recovery-track {
-  height: 8px; border-radius: 4px; background: var(--surface2); overflow: hidden; margin-bottom: 4px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface2);
+  overflow: hidden;
+  margin-bottom: 4px;
 }
-.fatigue-recovery-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
-.fatigue-recovery-fill.green { background: var(--green); }
-.fatigue-recovery-fill.lime { background: var(--lime); }
-.fatigue-recovery-fill.yellow { background: var(--yellow); }
-.fatigue-recovery-fill.red { background: var(--red); }
-.fatigue-recovery-fill.orange { background: var(--orange); }
+.fatigue-recovery-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+.fatigue-recovery-fill.green {
+  background: var(--green);
+}
+.fatigue-recovery-fill.lime {
+  background: var(--lime);
+}
+.fatigue-recovery-fill.yellow {
+  background: var(--yellow);
+}
+.fatigue-recovery-fill.red {
+  background: var(--red);
+}
+.fatigue-recovery-fill.orange {
+  background: var(--orange);
+}
 .fatigue-recovery-meta {
-  display: flex; justify-content: space-between; font-size: var(--text-xs); color: var(--text-dim); margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  margin-bottom: 12px;
 }
 
 .fatigue-advice {
-  padding: 10px 14px; border-radius: var(--radius-md); font-size: var(--text-sm);
-  margin-bottom: 12px; font-weight: 600;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  margin-bottom: 12px;
+  font-weight: 600;
 }
-.fatigue-advice.green { background: rgba(67,160,71,0.10); color: var(--green); }
-.fatigue-advice.yellow { background: rgba(253,216,53,0.10); color: var(--yellow); }
-.fatigue-advice.red { background: rgba(229,57,53,0.10); color: var(--red); }
-.fatigue-advice.orange { background: rgba(251,140,0,0.10); color: var(--orange); }
+.fatigue-advice.green {
+  background: rgba(67, 160, 71, 0.1);
+  color: var(--green);
+}
+.fatigue-advice.yellow {
+  background: rgba(253, 216, 53, 0.1);
+  color: var(--yellow);
+}
+.fatigue-advice.red {
+  background: rgba(229, 57, 53, 0.1);
+  color: var(--red);
+}
+.fatigue-advice.orange {
+  background: rgba(251, 140, 0, 0.1);
+  color: var(--orange);
+}
 
 .fatigue-trend-chart {
-  display: flex; align-items: flex-end; gap: 6px; height: 80px; margin-bottom: 4px;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 80px;
+  margin-bottom: 4px;
 }
 .fatigue-trend-bar {
-  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
 }
-.fatigue-trend-bar-fill { width: 100%; border-radius: 4px 4px 0 0; min-height: 2px; }
+.fatigue-trend-bar-fill {
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  min-height: 2px;
+}
 .fatigue-trend-labels {
-  display: flex; gap: 6px; margin-bottom: 12px;
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 .fatigue-trend-labels span {
-  flex: 1; text-align: center; font-size: var(--text-xs); color: var(--text-dim);
+  flex: 1;
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--text-dim);
 }
 
 .fatigue-contributor {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: var(--text-sm);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: var(--text-sm);
 }
-.fatigue-contributor-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; flex-shrink: 0; }
-.fatigue-contributor-meta { font-size: var(--text-xs); color: var(--text-dim); white-space: nowrap; flex-shrink: 0; }
-.fatigue-contributor-bar { flex: 1; background: var(--surface2); border-radius: 3px; overflow: hidden; height: 10px; }
-.fatigue-contributor-bar-fill { height: 100%; border-radius: 3px; }
+.fatigue-contributor-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+  flex-shrink: 0;
+}
+.fatigue-contributor-meta {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.fatigue-contributor-bar {
+  flex: 1;
+  background: var(--surface2);
+  border-radius: 3px;
+  overflow: hidden;
+  height: 10px;
+}
+.fatigue-contributor-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+}

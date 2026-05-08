@@ -136,7 +136,9 @@ describe('muscle-groups: SYNERGIST_MAP shape', () => {
     for (const [key, synergists] of Object.entries(SYNERGIST_MAP)) {
       expect(Array.isArray(synergists), `synergist entry "${key}" not an array`).toBe(true);
       for (const mg of synergists) {
-        expect(MUSCLE_SET.has(mg), `synergist "${mg}" under "${key}" not in MUSCLE_GROUPS`).toBe(true);
+        expect(MUSCLE_SET.has(mg), `synergist "${mg}" under "${key}" not in MUSCLE_GROUPS`).toBe(
+          true
+        );
       }
     }
   });
@@ -171,19 +173,27 @@ describe('exercise-catalog: required fields', () => {
 
   it('every movementPattern is a known pattern', () => {
     for (const [id, ex] of Object.entries(EXERCISE_CATALOG)) {
-      expect(MOVEMENT_PATTERNS[ex.movementPattern], `${id} unknown pattern ${ex.movementPattern}`).toBeDefined();
+      expect(
+        MOVEMENT_PATTERNS[ex.movementPattern],
+        `${id} unknown pattern ${ex.movementPattern}`
+      ).toBeDefined();
     }
   });
 
   it('every progressionType is a known model', () => {
     for (const [id, ex] of Object.entries(EXERCISE_CATALOG)) {
-      expect(PROGRESSION_MODELS[ex.progressionType], `${id} unknown progressionType ${ex.progressionType}`).toBeDefined();
+      expect(
+        PROGRESSION_MODELS[ex.progressionType],
+        `${id} unknown progressionType ${ex.progressionType}`
+      ).toBeDefined();
     }
   });
 
   it('every equipment value is in the allowed set', () => {
     for (const [id, ex] of Object.entries(EXERCISE_CATALOG)) {
-      expect(ALLOWED_EQUIPMENT.has(ex.equipment), `${id} unknown equipment ${ex.equipment}`).toBe(true);
+      expect(ALLOWED_EQUIPMENT.has(ex.equipment), `${id} unknown equipment ${ex.equipment}`).toBe(
+        true
+      );
     }
   });
 });
@@ -234,7 +244,7 @@ describe('exercise-catalog: regression fixes', () => {
 
 describe('exercise-catalog: supportsLifts + weakPoints shape', () => {
   it('supportsLifts only contains valid lifts', () => {
-    for (const [id, ex] of Object.entries(EXERCISE_CATALOG)) {
+    for (const [_id, ex] of Object.entries(EXERCISE_CATALOG)) {
       if (!ex.supportsLifts) continue;
       expect(Array.isArray(ex.supportsLifts)).toBe(true);
       for (const lift of ex.supportsLifts) {
@@ -287,7 +297,10 @@ describe('PATTERN_DEFAULT_MUSCLES', () => {
 describe('exercise-compat: LEGACY_ID_MAP integrity', () => {
   it('every legacy ID maps to an existing canonical catalog entry', () => {
     for (const [legacy, canonical] of Object.entries(LEGACY_ID_MAP)) {
-      expect(EXERCISE_CATALOG[canonical], `${legacy} maps to missing canonical ${canonical}`).toBeDefined();
+      expect(
+        EXERCISE_CATALOG[canonical],
+        `${legacy} maps to missing canonical ${canonical}`
+      ).toBeDefined();
     }
   });
 

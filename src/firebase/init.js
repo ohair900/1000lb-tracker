@@ -88,9 +88,12 @@ export async function initFirebase(config) {
       authProvider = new GoogleAuthProvider();
     } else {
       // SDK already loaded, just re-init (e.g. config change)
-      const { initializeApp } = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js');
-      const { getFirestore } = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js');
-      const { getAuth } = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js');
+      const { initializeApp } =
+        await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js');
+      const { getFirestore } =
+        await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js');
+      const { getAuth } =
+        await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js');
       firebaseApp = initializeApp(config);
       db = getFirestore(firebaseApp);
       auth = getAuth(firebaseApp);
@@ -113,7 +116,8 @@ export async function initFirebase(config) {
 export async function resetFirebaseInstances() {
   if (firebaseApp) {
     try {
-      const { deleteApp } = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js');
+      const { deleteApp } =
+        await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js');
       await deleteApp(firebaseApp);
     } catch (e) {
       console.warn('deleteApp failed:', e);

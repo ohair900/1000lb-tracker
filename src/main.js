@@ -11,28 +11,32 @@
 import { UNIT_KEY } from './constants/storage-keys.js';
 import { LIFTS, LIFT_NAMES, COLORS } from './constants/lift-config.js';
 import {
-  LONG_PRESS_MS, SWIPE_THRESHOLD_PX, SWIPE_TIMEOUT_MS, SWIPE_RATIO,
-  TIMER_MIN_SECONDS, TIMER_MAX_SECONDS, RESIZE_DEBOUNCE_MS
+  LONG_PRESS_MS,
+  SWIPE_THRESHOLD_PX,
+  SWIPE_TIMEOUT_MS,
+  SWIPE_RATIO,
+  TIMER_MIN_SECONDS,
+  TIMER_MAX_SECONDS,
+  RESIZE_DEBOUNCE_MS,
 } from './constants/index.js';
 import { WEAK_POINT_OPTIONS } from './data/accessories.js';
 import { ACCESSORY_DB, EXERCISE_INFO } from './data/accessories.js';
 
 // ===== 2. State =====
 import store from './state/store.js';
-import {
-  inject as injectActions,
-  addEntry,
-  editEntry,
-  deleteEntry,
-  executeUndo,
-} from './state/actions.js';
+import { inject as injectActions, addEntry, deleteEntry } from './state/actions.js';
 
 // ===== 3. Formulas =====
 import { calcE1RM } from './formulas/e1rm.js';
-import { formatWeight, inputToLbs } from './formulas/units.js';
 
 // ===== 4. Systems =====
-import { rebuildPRs, checkPR, checkRepPR, getMilestone, updateBestAfterAdd } from './systems/pr-tracking.js';
+import {
+  rebuildPRs,
+  checkPR,
+  checkRepPR,
+  getMilestone,
+  updateBestAfterAdd,
+} from './systems/pr-tracking.js';
 import { checkMilestonesAchieved, lockMilestones } from './systems/goals.js';
 import { migrateAccessoryIds } from './systems/accessory-migration.js';
 import { runProgramHistoryMigration } from './systems/program-migration.js';
@@ -45,10 +49,7 @@ import {
 import { checkAutoRecap } from './systems/weekly-recap.js';
 import { checkComeback } from './systems/comeback.js';
 import { runCalibration } from './systems/recovery-calibration.js';
-import {
-  recordMesocyclePerformance,
-  adaptRemainingWeeks,
-} from './systems/mesocycle.js';
+import { recordMesocyclePerformance, adaptRemainingWeeks } from './systems/mesocycle.js';
 
 // ===== 5. Firebase =====
 import { DEFAULT_FIREBASE_CONFIG, loadFirebaseConfig } from './firebase/config.js';
@@ -74,7 +75,11 @@ import { initDOMRefs } from './ui/dom.js';
 import { showToast, setToastDeps, showToastWithUndo } from './ui/toast.js';
 import { openModal, closeModal, initModalListeners } from './ui/modal.js';
 import { startTimer, dismissTimer, setTimerDeps } from './ui/timer.js';
-import { setConfettiDeps, triggerWeekCompleteCelebration, triggerLiftCompleteCelebration } from './ui/confetti.js';
+import {
+  setConfettiDeps,
+  triggerWeekCompleteCelebration,
+  triggerLiftCompleteCelebration,
+} from './ui/confetti.js';
 import { sharePRCard, shareMilestoneCard } from './ui/share.js';
 import { initSwipeToDelete, setSwipeDeps } from './ui/swipe.js';
 import { initSheetListeners, closeChoiceSheet, openFatigueSheet } from './ui/sheet.js';
@@ -82,7 +87,7 @@ import { initRouter, updateRoute } from './ui/router.js';
 import { applyAccentColor, setThemeDeps } from './ui/theme.js';
 
 // ===== 7. Views =====
-import { updateDashboard, renderRecapCard } from './views/dashboard.js';
+import { updateDashboard } from './views/dashboard.js';
 import { initLogTab, injectLogDeps, updatePreview } from './views/log.js';
 import { initHistoryTab, injectHistoryDeps, renderHistory } from './views/history.js';
 import { initChartsTab, renderChart } from './views/charts.js';
@@ -123,7 +128,12 @@ import {
 import { showWorkoutSummary } from './views/workout-summary.js';
 import { initWelcomeOverlay, setWelcomeDeps, showWelcomeScreen } from './views/welcome.js';
 import { renderCycleBar } from './views/cycle-bar.js';
-import { initSyncUI, updateSyncButton, showSchemaBlockedBanner, showMigrationRulesPrompt } from './views/sync-ui.js';
+import {
+  initSyncUI,
+  updateSyncButton,
+  showSchemaBlockedBanner,
+  showMigrationRulesPrompt,
+} from './views/sync-ui.js';
 import { initLeaderboardTab, renderLeaderboard } from './views/leaderboard.js';
 
 // ===== 8. Polyfills =====
@@ -161,14 +171,15 @@ function installRoundRectPolyfill() {
  */
 function showWeakPointSetupModal(thenOpenLift) {
   const body = $('edit-body');
-  let html = '<div style="font-size:var(--text-sm);color:var(--text-dim);margin-bottom:var(--space-3)">Select your weak point for each lift to get targeted accessory recommendations.</div>';
+  let html =
+    '<div style="font-size:var(--text-sm);color:var(--text-dim);margin-bottom:var(--space-3)">Select your weak point for each lift to get targeted accessory recommendations.</div>';
 
-  LIFTS.forEach(lift => {
+  LIFTS.forEach((lift) => {
     const options = WEAK_POINT_OPTIONS[lift];
     const current = store.workoutConfig.weakPoints[lift];
     html += `<div class="weakpoint-lift-title" style="color:${COLORS[lift]}">${LIFT_NAMES[lift]}</div>`;
     html += `<div class="weakpoint-grid">`;
-    options.forEach(opt => {
+    options.forEach((opt) => {
       html += `<div class="weakpoint-option${current === opt.id ? ' selected' : ''}" data-lift="${lift}" data-wp="${opt.id}">${opt.label}</div>`;
     });
     html += `</div>`;
@@ -180,17 +191,19 @@ function showWeakPointSetupModal(thenOpenLift) {
   openModal('edit-modal');
 
   // Option selection
-  body.querySelectorAll('.weakpoint-option').forEach(opt => {
+  body.querySelectorAll('.weakpoint-option').forEach((opt) => {
     opt.addEventListener('click', () => {
       const lift = opt.dataset.lift;
-      body.querySelectorAll(`.weakpoint-option[data-lift="${lift}"]`).forEach(o => o.classList.remove('selected'));
+      body
+        .querySelectorAll(`.weakpoint-option[data-lift="${lift}"]`)
+        .forEach((o) => o.classList.remove('selected'));
       opt.classList.add('selected');
     });
   });
 
   // Save
   $('weakpoint-save').addEventListener('click', () => {
-    LIFTS.forEach(lift => {
+    LIFTS.forEach((lift) => {
       const sel = body.querySelector(`.weakpoint-option[data-lift="${lift}"].selected`);
       if (sel) {
         store.workoutConfig.weakPoints[lift] = sel.dataset.wp;
@@ -213,14 +226,17 @@ function showWeakPointSetupModal(thenOpenLift) {
 const TAB_ORDER = ['log', 'history', 'charts', 'stats', 'ranks'];
 
 function switchToTab(tabName, direction) {
-  document.querySelectorAll('.tab-btn').forEach(b =>
-    b.classList.toggle('active', b.dataset.tab === tabName)
-  );
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document
+    .querySelectorAll('.tab-btn')
+    .forEach((b) => b.classList.toggle('active', b.dataset.tab === tabName));
+  document.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active'));
   const newPanel = $('tab-' + tabName);
   if (direction) {
-    newPanel.style.animation = direction === 'left' ? 'slideInLeft 0.2s ease' : 'slideInRight 0.2s ease';
-    setTimeout(() => { newPanel.style.animation = ''; }, 200);
+    newPanel.style.animation =
+      direction === 'left' ? 'slideInLeft 0.2s ease' : 'slideInRight 0.2s ease';
+    setTimeout(() => {
+      newPanel.style.animation = '';
+    }, 200);
   }
   newPanel.classList.add('active');
   store.currentTab = tabName;
@@ -275,24 +291,42 @@ function initExercisePreview() {
 
   // Long-press detection (delegated)
   let timer = null;
-  document.addEventListener('touchstart', function (e) {
-    const target = e.target.closest('[data-exid]');
-    if (!target || !target.dataset.exid) return;
-    const exId = target.dataset.exid;
-    if (!EXERCISE_INFO[exId]) return;
-    timer = setTimeout(function () {
-      showExercisePreview(exId);
-      timer = null;
-    }, LONG_PRESS_MS);
-  }, { passive: true });
+  document.addEventListener(
+    'touchstart',
+    function (e) {
+      const target = e.target.closest('[data-exid]');
+      if (!target || !target.dataset.exid) return;
+      const exId = target.dataset.exid;
+      if (!EXERCISE_INFO[exId]) return;
+      timer = setTimeout(function () {
+        showExercisePreview(exId);
+        timer = null;
+      }, LONG_PRESS_MS);
+    },
+    { passive: true }
+  );
 
-  document.addEventListener('touchmove', function () {
-    if (timer) { clearTimeout(timer); timer = null; }
-  }, { passive: true });
+  document.addEventListener(
+    'touchmove',
+    function () {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    },
+    { passive: true }
+  );
 
-  document.addEventListener('touchend', function () {
-    if (timer) { clearTimeout(timer); timer = null; }
-  }, { passive: true });
+  document.addEventListener(
+    'touchend',
+    function () {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    },
+    { passive: true }
+  );
 
   // Dismiss on tapping the backdrop
   overlay.addEventListener('click', function (e) {
@@ -333,27 +367,39 @@ injectActions({
 store.onAfterFlush = scheduleCloudSync;
 store.onStorageFull = (msg) => showToast(msg);
 // Release 2: track dirty entries for incremental subcollection push
-store.onEntryDirty = (id) => { syncState.dirtyEntries.add(id); };
+store.onEntryDirty = (id) => {
+  syncState.dirtyEntries.add(id);
+};
 // Re-render the dashboard once deferred stores (accessoryLog, etc.) finish
 // loading — prevents the body-map "stale guy flash" on cold start.
 store.onDeferredLoad = () => {
-  try { updateDashboard(); } catch { /* best-effort */ }
+  try {
+    updateDashboard();
+  } catch {
+    /* best-effort */
+  }
   try {
     const issues = runDataIntegrityChecks();
     if (issues.length > 0) console.log('[integrity] Fixed:', issues);
-  } catch { /* best-effort */ }
+  } catch {
+    /* best-effort */
+  }
 };
 
 // Prime the silent <audio> keepalive on first user gesture so iOS keeps
 // the audio session open. Web Audio beeps from setInterval callbacks are
 // silently dropped if the session was suspended by backgrounding.
 let _audioPrimed = false;
-document.addEventListener('click', () => {
-  if (_audioPrimed) return;
-  _audioPrimed = true;
-  const a = document.getElementById('audio-keepalive');
-  if (a) a.play().catch(() => {});
-}, { once: false, capture: true });
+document.addEventListener(
+  'click',
+  () => {
+    if (_audioPrimed) return;
+    _audioPrimed = true;
+    const a = document.getElementById('audio-keepalive');
+    if (a) a.play().catch(() => {});
+  },
+  { once: false, capture: true }
+);
 
 // 4c. Sync callbacks — refresh UI after cloud merge
 setOnSyncComplete(() => {
@@ -367,10 +413,10 @@ setOnSyncComplete(() => {
   if (store.currentTab === 'stats') safeCall(() => renderStats(), 'sync:stats');
   if (store.currentTab === 'ranks') safeCall(() => renderLeaderboard(), 'sync:leaderboard');
   safeCall(() => applyAccentColor(), 'sync:accent');
-  document.querySelectorAll('.unit-btn').forEach(b =>
-    b.classList.toggle('active', b.dataset.unit === store.unit)
-  );
-  document.querySelectorAll('.unit-label').forEach(el => el.textContent = store.unit);
+  document
+    .querySelectorAll('.unit-btn')
+    .forEach((b) => b.classList.toggle('active', b.dataset.unit === store.unit));
+  document.querySelectorAll('.unit-label').forEach((el) => (el.textContent = store.unit));
 });
 
 // 4d. Auth status change — update sync button
@@ -401,19 +447,19 @@ setToastDeps({
     if (type === 'delete' && data.entry) {
       store.entries.push(data.entry);
       store.deletedEntryIds.delete(data.entry.id);
-      store._deletedEntryRecords = store._deletedEntryRecords.filter(r => r.id !== data.entry.id);
+      store._deletedEntryRecords = store._deletedEntryRecords.filter((r) => r.id !== data.entry.id);
       store.save('deletedEntryIds');
       store.onEntryDirty?.(data.entry.id);
       rebuildPRs();
     } else if (type === 'edit' && data.id) {
-      const e = store.entries.find(x => x.id === data.id);
+      const e = store.entries.find((x) => x.id === data.id);
       if (e) {
         Object.assign(e, data.previous);
         store.onEntryDirty?.(data.id);
         rebuildPRs();
       }
     } else if (type === 'add' && data.id) {
-      store.entries = store.entries.filter(e => e.id !== data.id);
+      store.entries = store.entries.filter((e) => e.id !== data.id);
       store.onEntryDirty?.(data.id);
       rebuildPRs();
     }
@@ -552,16 +598,26 @@ setWelcomeDeps({
 // Defer PR rebuild to after first paint (heavy O(n log n) sort)
 const _ric = window.requestIdleCallback || ((cb) => setTimeout(cb, 1));
 _ric(() => {
-  try { rebuildPRs(); } catch {}
-  try { runProgramHistoryMigration(); } catch {}
+  try {
+    rebuildPRs();
+  } catch (_e) {
+    // noop — don't let a stale PR rebuild block init
+  }
+  try {
+    runProgramHistoryMigration();
+  } catch (_e) {
+    // noop
+  }
   // Migrate: auto-generate goalMilestones for users with existing goals
   try {
-    ['squat', 'bench', 'deadlift'].forEach(lift => {
+    ['squat', 'bench', 'deadlift'].forEach((lift) => {
       if (store.goals[lift] && !store.goalMilestones?.[lift]) {
         lockMilestones(lift);
       }
     });
-  } catch {}
+  } catch (_e) {
+    // noop
+  }
   // Migrate: rewrite legacy accessory exerciseIds to canonical form.
   // Delayed inside setTimeout to guarantee the store's own deferred-store
   // load (accessoryLog, customTemplates, etc.) has finished first —
@@ -571,11 +627,12 @@ _ric(() => {
     try {
       const result = migrateAccessoryIds();
       if (result.migrated > 0) {
-        // eslint-disable-next-line no-console
-        console.log(`[accessory-migration] rewrote ${result.migrated} ID references`, result.breakdown);
+        console.log(
+          `[accessory-migration] rewrote ${result.migrated} ID references`,
+          result.breakdown
+        );
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('[accessory-migration] failed', err);
     }
   }, 1500);
@@ -586,51 +643,72 @@ initDOMRefs();
 applyAccentColor();
 
 // ----- Step 8: Sync unit UI state -----
-document.querySelectorAll('.unit-btn').forEach(b =>
-  b.classList.toggle('active', b.dataset.unit === store.unit)
-);
-document.querySelectorAll('.unit-label').forEach(el => el.textContent = store.unit);
+document
+  .querySelectorAll('.unit-btn')
+  .forEach((b) => b.classList.toggle('active', b.dataset.unit === store.unit));
+document.querySelectorAll('.unit-label').forEach((el) => (el.textContent = store.unit));
 
 // ----- Step 9: Tab switching -----
-document.querySelectorAll('#app .tabs .tab-btn').forEach(btn => {
+document.querySelectorAll('#app .tabs .tab-btn').forEach((btn) => {
   btn.addEventListener('click', () => switchToTab(btn.dataset.tab));
 });
 
 // Touch swipe between tabs
 (function initTabSwipe() {
-  let startX = null, startY = null, startTime = 0;
-  document.addEventListener('touchstart', e => {
-    if (e.target.closest('.chart-container') || e.target.closest('.modal-backdrop') ||
-        e.target.closest('.workout-overlay') || e.target.closest('input') ||
-        e.target.closest('textarea') || e.target.closest('.fatigue-sheet') ||
-        e.target.closest('.choice-sheet') || e.target.closest('.workout-summary-sheet') ||
-        e.target.closest('.leaderboard-sheet')) return;
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-    startTime = Date.now();
-  }, { passive: true });
-  document.addEventListener('touchend', e => {
-    if (startX === null) return;
-    const dx = e.changedTouches[0].clientX - startX;
-    const dy = e.changedTouches[0].clientY - startY;
-    const elapsed = Date.now() - startTime;
-    startX = null;
-    if (Math.abs(dx) > SWIPE_THRESHOLD_PX && elapsed < SWIPE_TIMEOUT_MS && Math.abs(dx) > Math.abs(dy) * SWIPE_RATIO) {
-      const idx = TAB_ORDER.indexOf(store.currentTab);
-      if (dx < 0 && idx < TAB_ORDER.length - 1) switchToTab(TAB_ORDER[idx + 1], 'left');
-      else if (dx > 0 && idx > 0) switchToTab(TAB_ORDER[idx - 1], 'right');
-    }
-  }, { passive: true });
+  let startX = null,
+    startY = null,
+    startTime = 0;
+  document.addEventListener(
+    'touchstart',
+    (e) => {
+      if (
+        e.target.closest('.chart-container') ||
+        e.target.closest('.modal-backdrop') ||
+        e.target.closest('.workout-overlay') ||
+        e.target.closest('input') ||
+        e.target.closest('textarea') ||
+        e.target.closest('.fatigue-sheet') ||
+        e.target.closest('.choice-sheet') ||
+        e.target.closest('.workout-summary-sheet') ||
+        e.target.closest('.leaderboard-sheet')
+      )
+        return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      startTime = Date.now();
+    },
+    { passive: true }
+  );
+  document.addEventListener(
+    'touchend',
+    (e) => {
+      if (startX === null) return;
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = e.changedTouches[0].clientY - startY;
+      const elapsed = Date.now() - startTime;
+      startX = null;
+      if (
+        Math.abs(dx) > SWIPE_THRESHOLD_PX &&
+        elapsed < SWIPE_TIMEOUT_MS &&
+        Math.abs(dx) > Math.abs(dy) * SWIPE_RATIO
+      ) {
+        const idx = TAB_ORDER.indexOf(store.currentTab);
+        if (dx < 0 && idx < TAB_ORDER.length - 1) switchToTab(TAB_ORDER[idx + 1], 'left');
+        else if (dx > 0 && idx > 0) switchToTab(TAB_ORDER[idx - 1], 'right');
+      }
+    },
+    { passive: true }
+  );
 })();
 
 // ----- Step 10: Unit toggle handlers -----
-document.querySelectorAll('.unit-btn').forEach(btn => {
+document.querySelectorAll('.unit-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.unit-btn').forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('.unit-btn').forEach((b) => b.classList.toggle('active', b === btn));
     store.unit = btn.dataset.unit;
     localStorage.setItem(UNIT_KEY, store.unit);
     scheduleCloudSync();
-    document.querySelectorAll('.unit-label').forEach(el => el.textContent = store.unit);
+    document.querySelectorAll('.unit-label').forEach((el) => (el.textContent = store.unit));
     safeCall(() => updateDashboard(), 'unit:dashboard');
     safeCall(() => updatePreview(), 'unit:preview');
     if (store.currentTab === 'history') safeCall(() => renderHistory(), 'unit:history');
@@ -668,17 +746,21 @@ initRouter({
 });
 
 // Timer presets
-$('timer-presets').addEventListener('click', e => {
+$('timer-presets').addEventListener('click', (e) => {
   const btn = e.target.closest('.timer-preset');
   if (!btn) return;
-  $('timer-presets').querySelectorAll('.timer-preset').forEach(b => b.classList.remove('active'));
+  $('timer-presets')
+    .querySelectorAll('.timer-preset')
+    .forEach((b) => b.classList.remove('active'));
   btn.classList.add('active');
   startTimer(parseInt(btn.dataset.secs));
 });
 $('timer-custom')?.addEventListener('change', () => {
   const val = parseInt($('timer-custom').value);
   if (val >= TIMER_MIN_SECONDS && val <= TIMER_MAX_SECONDS) {
-    $('timer-presets').querySelectorAll('.timer-preset').forEach(b => b.classList.remove('active'));
+    $('timer-presets')
+      .querySelectorAll('.timer-preset')
+      .forEach((b) => b.classList.remove('active'));
     startTimer(val);
   }
 });
@@ -692,9 +774,11 @@ renderProgramSection();
 updateWorkoutButton();
 
 // Update timer preset active state
-$('timer-presets').querySelectorAll('.timer-preset').forEach(b => {
-  b.classList.toggle('active', parseInt(b.dataset.secs) === store.timerDuration);
-});
+$('timer-presets')
+  .querySelectorAll('.timer-preset')
+  .forEach((b) => {
+    b.classList.toggle('active', parseInt(b.dataset.secs) === store.timerDuration);
+  });
 
 // Resize handler for chart re-render (debounced)
 let _resizeTimer;
@@ -711,24 +795,46 @@ window.addEventListener('resize', () => {
     await initFirebase(loadFirebaseConfig() || DEFAULT_FIREBASE_CONFIG);
     setupAuthListener();
     updateSyncButton();
-  } catch (e) { console.warn('Firebase boot deferred or failed:', e); }
+  } catch (e) {
+    console.warn('Firebase boot deferred or failed:', e);
+  }
 })();
 
 // ----- Step 14: PWA init -----
-try { initPWA(); } catch { /* ignore */ }
+try {
+  initPWA();
+} catch {
+  /* ignore */
+}
 
 // ----- Step 15: Safe late init (deferred to after first paint) -----
 _ric(() => {
-  try { checkAutoRecap(); } catch (e) { console.warn('checkAutoRecap failed:', e); }
-  try { checkComeback(); } catch (e) { console.warn('checkComeback failed:', e); }
-  try { runCalibration(); } catch (e) { console.warn('runCalibration failed:', e); }
+  try {
+    checkAutoRecap();
+  } catch (e) {
+    console.warn('checkAutoRecap failed:', e);
+  }
+  try {
+    checkComeback();
+  } catch (e) {
+    console.warn('checkComeback failed:', e);
+  }
+  try {
+    runCalibration();
+  } catch (e) {
+    console.warn('runCalibration failed:', e);
+  }
 });
-try { showWelcomeScreen(); } catch (e) { console.warn('showWelcomeScreen failed:', e); }
+try {
+  showWelcomeScreen();
+} catch (e) {
+  console.warn('showWelcomeScreen failed:', e);
+}
 
 // ----- Step 16: Visibility change — flush sync & manage listener -----
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
-    store._flush();      // Flush any pending localStorage writes before tab goes away
+    store._flush(); // Flush any pending localStorage writes before tab goes away
     flushPendingSync();
     stopRealtimeSync(); // #4: detach listener when backgrounded
   } else {

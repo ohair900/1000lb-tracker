@@ -28,7 +28,7 @@ export function lbsToKg(v) {
  * @returns {number} Numeric weight in the current display unit
  */
 export function displayWeight(val) {
-  if (store.unit === 'kg') return Math.round(val / LBS_PER_KG * 10) / 10;
+  if (store.unit === 'kg') return Math.round((val / LBS_PER_KG) * 10) / 10;
   return Math.round(val * 10) / 10;
 }
 

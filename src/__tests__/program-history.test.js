@@ -23,7 +23,11 @@ const { mockStore } = vi.hoisted(() => ({
 vi.mock('../state/store.js', () => ({ default: mockStore }));
 
 import { getProgramWorkout } from '../systems/programs.js';
-import { buildWorkoutReviewGroups, recoverProgramHistory, runProgramHistoryMigration } from '../systems/program-migration.js';
+import {
+  buildWorkoutReviewGroups,
+  recoverProgramHistory,
+  runProgramHistoryMigration,
+} from '../systems/program-migration.js';
 
 function entry(id, timestamp, weight, reps = 5, lift = 'squat', date = null) {
   return {
@@ -104,9 +108,13 @@ describe('program history freezing', () => {
     const recovered = mockStore.programConfig.completedSetData;
 
     expect(result.recovered).toBe(5);
-    expect(Object.values(recovered).map(d => d.weight)).toEqual([315, 315, 315, 315, 315]);
-    expect(new Set(Object.values(recovered).map(d => d.entryId))).toEqual(new Set(['e1', 'e2', 'e3', 'e4', 'e5']));
-    expect(getProgramWorkout('squat', 1).sets.map(s => s.weight)).toEqual([315, 315, 315, 315, 315]);
+    expect(Object.values(recovered).map((d) => d.weight)).toEqual([315, 315, 315, 315, 315]);
+    expect(new Set(Object.values(recovered).map((d) => d.entryId))).toEqual(
+      new Set(['e1', 'e2', 'e3', 'e4', 'e5'])
+    );
+    expect(getProgramWorkout('squat', 1).sets.map((s) => s.weight)).toEqual([
+      315, 315, 315, 315, 315,
+    ]);
   });
 
   it('preserves user-confirmed frozen rows during recovery', () => {
@@ -160,10 +168,26 @@ describe('program history freezing', () => {
 
     expect(result.recovered).toBe(18);
     expect(result.unrecoveredKeys).toEqual([]);
-    expect(mockStore.programConfig.completedSetData['bench-1-0']).toMatchObject({ date: '2026-03-20', weight: 155, reps: 5 });
-    expect(mockStore.programConfig.completedSetData['bench-6-0']).toMatchObject({ date: '2026-04-02', weight: 180, reps: 3 });
-    expect(mockStore.programConfig.completedSetData['bench-6-1']).toMatchObject({ date: '2026-04-02', weight: 205, reps: 3 });
-    expect(mockStore.programConfig.completedSetData['bench-6-2']).toMatchObject({ date: '2026-04-02', weight: 230, reps: 4 });
+    expect(mockStore.programConfig.completedSetData['bench-1-0']).toMatchObject({
+      date: '2026-03-20',
+      weight: 155,
+      reps: 5,
+    });
+    expect(mockStore.programConfig.completedSetData['bench-6-0']).toMatchObject({
+      date: '2026-04-02',
+      weight: 180,
+      reps: 3,
+    });
+    expect(mockStore.programConfig.completedSetData['bench-6-1']).toMatchObject({
+      date: '2026-04-02',
+      weight: 205,
+      reps: 3,
+    });
+    expect(mockStore.programConfig.completedSetData['bench-6-2']).toMatchObject({
+      date: '2026-04-02',
+      weight: 230,
+      reps: 4,
+    });
   });
 
   it('surfaces workout-level matches for one-tap review', () => {
@@ -184,7 +208,11 @@ describe('program history freezing', () => {
 
     expect(groups).toHaveLength(1);
     expect(groups[0].match.date).toBe('2026-03-20');
-    expect(groups[0].match.entries.map(e => `${e.weight}x${e.reps}`)).toEqual(['155x5', '175x5', '200x6']);
+    expect(groups[0].match.entries.map((e) => `${e.weight}x${e.reps}`)).toEqual([
+      '155x5',
+      '175x5',
+      '200x6',
+    ]);
   });
 
   it('does not ask for history review after migration, even with unmatched partial sets', () => {

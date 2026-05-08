@@ -23,8 +23,20 @@ const { mockStore } = vi.hoisted(() => ({
     workoutConfig: { weakPoints: {}, setupComplete: true },
     unit: 'lbs',
     recoveryCalibration: {},
-    equipmentProfile: { barbell: true, dumbbell: true, cable: true, machine: true, bodyweight: true },
-    programConfig: { activeProgram: null, trainingMaxes: {}, completedSets: {}, amrapResults: {}, liftWeeks: {} },
+    equipmentProfile: {
+      barbell: true,
+      dumbbell: true,
+      cable: true,
+      machine: true,
+      bodyweight: true,
+    },
+    programConfig: {
+      activeProgram: null,
+      trainingMaxes: {},
+      completedSets: {},
+      amrapResults: {},
+      liftWeeks: {},
+    },
     activeCycleId: null,
     lastLoggedSet: null,
     undoStack: null,
@@ -40,7 +52,13 @@ const { mockStore } = vi.hoisted(() => ({
 vi.mock('../state/store.js', () => ({ default: mockStore }));
 
 import { calcE1RM } from '../formulas/e1rm.js';
-import { rebuildPRs, checkPR, checkRepPR, getMilestone, updateBestAfterAdd } from '../systems/pr-tracking.js';
+import {
+  rebuildPRs,
+  checkPR,
+  checkRepPR,
+  getMilestone,
+  updateBestAfterAdd,
+} from '../systems/pr-tracking.js';
 import { addEntry, editEntry, deleteEntry, executeUndo, inject } from '../state/actions.js';
 
 // Wire actions with real dependencies
@@ -114,7 +132,11 @@ describe('addEntry', () => {
   it('sets lastLoggedSet for Repeat functionality', () => {
     addEntry('squat', 225, 5, 8, 'test', []);
     expect(mockStore.lastLoggedSet).toEqual({
-      lift: 'squat', weight: 225, reps: 5, rpe: 8, notes: 'test',
+      lift: 'squat',
+      weight: 225,
+      reps: 5,
+      rpe: 8,
+      notes: 'test',
     });
   });
 });
@@ -123,7 +145,7 @@ describe('editEntry', () => {
   it('mutates the target entry in place', () => {
     const { entry } = addEntry('squat', 225, 5, null, '', []);
     editEntry(entry.id, 'squat', 275, 5, null, '');
-    const edited = mockStore.entries.find(e => e.id === entry.id);
+    const edited = mockStore.entries.find((e) => e.id === entry.id);
     expect(edited.weight).toBe(275);
     expect(edited.e1rm).toBeCloseTo(275 * (1 + 5 / 30), 1);
   });
@@ -131,17 +153,17 @@ describe('editEntry', () => {
   it('preserves entry ID', () => {
     const { entry } = addEntry('squat', 225, 5, null, '', []);
     editEntry(entry.id, 'squat', 300, 3, null, '');
-    const edited = mockStore.entries.find(e => e.id === entry.id);
+    const edited = mockStore.entries.find((e) => e.id === entry.id);
     expect(edited.id).toBe(entry.id);
   });
 
   it('rebuilds PRs after edit', () => {
     const { entry: e1 } = addEntry('squat', 225, 5, null, '', []); // PR e1rm ~262
     const { entry: e2 } = addEntry('squat', 275, 5, null, '', []); // PR e1rm ~320
-    expect(mockStore.entries.filter(e => e.isPR)).toHaveLength(2);
+    expect(mockStore.entries.filter((e) => e.isPR)).toHaveLength(2);
     // Lower e2 so e1 becomes the only PR
     editEntry(e2.id, 'squat', 185, 5, null, '');
-    const prs = mockStore.entries.filter(e => e.isPR);
+    const prs = mockStore.entries.filter((e) => e.isPR);
     expect(prs).toHaveLength(1);
     expect(prs[0].id).toBe(e1.id);
   });
@@ -150,7 +172,7 @@ describe('editEntry', () => {
     const { entry } = addEntry('squat', 225, 5, null, '', []);
     const before = Date.now();
     editEntry(entry.id, 'squat', 250, 5, null, '');
-    const edited = mockStore.entries.find(e => e.id === entry.id);
+    const edited = mockStore.entries.find((e) => e.id === entry.id);
     expect(edited.updatedAt).toBeGreaterThanOrEqual(before);
   });
 
@@ -187,7 +209,7 @@ describe('deleteEntry', () => {
     const { entry: e2 } = addEntry('squat', 275, 5, null, '', []); // PR
     deleteEntry(e2.id);
     // e1 should still be a PR
-    const remaining = mockStore.entries.find(e => e.id === e1.id);
+    const remaining = mockStore.entries.find((e) => e.id === e1.id);
     expect(remaining.isPR).toBe(true);
   });
 });
@@ -211,7 +233,7 @@ describe('executeUndo', () => {
     const { entry } = addEntry('squat', 225, 5, null, '', []);
     editEntry(entry.id, 'squat', 300, 3, 9, 'changed');
     executeUndo();
-    const reverted = mockStore.entries.find(e => e.id === entry.id);
+    const reverted = mockStore.entries.find((e) => e.id === entry.id);
     expect(reverted.weight).toBe(225);
     expect(reverted.reps).toBe(5);
   });

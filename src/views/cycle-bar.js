@@ -24,17 +24,19 @@ export function renderCycleBar() {
     bar.innerHTML = '<button class="cycle-pill add" id="cycle-add">+ Cycle</button>';
   } else {
     let html = '';
-    store.cycles.filter(c => c.active || !c.endDate).forEach(c => {
-      html += `<button class="cycle-pill${c.id === store.activeCycleId ? ' active' : ''}" data-cycle="${c.id}">${escapeHTML(c.name)}</button>`;
-    });
+    store.cycles
+      .filter((c) => c.active || !c.endDate)
+      .forEach((c) => {
+        html += `<button class="cycle-pill${c.id === store.activeCycleId ? ' active' : ''}" data-cycle="${c.id}">${escapeHTML(c.name)}</button>`;
+      });
     html += '<button class="cycle-pill add" id="cycle-add">+</button>';
     bar.innerHTML = html;
   }
-  bar.querySelectorAll('.cycle-pill[data-cycle]').forEach(btn => {
+  bar.querySelectorAll('.cycle-pill[data-cycle]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.cycle;
-      store.cycles.forEach(c => c.active = (c.id === id && !c.active));
-      store.activeCycleId = (store.cycles.find(c => c.active) || {}).id || null;
+      store.cycles.forEach((c) => (c.active = c.id === id && !c.active));
+      store.activeCycleId = (store.cycles.find((c) => c.active) || {}).id || null;
       store.saveCycles();
       renderCycleBar();
     });
@@ -58,7 +60,7 @@ export function showCycleModal() {
     </div>
     <div class="input-group" style="margin-bottom:12px"><label>Type</label>
       <select id="cycle-type" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-size:0.9rem">
-        ${CYCLE_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
+        ${CYCLE_TYPES.map((t) => `<option value="${t}">${t}</option>`).join('')}
       </select>
     </div>
     <button class="modal-save-btn" id="cycle-save">Create Cycle</button>`;
@@ -67,14 +69,14 @@ export function showCycleModal() {
   $('cycle-save').addEventListener('click', () => {
     const name = $('cycle-name').value.trim();
     if (!name) return;
-    store.cycles.forEach(c => c.active = false);
+    store.cycles.forEach((c) => (c.active = false));
     const c = {
       id: Date.now().toString(36),
       name,
       type: $('cycle-type').value,
       startDate: new Date().toISOString().split('T')[0],
       endDate: null,
-      active: true
+      active: true,
     };
     store.cycles.push(c);
     store.activeCycleId = c.id;

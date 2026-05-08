@@ -32,8 +32,8 @@ export function calcWeeklyRecap() {
   const thisWeekStart = startOfWeek.toISOString().split('T')[0];
   const lastWeekStart = startOfLastWeek.toISOString().split('T')[0];
 
-  const thisWeek = store.entries.filter(e => e.date >= thisWeekStart);
-  const lastWeek = store.entries.filter(e => e.date >= lastWeekStart && e.date < thisWeekStart);
+  const thisWeek = store.entries.filter((e) => e.date >= thisWeekStart);
+  const lastWeek = store.entries.filter((e) => e.date >= lastWeekStart && e.date < thisWeekStart);
 
   if (thisWeek.length === 0 && lastWeek.length === 0) return null;
 
@@ -42,30 +42,41 @@ export function calcWeeklyRecap() {
   const volume = thisWeek.reduce((s, e) => s + e.weight * e.reps, 0);
   const prevSets = lastWeek.length;
   const prevVolume = lastWeek.reduce((s, e) => s + e.weight * e.reps, 0);
-  const trainingDays = new Set(thisWeek.map(e => e.date)).size;
-  const prsThisWeek = thisWeek.filter(e => e.isPR);
+  const trainingDays = new Set(thisWeek.map((e) => e.date)).size;
+  const prsThisWeek = thisWeek.filter((e) => e.isPR);
 
   // Top set (highest e1RM this week)
   let topSet = null;
   if (thisWeek.length > 0) {
-    topSet = thisWeek.reduce((best, e) => e.e1rm > (best?.e1rm || 0) ? e : best, null);
+    topSet = thisWeek.reduce((best, e) => (e.e1rm > (best?.e1rm || 0) ? e : best), null);
   }
 
   // Per-lift volume
   const liftVolume = {};
-  LIFTS.forEach(l => {
-    liftVolume[l] = thisWeek.filter(e => e.lift === l).reduce((s, e) => s + e.weight * e.reps, 0);
+  LIFTS.forEach((l) => {
+    liftVolume[l] = thisWeek.filter((e) => e.lift === l).reduce((s, e) => s + e.weight * e.reps, 0);
   });
 
-  const setsChange = prevSets > 0 ? ((sets - prevSets) / prevSets * 100) : null;
-  const volChange = prevVolume > 0 ? ((volume - prevVolume) / prevVolume * 100) : null;
+  const setsChange = prevSets > 0 ? ((sets - prevSets) / prevSets) * 100 : null;
+  const volChange = prevVolume > 0 ? ((volume - prevVolume) / prevVolume) * 100 : null;
 
   const fatigue = calcFatigue();
   const streak = calcStreak();
 
   return {
-    sets, reps, volume, prevSets, prevVolume, setsChange, volChange,
-    trainingDays, prsThisWeek, topSet, liftVolume, fatigue, streak,
+    sets,
+    reps,
+    volume,
+    prevSets,
+    prevVolume,
+    setsChange,
+    volChange,
+    trainingDays,
+    prsThisWeek,
+    topSet,
+    liftVolume,
+    fatigue,
+    streak,
     weekLabel: thisWeekStart,
   };
 }

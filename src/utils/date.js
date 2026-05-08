@@ -49,9 +49,7 @@ export function todayISO() {
  * @returns {number}
  */
 export function dayDiff(a, b) {
-  return Math.round(
-    (new Date(a + 'T12:00:00') - new Date(b + 'T12:00:00')) / MS_PER_DAY
-  );
+  return Math.round((new Date(a + 'T12:00:00') - new Date(b + 'T12:00:00')) / MS_PER_DAY);
 }
 
 /**

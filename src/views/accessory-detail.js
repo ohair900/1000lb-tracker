@@ -10,7 +10,7 @@ import { $ } from '../utils/helpers.js';
 import { openSheet, closeSheet, enableSheetSwipeDismiss } from '../ui/sheet.js';
 import { getAccessoryDetail } from '../systems/accessory-progress.js';
 import { getAccessoryWeight } from '../systems/workout-builder.js';
-import { formatWeight, displayWeight } from '../formulas/units.js';
+import { formatWeight } from '../formulas/units.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
 
 const COLORS = { squat: '#e53935', bench: '#1e88e5', deadlift: '#43a047' };
@@ -36,8 +36,10 @@ export function showAccessoryDetail(exerciseId) {
   html += `<div class="ld-banner-label">${detail.name}</div>`;
   html += `<div class="ld-banner-meta">`;
   html += `<span class="ld-banner-bw">${detail.equipment}</span>`;
-  if (detail.repRange) html += `<span class="ld-banner-bw">${detail.repRange[0]}-${detail.repRange[1]}${detail.timeBased ? 's' : ' reps'}</span>`;
-  if (detail.readyToProgress) html += `<span class="acc-progression-badge" style="font-size:var(--text-xs)">READY TO PROGRESS</span>`;
+  if (detail.repRange)
+    html += `<span class="ld-banner-bw">${detail.repRange[0]}-${detail.repRange[1]}${detail.timeBased ? 's' : ' reps'}</span>`;
+  if (detail.readyToProgress)
+    html += `<span class="acc-progression-badge" style="font-size:var(--text-xs)">READY TO PROGRESS</span>`;
   html += `</div>`;
   if (!isBodyweight && detail.sessionCount >= 2) {
     const arrow = TREND_ARROWS[detail.trend];
@@ -76,12 +78,16 @@ export function showAccessoryDetail(exerciseId) {
   // --- Weight trend sparkline ---
   if (!isBodyweight && detail.weightHistory.length >= 2) {
     const wh = detail.weightHistory;
-    const weights = wh.map(w => w.weight);
+    const weights = wh.map((w) => w.weight);
     const min = Math.min(...weights);
     const max = Math.max(...weights);
     const range = max - min || 1;
-    const svgW = 280, svgH = 80, padX = 8, padY = 8;
-    const plotW = svgW - padX * 2, plotH = svgH - padY * 2;
+    const svgW = 280,
+      svgH = 80,
+      padX = 8,
+      padY = 8;
+    const plotW = svgW - padX * 2,
+      plotH = svgH - padY * 2;
 
     const points = wh.map((w, i) => ({
       x: padX + (i / (wh.length - 1)) * plotW,
@@ -89,7 +95,7 @@ export function showAccessoryDetail(exerciseId) {
       increased: i > 0 && w.weight > wh[i - 1].weight,
     }));
 
-    const lineStr = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const lineStr = points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
     const areaStr = `${points[0].x.toFixed(1)},${svgH - padY} ${lineStr} ${points[points.length - 1].x.toFixed(1)},${svgH - padY}`;
 
     html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
@@ -102,7 +108,7 @@ export function showAccessoryDetail(exerciseId) {
     html += `</linearGradient></defs>`;
     html += `<polygon points="${areaStr}" fill="url(#acc-grad)"/>`;
     html += `<polyline points="${lineStr}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
-    points.forEach(p => {
+    points.forEach((p) => {
       if (p.increased) {
         html += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="var(--green)" stroke="var(--surface)" stroke-width="1.5"/>`;
       }
@@ -119,23 +125,25 @@ export function showAccessoryDetail(exerciseId) {
     html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
     html += `<div class="sheet-section-title">Recent Sessions</div>`;
     html += `<div class="ld-sessions">`;
-    detail.sessions.slice(0, 8).forEach((s, idx) => {
+    detail.sessions.slice(0, 8).forEach((s, _idx) => {
       let w;
       if (isBodyweight) {
         w = 'BW';
       } else if (s.setWeights && s.setWeights.length > 1) {
         const unique = new Set(s.setWeights);
-        w = unique.size === 1
-          ? `${s.setWeights.length}&times;${formatWeight(s.setWeights[0])} ${store.unit}`
-          : s.setWeights.map(v => formatWeight(v)).join('/') + ' ' + store.unit;
+        w =
+          unique.size === 1
+            ? `${s.setWeights.length}&times;${formatWeight(s.setWeights[0])} ${store.unit}`
+            : s.setWeights.map((v) => formatWeight(v)).join('/') + ' ' + store.unit;
       } else {
         w = formatWeight(s.weight) + ' ' + store.unit;
       }
       const reps = s.setsCompleted.join('/');
-      const completedAll = s.setsCompleted.length >= s.targetSets;
+      const _completedAll = s.setsCompleted.length >= s.targetSets;
       html += `<div class="ld-session">`;
       html += `<div class="ld-session-header">`;
-      if (s.allHitTop) html += `<span class="ld-rpe-dot rpe-low" title="All sets hit target"></span>`;
+      if (s.allHitTop)
+        html += `<span class="ld-rpe-dot rpe-low" title="All sets hit target"></span>`;
       html += `<div class="ld-session-header-text">`;
       html += `<div class="ld-session-date">${s.date}</div>`;
       html += `<div class="ld-session-detail">${w} &times; ${reps || 'incomplete'}${detail.timeBased ? 's' : ''}</div>`;

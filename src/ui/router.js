@@ -21,7 +21,9 @@ let _closeCurrentOverlay = null;
 let _routerResolving = false;
 
 /** Whether the router is currently resolving a route (boot, popstate, forward). */
-export function isRouterResolving() { return _routerResolving; }
+export function isRouterResolving() {
+  return _routerResolving;
+}
 
 /**
  * Initialize the router. Call once after all DOM listeners are bound.

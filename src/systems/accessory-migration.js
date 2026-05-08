@@ -36,7 +36,7 @@ export function migrateAccessoryIds() {
 
   // 1. accessoryLog — the historical set log (primary target)
   if (Array.isArray(store.accessoryLog)) {
-    store.accessoryLog.forEach(entry => {
+    store.accessoryLog.forEach((entry) => {
       if (!entry || !entry.exerciseId) return;
       const canon = resolveCanonicalId(entry.exerciseId);
       if (canon && canon !== entry.exerciseId) {
@@ -51,9 +51,9 @@ export function migrateAccessoryIds() {
   // exercise lists. Rewrite so future workouts from these templates use
   // canonical IDs going forward.
   if (Array.isArray(store.customTemplates)) {
-    store.customTemplates.forEach(tmpl => {
+    store.customTemplates.forEach((tmpl) => {
       if (!tmpl || !Array.isArray(tmpl.exercises)) return;
-      tmpl.exercises.forEach(ex => {
+      tmpl.exercises.forEach((ex) => {
         if (!ex || !ex.exerciseId) return;
         const canon = resolveCanonicalId(ex.exerciseId);
         if (canon && canon !== ex.exerciseId) {
@@ -68,7 +68,7 @@ export function migrateAccessoryIds() {
   // 3. workoutSession — in-progress workout, if any. Covers the edge case
   // where a user is mid-session when the migration runs.
   if (store.workoutSession && Array.isArray(store.workoutSession.accessories)) {
-    store.workoutSession.accessories.forEach(acc => {
+    store.workoutSession.accessories.forEach((acc) => {
       if (!acc || !acc.exerciseId) return;
       const canon = resolveCanonicalId(acc.exerciseId);
       if (canon && canon !== acc.exerciseId) {
@@ -99,11 +99,14 @@ export function migrateAccessoryIds() {
   if (Array.isArray(store.disabledAccessories)) {
     const newDisabled = [];
     const seen = new Set();
-    store.disabledAccessories.forEach(id => {
+    store.disabledAccessories.forEach((id) => {
       if (!id) return;
       const canon = resolveCanonicalId(id) || id;
       if (canon !== id) counts.disabled++;
-      if (!seen.has(canon)) { seen.add(canon); newDisabled.push(canon); }
+      if (!seen.has(canon)) {
+        seen.add(canon);
+        newDisabled.push(canon);
+      }
     });
     store.disabledAccessories = newDisabled;
     if (counts.disabled > 0) store.save('disabledAccessories');
@@ -125,7 +128,12 @@ export function migrateAccessoryIds() {
 
   localStorage.setItem(ACCESSORY_MIGRATION_KEY, String(CURRENT_VERSION));
 
-  const total = counts.log + counts.templates + counts.session
-    + counts.overrides + counts.disabled + counts.reasons;
+  const total =
+    counts.log +
+    counts.templates +
+    counts.session +
+    counts.overrides +
+    counts.disabled +
+    counts.reasons;
   return { migrated: total, breakdown: counts, skipped: false };
 }

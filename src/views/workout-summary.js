@@ -30,9 +30,8 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
   const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
 
   // Main lift sets
-  const mainCompleted = session.mainSets.filter(s => s.completed).length;
+  const mainCompleted = session.mainSets.filter((s) => s.completed).length;
   const mainTotal = session.mainSets.length;
-  const mainReps = session.mainSets.filter(s => s.completed).reduce((sum, s) => sum + (s.reps || 0), 0);
 
   // Accessory stats
   const accCompleted = session.accessories.reduce((sum, a) => sum + a.setsCompleted.length, 0);
@@ -41,7 +40,8 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
   const totalCompleted = mainCompleted + accCompleted;
   const totalSets = mainTotal + accTotal;
   const completionPct = totalSets > 0 ? Math.round((totalCompleted / totalSets) * 100) : 0;
-  const completionColor = completionPct >= 80 ? 'var(--green)' : completionPct >= 50 ? 'var(--yellow)' : 'var(--red)';
+  const completionColor =
+    completionPct >= 80 ? 'var(--green)' : completionPct >= 50 ? 'var(--yellow)' : 'var(--red)';
 
   let html = '';
   let sectionIdx = 0;
@@ -70,7 +70,7 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
   if (mainTotal > 0) {
     html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
     html += `<div class="section-label-lg" style="margin:12px 0 6px">${LIFT_NAMES[session.mainLift] || session.mainLift} Sets</div>`;
-    session.mainSets.forEach(s => {
+    session.mainSets.forEach((s) => {
       const cls = s.completed ? 'completed' : 'missed';
       const status = s.completed ? '\u2713' : '\u2717';
       const pctLabel = s.pct ? ` (${s.pct}%)` : '';
@@ -86,22 +86,33 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
   if (session.accessories.length > 0) {
     html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
     html += '<div class="section-label-lg" style="margin:12px 0 6px">Accessories</div>';
-    session.accessories.forEach(acc => {
+    session.accessories.forEach((acc) => {
       const done = acc.setsCompleted.length;
       const target = acc.targetSets;
       let weightStr = '';
-      if (acc.setWeights && acc.setWeights.some(w => w > 0)) {
+      if (acc.setWeights && acc.setWeights.some((w) => w > 0)) {
         const uniqueWeights = new Set(acc.setWeights);
-        weightStr = uniqueWeights.size > 1
-          ? acc.setWeights.slice(0, done || target).map(w => formatWeight(w)).join('/') + ' ' + store.unit
-          : formatWeight(acc.setWeights[0]) + ' ' + store.unit;
+        weightStr =
+          uniqueWeights.size > 1
+            ? acc.setWeights
+                .slice(0, done || target)
+                .map((w) => formatWeight(w))
+                .join('/') +
+              ' ' +
+              store.unit
+            : formatWeight(acc.setWeights[0]) + ' ' + store.unit;
         weightStr += ' \u00b7 ';
       }
       const ex = ACCESSORY_DB[acc.exerciseId];
       const catalogEx = resolveExercise(acc.exerciseId);
-      const isTimeBased = !!((ex && ex.timeBased) || (catalogEx && catalogEx.progressionType === 'time'));
-      const repDetail = done > 0 ? acc.setsCompleted.join('/') + (isTimeBased ? 's' : ' reps') : 'skipped';
-      const color = done >= target ? 'var(--green)' : done > 0 ? 'var(--yellow)' : 'var(--text-dim)';
+      const isTimeBased = !!(
+        (ex && ex.timeBased) ||
+        (catalogEx && catalogEx.progressionType === 'time')
+      );
+      const repDetail =
+        done > 0 ? acc.setsCompleted.join('/') + (isTimeBased ? 's' : ' reps') : 'skipped';
+      const color =
+        done >= target ? 'var(--green)' : done > 0 ? 'var(--yellow)' : 'var(--text-dim)';
       html += `<div class="summary-acc-row">
         <span class="summary-acc-name">${acc.name}</span>
         <span class="summary-acc-detail" style="color:${color}">${weightStr}${done}/${target} sets \u00b7 ${repDetail}</span>
@@ -112,9 +123,13 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
 
   // Mesocycle data
   if (session.source === 'mesocycle') {
-    const meso = store.activeMesocycle || (store.mesocycleHistory.length ? store.mesocycleHistory[store.mesocycleHistory.length - 1] : null);
+    const meso =
+      store.activeMesocycle ||
+      (store.mesocycleHistory.length
+        ? store.mesocycleHistory[store.mesocycleHistory.length - 1]
+        : null);
     if (meso) {
-      const weekIdx = (meso.currentWeek ? meso.currentWeek - 1 : 0);
+      const weekIdx = meso.currentWeek ? meso.currentWeek - 1 : 0;
       const week = meso.weeks[weekIdx];
       const perf = week ? week.performance[session.mainLift] : null;
       if (week && perf) {
@@ -144,7 +159,8 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
     }
   }
 
-  $('workout-summary-title').textContent = `${LIFT_NAMES[session.mainLift] || session.mainLift} Workout Summary`;
+  $('workout-summary-title').textContent =
+    `${LIFT_NAMES[session.mainLift] || session.mainLift} Workout Summary`;
   $('workout-summary-body').innerHTML = html;
   $('workout-summary-backdrop').style.display = 'block';
   $('workout-summary-sheet').style.display = 'block';
@@ -174,22 +190,22 @@ function burstGradeConfetti() {
     const p = document.createElement('div');
     p.className = 'grade-confetti';
     const size = 5 + Math.random() * 4;
-    p.style.left = (45 + Math.random() * 10) + '%';
+    p.style.left = 45 + Math.random() * 10 + '%';
     p.style.top = '22%';
     p.style.width = size + 'px';
-    p.style.height = (size * (Math.random() > 0.5 ? 1 : 2.2)) + 'px';
+    p.style.height = size * (Math.random() > 0.5 ? 1 : 2.2) + 'px';
     p.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
     p.style.borderRadius = Math.random() > 0.5 ? '50%' : '1px';
     // Radial spread via CSS custom properties
     const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.3;
     const velocity = 90 + Math.random() * 60;
     p.style.setProperty('--dx', Math.cos(angle) * velocity + 'px');
-    p.style.setProperty('--dy', (Math.sin(angle) * velocity - 20) + 'px');
-    p.style.animationDuration = (1.1 + Math.random() * 0.6) + 's';
-    p.style.animationDelay = (Math.random() * 0.08) + 's';
+    p.style.setProperty('--dy', Math.sin(angle) * velocity - 20 + 'px');
+    p.style.animationDuration = 1.1 + Math.random() * 0.6 + 's';
+    p.style.animationDelay = Math.random() * 0.08 + 's';
     section.appendChild(p);
   }
   setTimeout(() => {
-    section.querySelectorAll('.grade-confetti').forEach(p => p.remove());
+    section.querySelectorAll('.grade-confetti').forEach((p) => p.remove());
   }, 2200);
 }

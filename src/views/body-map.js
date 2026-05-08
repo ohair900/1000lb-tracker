@@ -8,14 +8,13 @@
 
 const INACTIVE_FILL = 'rgba(255,255,255,0.04)';
 const BOUNDARY_STROKE = 'rgba(255,255,255,0.08)';
-const TEXTURE_STROKE = 'rgba(255,255,255,0.05)';
 
 const STATUS_COLORS = {
-  green:  { r: 76,  g: 175, b: 80,  fill: 0.40, stroke: 0.65 },
-  lime:   { r: 124, g: 179, b: 66,  fill: 0.40, stroke: 0.65 },
-  yellow: { r: 255, g: 193, b: 7,   fill: 0.40, stroke: 0.65 },
-  orange: { r: 251, g: 140, b: 0,   fill: 0.42, stroke: 0.65 },
-  red:    { r: 244, g: 67,  b: 54,  fill: 0.45, stroke: 0.7 },
+  green: { r: 76, g: 175, b: 80, fill: 0.4, stroke: 0.65 },
+  lime: { r: 124, g: 179, b: 66, fill: 0.4, stroke: 0.65 },
+  yellow: { r: 255, g: 193, b: 7, fill: 0.4, stroke: 0.65 },
+  orange: { r: 251, g: 140, b: 0, fill: 0.42, stroke: 0.65 },
+  red: { r: 244, g: 67, b: 54, fill: 0.45, stroke: 0.7 },
 };
 
 // ---------------------------------------------------------------------------
@@ -116,7 +115,9 @@ const BACK_MUSCLES = {
 
 // Non-interactive parts
 const FRONT_INACTIVE = {
-  head: ['42.45,2.86 40.00,11.84 42.04,19.59 46.12,23.27 49.80,25.31 54.69,22.45 57.55,19.18 59.18,10.20 57.14,2.45 49.80,0'],
+  head: [
+    '42.45,2.86 40.00,11.84 42.04,19.59 46.12,23.27 49.80,25.31 54.69,22.45 57.55,19.18 59.18,10.20 57.14,2.45 49.80,0',
+  ],
   neck: [
     '55.51,23.67 50.61,33.47 50.61,39.18 61.63,40.00 70.61,44.90 69.39,36.73 63.27,35.10 58.37,30.61',
     '28.98,44.90 30.20,37.14 36.33,35.10 41.22,30.20 44.49,24.49 48.98,33.88 48.57,39.18 37.96,39.59',
@@ -132,7 +133,9 @@ const FRONT_INACTIVE = {
 };
 
 const BACK_INACTIVE = {
-  head: ['50.64,0 45.96,0.85 40.85,5.53 40.43,12.77 45.11,20.00 55.74,20.00 59.15,13.62 59.57,4.68 55.74,1.28'],
+  head: [
+    '50.64,0 45.96,0.85 40.85,5.53 40.43,12.77 45.11,20.00 55.74,20.00 59.15,13.62 59.57,4.68 55.74,1.28',
+  ],
   knees: [
     '34.47,153.19 31.06,159.15 33.62,166.38 37.45,162.55',
     '66.38,153.62 62.98,162.98 66.81,166.38 69.36,159.15',
@@ -147,27 +150,25 @@ const BACK_INACTIVE = {
 // Rendering helpers
 // ---------------------------------------------------------------------------
 
-function polyToSvg(points) {
-  return `<polygon points="${points}" />`;
-}
-
 function statusGradientId(mg, view) {
   return `grad-${view}-${mg.replace(/\s/g, '')}`;
 }
 
 function buildDefs(muscles, view, fatigue) {
   let defs = '';
-  Object.keys(muscles).forEach(mg => {
-    const status = fatigue && fatigue[mg] ? (fatigue[mg].displayStatus || fatigue[mg].status) : null;
+  Object.keys(muscles).forEach((mg) => {
+    const status = fatigue && fatigue[mg] ? fatigue[mg].displayStatus || fatigue[mg].status : null;
     const gId = statusGradientId(mg, view);
     if (status && STATUS_COLORS[status]) {
       const c = STATUS_COLORS[status];
-      defs += `<radialGradient id="${gId}" cx="50%" cy="40%" r="65%">` +
+      defs +=
+        `<radialGradient id="${gId}" cx="50%" cy="40%" r="65%">` +
         `<stop offset="0%" stop-color="rgba(${c.r},${c.g},${c.b},${c.fill + 0.08})"/>` +
         `<stop offset="100%" stop-color="rgba(${c.r},${c.g},${c.b},${c.fill * 0.7})"/>` +
         `</radialGradient>`;
     } else {
-      defs += `<radialGradient id="${gId}" cx="50%" cy="40%" r="65%">` +
+      defs +=
+        `<radialGradient id="${gId}" cx="50%" cy="40%" r="65%">` +
         `<stop offset="0%" stop-color="rgba(255,255,255,0.06)"/>` +
         `<stop offset="100%" stop-color="rgba(255,255,255,0.03)"/>` +
         `</radialGradient>`;
@@ -177,14 +178,14 @@ function buildDefs(muscles, view, fatigue) {
 }
 
 function renderMuscleGroup(mg, polygons, view, fatigue) {
-  const status = fatigue && fatigue[mg] ? (fatigue[mg].displayStatus || fatigue[mg].status) : null;
+  const status = fatigue && fatigue[mg] ? fatigue[mg].displayStatus || fatigue[mg].status : null;
   const gId = statusGradientId(mg, view);
   const c = status && STATUS_COLORS[status] ? STATUS_COLORS[status] : null;
   const stroke = c ? `rgba(${c.r},${c.g},${c.b},${c.stroke})` : BOUNDARY_STROKE;
   const sw = c ? '0.6' : '0.3';
 
   let svg = `<g class="body-map-muscle" data-muscle="${mg}"${status ? ` data-status="${status}"` : ''}>`;
-  polygons.forEach(pts => {
+  polygons.forEach((pts) => {
     svg += `<polygon points="${pts}" fill="url(#${gId})" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>`;
   });
   svg += `</g>`;
@@ -193,8 +194,8 @@ function renderMuscleGroup(mg, polygons, view, fatigue) {
 
 function renderInactivePolygons(groups) {
   let svg = '';
-  Object.values(groups).forEach(polygons => {
-    polygons.forEach(pts => {
+  Object.values(groups).forEach((polygons) => {
+    polygons.forEach((pts) => {
       svg += `<polygon points="${pts}" fill="${INACTIVE_FILL}" stroke="${BOUNDARY_STROKE}" stroke-width="0.2" stroke-linejoin="round"/>`;
     });
   });
@@ -214,13 +215,15 @@ function buildFigure(muscles, inactive, label, fatigue) {
     body += renderMuscleGroup(mg, polygons, view, fatigue);
   });
 
-  return `<div class="body-map-figure">` +
+  return (
+    `<div class="body-map-figure">` +
     `<svg viewBox="-2 -2 104 204" xmlns="http://www.w3.org/2000/svg" class="body-map-svg">` +
     `<defs>${defs}</defs>` +
     body +
     `</svg>` +
     `<div class="body-map-view-label">${label}</div>` +
-    `</div>`;
+    `</div>`
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -228,14 +231,16 @@ function buildFigure(muscles, inactive, label, fatigue) {
 // ---------------------------------------------------------------------------
 
 export function renderBodyMap(fatigueByMuscle) {
-  return `<div class="body-map-container">` +
+  return (
+    `<div class="body-map-container">` +
     buildFigure(FRONT_MUSCLES, FRONT_INACTIVE, 'FRONT', fatigueByMuscle) +
     buildFigure(BACK_MUSCLES, BACK_INACTIVE, 'BACK', fatigueByMuscle) +
-    `</div>`;
+    `</div>`
+  );
 }
 
 export function initBodyMapEvents(container, onMuscleClick) {
-  container.querySelectorAll('.body-map-muscle').forEach(g => {
+  container.querySelectorAll('.body-map-muscle').forEach((g) => {
     g.addEventListener('click', (e) => {
       e.stopPropagation();
       const muscle = g.dataset.muscle;

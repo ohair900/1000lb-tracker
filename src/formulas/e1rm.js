@@ -7,7 +7,6 @@
  */
 
 import { E1RM_DIVISOR } from '../constants/formulas.js';
-import { LIFTS } from '../constants/lift-config.js';
 import store from '../state/store.js';
 
 /**
@@ -27,8 +26,8 @@ export function calcE1RM(weight, reps) {
  * @returns {number|null} Best e1RM in lbs, or null if no entries exist
  */
 export function bestE1RM(lift) {
-  const v = store.entries.filter(e => e.lift === lift);
-  return v.length === 0 ? null : Math.max(...v.map(e => e.e1rm));
+  const v = store.entries.filter((e) => e.lift === lift);
+  return v.length === 0 ? null : Math.max(...v.map((e) => e.e1rm));
 }
 
 /**
@@ -40,5 +39,5 @@ export function getTotal() {
   const s = bestE1RM('squat');
   const b = bestE1RM('bench');
   const d = bestE1RM('deadlift');
-  return (s && b && d) ? s + b + d : null;
+  return s && b && d ? s + b + d : null;
 }

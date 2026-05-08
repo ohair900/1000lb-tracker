@@ -44,9 +44,9 @@ export function getClassification(lift, e1rm) {
  * @returns {string|null} Overall classification or null if no data
  */
 export function getOverallClassification() {
-  const classes = LIFTS.map(l => getClassification(l, bestE1RM(l))).filter(Boolean);
+  const classes = LIFTS.map((l) => getClassification(l, bestE1RM(l))).filter(Boolean);
   if (classes.length === 0) return null;
-  const minIdx = Math.min(...classes.map(c => LEVELS.indexOf(c)));
+  const minIdx = Math.min(...classes.map((c) => LEVELS.indexOf(c)));
   return LEVELS[minIdx];
 }
 

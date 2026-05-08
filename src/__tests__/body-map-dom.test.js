@@ -68,7 +68,7 @@ describe('renderBodyMap: muscle groups rendered', () => {
     const html = renderBodyMap(makeAllGreen());
     const container = parse(html);
     const groups = container.querySelectorAll('.body-map-muscle');
-    groups.forEach(g => {
+    groups.forEach((g) => {
       const muscleAttr = g.getAttribute('data-muscle');
       expect(muscleAttr).toBeTruthy();
       expect(MUSCLE_GROUPS).toContain(muscleAttr);
@@ -148,7 +148,7 @@ describe('renderBodyMap: viewBox', () => {
     const html = renderBodyMap(makeAllGreen());
     const container = parse(html);
     const svgs = container.querySelectorAll('svg');
-    svgs.forEach(svg => {
+    svgs.forEach((svg) => {
       expect(svg.getAttribute('viewBox')).toBe('-2 -2 104 204');
     });
   });

@@ -100,8 +100,13 @@ export function confirmSheet(opts = {}) {
     }
 
     function onKeydown(e) {
-      if (e.key === 'Escape') { e.preventDefault(); dismiss(false); }
-      else if (e.key === 'Enter' && document.activeElement === confirmBtn) { e.preventDefault(); dismiss(true); }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        dismiss(false);
+      } else if (e.key === 'Enter' && document.activeElement === confirmBtn) {
+        e.preventDefault();
+        dismiss(true);
+      }
     }
 
     cancelBtn.addEventListener('click', () => dismiss(false));

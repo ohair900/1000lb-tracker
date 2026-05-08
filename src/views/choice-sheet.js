@@ -17,9 +17,11 @@ import { closeChoiceSheet } from '../ui/sheet.js';
 // Dependency injection
 // ---------------------------------------------------------------------------
 
-let _deps = {};
+const _deps = {};
 
-export function setChoiceSheetDeps(deps) { Object.assign(_deps, deps); }
+export function setChoiceSheetDeps(deps) {
+  Object.assign(_deps, deps);
+}
 
 // ---------------------------------------------------------------------------
 // Mesocycle timeline renderer
@@ -30,7 +32,7 @@ function renderMesoTimeline(mesocycle) {
   mesocycle.weeks.forEach((w, i) => {
     const isCurrent = i === mesocycle.currentWeek - 1;
     const isCompleted = w.completed;
-    const liftsDone = LIFTS.filter(l => w.performance[l]).length;
+    const liftsDone = LIFTS.filter((l) => w.performance[l]).length;
     html += `<div class="meso-week-card${isCurrent ? ' current' : ''}${isCompleted ? ' completed' : ''}${w.adapted ? ' adapted' : ''}" data-week="${i}">
       <div class="meso-week-num">W${w.weekNum}</div>
       <div class="meso-week-phase">${w.phase}</div>
@@ -93,16 +95,16 @@ function showPlanSwitcher() {
   $('choice-sheet').style.display = 'block';
   document.body.style.overflow = 'hidden';
 
-  body.querySelectorAll('.choice-card').forEach(card => {
+  body.querySelectorAll('.choice-card').forEach((card) => {
     card.addEventListener('click', () => {
       const action = card.dataset.action;
       closeChoiceSheet();
-      if (action === 'setup-program') { _deps.showProgramSetupModal?.(); }
-      else if (action === 'mesogen') {
+      if (action === 'setup-program') {
+        _deps.showProgramSetupModal?.();
+      } else if (action === 'mesogen') {
         if (hasMeso) _deps.abandonMesocycle?.();
         _deps.showMesocycleGenerator?.();
-      }
-      else if (action === 'disable-plan') {
+      } else if (action === 'disable-plan') {
         if (hasMeso) _deps.abandonMesocycle?.();
         store.programConfig.activeProgram = null;
         store.saveProgramConfig();
@@ -125,7 +127,11 @@ function showPlanSwitcher() {
 export function renderChoiceSheetBody() {
   const lift = store.currentLift;
   // If resuming an active session for THIS lift, skip choice sheet
-  if (store.workoutSession && !store.workoutSession.completed && store.workoutSession.mainLift === lift) {
+  if (
+    store.workoutSession &&
+    !store.workoutSession.completed &&
+    store.workoutSession.mainLift === lift
+  ) {
     _deps.openWorkoutView?.(lift);
     return;
   }
@@ -189,12 +195,12 @@ export function renderChoiceSheetBody() {
 
   // #14: Repeat Last Workout
   const lastLogs = store.accessoryLog
-    .filter(l => l.mainLift === store.currentLift)
+    .filter((l) => l.mainLift === store.currentLift)
     .sort((a, b) => b.timestamp - a.timestamp);
   if (lastLogs.length > 0) {
     const lastDate = lastLogs[0].date;
-    const lastSession = lastLogs.filter(l => l.date === lastDate);
-    const lastNames = [...new Set(lastSession.map(l => l.name || l.exerciseId))].slice(0, 3);
+    const lastSession = lastLogs.filter((l) => l.date === lastDate);
+    const lastNames = [...new Set(lastSession.map((l) => l.name || l.exerciseId))].slice(0, 3);
     const lastDesc = lastNames.join(', ') + (lastSession.length > 3 ? '...' : '');
     html += `<div class="choice-card" data-action="repeat-last">
       <div class="choice-card-icon gold">&#8634;</div>
@@ -208,13 +214,14 @@ export function renderChoiceSheetBody() {
 
   // Saved Templates — #19: show recent template name
   if (store.customTemplates.length > 0) {
-    const liftTemplates = store.customTemplates.filter(t => t.mainLift === store.currentLift);
+    const liftTemplates = store.customTemplates.filter((t) => t.mainLift === store.currentLift);
     if (liftTemplates.length > 0) {
       const sorted = [...liftTemplates].sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
       const recentName = sorted[0].name;
-      const desc = liftTemplates.length === 1
-        ? `"${escapeHTML(recentName)}"`
-        : `"${escapeHTML(recentName)}" and ${liftTemplates.length - 1} more`;
+      const desc =
+        liftTemplates.length === 1
+          ? `"${escapeHTML(recentName)}"`
+          : `"${escapeHTML(recentName)}" and ${liftTemplates.length - 1} more`;
       html += `<div class="choice-card" data-action="templates">
         <div class="choice-card-icon blue">&#128196;</div>
         <div class="choice-card-text">
@@ -265,7 +272,7 @@ export function renderChoiceSheetBody() {
   document.body.style.overflow = 'hidden';
 
   // Attach click handlers
-  body.querySelectorAll('.choice-card').forEach(card => {
+  body.querySelectorAll('.choice-card').forEach((card) => {
     card.addEventListener('click', () => {
       const action = card.dataset.action;
       closeChoiceSheet();
@@ -275,43 +282,62 @@ export function renderChoiceSheetBody() {
           return;
         }
         _deps.openWorkoutView?.(store.currentLift);
-      }
-      else if (action === 'custom') { _deps.openBuilder?.(store.currentLift); }
-      else if (action === 'repeat-last') {
+      } else if (action === 'custom') {
+        _deps.openBuilder?.(store.currentLift);
+      } else if (action === 'repeat-last') {
         // Reconstruct exercises from last session's accessory log
         const lift = store.currentLift;
-        const logs = store.accessoryLog.filter(l => l.mainLift === lift).sort((a, b) => b.timestamp - a.timestamp);
+        const logs = store.accessoryLog
+          .filter((l) => l.mainLift === lift)
+          .sort((a, b) => b.timestamp - a.timestamp);
         if (logs.length > 0) {
           const date = logs[0].date;
-          const session = logs.filter(l => l.date === date);
+          const session = logs.filter((l) => l.date === date);
           const exercises = session.map((l, i) => ({
-            type: 'accessory', exerciseId: l.exerciseId, name: l.name || l.exerciseId,
-            sets: l.targetSets || l.setsCompleted.length, reps: l.repRange ? l.repRange[1] : 10,
-            weightMode: 'auto', weightValue: l.weight, equipment: l.equipment || 'barbell',
-            repRange: l.repRange || [8, 12], order: i + 1, slotRole: 'accessory', reasons: [],
+            type: 'accessory',
+            exerciseId: l.exerciseId,
+            name: l.name || l.exerciseId,
+            sets: l.targetSets || l.setsCompleted.length,
+            reps: l.repRange ? l.repRange[1] : 10,
+            weightMode: 'auto',
+            weightValue: l.weight,
+            equipment: l.equipment || 'barbell',
+            repRange: l.repRange || [8, 12],
+            order: i + 1,
+            slotRole: 'accessory',
+            reasons: [],
           }));
           _deps.openBuilder?.(lift, exercises);
         }
+      } else if (action === 'templates') {
+        _deps.showTemplateList?.();
+      } else if (action === 'mesocycle') {
+        _deps.openMesocycleWorkout?.(store.currentLift);
+      } else if (action === 'mesogen') {
+        _deps.showMesocycleGenerator?.();
+      } else if (action === 'setup-program') {
+        _deps.showProgramSetupModal?.();
       }
-      else if (action === 'templates') { _deps.showTemplateList?.(); }
-      else if (action === 'mesocycle') { _deps.openMesocycleWorkout?.(store.currentLift); }
-      else if (action === 'mesogen') { _deps.showMesocycleGenerator?.(); }
-      else if (action === 'setup-program') { _deps.showProgramSetupModal?.(); }
     });
   });
 
   // Plan link handlers
-  body.querySelectorAll('.choice-plan-link').forEach(link => {
+  body.querySelectorAll('.choice-plan-link').forEach((link) => {
     link.addEventListener('click', (e) => {
       e.stopPropagation();
       const action = link.dataset.action;
-      if (action === 'abandon-meso') { closeChoiceSheet(); _deps.abandonMesocycle?.(); }
-      else if (action === 'switch-plan') { closeChoiceSheet(); showPlanSwitcher(); }
+      if (action === 'abandon-meso') {
+        closeChoiceSheet();
+        _deps.abandonMesocycle?.();
+      } else if (action === 'switch-plan') {
+        closeChoiceSheet();
+        showPlanSwitcher();
+      }
     });
   });
 
   // Week card clicks for mesocycle detail
-  body.querySelectorAll('.meso-week-card').forEach(card => {
+  body.querySelectorAll('.meso-week-card').forEach((card) => {
     card.addEventListener('click', (e) => {
       e.stopPropagation();
       // showMesoWeekDetail is in mesocycle-ui
@@ -326,7 +352,8 @@ export function renderChoiceSheetBody() {
       const timeline = $('choice-meso-timeline');
       if (timeline) {
         const current = timeline.querySelector('.current');
-        if (current) current.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        if (current)
+          current.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
     }, 50);
   }

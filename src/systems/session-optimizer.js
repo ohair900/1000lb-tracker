@@ -17,19 +17,13 @@
  */
 
 import store from '../state/store.js';
-import { LIFTS, LIFT_NAMES } from '../constants/lift-config.js';
+import { LIFT_NAMES } from '../constants/lift-config.js';
 import { calcFatigueLift, calcFatigueByMuscle } from './fatigue.js';
 import { suggestMainLift, suggestIntensity } from './smart-workout.js';
-import {
-  selectSmartAccessories,
-  computeSetWeights,
-  getAccessoryWeight,
-  checkAccessoryProgression,
-} from './workout-builder.js';
+import { computeSetWeights, getAccessoryWeight } from './workout-builder.js';
 import { diagnosePlateau } from './plateau-breaker.js';
 import { getGapReport } from './gap-analysis.js';
 import { checkComeback } from './comeback.js';
-import { getCalibratedRecovery } from './recovery-calibration.js';
 import { MAIN_LIFT_WEIGHTS } from '../data/muscle-groups.js';
 import { EXERCISE_CATALOG } from '../data/exercise-catalog.js';
 import { resolveExercise } from '../data/exercise-compat.js';
@@ -50,8 +44,17 @@ import { roundToPlate } from '../formulas/plates.js';
  * @returns {Object} SessionPlan
  */
 // Plural muscle group names need "are", singular ones need "is".
-const PLURAL_MUSCLES = new Set(['Quads', 'Hams', 'Glutes', 'Shoulders', 'Triceps', 'Biceps', 'Forearms', 'Calves']);
-const isAre = (name) => PLURAL_MUSCLES.has(name) ? 'are' : 'is';
+const PLURAL_MUSCLES = new Set([
+  'Quads',
+  'Hams',
+  'Glutes',
+  'Shoulders',
+  'Triceps',
+  'Biceps',
+  'Forearms',
+  'Calves',
+]);
+const isAre = (name) => (PLURAL_MUSCLES.has(name) ? 'are' : 'is');
 
 export function generateSessionPlan(lift, session) {
   // Cache expensive calculations once per session
@@ -92,17 +95,23 @@ export function generateSessionPlan(lift, session) {
 
   if (liftStatus === 'red' || worstDisplay === 'red') {
     insights.push({
-      priority: 1, type: 'fatigue', icon: 'fatigue',
+      priority: 1,
+      type: 'fatigue',
+      icon: 'fatigue',
       text: `${worstMuscle || LIFT_NAMES[lift]} ${isAre(worstMuscle)} hot — keep today light.`,
     });
   } else if (liftStatus === 'yellow' || worstDisplay === 'orange') {
     insights.push({
-      priority: 2, type: 'fatigue', icon: 'fatigue',
+      priority: 2,
+      type: 'fatigue',
+      icon: 'fatigue',
       text: `${worstMuscle || LIFT_NAMES[lift]} ${isAre(worstMuscle)} warm — watch RPE closely.`,
     });
   } else if (worstDisplay === 'yellow') {
     insights.push({
-      priority: 4, type: 'fatigue', icon: 'fatigue',
+      priority: 4,
+      type: 'fatigue',
+      icon: 'fatigue',
       text: `Moderate fatigue — don't chase PRs today.`,
     });
   }
@@ -117,7 +126,9 @@ export function generateSessionPlan(lift, session) {
       message: `Back from ${days} days off — starting at ${100 - reductionPct}%.`,
     };
     insights.push({
-      priority: 1, type: 'comeback', icon: 'comeback',
+      priority: 1,
+      type: 'comeback',
+      icon: 'comeback',
       text: comebackProtocol.message,
       actionable: true,
     });
@@ -126,11 +137,13 @@ export function generateSessionPlan(lift, session) {
   // --- Plateau detection ---
   if (cache.plateauDiagnosis && cache.plateauDiagnosis.score >= 30) {
     const topIssue = cache.plateauDiagnosis.diagnostics
-      .filter(d => d.score > 0)
+      .filter((d) => d.score > 0)
       .sort((a, b) => b.score - a.score)[0];
     if (topIssue) {
       insights.push({
-        priority: 2, type: 'plateau', icon: 'plateau',
+        priority: 2,
+        type: 'plateau',
+        icon: 'plateau',
         text: `${LIFT_NAMES[lift]} e1RM flat — watch RPE today.`,
       });
     }
@@ -140,11 +153,13 @@ export function generateSessionPlan(lift, session) {
   if (cache.gapReport && cache.gapReport.length > 0) {
     // Deferred (cross-region) gaps render as passive insights only.
     cache.gapReport
-      .filter(g => g.type === 'deferred-gap')
-      .slice(0, 1)  // at most one FYI — don't crowd the note
-      .forEach(gap => {
+      .filter((g) => g.type === 'deferred-gap')
+      .slice(0, 1) // at most one FYI — don't crowd the note
+      .forEach((gap) => {
         insights.push({
-          priority: 4, type: 'gap', icon: 'gap',
+          priority: 4,
+          type: 'gap',
+          icon: 'gap',
           text: gap.message,
         });
       });
@@ -153,12 +168,12 @@ export function generateSessionPlan(lift, session) {
     // something the day's plan already covers.
     const coveredMuscles = new Set();
     let coveredUpperPull = false;
-    (session.accessories || []).forEach(acc => {
+    (session.accessories || []).forEach((acc) => {
       const ex = resolveExercise(acc.exerciseId);
       if (!ex) return;
       if (ex.primaryMuscles) {
         Object.entries(ex.primaryMuscles).forEach(([mg, w]) => {
-          if (w >= 0.20) coveredMuscles.add(mg);
+          if (w >= 0.2) coveredMuscles.add(mg);
         });
       }
       if (ex.movementPattern === 'horizontal-pull' || ex.movementPattern === 'vertical-pull') {
@@ -169,23 +184,26 @@ export function generateSessionPlan(lift, session) {
     // Actionable gaps — top 2 high/medium severity, in-region, AND not
     // already addressed by today's prescribed accessories.
     const actionableGaps = cache.gapReport
-      .filter(g => (g.severity === 'high' || g.severity === 'medium') && g.suggestedExercise)
-      .filter(g => {
+      .filter((g) => (g.severity === 'high' || g.severity === 'medium') && g.suggestedExercise)
+      .filter((g) => {
         if (g.muscleGroup && coveredMuscles.has(g.muscleGroup)) return false;
         if (g.type === 'ratio' && coveredUpperPull) return false;
-        if ((session.accessories || []).some(a => a.exerciseId === g.suggestedExercise.id)) return false;
+        if ((session.accessories || []).some((a) => a.exerciseId === g.suggestedExercise.id))
+          return false;
         return true;
       })
       .slice(0, 2);
 
-    actionableGaps.forEach(gap => {
+    actionableGaps.forEach((gap) => {
       // Recent-stimulus dampening only applies to muscle-specific gaps.
       if (gap.muscleGroup) {
         const mgFatigue = muscleFatigue && muscleFatigue[gap.muscleGroup];
         const ds = mgFatigue && mgFatigue.displayStatus;
         if (ds === 'red' || ds === 'orange') {
           insights.push({
-            priority: 3, type: 'gap', icon: 'gap',
+            priority: 3,
+            type: 'gap',
+            icon: 'gap',
             text: `${gap.muscleGroup} fatigue ${isAre(gap.muscleGroup)} elevated — skipping added volume today.`,
           });
           return;
@@ -205,7 +223,9 @@ export function generateSessionPlan(lift, session) {
       }
 
       insights.push({
-        priority: 3, type: 'gap', icon: 'gap',
+        priority: 3,
+        type: 'gap',
+        icon: 'gap',
         text,
         actionable: true,
         swapIndex: accessorySwaps.length,
@@ -238,11 +258,12 @@ export function generateSessionPlan(lift, session) {
     }
 
     if (newCount < originalCount) {
-      const reasonClause = liftStatus === 'red' || worstDisplay === 'red'
-        ? `${worstMuscle || 'ACWR'} ${isAre(worstMuscle)} red`
-        : comebackProtocol
-          ? 'you\u2019re back from a break'
-          : `${worstMuscle || 'fatigue'} ${isAre(worstMuscle)} warm`;
+      const reasonClause =
+        liftStatus === 'red' || worstDisplay === 'red'
+          ? `${worstMuscle || 'ACWR'} ${isAre(worstMuscle)} red`
+          : comebackProtocol
+            ? 'you\u2019re back from a break'
+            : `${worstMuscle || 'fatigue'} ${isAre(worstMuscle)} warm`;
 
       supplementalAdjustment = {
         from: originalCount,
@@ -257,7 +278,9 @@ export function generateSessionPlan(lift, session) {
         reason: supplementalAdjustment.reason,
       });
       insights.push({
-        priority: 2, type: 'volume', icon: 'volume',
+        priority: 2,
+        type: 'volume',
+        icon: 'volume',
         text: supplementalAdjustment.reason,
         actionable: true,
       });
@@ -266,9 +289,14 @@ export function generateSessionPlan(lift, session) {
 
   // --- Assign RPE targets to each main set ---
   const setTargets = [];
-  const baseFatigueRPE = liftStatus === 'red' ? -1.5
-    : (worstDisplay === 'orange' ? -1.0
-      : worstDisplay === 'yellow' ? -0.5 : 0);
+  const baseFatigueRPE =
+    liftStatus === 'red'
+      ? -1.5
+      : worstDisplay === 'orange'
+        ? -1.0
+        : worstDisplay === 'yellow'
+          ? -0.5
+          : 0;
   const comebackRPEAdj = comebackProtocol ? -1.0 : 0;
 
   session.mainSets.forEach((s, i) => {
@@ -353,7 +381,7 @@ export function generateFreestylePlan() {
  * @param {number} actualWeight - Weight used
  * @returns {Object|null} SetEvaluation, or null if no plan/target
  */
-export function evaluateSetCompletion(setIdx, actualRPE, actualReps, actualWeight) {
+export function evaluateSetCompletion(setIdx, actualRPE, _actualReps, _actualWeight) {
   const optimizer = store._sessionOptimizer;
   if (!optimizer || !optimizer.plan) return null;
 
@@ -368,13 +396,12 @@ export function evaluateSetCompletion(setIdx, actualRPE, actualReps, actualWeigh
 
   // Compute cumulative drift, excluding sets that have since been dropped
   const droppedIndices = new Set(
-    (store.workoutSession?.mainSets || [])
-      .flatMap((s, i) => s._dropped ? [i] : [])
+    (store.workoutSession?.mainSets || []).flatMap((s, i) => (s._dropped ? [i] : []))
   );
   const allEvals = optimizer.evaluations || [];
   const pastDrifts = allEvals
-    .filter(e => e && e.rpeDrift != null && !droppedIndices.has(e.setIndex))
-    .map(e => e.rpeDrift);
+    .filter((e) => e && e.rpeDrift != null && !droppedIndices.has(e.setIndex))
+    .map((e) => e.rpeDrift);
   pastDrifts.push(rpeDrift);
   const avgDrift = pastDrifts.reduce((s, d) => s + d, 0) / pastDrifts.length;
 
@@ -386,19 +413,21 @@ export function evaluateSetCompletion(setIdx, actualRPE, actualReps, actualWeigh
   let message = '';
   let severity = 'info';
 
-  const remainingSets = plan.setTargets.filter(t => t.setIndex > setIdx);
+  const remainingSets = plan.setTargets.filter((t) => t.setIndex > setIdx);
 
   if (drift === 'over') {
     if (avgDrift >= 2.0) {
       // Severe drift: recommend weight reduction + drop last set
       severity = 'alert';
       const reductionPct = Math.min(15, Math.round(avgDrift * 5));
-      remainingSets.forEach(t => {
+      remainingSets.forEach((t) => {
         const newWeight = roundToPlate(t.weight * (1 - reductionPct / 100));
         if (newWeight !== t.weight) {
           adjustments.push({
-            setIndex: t.setIndex, field: 'weight',
-            from: t.weight, to: newWeight,
+            setIndex: t.setIndex,
+            field: 'weight',
+            from: t.weight,
+            to: newWeight,
             reason: `RPE drift +${avgDrift.toFixed(1)} — reducing ${reductionPct}%`,
           });
         }
@@ -407,28 +436,29 @@ export function evaluateSetCompletion(setIdx, actualRPE, actualReps, actualWeigh
       if (remainingSets.length > 1) {
         const lastTarget = remainingSets[remainingSets.length - 1];
         adjustments.push({
-          setIndex: lastTarget.setIndex, action: 'drop',
+          setIndex: lastTarget.setIndex,
+          action: 'drop',
           reason: 'Cumulative fatigue — dropping final set',
         });
       }
       message = `RPE ${actualRPE} (target ${target.expectedRPE}). Drift +${avgDrift.toFixed(1)} — reduce weight ${reductionPct}% and drop last set`;
-
     } else if (avgDrift >= 1.0) {
       // Moderate drift: recommend weight reduction
       severity = 'warn';
       const reductionPct = Math.min(10, Math.round(avgDrift * 5));
-      remainingSets.forEach(t => {
+      remainingSets.forEach((t) => {
         const newWeight = roundToPlate(t.weight * (1 - reductionPct / 100));
         if (newWeight !== t.weight) {
           adjustments.push({
-            setIndex: t.setIndex, field: 'weight',
-            from: t.weight, to: newWeight,
+            setIndex: t.setIndex,
+            field: 'weight',
+            from: t.weight,
+            to: newWeight,
             reason: `RPE trending high — reducing ${reductionPct}%`,
           });
         }
       });
       message = `RPE ${actualRPE} (target ${target.expectedRPE}). Reducing remaining sets by ${reductionPct}%`;
-
     } else {
       // Mild drift: just inform
       message = `RPE ${actualRPE} (target ${target.expectedRPE}). Slightly high — monitor next set`;
@@ -439,26 +469,29 @@ export function evaluateSetCompletion(setIdx, actualRPE, actualReps, actualWeigh
       severity = 'alert';
       message = `RPE ${actualRPE} on set 1 (target ${target.expectedRPE}). Consider switching to a light day`;
       adjustments.length = 0; // Clear other adjustments
-      remainingSets.forEach(t => {
-        const lightWeight = roundToPlate(t.weight * 0.80);
+      remainingSets.forEach((t) => {
+        const lightWeight = roundToPlate(t.weight * 0.8);
         adjustments.push({
-          setIndex: t.setIndex, field: 'weight',
-          from: t.weight, to: lightWeight,
+          setIndex: t.setIndex,
+          field: 'weight',
+          from: t.weight,
+          to: lightWeight,
           reason: 'Light day — 80% of prescribed',
         });
       });
     }
-
   } else if (drift === 'under' && avgDrift <= -1.5) {
     // Under-target: nudge increase (capped at 5%)
     severity = 'info';
     const increasePct = Math.min(5, Math.round(Math.abs(avgDrift) * 2.5));
-    remainingSets.forEach(t => {
+    remainingSets.forEach((t) => {
       const newWeight = roundToPlate(t.weight * (1 + increasePct / 100));
       if (newWeight !== t.weight) {
         adjustments.push({
-          setIndex: t.setIndex, field: 'weight',
-          from: t.weight, to: newWeight,
+          setIndex: t.setIndex,
+          field: 'weight',
+          from: t.weight,
+          to: newWeight,
           reason: `RPE low — could increase ${increasePct}%`,
         });
       }
@@ -501,30 +534,32 @@ export function gradeSession(session) {
   const plan = optimizer ? optimizer.plan : null;
 
   // --- Completion rate ---
-  const mainCompleted = session.mainSets.filter(s => s.completed).length;
+  const mainCompleted = session.mainSets.filter((s) => s.completed).length;
   const mainTotal = session.mainSets.length;
-  const bbbCompleted = session.bbbSets ? session.bbbSets.filter(s => s.completed).length : 0;
+  const bbbCompleted = session.bbbSets ? session.bbbSets.filter((s) => s.completed).length : 0;
   const bbbTotal = session.bbbSets
-    ? (plan && plan.supplementalAdjustment ? plan.supplementalAdjustment.to : session.bbbSets.length)
+    ? plan && plan.supplementalAdjustment
+      ? plan.supplementalAdjustment.to
+      : session.bbbSets.length
     : 0;
   const accCompleted = session.accessories.reduce((s, a) => s + a.setsCompleted.length, 0);
   const accTotal = session.accessories.reduce((s, a) => s + a.targetSets, 0);
 
   const totalCompleted = mainCompleted + bbbCompleted + accCompleted;
   const totalPrescribed = mainTotal + bbbTotal + accTotal;
-  const completionPct = totalPrescribed > 0
-    ? Math.round((totalCompleted / totalPrescribed) * 100)
-    : 100;
+  const completionPct =
+    totalPrescribed > 0 ? Math.round((totalCompleted / totalPrescribed) * 100) : 100;
 
   // --- RPE accuracy ---
   const evaluations = optimizer ? optimizer.evaluations : [];
   let rpeDriftAvg = 0;
   let rpeDriftTrend = 'stable';
   if (evaluations.length > 0) {
-    const drifts = evaluations.filter(e => e.rpeDrift != null).map(e => e.rpeDrift);
-    rpeDriftAvg = drifts.length > 0
-      ? Math.round(drifts.reduce((s, d) => s + d, 0) / drifts.length * 10) / 10
-      : 0;
+    const drifts = evaluations.filter((e) => e.rpeDrift != null).map((e) => e.rpeDrift);
+    rpeDriftAvg =
+      drifts.length > 0
+        ? Math.round((drifts.reduce((s, d) => s + d, 0) / drifts.length) * 10) / 10
+        : 0;
     if (drifts.length >= 2) {
       const firstHalf = drifts.slice(0, Math.ceil(drifts.length / 2));
       const secondHalf = drifts.slice(Math.ceil(drifts.length / 2));
@@ -537,13 +572,13 @@ export function gradeSession(session) {
 
   // --- Tonnage ---
   const mainTonnage = session.mainSets
-    .filter(s => s.completed)
+    .filter((s) => s.completed)
     .reduce((sum, s) => {
       const reps = s.actualReps ?? (typeof s.reps === 'string' ? parseInt(s.reps) : s.reps);
-      return sum + (s.weight * (reps || 0));
+      return sum + s.weight * (reps || 0);
     }, 0);
   const bbbTonnage = session.bbbSets
-    ? session.bbbSets.filter(s => s.completed).reduce((sum, s) => sum + s.weight * s.reps, 0)
+    ? session.bbbSets.filter((s) => s.completed).reduce((sum, s) => sum + s.weight * s.reps, 0)
     : 0;
 
   // --- Compute grade ---
@@ -584,7 +619,11 @@ export function gradeSession(session) {
   if (fatigue) {
     const liftWeights = MAIN_LIFT_WEIGHTS[session.mainLift] || {};
     for (const [mg, mw] of Object.entries(liftWeights)) {
-      if (mw >= 0.15 && fatigue[mg] && (fatigue[mg].displayStatus === 'red' || fatigue[mg].displayStatus === 'orange')) {
+      if (
+        mw >= 0.15 &&
+        fatigue[mg] &&
+        (fatigue[mg].displayStatus === 'red' || fatigue[mg].displayStatus === 'orange')
+      ) {
         impacts.push({
           type: 'fatigue-warning',
           icon: 'fatigue',
@@ -637,7 +676,7 @@ export function gradeSession(session) {
 export function applyAdjustments(evaluation) {
   if (!store.workoutSession || !evaluation || !evaluation.adjustments) return;
 
-  evaluation.adjustments.forEach(adj => {
+  evaluation.adjustments.forEach((adj) => {
     if (adj.action === 'drop') {
       // Mark set as skipped by removing it from the view
       const set = store.workoutSession.mainSets[adj.setIndex];
@@ -653,9 +692,9 @@ export function applyAdjustments(evaluation) {
   // Also update plan targets to reflect new weights
   const optimizer = store._sessionOptimizer;
   if (optimizer && optimizer.plan) {
-    evaluation.adjustments.forEach(adj => {
+    evaluation.adjustments.forEach((adj) => {
       if (adj.field === 'weight') {
-        const target = optimizer.plan.setTargets.find(t => t.setIndex === adj.setIndex);
+        const target = optimizer.plan.setTargets.find((t) => t.setIndex === adj.setIndex);
         if (target) target.weight = adj.to;
       }
     });
@@ -700,7 +739,7 @@ export function applyCoachAddition(swap) {
   if (!accessories) return 'no-session';
 
   // Don't add if it's already in the workout
-  if (accessories.some(a => a.exerciseId === swap.suggestedId)) return 'already-present';
+  if (accessories.some((a) => a.exerciseId === swap.suggestedId)) return 'already-present';
 
   const targetSets = suggested.sets || 3;
   const workingWeight = getAccessoryWeight(swap.suggestedId, store.workoutSession.mainLift);

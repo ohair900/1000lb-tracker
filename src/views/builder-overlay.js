@@ -6,8 +6,8 @@
 
 import store from '../state/store.js';
 import { $, escapeHTML } from '../utils/helpers.js';
-import { LIFT_NAMES, LIFTS } from '../constants/lift-config.js';
-import { EXERCISE_CATALOG, MOVEMENT_PATTERNS, PROGRESSION_MODELS } from '../data/exercise-catalog.js';
+import { LIFT_NAMES } from '../constants/lift-config.js';
+import { EXERCISE_CATALOG, MOVEMENT_PATTERNS } from '../data/exercise-catalog.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
 import { resolveExercise, resolveCanonicalId } from '../data/exercise-compat.js';
 import {
@@ -17,7 +17,7 @@ import {
   selectSmartAccessories,
   scoreAccessories,
 } from '../systems/workout-builder.js';
-import { getProgramWorkout, findFirstIncompleteWeek, getLiftWeek } from '../systems/programs.js';
+import { getProgramWorkout, findFirstIncompleteWeek } from '../systems/programs.js';
 import {
   analyzeWeeklyVolume,
   analyzePushPullRatio,
@@ -44,11 +44,11 @@ const _openWhyIdx = new Set();
 
 // Browser filter state — reset each time the builder opens.
 let _browserFilters = {
-  muscle: null,           // string | null — exact muscle group name
-  pattern: null,          // string | null — movement pattern key
-  equipmentOnly: false,   // boolean — only show exercises with available equipment
-  neverTried: false,      // boolean — only show exercises with no accessoryLog history
-  search: '',             // last search query (debounced)
+  muscle: null, // string | null — exact muscle group name
+  pattern: null, // string | null — movement pattern key
+  equipmentOnly: false, // boolean — only show exercises with available equipment
+  neverTried: false, // boolean — only show exercises with no accessoryLog history
+  search: '', // last search query (debounced)
 };
 // Recently used accessory canonical IDs (LRU, oldest first → newest last).
 let _recentExerciseIds = [];
@@ -60,12 +60,17 @@ let _searchDebounceTimer = null;
 function _markDirty() {
   _builderDirty = true;
   try {
-    localStorage.setItem('sbd-builder-draft', JSON.stringify({
-      mainLift: _builderMainLift,
-      exercises: store.builderExercises,
-      timestamp: Date.now(),
-    }));
-  } catch { /* quota exceeded — ignore */ }
+    localStorage.setItem(
+      'sbd-builder-draft',
+      JSON.stringify({
+        mainLift: _builderMainLift,
+        exercises: store.builderExercises,
+        timestamp: Date.now(),
+      })
+    );
+  } catch {
+    /* quota exceeded — ignore */
+  }
 }
 
 /**
@@ -143,15 +148,18 @@ function _currentReasonsForSlot(ex, ctx) {
   // Weekly volume context
   const v = ctx.weeklyVolume && ctx.weeklyVolume[muscle];
   if (v && v.status === 'under') {
-    reasons.push(`Covers under-trained ${muscle.toLowerCase()} (${v.sets}/${v.target.min} this week)`);
+    reasons.push(
+      `Covers under-trained ${muscle.toLowerCase()} (${v.sets}/${v.target.min} this week)`
+    );
   }
 
   // Dedupe while preserving order
   const seen = new Set();
-  return reasons.filter(r => {
+  return reasons.filter((r) => {
     const k = r.toLowerCase();
     if (seen.has(k)) return false;
-    seen.add(k); return true;
+    seen.add(k);
+    return true;
   });
 }
 
@@ -167,13 +175,23 @@ function _renderGapPanelHTML(mainLift) {
   const volume = analyzeWeeklyVolume();
 
   // Build muscle action rows — under-trained muscles with a recommendation.
-  const ORDER = ['Quads', 'Chest', 'Glutes', 'Hams', 'Upper Back',
-                 'Shoulders', 'Triceps', 'Core', 'Biceps', 'Lower Back'];
+  const ORDER = [
+    'Quads',
+    'Chest',
+    'Glutes',
+    'Hams',
+    'Upper Back',
+    'Shoulders',
+    'Triceps',
+    'Core',
+    'Biceps',
+    'Lower Back',
+  ];
   const actionRows = [];
   for (const mg of ORDER) {
     const v = volume[mg];
     if (!v || v.status !== 'under') continue;
-    const gap = gapReport.find(g => g.muscleGroup === mg && g.type === 'volume');
+    const gap = gapReport.find((g) => g.muscleGroup === mg && g.type === 'volume');
     if (!gap || !gap.suggestedExercise) continue;
     const deficit = Math.max(1, Math.ceil(v.target.min - v.sets));
     actionRows.push({
@@ -235,18 +253,25 @@ function _renderBuilderSummary(mainLift) {
 
   if (s.meters.length === 0) return stats;
 
-  const metersHtml = s.meters.map(m => `
+  const metersHtml = s.meters
+    .map(
+      (m) => `
     <div class="muscle-meter" data-status="${m.status}"
          title="${m.after} sets this week (after this session) vs. ${m.target} minimum target">
       <span class="muscle-meter-label">${m.muscle}</span>
       <div class="muscle-meter-bar"><span style="width:${m.pct}%"></span></div>
       <span class="muscle-meter-val">${m.after} / ${m.target} target</span>
-    </div>`).join('');
+    </div>`
+    )
+    .join('');
 
-  return stats + `<div class="summary-meters">
+  return (
+    stats +
+    `<div class="summary-meters">
     <span class="summary-meters-title">Sets this week (incl. this session)</span>
     ${metersHtml}
-  </div>`;
+  </div>`
+  );
 }
 
 /**
@@ -256,7 +281,7 @@ function _renderBuilderSummary(mainLift) {
  *   - perMuscle: planned sets this session, blended with last 7d weekly volume
  * Returns the top 4 muscles by planned-this-session set count for the meter row.
  */
-function _calcBuilderSummary(mainLift) {
+function _calcBuilderSummary(_mainLift) {
   const minutes = estimateWorkoutDuration(store.builderExercises);
 
   // Planned sets per muscle, this session.
@@ -269,16 +294,16 @@ function _calcBuilderSummary(mainLift) {
       const w = MAIN_LIFT_WEIGHTS[ex.exerciseId];
       if (!w) continue;
       for (const [mg, weight] of Object.entries(w)) {
-        if (weight >= 0.20) planned[mg] = (planned[mg] || 0) + sets;
-        else if (weight >= 0.10) planned[mg] = (planned[mg] || 0) + sets * 0.5;
+        if (weight >= 0.2) planned[mg] = (planned[mg] || 0) + sets;
+        else if (weight >= 0.1) planned[mg] = (planned[mg] || 0) + sets * 0.5;
       }
     } else {
       const catalogEx = resolveExercise(ex.exerciseId);
       const muscles = catalogEx && catalogEx.primaryMuscles;
       if (!muscles) continue;
       for (const [mg, weight] of Object.entries(muscles)) {
-        if (weight >= 0.20) planned[mg] = (planned[mg] || 0) + sets;
-        else if (weight >= 0.10) planned[mg] = (planned[mg] || 0) + sets * 0.5;
+        if (weight >= 0.2) planned[mg] = (planned[mg] || 0) + sets;
+        else if (weight >= 0.1) planned[mg] = (planned[mg] || 0) + sets * 0.5;
       }
     }
   }
@@ -288,7 +313,10 @@ function _calcBuilderSummary(mainLift) {
     .filter(([, s]) => s > 0)
     .sort((a, b) => b[1] - a[1]);
   const topMuscles = ranked.slice(0, 4);
-  const muscleLabel = ranked.slice(0, 3).map(([mg]) => mg.toLowerCase()).join(' · ');
+  const muscleLabel = ranked
+    .slice(0, 3)
+    .map(([mg]) => mg.toLowerCase())
+    .join(' · ');
 
   // Blend with weekly volume (last 7d) for the meter row.
   const weekly = analyzeWeeklyVolume();
@@ -299,7 +327,14 @@ function _calcBuilderSummary(mainLift) {
     const pct = Math.min(100, Math.round((after / target) * 100));
     let status = 'under';
     if (after >= target) status = after > (w.target.max || target * 2) ? 'over' : 'optimal';
-    return { muscle: mg, planned: Math.round(plannedSets * 10) / 10, after: Math.round(after * 10) / 10, target, pct, status };
+    return {
+      muscle: mg,
+      planned: Math.round(plannedSets * 10) / 10,
+      after: Math.round(after * 10) / 10,
+      target,
+      pct,
+      status,
+    };
   });
 
   return { minutes, totalSets, muscleLabel, meters };
@@ -325,7 +360,9 @@ function _slotRowHTML(ex, i, ctx) {
   // Stripe data attributes (lift accent for main, pattern color otherwise).
   const stripeAttrs = isMain
     ? `data-lift="${ex.exerciseId}"`
-    : (pattern ? `data-pattern="${pattern}"` : '');
+    : pattern
+      ? `data-pattern="${pattern}"`
+      : '';
 
   // Weight chip (accessories only).
   const weightDisplay = isMain
@@ -343,46 +380,52 @@ function _slotRowHTML(ex, i, ctx) {
   // Persistent "Why this?" info dot — accessories only.
   const evolvingReasons = isMain ? [] : _currentReasonsForSlot(ex, ctx);
   const whyExpanded = _openWhyIdx.has(i);
-  const whyDot = isMain || evolvingReasons.length === 0 ? '' :
-    `<button class="slot-why${whyExpanded ? ' open' : ''}" data-why="${i}" aria-label="Why this exercise?" title="Why this exercise?">i</button>`;
-  const whyBody = whyExpanded && evolvingReasons.length > 0
-    ? `<div class="slot-why-body">${evolvingReasons.map(r => `<div>&bull; ${escapeHTML(r)}</div>`).join('')}</div>`
-    : '';
+  const whyDot =
+    isMain || evolvingReasons.length === 0
+      ? ''
+      : `<button class="slot-why${whyExpanded ? ' open' : ''}" data-why="${i}" aria-label="Why this exercise?" title="Why this exercise?">i</button>`;
+  const whyBody =
+    whyExpanded && evolvingReasons.length > 0
+      ? `<div class="slot-why-body">${evolvingReasons.map((r) => `<div>&bull; ${escapeHTML(r)}</div>`).join('')}</div>`
+      : '';
 
   // Fatigue dot — accessories only, only if primary muscle is red/orange.
-  const fStatus = primaryMuscle && ctx.fatigueByMuscle && ctx.fatigueByMuscle[primaryMuscle]
-    ? ctx.fatigueByMuscle[primaryMuscle].status : null;
-  const fatigueDot = (!isMain && (fStatus === 'red' || fStatus === 'orange'))
-    ? `<span class="slot-fatigue-dot" data-status="${fStatus}" data-muscle="${primaryMuscle}" title="${primaryMuscle} fatigue: ${fStatus}"></span>`
-    : '';
+  const fStatus =
+    primaryMuscle && ctx.fatigueByMuscle && ctx.fatigueByMuscle[primaryMuscle]
+      ? ctx.fatigueByMuscle[primaryMuscle].status
+      : null;
+  const fatigueDot =
+    !isMain && (fStatus === 'red' || fStatus === 'orange')
+      ? `<span class="slot-fatigue-dot" data-status="${fStatus}" data-muscle="${primaryMuscle}" title="${primaryMuscle} fatigue: ${fStatus}"></span>`
+      : '';
 
   // Action buttons — 3 buttons (SS, Swap, ×); ↑/↓ replaced by drag-to-reorder.
   const nextEx = i < store.builderExercises.length - 1 ? store.builderExercises[i + 1] : null;
   const inGroup = !!ex.groupId && !isMain;
-  const canLinkSS   = !isMain && !inGroup && nextEx && !nextEx.groupId && nextEx.type !== 'main';
-  const canSwap     = !isMain;
-  const canRemove   = !isMain;
+  const canLinkSS = !isMain && !inGroup && nextEx && !nextEx.groupId && nextEx.type !== 'main';
+  const canSwap = !isMain;
+  const canRemove = !isMain;
 
   let actionsHtml = '';
   if (!isMain) {
     actionsHtml = `
       ${canLinkSS ? `<button class="slot-btn" data-link-ss="${i}" title="Superset with next">SS</button>` : ''}
-      ${canSwap   ? `<button class="slot-btn" data-swap="${i}">Swap</button>` : ''}
+      ${canSwap ? `<button class="slot-btn" data-swap="${i}">Swap</button>` : ''}
       ${canRemove ? `<button class="slot-btn danger" data-remove="${i}">&times;</button>` : ''}
     `;
   }
 
   // Drag handle — accessories only (main lift is pinned at index 0).
-  const dragHandle = isMain ? '' : `<span class="builder-slot-drag" data-drag="${i}">&#x2807;</span>`;
+  const dragHandle = isMain
+    ? ''
+    : `<span class="builder-slot-drag" data-drag="${i}">&#x2807;</span>`;
 
   // Compose the slot row.
   const repsDisplay = Array.isArray(ex.repRange) ? ex.repRange.join('-') : ex.reps;
   const repInputVal = Array.isArray(ex.repRange) ? ex.repRange[1] : ex.reps;
-  const slotClasses = [
-    'builder-slot',
-    isMain ? 'is-main' : '',
-    inGroup ? 'in-superset' : '',
-  ].filter(Boolean).join(' ');
+  const slotClasses = ['builder-slot', isMain ? 'is-main' : '', inGroup ? 'in-superset' : '']
+    .filter(Boolean)
+    .join(' ');
 
   return `<div class="${slotClasses}" data-slot="${i}">
     <div class="builder-slot-stripe" ${stripeAttrs}></div>
@@ -419,14 +462,20 @@ export function openBuilder(mainLift, preloadExercises) {
   _gapPanelOpen = false;
   _builderDirty = false;
   _openWhyIdx.clear();
-  _browserFilters = { muscle: null, pattern: null, equipmentOnly: false, neverTried: false, search: '' };
+  _browserFilters = {
+    muscle: null,
+    pattern: null,
+    equipmentOnly: false,
+    neverTried: false,
+    search: '',
+  };
   if (!isRouterResolving()) pushRoute('#builder/' + mainLift, 'builder', () => closeBuilder(true));
 
   // Helper that actually mounts the overlay once draft handling has resolved.
   const mount = (initialExercises) => {
     if (initialExercises && initialExercises.length > 0) {
       store.builderExercises = initialExercises;
-      if (!store.builderExercises.some(e => e.type === 'main')) {
+      if (!store.builderExercises.some((e) => e.type === 'main')) {
         store.builderExercises.unshift(buildMainLiftSlot(mainLift));
       }
     } else {
@@ -445,13 +494,20 @@ export function openBuilder(mainLift, preloadExercises) {
       const raw = localStorage.getItem('sbd-builder-draft');
       if (raw) {
         const draft = JSON.parse(raw);
-        if (draft && draft.mainLift === mainLift && draft.exercises && draft.exercises.length > 0
-            && (Date.now() - draft.timestamp) < 7200000) {
+        if (
+          draft &&
+          draft.mainLift === mainLift &&
+          draft.exercises &&
+          draft.exercises.length > 0 &&
+          Date.now() - draft.timestamp < 7200000
+        ) {
           draftExercises = draft.exercises;
         }
         localStorage.removeItem('sbd-builder-draft');
       }
-    } catch { /* corrupt draft — ignore */ }
+    } catch {
+      /* corrupt draft — ignore */
+    }
   }
 
   if (draftExercises) {
@@ -461,7 +517,9 @@ export function openBuilder(mainLift, preloadExercises) {
     mount([]);
     _openDraftRecoverySheet({
       onRecover: () => mount(draftExercises),
-      onDiscard: () => { /* keep the empty (smart-prefilled) builder */ mount(null); },
+      onDiscard: () => {
+        /* keep the empty (smart-prefilled) builder */ mount(null);
+      },
     });
   } else {
     mount(preloadExercises);
@@ -495,11 +553,16 @@ function buildMainLiftSlot(mainLift) {
   const programWeek = findFirstIncompleteWeek(mainLift);
   const workout = getProgramWorkout(mainLift, programWeek);
   return {
-    type: 'main', exerciseId: mainLift, name: LIFT_NAMES[mainLift],
+    type: 'main',
+    exerciseId: mainLift,
+    name: LIFT_NAMES[mainLift],
     sets: workout ? workout.sets.length : 5,
-    reps: workout ? (workout.sets[0]?.reps || 5) : 5,
-    weightMode: 'program', weightValue: 0,
-    equipment: 'barbell', repRange: [1, 5], order: 0,
+    reps: workout ? workout.sets[0]?.reps || 5 : 5,
+    weightMode: 'program',
+    weightValue: 0,
+    equipment: 'barbell',
+    repRange: [1, 5],
+    order: 0,
     slotRole: 'main',
   };
 }
@@ -523,7 +586,7 @@ function buildDefaultSlots(mainLift) {
       canonicalId: ex.canonicalId || ex.id,
       name: ex.name,
       sets: ex.sets || 3,
-      reps: Array.isArray(ex.repRange) ? ex.repRange[1] : (ex.reps || 10),
+      reps: Array.isArray(ex.repRange) ? ex.repRange[1] : ex.reps || 10,
       weightMode: 'auto',
       weightValue: weight,
       equipment: ex.equipment,
@@ -568,7 +631,7 @@ export function renderBuilder(mainLift) {
     const nextEx = i < store.builderExercises.length - 1 ? store.builderExercises[i + 1] : null;
     const inGroup = !!ex.groupId && ex.type !== 'main';
     const isGroupStart = inGroup && (!prevEx || prevEx.groupId !== ex.groupId);
-    const isGroupEnd   = inGroup && (!nextEx || nextEx.groupId !== ex.groupId);
+    const isGroupEnd = inGroup && (!nextEx || nextEx.groupId !== ex.groupId);
 
     if (isGroupStart) {
       // Left-gutter bracket — one badge per group, tap to unlink. The
@@ -642,9 +705,9 @@ export function renderBuilder(mainLift) {
       </select>
       <select id="custom-ex-pattern">
         <option value="">Movement Pattern</option>
-        ${Object.entries(MOVEMENT_PATTERNS).map(([id, p]) =>
-          `<option value="${id}">${p.label}</option>`
-        ).join('')}
+        ${Object.entries(MOVEMENT_PATTERNS)
+          .map(([id, p]) => `<option value="${id}">${p.label}</option>`)
+          .join('')}
       </select>
     </div>
     <div class="custom-exercise-row">
@@ -663,13 +726,17 @@ export function renderBuilder(mainLift) {
 // ---------------------------------------------------------------------------
 
 function renderRecommendedBrowser(mainLift) {
-  const addedIds = new Set(store.builderExercises.filter(e => e.type !== 'main').map(e => resolveCanonicalId(e.exerciseId)));
-  const scored = scoreAccessories(mainLift).filter(ex => !addedIds.has(ex.canonicalId || ex.id));
+  const addedIds = new Set(
+    store.builderExercises
+      .filter((e) => e.type !== 'main')
+      .map((e) => resolveCanonicalId(e.exerciseId))
+  );
+  const scored = scoreAccessories(mainLift).filter((ex) => !addedIds.has(ex.canonicalId || ex.id));
 
   // Apply filters (muscle, pattern, equipment, never-tried, search).
   const filtered = scored
-    .filter(ex => (ex.supportsLifts || []).includes(mainLift))
-    .filter(ex => _exercisePassesFilters(ex))
+    .filter((ex) => (ex.supportsLifts || []).includes(mainLift))
+    .filter((ex) => _exercisePassesFilters(ex))
     .slice(0, 15);
 
   if (filtered.length === 0) {
@@ -680,7 +747,11 @@ function renderRecommendedBrowser(mainLift) {
 }
 
 function renderAllBrowser(mainLift, query) {
-  const addedIds = new Set(store.builderExercises.filter(e => e.type !== 'main').map(e => resolveCanonicalId(e.exerciseId)));
+  const addedIds = new Set(
+    store.builderExercises
+      .filter((e) => e.type !== 'main')
+      .map((e) => resolveCanonicalId(e.exerciseId))
+  );
   const items = [];
   for (const [id, ex] of Object.entries(EXERCISE_CATALOG)) {
     const candidate = { id, ...ex };
@@ -725,10 +796,13 @@ function _renderBrowserGroups(items, addedIds) {
 function renderMusclePills(ex) {
   const muscles = ex.primaryMuscles || {};
   return Object.entries(muscles)
-    .filter(([, w]) => w >= 0.20)
+    .filter(([, w]) => w >= 0.2)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
-    .map(([mg]) => `<button class="muscle-pill" data-filter-muscle="${mg}" title="Filter to ${mg}">${mg}</button>`)
+    .map(
+      ([mg]) =>
+        `<button class="muscle-pill" data-filter-muscle="${mg}" title="Filter to ${mg}">${mg}</button>`
+    )
     .join('');
 }
 
@@ -738,7 +812,7 @@ function _exercisePassesFilters(ex) {
   if (f.muscle) {
     const muscles = ex.primaryMuscles || {};
     const w = muscles[f.muscle] || 0;
-    if (w < 0.20) return false;
+    if (w < 0.2) return false;
   }
   if (f.pattern && (ex.movementPattern || 'other') !== f.pattern) return false;
   if (f.equipmentOnly) {
@@ -747,7 +821,7 @@ function _exercisePassesFilters(ex) {
   }
   if (f.neverTried) {
     const id = ex.canonicalId || ex.id;
-    const tried = store.accessoryLog.some(l => resolveCanonicalId(l.exerciseId) === id);
+    const tried = store.accessoryLog.some((l) => resolveCanonicalId(l.exerciseId) === id);
     if (tried) return false;
   }
   if (f.search) {
@@ -778,12 +852,12 @@ function _renderRecentsStrip() {
 /** Filter chip row above the list. */
 function _renderFilterChips() {
   const f = _browserFilters;
-  const active = (cond) => cond ? ' active' : '';
+  const active = (cond) => (cond ? ' active' : '');
   return `<div class="browser-filters">
     <button class="filter-chip${active(f.equipmentOnly)}" data-filter-toggle="equipmentOnly">My Equipment</button>
     <button class="filter-chip${active(f.neverTried)}" data-filter-toggle="neverTried">Never Tried</button>
     ${f.muscle ? `<button class="filter-chip active" data-filter-clear="muscle">Muscle: ${f.muscle} &times;</button>` : ''}
-    ${f.pattern ? `<button class="filter-chip active" data-filter-clear="pattern">Pattern: ${(MOVEMENT_PATTERNS[f.pattern]||{label:f.pattern}).label} &times;</button>` : ''}
+    ${f.pattern ? `<button class="filter-chip active" data-filter-clear="pattern">Pattern: ${(MOVEMENT_PATTERNS[f.pattern] || { label: f.pattern }).label} &times;</button>` : ''}
   </div>`;
 }
 
@@ -797,7 +871,8 @@ function _refreshBrowserList() {
   const newRecents = _renderRecentsStrip();
   const newFilters = _renderFilterChips();
   if (recents) recents.outerHTML = newRecents || '';
-  else if (newRecents) browser.querySelector('.browser-tabs').insertAdjacentHTML('afterend', newRecents);
+  else if (newRecents)
+    browser.querySelector('.browser-tabs').insertAdjacentHTML('afterend', newRecents);
   if (filters) filters.outerHTML = newFilters;
   else browser.querySelector('.browser-tabs').insertAdjacentHTML('afterend', newFilters);
   // List body
@@ -805,16 +880,17 @@ function _refreshBrowserList() {
   const tab = activeTab ? activeTab.dataset.browserTab : 'recommended';
   const list = $('builder-exercise-list');
   if (!list) return;
-  list.innerHTML = tab === 'all'
-    ? renderAllBrowser(_builderMainLift, _browserFilters.search)
-    : renderRecommendedBrowser(_builderMainLift);
+  list.innerHTML =
+    tab === 'all'
+      ? renderAllBrowser(_builderMainLift, _browserFilters.search)
+      : renderRecommendedBrowser(_builderMainLift);
 }
 
 /** Track that an accessory was added — feeds the recents strip. */
 function _trackRecent(exId) {
   const id = resolveCanonicalId(exId);
   if (!EXERCISE_CATALOG[id]) return; // skip custom exercises
-  _recentExerciseIds = _recentExerciseIds.filter(x => x !== id);
+  _recentExerciseIds = _recentExerciseIds.filter((x) => x !== id);
   _recentExerciseIds.push(id);
   if (_recentExerciseIds.length > _RECENT_LIMIT) {
     _recentExerciseIds = _recentExerciseIds.slice(-_RECENT_LIMIT);
@@ -836,18 +912,25 @@ function openSwapSheet(slotIdx) {
 
   // Score all exercises
   const allScored = scoreAccessories(mainLift);
-  const addedIds = new Set(store.builderExercises.map(e => resolveCanonicalId(e.exerciseId)));
+  const addedIds = new Set(store.builderExercises.map((e) => resolveCanonicalId(e.exerciseId)));
 
   // Pass 1: Same pattern (top 4)
   const samePattern = allScored
-    .filter(ex => ex.movementPattern === pattern && !addedIds.has(ex.canonicalId || ex.id))
+    .filter((ex) => ex.movementPattern === pattern && !addedIds.has(ex.canonicalId || ex.id))
     .slice(0, 4);
 
   // Pass 2: Gap-based from other patterns (2-4)
   const gapReport = getGapReport(mainLift);
-  const gapExerciseIds = new Set(gapReport.filter(g => g.suggestedExercise).map(g => g.suggestedExercise.id));
+  const gapExerciseIds = new Set(
+    gapReport.filter((g) => g.suggestedExercise).map((g) => g.suggestedExercise.id)
+  );
   const gapBased = allScored
-    .filter(ex => ex.movementPattern !== pattern && !addedIds.has(ex.canonicalId || ex.id) && gapExerciseIds.has(ex.id))
+    .filter(
+      (ex) =>
+        ex.movementPattern !== pattern &&
+        !addedIds.has(ex.canonicalId || ex.id) &&
+        gapExerciseIds.has(ex.id)
+    )
     .slice(0, 4);
 
   // Comparison context — computed once, passed to each candidate row.
@@ -883,14 +966,16 @@ function openSwapSheet(slotIdx) {
   $('swap-sheet').style.display = 'flex';
 
   // Wire swap clicks
-  $('swap-sheet-body').querySelectorAll('.swap-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const exId = item.dataset.exid;
-      const idx = parseInt(item.dataset.slot);
-      swapExercise(idx, exId);
-      closeSwapSheet();
+  $('swap-sheet-body')
+    .querySelectorAll('.swap-item')
+    .forEach((item) => {
+      item.addEventListener('click', () => {
+        const exId = item.dataset.exid;
+        const idx = parseInt(item.dataset.slot);
+        swapExercise(idx, exId);
+        closeSwapSheet();
+      });
     });
-  });
 
   $('swap-sheet-backdrop').addEventListener('click', closeSwapSheet);
 }
@@ -906,7 +991,9 @@ function renderSwapItem(ex, slotIdx, available, ctx) {
     const patternInfo = MOVEMENT_PATTERNS[ex.movementPattern];
     if (patternInfo) {
       const sameP = ex.movementPattern === ctx.currentPattern;
-      chips.push(`<span class="delta-chip pattern${sameP ? ' same' : ' different'}">${patternInfo.label}</span>`);
+      chips.push(
+        `<span class="delta-chip pattern${sameP ? ' same' : ' different'}">${patternInfo.label}</span>`
+      );
     }
     // Recency: days since last logged set
     const canonId = ex.canonicalId || ex.id;
@@ -924,7 +1011,9 @@ function renderSwapItem(ex, slotIdx, available, ctx) {
     const muscle = _primaryMuscleFor({ exerciseId: ex.id, type: 'accessory' });
     const f = muscle && ctx.fatigueByMuscle[muscle];
     if (f && (f.status === 'red' || f.status === 'orange')) {
-      chips.push(`<span class="delta-chip fatigue" data-status="${f.status}" title="${muscle} ${f.status}">${muscle} ${f.status}</span>`);
+      chips.push(
+        `<span class="delta-chip fatigue" data-status="${f.status}" title="${muscle} ${f.status}">${muscle} ${f.status}</span>`
+      );
     }
     deltas = `<div class="swap-item-deltas">${chips.join('')}</div>`;
   }
@@ -958,7 +1047,7 @@ function swapExercise(slotIdx, newExId) {
     canonicalId: newExId,
     name: catalogEx.name,
     sets: catalogEx.sets || old.sets || 3,
-    reps: catalogEx.repRange ? catalogEx.repRange[1] : (old.reps || 10),
+    reps: catalogEx.repRange ? catalogEx.repRange[1] : old.reps || 10,
     weightMode: 'auto',
     weightValue: weight,
     equipment: catalogEx.equipment,
@@ -980,7 +1069,11 @@ function addExerciseFromCatalog(exId) {
   if (!catalogEx) return;
   // #10: Duplicate detection
   const canonId = resolveCanonicalId(exId);
-  if (store.builderExercises.some(e => e.type !== 'main' && resolveCanonicalId(e.exerciseId) === canonId)) {
+  if (
+    store.builderExercises.some(
+      (e) => e.type !== 'main' && resolveCanonicalId(e.exerciseId) === canonId
+    )
+  ) {
     showToast('Exercise already in workout');
     return;
   }
@@ -1021,23 +1114,30 @@ function addExerciseFromCatalog(exId) {
  */
 export function builderToSession(mainLift) {
   const now = new Date();
-  const accessories = store.builderExercises.filter(e => e.type !== 'main').map(ex => {
-    const catalogEx = resolveExercise(ex.exerciseId);
-    const dbEx = ACCESSORY_DB[ex.exerciseId];
-    const weight = ex.weightValue || (catalogEx ? getAccessoryWeight(ex.exerciseId, mainLift) : 0);
-    return {
-      exerciseId: ex.exerciseId,
-      name: ex.name,
-      setWeights: computeSetWeights(weight, ex.sets),
-      targetSets: ex.sets,
-      repRange: Array.isArray(ex.repRange) ? [...ex.repRange] : [ex.reps, ex.reps],
-      equipment: ex.equipment,
-      setsCompleted: [],
-      progressed: catalogEx ? checkAccessoryProgression(ex.exerciseId, mainLift) : (dbEx ? checkAccessoryProgression(ex.exerciseId, mainLift) : false),
-      groupId: ex.groupId || null,
-      groupType: ex.groupType || null,
-    };
-  });
+  const accessories = store.builderExercises
+    .filter((e) => e.type !== 'main')
+    .map((ex) => {
+      const catalogEx = resolveExercise(ex.exerciseId);
+      const dbEx = ACCESSORY_DB[ex.exerciseId];
+      const weight =
+        ex.weightValue || (catalogEx ? getAccessoryWeight(ex.exerciseId, mainLift) : 0);
+      return {
+        exerciseId: ex.exerciseId,
+        name: ex.name,
+        setWeights: computeSetWeights(weight, ex.sets),
+        targetSets: ex.sets,
+        repRange: Array.isArray(ex.repRange) ? [...ex.repRange] : [ex.reps, ex.reps],
+        equipment: ex.equipment,
+        setsCompleted: [],
+        progressed: catalogEx
+          ? checkAccessoryProgression(ex.exerciseId, mainLift)
+          : dbEx
+            ? checkAccessoryProgression(ex.exerciseId, mainLift)
+            : false,
+        groupId: ex.groupId || null,
+        groupType: ex.groupType || null,
+      };
+    });
 
   // Increment reason tag counts for pre-filled exercises
   for (const ex of store.builderExercises) {
@@ -1062,15 +1162,24 @@ export function builderToSession(mainLift) {
   };
   const workout = getProgramWorkout(mainLift, session.programWeek);
   if (workout) {
-    const mainOnly = workout.sets.filter(s => s.tier !== 'BBB');
-    const bbbOnly = workout.sets.filter(s => s.tier === 'BBB');
-    session.mainSets = mainOnly.map(s => ({
-      num: s.num, weight: s.weight, reps: s.reps, pct: s.pct,
-      tier: s.tier, day: s.day, completed: s.completed
+    const mainOnly = workout.sets.filter((s) => s.tier !== 'BBB');
+    const bbbOnly = workout.sets.filter((s) => s.tier === 'BBB');
+    session.mainSets = mainOnly.map((s) => ({
+      num: s.num,
+      weight: s.weight,
+      reps: s.reps,
+      pct: s.pct,
+      tier: s.tier,
+      day: s.day,
+      completed: s.completed,
     }));
     session.bbbSets = bbbOnly.map((s, i) => ({
-      num: i + 1, weight: s.weight, reps: s.reps, pct: s.pct,
-      tier: 'BBB', completed: false
+      num: i + 1,
+      weight: s.weight,
+      reps: s.reps,
+      pct: s.pct,
+      tier: 'BBB',
+      completed: false,
     }));
   }
   return session;
@@ -1082,7 +1191,7 @@ export function builderToSession(mainLift) {
 
 export function saveAsTemplate(mainLift) {
   const editingId = $('builder-save-template')._templateId || null;
-  const existing = editingId ? store.customTemplates.find(t => t.id === editingId) : null;
+  const existing = editingId ? store.customTemplates.find((t) => t.id === editingId) : null;
 
   // Open the template-save sheet; `_openTemplateSaveSheet` calls back with
   // a single { name, notes, tags } object once the user taps Save.
@@ -1091,11 +1200,11 @@ export function saveAsTemplate(mainLift) {
     onSave: ({ name, notes, tags }) => {
       const gapReport = getGapReport(mainLift);
       const pushPull = analyzePushPullRatio();
-      const exercises = store.builderExercises.map(e => ({ ...e }));
+      const exercises = store.builderExercises.map((e) => ({ ...e }));
       const metadata = {
         gapCount: gapReport.length,
         pushPullRatio: pushPull.ratio,
-        slotRoles: store.builderExercises.map(e => e.slotRole || 'accessory'),
+        slotRoles: store.builderExercises.map((e) => e.slotRole || 'accessory'),
       };
 
       if (existing) {
@@ -1135,11 +1244,13 @@ export function saveAsTemplate(mainLift) {
 export function showTemplateList() {
   const lift = store.currentLift;
   // #11: Pinned templates sort first, then by lastUsed
-  const liftTemplates = store.customTemplates.filter(t => t.mainLift === lift).sort((a, b) => {
-    if (a.pinned && !b.pinned) return -1;
-    if (!a.pinned && b.pinned) return 1;
-    return (b.lastUsed || 0) - (a.lastUsed || 0);
-  });
+  const liftTemplates = store.customTemplates
+    .filter((t) => t.mainLift === lift)
+    .sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return (b.lastUsed || 0) - (a.lastUsed || 0);
+    });
   if (liftTemplates.length === 0) {
     showToast('No templates for ' + LIFT_NAMES[lift]);
     return;
@@ -1149,34 +1260,35 @@ export function showTemplateList() {
   $('choice-sheet-title').textContent = 'Saved Templates';
 
   // #17: Tag filter bar
-  const allTags = [...new Set(liftTemplates.flatMap(t => t.tags || []))];
+  const allTags = [...new Set(liftTemplates.flatMap((t) => t.tags || []))];
   let html = '';
   if (allTags.length > 0) {
     html += `<div class="template-tag-filters" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:var(--space-2)">`;
     html += `<button class="template-tag-filter-btn active" data-tag-filter="">All</button>`;
-    allTags.forEach(tag => {
+    allTags.forEach((tag) => {
       html += `<button class="template-tag-filter-btn" data-tag-filter="${escapeHTML(tag)}">${escapeHTML(tag)}</button>`;
     });
     html += `</div>`;
   }
   html += '<div class="template-list">';
-  liftTemplates.forEach(t => {
-    const accExercises = t.exercises.filter(e => e.type !== 'main');
+  liftTemplates.forEach((t) => {
+    const accExercises = t.exercises.filter((e) => e.type !== 'main');
     const accCount = accExercises.length;
     const lastUsed = t.lastUsed ? new Date(t.lastUsed).toLocaleDateString() : 'Never';
     const useCount = t.useCount || 0;
     const totalSets = accExercises.reduce((sum, e) => sum + (e.sets || 3), 0);
     // #6: Exercise name preview pills
-    const previewNames = accExercises.slice(0, 4).map(e => escapeHTML(e.name));
+    const previewNames = accExercises.slice(0, 4).map((e) => escapeHTML(e.name));
     const moreCount = Math.max(0, accCount - 4);
-    const previewHtml = previewNames.map(n => `<span class="template-preview-pill">${n}</span>`).join('')
-      + (moreCount > 0 ? `<span class="template-preview-more">+${moreCount}</span>` : '');
+    const previewHtml =
+      previewNames.map((n) => `<span class="template-preview-pill">${n}</span>`).join('') +
+      (moreCount > 0 ? `<span class="template-preview-more">+${moreCount}</span>` : '');
     html += `<div class="template-card" data-tid="${t.id}">
       <div class="template-card-info">
         <div class="template-card-name">${t.pinned ? '&#9733; ' : ''}${escapeHTML(t.name)}</div>
         <div class="template-card-meta">${accCount} exercises &bull; ${totalSets} sets &bull; Used ${useCount}x &bull; Last: ${lastUsed}</div>
         ${t.notes ? `<div class="template-card-notes">${escapeHTML(t.notes)}</div>` : ''}
-        ${(t.tags && t.tags.length > 0) ? `<div class="template-card-tags">${t.tags.map(tag => `<span class="template-tag-pill">${escapeHTML(tag)}</span>`).join('')}</div>` : ''}
+        ${t.tags && t.tags.length > 0 ? `<div class="template-card-tags">${t.tags.map((tag) => `<span class="template-tag-pill">${escapeHTML(tag)}</span>`).join('')}</div>` : ''}
         <div class="template-card-preview">${previewHtml}</div>
       </div>
       <div class="template-card-actions">
@@ -1196,25 +1308,37 @@ export function showTemplateList() {
   document.body.style.overflow = 'hidden';
 
   // #17: Tag filter click handler
-  body.querySelectorAll('.template-tag-filter-btn').forEach(btn => {
+  body.querySelectorAll('.template-tag-filter-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const tag = btn.dataset.tagFilter;
-      body.querySelectorAll('.template-tag-filter-btn').forEach(b => b.classList.remove('active'));
+      body
+        .querySelectorAll('.template-tag-filter-btn')
+        .forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
-      body.querySelectorAll('.template-card').forEach(card => {
+      body.querySelectorAll('.template-card').forEach((card) => {
         const tid = card.dataset.tid;
-        const t = store.customTemplates.find(x => x.id === tid);
-        if (!tag) { card.style.display = ''; return; }
-        card.style.display = (t && t.tags && t.tags.includes(tag)) ? '' : 'none';
+        const t = store.customTemplates.find((x) => x.id === tid);
+        if (!tag) {
+          card.style.display = '';
+          return;
+        }
+        card.style.display = t && t.tags && t.tags.includes(tag) ? '' : 'none';
       });
     });
   });
 
-  body.querySelectorAll('.template-card').forEach(card => {
+  body.querySelectorAll('.template-card').forEach((card) => {
     card.addEventListener('click', (e) => {
-      if (e.target.closest('[data-edit-template]') || e.target.closest('[data-del-template]') || e.target.closest('[data-dup-template]') || e.target.closest('[data-rename-template]') || e.target.closest('[data-pin-template]')) return;
+      if (
+        e.target.closest('[data-edit-template]') ||
+        e.target.closest('[data-del-template]') ||
+        e.target.closest('[data-dup-template]') ||
+        e.target.closest('[data-rename-template]') ||
+        e.target.closest('[data-pin-template]')
+      )
+        return;
       const tid = card.dataset.tid;
-      const template = store.customTemplates.find(t => t.id === tid);
+      const template = store.customTemplates.find((t) => t.id === tid);
       if (!template) return;
       template.lastUsed = Date.now();
       template.useCount = (template.useCount || 0) + 1;
@@ -1222,28 +1346,31 @@ export function showTemplateList() {
       _deps.closeChoiceSheet?.();
       // Re-evaluate weights on load; drop stale non-custom exercises
       let staleCount = 0;
-      const exercises = (template.exercises || []).map(e => {
-        const copy = { ...e };
-        if (copy.type !== 'main' && !copy.custom && !resolveExercise(copy.exerciseId)) {
-          staleCount++;
-          return null;
-        }
-        if (copy.type !== 'main' && copy.weightMode === 'auto') {
-          copy.weightValue = getAccessoryWeight(copy.exerciseId, lift);
-        }
-        return copy;
-      }).filter(Boolean);
-      if (staleCount > 0) showToast(`Removed ${staleCount} unavailable exercise${staleCount > 1 ? 's' : ''}`);
+      const exercises = (template.exercises || [])
+        .map((e) => {
+          const copy = { ...e };
+          if (copy.type !== 'main' && !copy.custom && !resolveExercise(copy.exerciseId)) {
+            staleCount++;
+            return null;
+          }
+          if (copy.type !== 'main' && copy.weightMode === 'auto') {
+            copy.weightValue = getAccessoryWeight(copy.exerciseId, lift);
+          }
+          return copy;
+        })
+        .filter(Boolean);
+      if (staleCount > 0)
+        showToast(`Removed ${staleCount} unavailable exercise${staleCount > 1 ? 's' : ''}`);
       openBuilder(lift, exercises);
     });
   });
 
   // #11: Pin/unpin handler
-  body.querySelectorAll('[data-pin-template]').forEach(btn => {
+  body.querySelectorAll('[data-pin-template]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const tid = btn.dataset.pinTemplate;
-      const template = store.customTemplates.find(t => t.id === tid);
+      const template = store.customTemplates.find((t) => t.id === tid);
       if (!template) return;
       template.pinned = !template.pinned;
       store.saveCustomTemplates();
@@ -1252,11 +1379,11 @@ export function showTemplateList() {
   });
 
   // #7: Rename handler
-  body.querySelectorAll('[data-rename-template]').forEach(btn => {
+  body.querySelectorAll('[data-rename-template]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const tid = btn.dataset.renameTemplate;
-      const template = store.customTemplates.find(t => t.id === tid);
+      const template = store.customTemplates.find((t) => t.id === tid);
       if (!template) return;
       const newName = prompt('New template name:', template.name);
       if (!newName || !newName.trim()) return;
@@ -1267,24 +1394,24 @@ export function showTemplateList() {
     });
   });
 
-  body.querySelectorAll('[data-edit-template]').forEach(btn => {
+  body.querySelectorAll('[data-edit-template]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const tid = btn.dataset.editTemplate;
-      const template = store.customTemplates.find(t => t.id === tid);
+      const template = store.customTemplates.find((t) => t.id === tid);
       if (!template) return;
       _deps.closeChoiceSheet?.();
-      const exercises = (template.exercises || []).map(e => ({ ...e }));
+      const exercises = (template.exercises || []).map((e) => ({ ...e }));
       openBuilder(lift, exercises);
       $('builder-save-template')._templateId = tid;
     });
   });
 
-  body.querySelectorAll('[data-dup-template]').forEach(btn => {
+  body.querySelectorAll('[data-dup-template]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const tid = btn.dataset.dupTemplate;
-      const template = store.customTemplates.find(t => t.id === tid);
+      const template = store.customTemplates.find((t) => t.id === tid);
       if (!template) return;
       const dup = {
         ...template,
@@ -1292,7 +1419,7 @@ export function showTemplateList() {
         name: template.name + ' (Copy)',
         createdAt: Date.now(),
         lastUsed: null,
-        exercises: (template.exercises || []).map(e => ({ ...e }))
+        exercises: (template.exercises || []).map((e) => ({ ...e })),
       };
       store.customTemplates.push(dup);
       store.saveCustomTemplates();
@@ -1301,11 +1428,11 @@ export function showTemplateList() {
     });
   });
 
-  body.querySelectorAll('[data-del-template]').forEach(btn => {
+  body.querySelectorAll('[data-del-template]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const tid = btn.dataset.delTemplate;
-      const idx = store.customTemplates.findIndex(t => t.id === tid);
+      const idx = store.customTemplates.findIndex((t) => t.id === tid);
       if (idx === -1) return;
       const removed = store.customTemplates.splice(idx, 1)[0];
       store.saveCustomTemplates();
@@ -1316,11 +1443,12 @@ export function showTemplateList() {
       el.classList.add('show');
       setTimeout(() => {
         const undoBtn = $('tmpl-undo-btn');
-        if (undoBtn) undoBtn.addEventListener('click', () => {
-          store.customTemplates.push(removed);
-          store.saveCustomTemplates();
-          showToast('Restored');
-        });
+        if (undoBtn)
+          undoBtn.addEventListener('click', () => {
+            store.customTemplates.push(removed);
+            store.saveCustomTemplates();
+            showToast('Restored');
+          });
       }, 0);
       setTimeout(() => el.classList.remove('show'), 10000);
     });
@@ -1331,9 +1459,11 @@ export function showTemplateList() {
 // Dependency injection for closeChoiceSheet
 // ---------------------------------------------------------------------------
 
-let _deps = {};
+const _deps = {};
 
-export function setBuilderDeps(deps) { Object.assign(_deps, deps); }
+export function setBuilderDeps(deps) {
+  Object.assign(_deps, deps);
+}
 
 // ---------------------------------------------------------------------------
 // Init — delegation (attached once)
@@ -1364,8 +1494,11 @@ export function initBuilderOverlay() {
     const unlinkBtn = e.target.closest('[data-unlink-group]');
     if (unlinkBtn) {
       const gid = unlinkBtn.dataset.unlinkGroup;
-      store.builderExercises.forEach(ex => {
-        if (ex.groupId === gid) { delete ex.groupId; delete ex.groupType; }
+      store.builderExercises.forEach((ex) => {
+        if (ex.groupId === gid) {
+          delete ex.groupId;
+          delete ex.groupType;
+        }
       });
       _markDirty();
       renderBuilder(mainLift);
@@ -1433,7 +1566,7 @@ export function initBuilderOverlay() {
     // Browser tab switching
     const tabBtn = e.target.closest('[data-browser-tab]');
     if (tabBtn) {
-      body.querySelectorAll('.browser-tab').forEach(t => t.classList.remove('active'));
+      body.querySelectorAll('.browser-tab').forEach((t) => t.classList.remove('active'));
       tabBtn.classList.add('active');
       _refreshBrowserList();
       return;
@@ -1513,7 +1646,12 @@ export function initBuilderOverlay() {
     if (e.target.closest('[data-gap-add-pull]')) {
       const pullEx = Object.entries(EXERCISE_CATALOG).find(([, ex]) => {
         const p = MOVEMENT_PATTERNS[ex.movementPattern];
-        return p && p.pushPull === 'pull' && ex.supportsLifts.includes(mainLift) && (store.equipmentProfile || {})[ex.equipment] !== false;
+        return (
+          p &&
+          p.pushPull === 'pull' &&
+          ex.supportsLifts.includes(mainLift) &&
+          (store.equipmentProfile || {})[ex.equipment] !== false
+        );
       });
       if (pullEx) addExerciseFromCatalog(pullEx[0]);
       return;
@@ -1523,7 +1661,12 @@ export function initBuilderOverlay() {
     if (e.target.closest('[data-gap-add-push]')) {
       const pushEx = Object.entries(EXERCISE_CATALOG).find(([, ex]) => {
         const p = MOVEMENT_PATTERNS[ex.movementPattern];
-        return p && p.pushPull === 'push' && ex.supportsLifts.includes(mainLift) && (store.equipmentProfile || {})[ex.equipment] !== false;
+        return (
+          p &&
+          p.pushPull === 'push' &&
+          ex.supportsLifts.includes(mainLift) &&
+          (store.equipmentProfile || {})[ex.equipment] !== false
+        );
       });
       if (pushEx) addExerciseFromCatalog(pushEx[0]);
       return;
@@ -1534,7 +1677,9 @@ export function initBuilderOverlay() {
     if (hintSwap) {
       const staleId = hintSwap.dataset.stale;
       const altId = hintSwap.dataset.alt;
-      const idx = store.builderExercises.findIndex(e => resolveCanonicalId(e.exerciseId) === staleId);
+      const idx = store.builderExercises.findIndex(
+        (e) => resolveCanonicalId(e.exerciseId) === staleId
+      );
       if (idx >= 0) {
         swapExercise(idx, altId);
       }
@@ -1551,7 +1696,10 @@ export function initBuilderOverlay() {
     // Add custom exercise
     if (e.target.closest('#custom-ex-add')) {
       const name = $('custom-ex-name').value.trim();
-      if (!name) { showToast('Enter exercise name'); return; }
+      if (!name) {
+        showToast('Enter exercise name');
+        return;
+      }
       const sets = parseInt($('custom-ex-sets').value) || 3;
       const reps = parseInt($('custom-ex-reps').value) || 10;
       const equip = $('custom-ex-equip').value;
@@ -1559,13 +1707,17 @@ export function initBuilderOverlay() {
       const weight = parseFloat($('custom-ex-weight').value) || 0;
 
       // Deterministic ID from name so history consolidates across sessions
-      const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      const slug = name
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/g, '');
 
       store.builderExercises.push({
         type: 'accessory',
         exerciseId: 'custom-' + slug,
         name,
-        sets, reps,
+        sets,
+        reps,
         weightMode: 'manual',
         weightValue: weight,
         equipment: equip,
@@ -1655,7 +1807,7 @@ function _initDragReorder() {
   const body = $('builder-body');
   let drag = null;
 
-  body.addEventListener('pointerdown', e => {
+  body.addEventListener('pointerdown', (e) => {
     const handle = e.target.closest('[data-drag]');
     if (!handle) return;
     const idx = parseInt(handle.dataset.drag);
@@ -1665,7 +1817,11 @@ function _initDragReorder() {
     if (!slotEl) return;
 
     e.preventDefault();
-    try { body.setPointerCapture(e.pointerId); } catch (_) {}
+    try {
+      body.setPointerCapture(e.pointerId);
+    } catch (_) {
+      /* pointer capture not supported */
+    }
 
     const rect = slotEl.getBoundingClientRect();
     const bodyRect = body.getBoundingClientRect();
@@ -1683,9 +1839,14 @@ function _initDragReorder() {
 
     // Snapshot slot midpoints for hit-testing.
     const slots = [...body.querySelectorAll('.builder-slot[data-slot]')];
-    const mids = slots.map(s => {
+    const mids = slots.map((s) => {
       const r = s.getBoundingClientRect();
-      return { idx: parseInt(s.dataset.slot), top: r.top, mid: r.top + r.height / 2, bottom: r.bottom };
+      return {
+        idx: parseInt(s.dataset.slot),
+        top: r.top,
+        mid: r.top + r.height / 2,
+        bottom: r.bottom,
+      };
     });
 
     drag = {
@@ -1705,7 +1866,7 @@ function _initDragReorder() {
     };
   });
 
-  body.addEventListener('pointermove', e => {
+  body.addEventListener('pointermove', (e) => {
     if (!drag) return;
 
     const dx = Math.abs(e.clientX - drag.startX);
@@ -1728,16 +1889,20 @@ function _initDragReorder() {
 
     // Translate ghost to follow pointer.
     const offsetY = e.clientY - drag.startY;
-    drag.ghost.style.top = (drag.ghostStartTop + offsetY) + 'px';
+    drag.ghost.style.top = drag.ghostStartTop + offsetY + 'px';
 
     // Auto-scroll when near edges of the scrollable body.
     const edgeZone = 40;
     const ghostCenter = drag.ghostStartTop + offsetY + drag.ghost.offsetHeight / 2;
     clearInterval(drag.scrollTimer);
     if (ghostCenter < drag.bodyRect.top + edgeZone) {
-      drag.scrollTimer = setInterval(() => { body.scrollTop -= 8; }, 16);
+      drag.scrollTimer = setInterval(() => {
+        body.scrollTop -= 8;
+      }, 16);
     } else if (ghostCenter > drag.bodyRect.bottom - edgeZone) {
-      drag.scrollTimer = setInterval(() => { body.scrollTop += 8; }, 16);
+      drag.scrollTimer = setInterval(() => {
+        body.scrollTop += 8;
+      }, 16);
     }
 
     // Compute which slot the ghost center is hovering over.
@@ -1749,7 +1914,10 @@ function _initDragReorder() {
       if (sIdx === 0) continue; // can't drop above main lift
       const r = s.getBoundingClientRect();
       const mid = r.top + r.height / 2;
-      if (ghostCenter < mid && sIdx < targetIdx) { targetIdx = sIdx; break; }
+      if (ghostCenter < mid && sIdx < targetIdx) {
+        targetIdx = sIdx;
+        break;
+      }
       if (ghostCenter > mid && sIdx > targetIdx) targetIdx = sIdx;
     }
 
@@ -1780,7 +1948,11 @@ function _initDragReorder() {
       _markDirty();
       renderBuilder(_builderMainLift);
     }
-    try { body.releasePointerCapture(drag.pointerId); } catch (_) {}
+    try {
+      body.releasePointerCapture(drag.pointerId);
+    } catch (_) {
+      /* pointer capture not supported */
+    }
     drag = null;
   }
 
@@ -1793,9 +1965,9 @@ function _initDragReorder() {
 // bottom-sheet UI matching the rest of the app.
 // ---------------------------------------------------------------------------
 
-let _draftCallback = null;       // { onRecover, onDiscard }
-let _discardCallback = null;     // { onConfirm }
-let _templateCallback = null;    // { onSave, existing }
+let _draftCallback = null; // { onRecover, onDiscard }
+let _discardCallback = null; // { onConfirm }
+let _templateCallback = null; // { onSave, existing }
 let _templateActiveTags = new Set();
 
 function _showSheet(panelId, backdropId) {
@@ -1836,9 +2008,9 @@ function _openTemplateSaveSheet({ existing, onSave }) {
   _templateCallback = { onSave, existing };
   $('builder-template-sheet-title').textContent = existing ? 'Edit Template' : 'Save as Template';
   $('builder-template-name').value = existing ? existing.name : '';
-  $('builder-template-notes').value = existing ? (existing.notes || '') : '';
+  $('builder-template-notes').value = existing ? existing.notes || '' : '';
   $('builder-template-tag-extra').value = '';
-  _templateActiveTags = new Set(existing ? (existing.tags || []) : []);
+  _templateActiveTags = new Set(existing ? existing.tags || [] : []);
   _refreshTemplateTagChips();
   _showSheet('builder-template-sheet', 'builder-template-sheet-backdrop');
   setTimeout(() => $('builder-template-name').focus(), 50);
@@ -1849,7 +2021,10 @@ function _closeTemplateSheet(action) {
   _hideSheet('builder-template-sheet', 'builder-template-sheet-backdrop');
   if (cb && action === 'save') {
     const name = ($('builder-template-name').value || '').trim();
-    if (!name) { showToast('Template needs a name'); return; }
+    if (!name) {
+      showToast('Template needs a name');
+      return;
+    }
     const notes = ($('builder-template-notes').value || '').trim();
     const tags = Array.from(_templateActiveTags);
     cb.onSave?.({ name, notes, tags });
@@ -1860,11 +2035,11 @@ function _refreshTemplateTagChips() {
   const container = $('builder-template-tags');
   if (!container) return;
   // Reset preset chips to reflect current active set
-  container.querySelectorAll('.template-tag-chip[data-tag]').forEach(chip => {
+  container.querySelectorAll('.template-tag-chip[data-tag]').forEach((chip) => {
     chip.classList.toggle('active', _templateActiveTags.has(chip.dataset.tag));
   });
   // Render any custom tags (not in the preset list) as chips with .custom
-  container.querySelectorAll('.template-tag-chip.custom').forEach(c => c.remove());
+  container.querySelectorAll('.template-tag-chip.custom').forEach((c) => c.remove());
   const presets = new Set(['Strength', 'Hypertrophy', 'Recovery', 'Volume', 'Competition']);
   for (const tag of _templateActiveTags) {
     if (presets.has(tag)) continue;
@@ -1886,12 +2061,16 @@ function _initBuilderSheets() {
   // Discard confirm
   $('builder-discard-confirm')?.addEventListener('click', () => _closeDiscardSheet('confirm'));
   $('builder-discard-cancel')?.addEventListener('click', () => _closeDiscardSheet('cancel'));
-  $('builder-discard-sheet-backdrop')?.addEventListener('click', () => _closeDiscardSheet('cancel'));
+  $('builder-discard-sheet-backdrop')?.addEventListener('click', () =>
+    _closeDiscardSheet('cancel')
+  );
 
   // Template save sheet
   $('builder-template-save')?.addEventListener('click', () => _closeTemplateSheet('save'));
   $('builder-template-cancel')?.addEventListener('click', () => _closeTemplateSheet('cancel'));
-  $('builder-template-sheet-backdrop')?.addEventListener('click', () => _closeTemplateSheet('cancel'));
+  $('builder-template-sheet-backdrop')?.addEventListener('click', () =>
+    _closeTemplateSheet('cancel')
+  );
 
   // Tag chip clicks (preset + custom)
   $('builder-template-tags')?.addEventListener('click', (e) => {

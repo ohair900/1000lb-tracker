@@ -21,9 +21,11 @@ import { burstMilestoneConfetti } from '../ui/confetti.js';
 // Late-bound callbacks — set via inject()
 // ---------------------------------------------------------------------------
 
-let _deps = {};
+const _deps = {};
 
-export function injectLogDeps(deps) { Object.assign(_deps, deps); }
+export function injectLogDeps(deps) {
+  Object.assign(_deps, deps);
+}
 
 // ---------------------------------------------------------------------------
 // e1RM Preview
@@ -33,15 +35,17 @@ export function injectLogDeps(deps) { Object.assign(_deps, deps); }
  * Update the e1RM preview based on current weight / reps inputs.
  */
 export function updatePreview() {
-  const w = parseFloat(weightInput.value), r = parseInt(repsInput.value);
+  const w = parseFloat(weightInput.value),
+    r = parseInt(repsInput.value);
   if (w > 0 && r > 0) {
     const wLbs = inputToLbs(w);
     const e = Math.round(calcE1RM(wLbs, r) * 10) / 10;
     const isPR = checkPR(store.currentLift, e);
     const plateStr = formatPlates(w);
-    previewEl.innerHTML = `Estimated 1RM: <span class="value">${formatWeight(e)} ${store.unit}</span>`
-      + (isPR ? ` <span class="pr-indicator">NEW PR!</span>` : '')
-      + (plateStr ? `<div class="plate-display">${plateStr} /side</div>` : '');
+    previewEl.innerHTML =
+      `Estimated 1RM: <span class="value">${formatWeight(e)} ${store.unit}</span>` +
+      (isPR ? ` <span class="pr-indicator">NEW PR!</span>` : '') +
+      (plateStr ? `<div class="plate-display">${plateStr} /side</div>` : '');
     logBtn.disabled = false;
   } else {
     previewEl.textContent = 'Enter weight and reps';
@@ -56,11 +60,11 @@ export function updatePreview() {
 function renderTagPills() {
   const container = $('log-tags');
   let html = '';
-  AVAILABLE_TAGS.forEach(t => {
+  AVAILABLE_TAGS.forEach((t) => {
     html += `<button class="tag-pill" data-tag="${t}">${t}</button>`;
   });
   container.innerHTML = html;
-  container.querySelectorAll('.tag-pill').forEach(pill => {
+  container.querySelectorAll('.tag-pill').forEach((pill) => {
     pill.addEventListener('click', () => pill.classList.toggle('active'));
   });
 }
@@ -91,12 +95,19 @@ export function initLogTab() {
   const debouncedPreview = debounce(updatePreview, PREVIEW_DEBOUNCE_MS);
   const weightHint = $('weight-hint');
   const repsHint = $('reps-hint');
-  weightInput.addEventListener('input', () => { clearInputHint(weightHint); debouncedPreview(); });
-  repsInput.addEventListener('input', () => { clearInputHint(repsHint); debouncedPreview(); });
+  weightInput.addEventListener('input', () => {
+    clearInputHint(weightHint);
+    debouncedPreview();
+  });
+  repsInput.addEventListener('input', () => {
+    clearInputHint(repsHint);
+    debouncedPreview();
+  });
 
   // Log button
   logBtn.addEventListener('click', () => {
-    const w = parseFloat(weightInput.value), r = parseInt(repsInput.value);
+    const w = parseFloat(weightInput.value),
+      r = parseInt(repsInput.value);
     if (!(w > 0 && r > 0)) {
       if (!(w > 0)) {
         weightInput.classList.add('input-shake');
@@ -113,9 +124,19 @@ export function initLogTab() {
     clearInputHint(weightHint);
     clearInputHint(repsHint);
     const notes = notesInput.value.trim();
-    const activeTags = [...document.querySelectorAll('#log-tags .tag-pill.active')].map(t => t.dataset.tag);
-    const { entry, isPR, isRepPR, milestone, hitMilestones } = addEntry(store.currentLift, inputToLbs(w), r, store.currentRPE, notes, activeTags);
-    weightInput.value = ''; repsInput.value = '';
+    const activeTags = [...document.querySelectorAll('#log-tags .tag-pill.active')].map(
+      (t) => t.dataset.tag
+    );
+    const { entry, isPR, isRepPR, milestone, hitMilestones } = addEntry(
+      store.currentLift,
+      inputToLbs(w),
+      r,
+      store.currentRPE,
+      notes,
+      activeTags
+    );
+    weightInput.value = '';
+    repsInput.value = '';
     updatePreview();
     _deps.updateDashboard?.();
     if (store.currentTab === 'history') _deps.renderHistory?.();
@@ -131,13 +152,21 @@ export function initLogTab() {
 
     // Auto-progression: detect AMRAP program set match
     let progApplied = false;
-    if (store.programConfig.activeProgram && store.programConfig.autoProgressEnabled && _deps.getProgramWorkout) {
+    if (
+      store.programConfig.activeProgram &&
+      store.programConfig.autoProgressEnabled &&
+      _deps.getProgramWorkout
+    ) {
       const workout = _deps.getProgramWorkout(store.currentLift);
       if (workout) {
         const loggedWeight = inputToLbs(w);
         const lw = store.programConfig.liftWeeks?.[store.currentLift] || 1;
         workout.sets.forEach((s, idx) => {
-          if (typeof s.reps === 'string' && s.reps.includes('+') && Math.abs(s.weight - loggedWeight) <= 3) {
+          if (
+            typeof s.reps === 'string' &&
+            s.reps.includes('+') &&
+            Math.abs(s.weight - loggedWeight) <= 3
+          ) {
             const key = `${store.currentLift}-${lw}-${idx}`;
             if (!store.programConfig.amrapResults[key]) {
               store.programConfig.amrapResults[key] = r;
@@ -169,8 +198,18 @@ export function initLogTab() {
 
     if (isPR) {
       const name = LIFT_NAMES[store.currentLift];
-      const shareData = { lift: store.currentLift, weight: entry.weight, e1rm: entry.e1rm, date: entry.date };
-      showToast(`NEW PR! ${name} e1RM: ${formatWeight(entry.e1rm)} ${store.unit}`, true, milestone, shareData);
+      const shareData = {
+        lift: store.currentLift,
+        weight: entry.weight,
+        e1rm: entry.e1rm,
+        date: entry.date,
+      };
+      showToast(
+        `NEW PR! ${name} e1RM: ${formatWeight(entry.e1rm)} ${store.unit}`,
+        true,
+        milestone,
+        shareData
+      );
     } else if (isRepPR) {
       showToast(`${r}-Rep PR! ${LIFT_NAMES[store.currentLift]} ${w} ${store.unit}`);
     } else if (!progApplied && (!hitMilestones || hitMilestones.length === 0)) {
@@ -195,9 +234,9 @@ export function initLogTab() {
   });
 
   // Lift selector
-  document.querySelectorAll('.lift-btn').forEach(btn => {
+  document.querySelectorAll('.lift-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.lift-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.lift-btn').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       store.currentLift = btn.dataset.lift;
       updatePreview();
@@ -207,9 +246,9 @@ export function initLogTab() {
   });
 
   // RPE selector
-  document.querySelectorAll('.rpe-pill').forEach(btn => {
+  document.querySelectorAll('.rpe-pill').forEach((btn) => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.rpe-pill').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.rpe-pill').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       store.currentRPE = btn.dataset.rpe ? parseFloat(btn.dataset.rpe) : null;
     });
@@ -232,22 +271,31 @@ export function initLogTab() {
   });
 
   // Enter key
-  [weightInput, repsInput, notesInput].forEach(el => {
-    el.addEventListener('keydown', e => { if (e.key === 'Enter' && !logBtn.disabled) logBtn.click(); });
+  [weightInput, repsInput, notesInput].forEach((el) => {
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !logBtn.disabled) logBtn.click();
+    });
   });
 
   // Repeat last set
   $('repeat-btn').addEventListener('click', () => {
     if (!store.lastLoggedSet) return;
     const { lift, weight, reps, rpe, notes } = store.lastLoggedSet;
-    const { entry, isPR, isRepPR, milestone } = addEntry(lift, weight, reps, rpe, notes);
+    const { entry, isPR, milestone } = addEntry(lift, weight, reps, rpe, notes);
     _deps.updateDashboard?.();
     if (store.currentTab === 'history') _deps.renderHistory?.();
     if (store.currentTab === 'charts') _deps.renderChart?.();
     if (isPR) {
       const shareData = { lift, weight: entry.weight, e1rm: entry.e1rm, date: entry.date };
-      showToast(`NEW PR! ${LIFT_NAMES[lift]} e1RM: ${formatWeight(entry.e1rm)} ${store.unit}`, true, milestone, shareData);
-    } else { showToast('Set repeated'); }
+      showToast(
+        `NEW PR! ${LIFT_NAMES[lift]} e1RM: ${formatWeight(entry.e1rm)} ${store.unit}`,
+        true,
+        milestone,
+        shareData
+      );
+    } else {
+      showToast('Set repeated');
+    }
   });
 
   // Tag pills

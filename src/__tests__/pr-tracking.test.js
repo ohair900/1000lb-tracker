@@ -22,7 +22,13 @@ const { mockStore } = vi.hoisted(() => ({
     workoutConfig: { weakPoints: {}, setupComplete: true },
     unit: 'lbs',
     recoveryCalibration: {},
-    equipmentProfile: { barbell: true, dumbbell: true, cable: true, machine: true, bodyweight: true },
+    equipmentProfile: {
+      barbell: true,
+      dumbbell: true,
+      cable: true,
+      machine: true,
+      bodyweight: true,
+    },
     programConfig: { activeProgram: null, completedSets: {}, amrapResults: {}, liftWeeks: {} },
     save: () => {},
     saveNow: () => {},
@@ -38,7 +44,13 @@ const { mockStore } = vi.hoisted(() => ({
 vi.mock('../state/store.js', () => ({ default: mockStore }));
 
 import { resetMockStore, buildEntry } from './helpers/fixtures.js';
-import { rebuildPRs, checkPR, checkRepPR, getMilestone, getRepPRs } from '../systems/pr-tracking.js';
+import {
+  rebuildPRs,
+  checkPR,
+  checkRepPR,
+  getMilestone,
+  getRepPRs,
+} from '../systems/pr-tracking.js';
 
 beforeEach(() => {
   resetMockStore(mockStore);
@@ -58,10 +70,10 @@ describe('rebuildPRs', () => {
       buildEntry({ lift: 'squat', weight: 225, reps: 5, daysAgo: 20 }), // e1RM ~262
       buildEntry({ lift: 'squat', weight: 200, reps: 5, daysAgo: 15 }), // ~233, not a PR
       buildEntry({ lift: 'squat', weight: 275, reps: 3, daysAgo: 10 }), // ~302, PR
-      buildEntry({ lift: 'squat', weight: 250, reps: 5, daysAgo: 5 }),  // ~291, not a PR (below 302)
+      buildEntry({ lift: 'squat', weight: 250, reps: 5, daysAgo: 5 }), // ~291, not a PR (below 302)
     ];
     rebuildPRs();
-    const prs = mockStore.entries.filter(e => e.isPR);
+    const prs = mockStore.entries.filter((e) => e.isPR);
     expect(prs).toHaveLength(2);
     expect(mockStore.prs).toHaveLength(2);
   });
@@ -73,7 +85,7 @@ describe('rebuildPRs', () => {
       buildEntry({ lift: 'deadlift', weight: 315, reps: 5, daysAgo: 10 }),
     ];
     rebuildPRs();
-    expect(mockStore.prs.map(p => p.lift).sort()).toEqual(['bench', 'deadlift', 'squat']);
+    expect(mockStore.prs.map((p) => p.lift).sort()).toEqual(['bench', 'deadlift', 'squat']);
   });
 
   it('resets isPR flags when rebuilding', () => {
@@ -83,7 +95,7 @@ describe('rebuildPRs', () => {
     mockStore.entries = [entry, beater];
     rebuildPRs();
     // After rebuild: 225x5 is still first so it's PR, beater is also PR
-    expect(mockStore.entries.filter(e => e.isPR)).toHaveLength(2);
+    expect(mockStore.entries.filter((e) => e.isPR)).toHaveLength(2);
   });
 
   it('assigns plate milestone only on first-time crossing', () => {
@@ -96,7 +108,7 @@ describe('rebuildPRs', () => {
       buildEntry({ lift: 'squat', weight: 305, reps: 1, daysAgo: 10 }),
     ];
     rebuildPRs();
-    const milestones = mockStore.prs.map(p => p.milestone);
+    const milestones = mockStore.prs.map((p) => p.milestone);
     // First: milestone = '225'
     // Second: no new milestone (already have 225) → null
     // Third: crosses 315 → '315'
@@ -179,8 +191,22 @@ describe('getMilestone', () => {
     // include every milestone that's been crossed. In rebuildPRs this would
     // happen naturally across multiple entries; here we simulate it.
     mockStore.prs = [
-      { lift: 'squat', e1rm: 140, entryId: 'x1', date: '2025-01-01', timestamp: Date.now() - 1000, milestone: '135' },
-      { lift: 'squat', e1rm: 260, entryId: 'x2', date: '2026-01-01', timestamp: Date.now(), milestone: '225' },
+      {
+        lift: 'squat',
+        e1rm: 140,
+        entryId: 'x1',
+        date: '2025-01-01',
+        timestamp: Date.now() - 1000,
+        milestone: '135',
+      },
+      {
+        lift: 'squat',
+        e1rm: 260,
+        entryId: 'x2',
+        date: '2026-01-01',
+        timestamp: Date.now(),
+        milestone: '225',
+      },
     ];
     // Crossing 315 for the first time → fresh milestone
     expect(getMilestone('squat', 320)).toBe('315');
@@ -190,7 +216,14 @@ describe('getMilestone', () => {
 
   it('only considers milestones for the matching lift', () => {
     mockStore.prs = [
-      { lift: 'bench', e1rm: 260, entryId: 'x', date: '2026-01-01', timestamp: Date.now(), milestone: '225' },
+      {
+        lift: 'bench',
+        e1rm: 260,
+        entryId: 'x',
+        date: '2026-01-01',
+        timestamp: Date.now(),
+        milestone: '225',
+      },
     ];
     // Squat has no achieved milestones, so 260 e1rm crosses 225 fresh
     expect(getMilestone('squat', 260)).toBe('225');
@@ -228,9 +261,7 @@ describe('getRepPRs', () => {
 
   describe('implicit lower-rep fill', () => {
     it('fills lower rep slots from a heavier higher-rep set', () => {
-      mockStore.entries = [
-        buildEntry({ lift: 'squat', weight: 350, reps: 5, daysAgo: 1 }),
-      ];
+      mockStore.entries = [buildEntry({ lift: 'squat', weight: 350, reps: 5, daysAgo: 1 })];
       const prs = getRepPRs();
       expect(prs.squat[5].weight).toBe(350);
       expect(prs.squat[3].weight).toBe(350);
@@ -264,9 +295,7 @@ describe('getRepPRs', () => {
     });
 
     it('handles AMRAP-style "5+" rep strings as 5 reps', () => {
-      mockStore.entries = [
-        buildEntry({ lift: 'bench', weight: 225, reps: '5+', daysAgo: 1 }),
-      ];
+      mockStore.entries = [buildEntry({ lift: 'bench', weight: 225, reps: '5+', daysAgo: 1 })];
       const prs = getRepPRs();
       // parseInt('5+') === 5, so slots 1-5 fill at 225
       expect(prs.bench[5].weight).toBe(225);

@@ -58,7 +58,7 @@ export function getAccessorySummaries() {
     const sorted = s.weights.sort((a, b) => b.timestamp - a.timestamp);
     if (sorted.length >= 2) {
       const last = sorted[0].weight;
-      const prev = sorted.find(w => w.weight !== last);
+      const prev = sorted.find((w) => w.weight !== last);
       if (!prev) s.trend = 'flat';
       else if (last > prev.weight) s.trend = 'up';
       else if (last < prev.weight) s.trend = 'down';
@@ -84,7 +84,7 @@ export function getAccessorySummaries() {
 export function getAccessoryDetail(exerciseId) {
   const db = ACCESSORY_DB[exerciseId];
   const entries = store.accessoryLog
-    .filter(l => l.exerciseId === exerciseId)
+    .filter((l) => l.exerciseId === exerciseId)
     .sort((a, b) => b.timestamp - a.timestamp);
 
   if (entries.length === 0) return null;
@@ -92,7 +92,7 @@ export function getAccessoryDetail(exerciseId) {
   const mainLift = entries[0].mainLift || (db ? db.mainLift : 'squat');
 
   // Sessions (one per date, newest first)
-  const sessions = entries.map(e => ({
+  const sessions = entries.map((e) => ({
     date: e.date,
     weight: e.weight,
     setWeights: e.setWeights || [],
@@ -100,23 +100,28 @@ export function getAccessoryDetail(exerciseId) {
     targetSets: e.targetSets || (db ? db.sets : 3),
     repRange: e.repRange || (db ? db.repRange : [8, 12]),
     mainLift: e.mainLift,
-    allHitTop: e.setsCompleted && db
-      ? e.setsCompleted.length >= (e.targetSets || db.sets) &&
-        e.setsCompleted.every(r => r >= (e.repRange ? e.repRange[1] : db.repRange[1]))
-      : false,
+    allHitTop:
+      e.setsCompleted && db
+        ? e.setsCompleted.length >= (e.targetSets || db.sets) &&
+          e.setsCompleted.every((r) => r >= (e.repRange ? e.repRange[1] : db.repRange[1]))
+        : false,
   }));
 
   // Weight history for chart (oldest first)
   const weightHistory = entries
-    .map(e => ({ date: e.date, weight: e.weight, timestamp: e.timestamp }))
+    .map((e) => ({ date: e.date, weight: e.weight, timestamp: e.timestamp }))
     .sort((a, b) => a.timestamp - b.timestamp);
 
   // Stats
-  const totalSets = entries.reduce((sum, e) => sum + (e.setsCompleted ? e.setsCompleted.length : 0), 0);
-  const allReps = entries.flatMap(e => e.setsCompleted || []);
-  const avgRepsPerSet = allReps.length > 0 ? allReps.reduce((a, b) => a + b, 0) / allReps.length : 0;
-  const bestWeight = Math.max(...entries.map(e => e.weight));
-  const dates = new Set(entries.map(e => e.date));
+  const totalSets = entries.reduce(
+    (sum, e) => sum + (e.setsCompleted ? e.setsCompleted.length : 0),
+    0
+  );
+  const allReps = entries.flatMap((e) => e.setsCompleted || []);
+  const avgRepsPerSet =
+    allReps.length > 0 ? allReps.reduce((a, b) => a + b, 0) / allReps.length : 0;
+  const bestWeight = Math.max(...entries.map((e) => e.weight));
+  const dates = new Set(entries.map((e) => e.date));
 
   // Progression count: how many times weight increased between consecutive sessions
   let progressionCount = 0;
@@ -136,10 +141,16 @@ export function getAccessoryDetail(exerciseId) {
     lastDate: sessions[0].date,
     lastWeight: sessions[0].weight,
     bestWeight,
-    trend: weightHistory.length >= 2
-      ? (weightHistory[weightHistory.length - 1].weight > weightHistory[weightHistory.length - 2].weight ? 'up'
-        : weightHistory[weightHistory.length - 1].weight < weightHistory[weightHistory.length - 2].weight ? 'down' : 'flat')
-      : 'flat',
+    trend:
+      weightHistory.length >= 2
+        ? weightHistory[weightHistory.length - 1].weight >
+          weightHistory[weightHistory.length - 2].weight
+          ? 'up'
+          : weightHistory[weightHistory.length - 1].weight <
+              weightHistory[weightHistory.length - 2].weight
+            ? 'down'
+            : 'flat'
+        : 'flat',
     readyToProgress: checkAccessoryProgression(exerciseId, mainLift),
     sessions,
     weightHistory,
