@@ -14,7 +14,8 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write \"src/**/*.{js,css}\" \"*.{js,json}\"",
-    "format:check": "prettier --check \"src/**/*.{js,css}\" \"*.{js,json}\""
+    "format:check": "prettier --check \"src/**/*.{js,css}\" \"*.{js,json}\"",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
@@ -23,6 +24,7 @@
     "globals": "^16.0.0",
     "happy-dom": "^20.8.9",
     "prettier": "^3.0.0",
+    "typescript": "^5.9.3",
     "vite": "^6.0.0",
     "vitest": "^4.1.2"
   }

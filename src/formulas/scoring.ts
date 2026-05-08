@@ -6,15 +6,12 @@
  */
 
 import { WILKS, DOTS } from '../constants/formulas.js';
+import type { Gender } from '../types.js';
 
 /**
  * Calculate the Wilks score.
- * @param {number} totalKg - Competition total in kg
- * @param {number} bwKg    - Bodyweight in kg
- * @param {'male'|'female'} gender
- * @returns {number|null}
  */
-export function calcWilks(totalKg, bwKg, gender) {
+export function calcWilks(totalKg: number, bwKg: number, gender: Gender): number | null {
   if (!gender || !totalKg || !bwKg) return null;
   const c = WILKS[gender];
   const d =
@@ -24,12 +21,8 @@ export function calcWilks(totalKg, bwKg, gender) {
 
 /**
  * Calculate the DOTS score.
- * @param {number} totalKg - Competition total in kg
- * @param {number} bwKg    - Bodyweight in kg
- * @param {'male'|'female'} gender
- * @returns {number|null}
  */
-export function calcDOTS(totalKg, bwKg, gender) {
+export function calcDOTS(totalKg: number, bwKg: number, gender: Gender): number | null {
   if (!gender || !totalKg || !bwKg) return null;
   const c = DOTS[gender];
   const d = c.a + c.b * bwKg + c.c * bwKg ** 2 + c.d * bwKg ** 3 + c.e * bwKg ** 4;

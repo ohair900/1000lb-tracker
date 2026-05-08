@@ -12,10 +12,8 @@ import store from '../state/store.js';
 /**
  * Round a weight to the nearest loadable increment.
  * Uses 2.5 kg increments in kg mode, 5 lb increments in lbs mode.
- * @param {number} weight - Weight in the current display unit
- * @returns {number} Rounded weight
  */
-export function roundToPlate(weight) {
+export function roundToPlate(weight: number): number {
   const increment = store.unit === 'kg' ? WEIGHT_INCREMENT_KG : WEIGHT_INCREMENT_LBS;
   return Math.round(weight / increment) * increment;
 }
@@ -23,15 +21,13 @@ export function roundToPlate(weight) {
 /**
  * Calculate the plates needed on each side of the bar.
  * Returns null if the weight is at or below the empty bar.
- * @param {number} totalWeight - Total barbell weight in the current display unit
- * @returns {number[]|null} Array of plate values per side (descending), or null
  */
-export function calcPlatesPerSide(totalWeight) {
+export function calcPlatesPerSide(totalWeight: number): number[] | null {
   const barWeight = store.unit === 'kg' ? 20 : 45;
   if (totalWeight <= barWeight) return null;
   let remaining = (totalWeight - barWeight) / 2;
   const plates = store.unit === 'kg' ? PLATES_KG : PLATES_LBS;
-  const result = [];
+  const result: number[] = [];
   for (const plate of plates) {
     while (remaining >= plate - 0.01) {
       result.push(plate);
@@ -44,13 +40,11 @@ export function calcPlatesPerSide(totalWeight) {
 /**
  * Format plate loading as a human-readable string.
  * Example: "45x2 + 25 + 10"  (per side)
- * @param {number} totalWeight - Total barbell weight in the current display unit
- * @returns {string} Formatted plate string, or '' if no plates needed
  */
-export function formatPlates(totalWeight) {
+export function formatPlates(totalWeight: number): string {
   const plates = calcPlatesPerSide(totalWeight);
   if (!plates || plates.length === 0) return '';
-  const seen = [];
+  const seen: Array<{ plate: number; count: number }> = [];
   plates.forEach((p) => {
     const existing = seen.find((s) => s.plate === p);
     if (existing) existing.count++;

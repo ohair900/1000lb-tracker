@@ -1,7 +1,24 @@
-export const LBS_PER_KG = 2.205;
-export const E1RM_DIVISOR = 30;
+export const LBS_PER_KG = 2.205 as const;
+export const E1RM_DIVISOR = 30 as const;
 
-export const WILKS = {
+interface ScoringCoeffs5 {
+  a: number;
+  b: number;
+  c: number;
+  d: number;
+  e: number;
+  f: number;
+}
+
+interface ScoringCoeffs4 {
+  a: number;
+  b: number;
+  c: number;
+  d: number;
+  e: number;
+}
+
+export const WILKS: Record<'male' | 'female', ScoringCoeffs5> = {
   male: {
     a: -216.0475144,
     b: 16.2606339,
@@ -20,7 +37,7 @@ export const WILKS = {
   },
 };
 
-export const DOTS = {
+export const DOTS: Record<'male' | 'female', ScoringCoeffs4> = {
   male: { a: -307.75076, b: 24.0900756, c: -0.1918759221, d: 0.0007391293, e: -0.000001093 },
   female: { a: -57.96288, b: 13.6175032, c: -0.1126655495, d: 0.0005158568, e: -0.0000010706 },
 };
