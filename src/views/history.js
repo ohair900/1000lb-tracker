@@ -804,7 +804,6 @@ export function initHistoryTab() {
     if (e.target.closest('#bulk-delete')) {
       if (selectedIds.size === 0) return;
       selectedIds.forEach((id) => deleteEntry(id));
-      _deps.updateDashboard?.();
       showToastWithUndo(`${selectedIds.size} entries deleted`);
       exitSelectionMode();
       return;
@@ -974,7 +973,6 @@ export function initHistoryTab() {
           deleteEntry(id);
           delete body.dataset.deleteId;
           closeModal('edit-modal');
-          _deps.updateDashboard?.();
           renderHistory();
           showToastWithUndo('Entry deleted');
         }
@@ -1042,7 +1040,6 @@ export function initHistoryTab() {
         delete body.dataset.addToSessionTs;
         delete body.dataset.addToSessionDate;
         closeModal('edit-modal');
-        _deps.updateDashboard?.();
         renderHistory();
         showToastWithUndo('Set added');
         return;
@@ -1059,7 +1056,6 @@ export function initHistoryTab() {
         if (!(w > 0 && r > 0)) return;
         editEntry(store.editingEntryId, lift, inputToLbs(w), r, rpe, notes);
         closeModal('edit-modal');
-        _deps.updateDashboard?.();
         renderHistory();
         showToastWithUndo('Entry updated');
         return;

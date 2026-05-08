@@ -20,6 +20,7 @@
 
 import store from './store.js';
 import { generateId } from '../utils/helpers.js';
+import { emit } from '../ui/events.js';
 
 // ---------------------------------------------------------------------------
 // Late-bound dependencies (set via inject())
@@ -93,6 +94,7 @@ export function addEntry(lift, weight, reps, rpe, notes, tags) {
     ? _deps.checkMilestonesAchieved(lift, e1rm, entry.id)
     : [];
 
+  emit('entry:added', { entry, isPR, isRepPR, milestone, hitMilestones });
   return { entry, isPR, isRepPR, milestone, hitMilestones };
 }
 
@@ -123,6 +125,7 @@ export function editEntry(id, lift, weight, reps, rpe, notes) {
 
   store.onEntryDirty?.(id);
   _deps.rebuildPRs();
+  emit('entry:edited', { id, entry: e });
 }
 
 /**
@@ -147,6 +150,7 @@ export function deleteEntry(id) {
   store.onEntryDirty?.(id);
   store.saveEntries();
   if (wasPR) _deps.rebuildPRs();
+  emit('entry:deleted', { id, lift: entry?.lift });
 }
 
 // ---------------------------------------------------------------------------

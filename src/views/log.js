@@ -138,9 +138,6 @@ export function initLogTab() {
     weightInput.value = '';
     repsInput.value = '';
     updatePreview();
-    _deps.updateDashboard?.();
-    if (store.currentTab === 'history') _deps.renderHistory?.();
-    if (store.currentTab === 'charts') _deps.renderChart?.();
 
     // Repeat last set button
     const rb = $('repeat-btn');
@@ -282,9 +279,6 @@ export function initLogTab() {
     if (!store.lastLoggedSet) return;
     const { lift, weight, reps, rpe, notes } = store.lastLoggedSet;
     const { entry, isPR, milestone } = addEntry(lift, weight, reps, rpe, notes);
-    _deps.updateDashboard?.();
-    if (store.currentTab === 'history') _deps.renderHistory?.();
-    if (store.currentTab === 'charts') _deps.renderChart?.();
     if (isPR) {
       const shareData = { lift, weight: entry.weight, e1rm: entry.e1rm, date: entry.date };
       showToast(

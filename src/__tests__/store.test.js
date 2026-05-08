@@ -182,16 +182,20 @@ describe('store: load roundtrip', () => {
   });
 });
 
-describe('store: onAfterFlush callback', () => {
-  it('fires onAfterFlush after a batched save completes', async () => {
+describe('store: store:flushed event', () => {
+  it('emits store:flushed after a batched save completes', async () => {
+    // freshStore() calls vi.resetModules() internally, so import events.js
+    // after it to ensure both modules share the same singleton instance.
     const store = await freshStore();
+    const { on, clear } = await import('../ui/events.js');
     await initClean(store);
     let called = false;
-    store.onAfterFlush = () => {
+    on('store:flushed', () => {
       called = true;
-    };
+    });
     store.save('entries');
     await new Promise((resolve) => queueMicrotask(resolve));
+    clear('store:flushed');
     expect(called).toBe(true);
   });
 });

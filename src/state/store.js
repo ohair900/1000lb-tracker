@@ -53,6 +53,7 @@ import {
 } from '../constants/storage-keys.js';
 
 import { CURRENT_VERSION } from '../constants/time.js';
+import { emit } from '../ui/events.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -702,8 +703,8 @@ class Store {
       }
     });
 
-    if (names.length > 0 && this.onAfterFlush) {
-      this.onAfterFlush();
+    if (names.length > 0) {
+      emit('store:flushed');
     }
   }
 

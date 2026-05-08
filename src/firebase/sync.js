@@ -44,6 +44,7 @@ import {
   ACCENT_KEY,
   TOTAL_CELEBRATED_KEY,
 } from '../constants/storage-keys.js';
+import { on } from '../ui/events.js';
 
 // ===== Sync state (mutable, shared) =====
 export const syncState = {
@@ -256,6 +257,9 @@ export function scheduleCloudSync() {
     pushToCloud();
   }, SYNC_DEBOUNCE_MS);
 }
+
+// Subscribe to the event bus: every local flush triggers a debounced cloud push.
+on('store:flushed', scheduleCloudSync);
 
 /**
  * Flush any pending debounced sync immediately.

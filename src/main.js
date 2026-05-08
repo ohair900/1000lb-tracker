@@ -85,11 +85,12 @@ import { initSwipeToDelete, setSwipeDeps } from './ui/swipe.js';
 import { initSheetListeners, closeChoiceSheet, openFatigueSheet } from './ui/sheet.js';
 import { initRouter, updateRoute } from './ui/router.js';
 import { applyAccentColor, setThemeDeps } from './ui/theme.js';
+import { on } from './ui/events.js';
 
 // ===== 7. Views =====
 import { updateDashboard } from './views/dashboard.js';
 import { initLogTab, injectLogDeps, updatePreview } from './views/log.js';
-import { initHistoryTab, injectHistoryDeps, renderHistory } from './views/history.js';
+import { initHistoryTab, renderHistory } from './views/history.js';
 import { initChartsTab, renderChart } from './views/charts.js';
 import { initStatsTab, injectStatsDeps, renderStats } from './views/stats.js';
 import { initSettingsListeners, setSettingsDeps, openSettings } from './views/settings.js';
@@ -363,8 +364,7 @@ injectActions({
   updateBestAfterAdd,
 });
 
-// 4b. Store hooks — cloud sync on every local save
-store.onAfterFlush = scheduleCloudSync;
+// 4b. Store hooks
 store.onStorageFull = (msg) => showToast(msg);
 // Release 2: track dirty entries for incremental subcollection push
 store.onEntryDirty = (id) => {
@@ -499,9 +499,6 @@ setThemeDeps({
 
 // 4j. Log view deps
 injectLogDeps({
-  updateDashboard,
-  renderHistory,
-  renderChart: renderChart,
   renderProgramSection,
   updateWorkoutButton,
   getProgramWorkout,
@@ -511,10 +508,8 @@ injectLogDeps({
   dismissTimer,
 });
 
-// 4k. History view deps
-injectHistoryDeps({
-  updateDashboard,
-});
+// 4k. History view deps — updateDashboard migrated to entry:* event bus
+// injectHistoryDeps kept for future expansion; currently no deps needed.
 
 // 4l. Stats view deps
 injectStatsDeps({
@@ -638,6 +633,21 @@ _ric(() => {
   }, 1500);
 });
 initDOMRefs();
+
+// ----- Step 6b: Entry event subscriptions (render fan-out) -----
+// Replaces the updateDashboard/renderHistory/renderChart deps formerly injected
+// into log.js and history.js.  Actions emit these events after every CRUD op.
+function _onEntryChange() {
+  safeCall(() => updateDashboard(), 'event:entry:dashboard');
+  safeCall(() => renderCycleBar(), 'event:entry:cycleBar');
+  safeCall(() => updateWorkoutButton(), 'event:entry:workoutBtn');
+  if (store.currentTab === 'history') safeCall(() => renderHistory(), 'event:entry:history');
+  if (store.currentTab === 'charts') safeCall(() => renderChart(), 'event:entry:charts');
+  if (store.currentTab === 'log') safeCall(() => renderProgramSection(), 'event:entry:program');
+}
+on('entry:added', _onEntryChange);
+on('entry:edited', _onEntryChange);
+on('entry:deleted', _onEntryChange);
 
 // ----- Step 7: Apply accent color -----
 applyAccentColor();
