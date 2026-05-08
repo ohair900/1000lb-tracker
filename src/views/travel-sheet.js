@@ -79,8 +79,9 @@ function getPreview(grouping) {
 
 function countAvailableExercises() {
   const disabled = new Set(store.disabledAccessories || []);
-  return EXERCISE_CATALOG.filter((ex) => _equipment[ex.equipment] === true && !disabled.has(ex.id))
-    .length;
+  return Object.values(EXERCISE_CATALOG).filter(
+    (ex) => _equipment[ex.equipment] === true && !disabled.has(ex.id)
+  ).length;
 }
 
 // ---------------------------------------------------------------------------
