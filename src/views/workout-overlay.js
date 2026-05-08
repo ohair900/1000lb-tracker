@@ -37,7 +37,9 @@ import {
   computeSetWeights,
   getAccessoryWeight,
   scoreAccessories,
+  selectTravelWorkout,
 } from '../systems/workout-builder.js';
+import { TRAVEL_GROUPINGS } from '../constants/travel-config.js';
 import { computeNextTarget } from '../systems/accessory-progression.js';
 import { REP_TIERS } from '../constants/rotation.js';
 import {
@@ -313,6 +315,40 @@ function createWorkoutSession(mainLift) {
   return session;
 }
 
+/**
+ * Create a travel (off-program) workout session.
+ * Does NOT inject program sets. Logs only through accessoryLog.
+ *
+ * @param {string} grouping - 'push' | 'pull' | 'legs' | 'full'
+ * @param {Object} equipmentOverride - Session-scoped equipment map
+ */
+export function createTravelSession(grouping, equipmentOverride) {
+  const now = new Date();
+  const { exercises, skippedMuscles } = selectTravelWorkout(grouping, equipmentOverride);
+
+  const session = {
+    id: now.getTime().toString(36) + Math.random().toString(36).slice(2, 6),
+    mainLift: grouping,
+    travelGrouping: grouping,
+    source: 'travel',
+    equipmentOverride: equipmentOverride || null,
+    _skippedMuscles: skippedMuscles,
+    programWeek: null,
+    date: now.toISOString().split('T')[0],
+    startTime: now.getTime(),
+    mainSets: [],
+    bbbSets: [],
+    accessories: exercises,
+    loggedEntryIds: [],
+    completed: false,
+  };
+
+  store.workoutSession = session;
+  store.saveWorkoutSession();
+  store._sessionOptimizer = null;
+  return session;
+}
+
 function updateCompleteButton() {
   const btn = $('workout-complete-btn');
   if (!store.workoutSession) {
@@ -404,11 +440,159 @@ function _completeMainSet(idx) {
 // Render
 // ---------------------------------------------------------------------------
 
+function _renderTravelWorkoutView() {
+  const session = store.workoutSession;
+  const grouping = session.travelGrouping;
+  const cfg = TRAVEL_GROUPINGS[grouping] || { label: grouping, icon: '' };
+  const body = $('workout-body');
+
+  $('workout-title').textContent = cfg.label + ' — Travel';
+  $('workout-subtitle').textContent = session.date + ' · Off-program';
+
+  // Equipment chip
+  const activeEquip = session.equipmentOverride
+    ? Object.entries(session.equipmentOverride)
+        .filter(([, v]) => v)
+        .map(([k]) => k.charAt(0).toUpperCase() + k.slice(1))
+    : [];
+
+  let html = '';
+
+  if (activeEquip.length > 0) {
+    html += `<div class="travel-info-bar">&#127959; ${activeEquip.join(' &middot; ')}</div>`;
+  }
+
+  if (session._skippedMuscles && session._skippedMuscles.length > 0) {
+    html += `<div class="travel-skip-banner">&#9888; ${session._skippedMuscles.join(', ')} fatigued &mdash; skipped this session</div>`;
+  }
+
+  // Accessories section (reuse same rendering path as standard workout)
+  session.accessories.forEach((acc, ai) => {
+    const ex = ACCESSORY_DB[acc.exerciseId];
+    const catalogEx = resolveExercise(acc.exerciseId);
+    const isBodyweight = catalogEx
+      ? catalogEx.progressionType === 'bodyweight'
+      : !ex || ex.pctOfTM === 0;
+    const isTimeBased = catalogEx ? !!catalogEx.timeBased : !!(ex && ex.timeBased);
+    const targetReps = acc.repRange[1];
+    html += `<div class="workout-exercise">`;
+    const downweightBadge = acc._downweighted
+      ? `<span class="acc-tier-badge" style="background:var(--yellow);color:#000">lighter</span>`
+      : '';
+    html += `<div class="workout-exercise-name" data-exid="${acc.exerciseId}" data-acc-toggle="${ai}">${acc.name}${downweightBadge}${acc.progressed ? `<span class="acc-progression-badge">${getProgressionBadgeText(acc)}</span>` : ''}</div>`;
+    html += `<div class="acc-action-bar" id="acc-action-bar-${ai}" style="display:none">
+      <button class="acc-swap-btn" data-acc-swap="${ai}">&#8644; Swap</button>
+      <button class="acc-remove-btn" data-acc-remove="${ai}">&times; Remove</button>
+    </div>`;
+    const accLogs = store.accessoryLog.filter((l) => l.exerciseId === acc.exerciseId);
+    const accLogCount = new Set(accLogs.map((l) => l.date)).size;
+    const accBestWeight = isBodyweight
+      ? accLogs.reduce((best, l) => Math.max(best, l.weight), -Infinity)
+      : accLogs.reduce((max, l) => Math.max(max, l.weight), 0);
+    const hasBestWeight = accLogs.length > 0 && (isBodyweight || accBestWeight > 0);
+    const currentTopWeight = acc.setWeights ? acc.setWeights[acc.setWeights.length - 1] : 0;
+    const isNewHigh = hasBestWeight && currentTopWeight > accBestWeight;
+    const metaParts = [acc.equipment];
+    metaParts.push(`hit ${targetReps}${isTimeBased ? 's' : ' reps'} on all sets to progress`);
+    if (accLogCount > 0) metaParts.push(`${accLogCount} session${accLogCount !== 1 ? 's' : ''}`);
+    if (hasBestWeight && !isNewHigh) {
+      if (isBodyweight) {
+        const bestLabel =
+          accBestWeight < 0
+            ? `Assisted ${formatWeight(Math.abs(accBestWeight))}`
+            : accBestWeight === 0
+              ? 'BW'
+              : `BW +${formatWeight(accBestWeight)}`;
+        metaParts.push(`best: ${bestLabel} ${store.unit}`);
+      } else {
+        metaParts.push(`best: ${formatWeight(accBestWeight)} ${store.unit}`);
+      }
+    }
+    html += `<div class="workout-exercise-meta">${metaParts.join(' &bull; ')}${isNewHigh ? ' <span class="acc-new-high">New High!</span>' : ''}</div>`;
+    const lastAcc = getLastAccPerformance(acc.exerciseId);
+    if (lastAcc) {
+      let lastWeight;
+      if (isBodyweight && lastAcc.weight < 0) {
+        lastWeight = `Assisted ${formatWeight(Math.abs(lastAcc.weight))} ${store.unit}`;
+      } else if (isBodyweight && lastAcc.weight === 0) {
+        lastWeight = 'BW';
+      } else if (isBodyweight && lastAcc.weight > 0) {
+        lastWeight = `BW +${formatWeight(lastAcc.weight)} ${store.unit}`;
+      } else if (lastAcc.weight === 0) {
+        lastWeight = 'BW';
+      } else {
+        lastWeight = formatWeight(lastAcc.weight) + ' ' + store.unit;
+      }
+      const lastReps = lastAcc.setsCompleted.join('/');
+      html += `<div class="prev-perf">Last: ${lastWeight} &times; ${lastReps}${isTimeBased ? 's' : ' reps'} <span class="prev-perf-date">${lastAcc.date}</span></div>`;
+    }
+    for (let si = 0; si < acc.targetSets; si++) {
+      const done = si < acc.setsCompleted.length;
+      const repsVal = done ? acc.setsCompleted[si] : '';
+      const perSetTarget =
+        acc._targetReps && acc._targetReps[si] !== undefined ? acc._targetReps[si] : targetReps;
+      const repTarget = isTimeBased ? `${perSetTarget}s` : perSetTarget;
+      let setWeight;
+      if (isBodyweight) {
+        const w = acc.setWeights ? acc.setWeights[si] : 0;
+        if (w < 0) setWeight = `Assisted ${formatWeight(Math.abs(w))} ${store.unit}`;
+        else if (w === 0) setWeight = 'BW';
+        else setWeight = `BW +${formatWeight(w)} ${store.unit}`;
+      } else {
+        setWeight = `${formatWeight(acc.setWeights[si])} ${store.unit}`;
+      }
+      html += `<div class="workout-set-row${done ? ' completed' : ''}" data-type="acc" data-acc="${ai}" data-set="${si}"${isTimeBased ? ' data-time-based="true"' : ''}>
+        <div class="workout-set-check">${done ? '&#10003;' : ''}</div>
+        <div class="workout-set-info">
+          Set ${si + 1}: ${
+            isTimeBased
+              ? done
+                ? repsVal + 's'
+                : repTarget
+              : `${setWeight} × ${done ? repsVal : repTarget}${done ? ' reps' : ''}`
+          }
+        </div>
+        ${
+          !done && !isTimeBased
+            ? `<div class="acc-set-weight-controls">
+          <button class="acc-set-weight-btn" data-acc="${ai}" data-set="${si}" data-dir="-1">&minus;</button>
+          <button class="acc-set-weight-btn" data-acc="${ai}" data-set="${si}" data-dir="1">+</button>
+        </div>`
+            : ''
+        }
+        ${!done && !isTimeBased ? `<input type="number" class="workout-set-input" data-acc-input="${ai}-${si}" placeholder="${perSetTarget}" min="1" inputmode="numeric">` : ''}
+      </div>`;
+    }
+    html += `<button class="workout-add-set-btn small" data-add-acc-set="${ai}">+ Set</button>`;
+    html += `</div>`;
+  });
+
+  html += `<button class="workout-add-exercise-btn" id="workout-add-exercise">+ Add Exercise</button>`;
+  html += `<div id="workout-exercise-picker" class="workout-ex-picker" style="display:none">
+    <input type="text" class="exercise-browser-search" placeholder="Search exercises..." id="workout-ex-search">
+    <div class="browser-tabs">
+      <button class="browser-tab active" data-wk-tab="suggested">Suggested</button>
+      <button class="browser-tab" data-wk-tab="all">All Exercises</button>
+    </div>
+    <div class="workout-exercise-picker-list" id="workout-ex-list"></div>
+  </div>`;
+
+  body.innerHTML = html;
+  updateCompleteButton();
+}
+
 /**
  * Re-render the workout overlay body (main sets + accessories).
  */
 export function renderWorkoutView() {
   if (!store.workoutSession) return;
+
+  // Travel sessions get a separate render path (no optimizer, no main sets)
+  if (store.workoutSession.source === 'travel') {
+    _renderTravelWorkoutView();
+    return;
+  }
+
   const body = $('workout-body');
   const lift = store.workoutSession.mainLift;
   $('workout-title').textContent = LIFT_NAMES[lift] + ' Workout';
@@ -786,6 +970,22 @@ export async function openWorkoutView(mainLift) {
 }
 
 /**
+ * Open the workout overlay for a travel session.
+ * Bypasses weak-point check and program injection — session already created.
+ */
+export function openTravelWorkoutView() {
+  if (!isRouterResolving()) {
+    pushRoute('#workout/travel', 'workout', closeWorkoutView);
+  }
+  $('workout-overlay').style.display = 'flex';
+  $('workout-overlay').dataset.lift = store.workoutSession?.mainLift || 'travel';
+  document.body.style.overflow = 'hidden';
+  setWakeLockNeeded(true);
+  requestWakeLock();
+  renderWorkoutView();
+}
+
+/**
  * Close the workout overlay.
  */
 export function closeWorkoutView() {
@@ -833,6 +1033,7 @@ export function completeWorkout() {
       mainLift: store.workoutSession.mainLift,
       source: sessionSource,
       templateId: sessionTemplateId,
+      travelGrouping: store.workoutSession.travelGrouping || null,
     });
   });
   store.saveNow('accessoryLog');

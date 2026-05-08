@@ -233,6 +233,16 @@ export function renderChoiceSheetBody() {
     }
   }
 
+  // Travel / off-program (always visible)
+  html += `<div class="choice-card" data-action="travel">
+    <div class="choice-card-icon" style="background:var(--orange-muted,#3a2800);color:var(--orange)">&#9992;</div>
+    <div class="choice-card-text">
+      <div class="choice-card-title">Off-Program / Travel</div>
+      <div class="choice-card-desc">Limited equipment, fatigue-aware — doesn&apos;t touch your program</div>
+    </div>
+    <div class="choice-card-arrow">&#8250;</div>
+  </div>`;
+
   // Quick start (only if no active program)
   if (!hasProg && !hasMeso) {
     html += `<div class="choice-card" data-action="quick">
@@ -317,6 +327,8 @@ export function renderChoiceSheetBody() {
         _deps.showMesocycleGenerator?.();
       } else if (action === 'setup-program') {
         _deps.showProgramSetupModal?.();
+      } else if (action === 'travel') {
+        _deps.startTravelFlow?.();
       }
     });
   });

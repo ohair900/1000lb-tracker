@@ -126,18 +126,19 @@ export function calcWeeklyGrade(options = {}) {
   const intensity = calcIntensity(weekEntries, hasProg, isDeload);
   const consistency = calcConsistency(uniqueDays.size, weekStart);
 
-  // Determine active pillars and redistribute if no program
+  // Redistribute weight for null pillars (no program → compliance null;
+  // travel/accessory-only week → intensity null; both can be null together)
   const pillars = { compliance, coverage, intensity, consistency };
-  let totalScore;
-
-  if (compliance !== null) {
-    totalScore = compliance.score + coverage.score + intensity.score + consistency.score;
-  } else {
-    // No program: redistribute compliance weight (25 pts) proportionally
-    const activeMax = 30 + 25 + 20; // 75
-    const scale = 100 / activeMax;
-    totalScore = (coverage.score + intensity.score + consistency.score) * scale;
-  }
+  const PILLAR_MAX = { compliance: 25, coverage: 30, intensity: 25, consistency: 20 };
+  const activeMax =
+    (compliance !== null ? PILLAR_MAX.compliance : 0) +
+    PILLAR_MAX.coverage +
+    (intensity !== null ? PILLAR_MAX.intensity : 0) +
+    PILLAR_MAX.consistency;
+  const scale = 100 / activeMax;
+  let totalScore =
+    ((compliance?.score ?? 0) + coverage.score + (intensity?.score ?? 0) + consistency.score) *
+    scale;
 
   // Bonuses (+8 max)
   const bonuses = calcBonuses(weekEntries, weekAccessories);
@@ -283,7 +284,7 @@ function calcCoverage(weekEntries, weekAccessories, isDeload) {
 // ---------------------------------------------------------------------------
 
 function calcIntensity(weekEntries, hasProg, isDeload) {
-  if (weekEntries.length === 0) return { score: 0, avgIntensity: 0, weightAccuracy: null };
+  if (weekEntries.length === 0) return null;
 
   // Sub-component B: Effective intensity (weight / e1RM)
   let intensitySum = 0;

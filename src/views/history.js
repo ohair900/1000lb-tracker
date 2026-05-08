@@ -250,7 +250,17 @@ export function renderHistory() {
     // Volume comparison bar
     const volPct = maxSessionVol > 0 ? Math.round((session.volume / maxSessionVol) * 100) : 0;
 
-    const accOnlyLabel = session._accessoryOnly ? '<span class="session-tag acc">ACC</span>' : '';
+    let accOnlyLabel = '';
+    if (session._accessoryOnly) {
+      const isTravelSession = session.accessories.some((a) => a.source === 'travel');
+      if (isTravelSession) {
+        const grouping = session.accessories.find((a) => a.travelGrouping)?.travelGrouping || '';
+        const groupLabel = grouping ? grouping.charAt(0).toUpperCase() + grouping.slice(1) : '';
+        accOnlyLabel = `<span class="session-tag travel">TRAVEL${groupLabel ? ' · ' + groupLabel : ''}</span>`;
+      } else {
+        accOnlyLabel = '<span class="session-tag acc">ACC</span>';
+      }
+    }
     html += `<div class="session-card${expanded}" data-ts="${session.timestamp}" data-session="${si}">
       <div class="session-header" tabindex="0" role="button" aria-expanded="${isExpanded ? 'true' : 'false'}">
         <div style="flex:1;min-width:0">

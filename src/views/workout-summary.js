@@ -12,6 +12,7 @@ import { formatWeight } from '../formulas/units.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
 import { resolveExercise } from '../data/exercise-compat.js';
 import { renderSessionGrade } from './session-coach-ui.js';
+import { TRAVEL_GROUPINGS, EQUIPMENT_LABELS } from '../constants/travel-config.js';
 
 // ---------------------------------------------------------------------------
 // Show workout summary
@@ -53,12 +54,29 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
     html += `</div>`;
   }
 
+  const isTravel = session.source === 'travel';
+
+  // Equipment chip for travel sessions
+  if (isTravel && session.equipmentOverride) {
+    const equip = Object.entries(session.equipmentOverride)
+      .filter(([, v]) => v)
+      .map(([k]) => EQUIPMENT_LABELS[k] || k)
+      .join(' · ');
+    if (equip) {
+      html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
+      html += `<div style="font-size:var(--text-xs);color:var(--text-dim);text-align:center">${equip}</div>`;
+      html += `</div>`;
+    }
+  }
+
   // Stat grid
   html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
   html += '<div class="summary-stat-grid">';
   html += `<div class="summary-stat"><div class="summary-stat-label">Duration</div><div class="summary-stat-value">${durationStr}</div></div>`;
   html += `<div class="summary-stat"><div class="summary-stat-label">Completion</div><div class="summary-stat-value" style="color:${completionColor}">${completionPct}%</div></div>`;
-  html += `<div class="summary-stat"><div class="summary-stat-label">Main Sets</div><div class="summary-stat-value">${mainCompleted}/${mainTotal}</div></div>`;
+  if (!isTravel) {
+    html += `<div class="summary-stat"><div class="summary-stat-label">Main Sets</div><div class="summary-stat-value">${mainCompleted}/${mainTotal}</div></div>`;
+  }
   html += `<div class="summary-stat"><div class="summary-stat-label">Acc. Sets</div><div class="summary-stat-value">${accCompleted}/${accTotal}</div></div>`;
   html += '</div>';
 
@@ -159,8 +177,10 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
     }
   }
 
-  $('workout-summary-title').textContent =
-    `${LIFT_NAMES[session.mainLift] || session.mainLift} Workout Summary`;
+  const summaryTitle = isTravel
+    ? `Travel Workout — ${TRAVEL_GROUPINGS[session.travelGrouping]?.label || session.travelGrouping}`
+    : `${LIFT_NAMES[session.mainLift] || session.mainLift} Workout Summary`;
+  $('workout-summary-title').textContent = summaryTitle;
   $('workout-summary-body').innerHTML = html;
   $('workout-summary-backdrop').style.display = 'block';
   $('workout-summary-sheet').style.display = 'block';

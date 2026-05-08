@@ -18,10 +18,13 @@ import { getWeekKey } from '../utils/date.js';
  *   null if there are no entries.
  */
 export function calcStreak() {
-  if (store.entries.length === 0) return null;
+  const accDates = (store.accessoryLog || [])
+    .filter((l) => l.setsCompleted && l.setsCompleted.length > 0)
+    .map((l) => l.date);
+  const allDates = [...store.entries.map((e) => e.date), ...accDates];
+  if (allDates.length === 0) return null;
 
-  const dates = [...new Set(store.entries.map((e) => e.date))].sort().reverse();
-  if (dates.length === 0) return null;
+  const dates = [...new Set(allDates)].sort().reverse();
 
   const dayDiff = (a, b) =>
     Math.round((new Date(a + 'T12:00:00') - new Date(b + 'T12:00:00')) / MS_PER_DAY);

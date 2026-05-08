@@ -508,6 +508,11 @@
   color: var(--text-dim);
   font-size: 0.55rem;
 }
+.session-tag.travel {
+  background: rgba(255, 152, 0, 0.15);
+  color: var(--orange);
+  font-size: 0.55rem;
+}
 
 /* + Add Set button inside session cards */
 .session-add-set-btn {

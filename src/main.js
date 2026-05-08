@@ -106,7 +106,10 @@ import {
   openWorkoutView,
   renderWorkoutView,
   updateWorkoutButton,
+  createTravelSession,
+  openTravelWorkoutView,
 } from './views/workout-overlay.js';
+import { startTravelFlow, setTravelSheetDeps } from './views/travel-sheet.js';
 import { initLiftDetailSheet, showLiftDetail } from './views/lift-detail.js';
 import { initAccessoryDetailSheet } from './views/accessory-detail.js';
 import { initPlateauSheet, setPlateauDeps } from './views/plateau-analysis.js';
@@ -572,6 +575,13 @@ setChoiceSheetDeps({
   abandonMesocycle,
   renderProgramSection,
   updateWorkoutButton,
+  startTravelFlow,
+});
+
+// 4q-ii. Travel sheet deps
+setTravelSheetDeps({
+  createTravelSession,
+  openTravelWorkoutView,
 });
 
 // 4r. Plateau analysis deps

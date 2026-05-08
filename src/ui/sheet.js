@@ -109,6 +109,18 @@ export function closeWorkoutSummary() {
 }
 
 // ---------------------------------------------------------------------------
+// Travel workout sheet
+// ---------------------------------------------------------------------------
+
+export function openTravelSheet() {
+  openSheet('travel-sheet', 'travel-sheet-backdrop');
+}
+
+export function closeTravelSheet() {
+  closeSheet('travel-sheet', 'travel-sheet-backdrop');
+}
+
+// ---------------------------------------------------------------------------
 // Swipe-down-to-dismiss
 // ---------------------------------------------------------------------------
 
@@ -220,4 +232,7 @@ export function initSheetListeners() {
   enableSheetSwipeDismiss('fatigue-sheet', 'fatigue-sheet-backdrop', closeFatigueSheet);
   enableSheetSwipeDismiss('choice-sheet', 'choice-sheet-backdrop', closeChoiceSheet);
   enableSheetSwipeDismiss('workout-summary-sheet', 'workout-summary-backdrop', closeWorkoutSummary);
+  $('travel-sheet-close').addEventListener('click', closeTravelSheet);
+  $('travel-sheet-backdrop').addEventListener('click', closeTravelSheet);
+  enableSheetSwipeDismiss('travel-sheet', 'travel-sheet-backdrop', closeTravelSheet);
 }

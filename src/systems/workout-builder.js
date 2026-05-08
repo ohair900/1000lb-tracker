@@ -12,6 +12,12 @@ import { ACCESSORY_DB } from '../data/accessories.js';
 import { ACCESSORY_CAT_WEIGHTS, MUSCLE_GROUPS } from '../data/muscle-groups.js';
 import { EXERCISE_CATALOG, PROGRESSION_MODELS } from '../data/exercise-catalog.js';
 import {
+  TRAVEL_GROUPINGS,
+  GROUPING_LIFT_CONTEXT,
+  TRAVEL_SET_DEFAULTS,
+  TRAVEL_SET_DEFAULTS_FALLBACK,
+} from '../constants/travel-config.js';
+import {
   resolveExercise,
   resolveCanonicalId,
   resolveAccessory,
@@ -374,14 +380,15 @@ export function checkAccessoryProgression(exerciseId, mainLift) {
  * @param {Object} [options]
  * @param {string} [options.excludeEquipment] - Equipment type to exclude
  * @param {boolean} [options.crossLift=true] - Include exercises from other lifts
+ * @param {Object} [options.equipmentOverride] - Session-scoped equipment map (does not persist)
  * @returns {Object[]} Scored accessories sorted by score descending
  */
 export function scoreAccessories(mainLift, options = {}) {
-  const { excludeEquipment = null, crossLift = true } = options;
+  const { excludeEquipment = null, crossLift = true, equipmentOverride = null } = options;
   const weakPoint = store.workoutConfig.weakPoints[mainLift];
   const now = Date.now();
   const muscleFatigue = calcFatigueByMuscle();
-  const equip = store.equipmentProfile || {};
+  const equip = equipmentOverride || store.equipmentProfile || {};
   const disabledSet = new Set(store.disabledAccessories || []);
 
   // Build candidate list from EXERCISE_CATALOG (canonical, cross-lift)
@@ -533,7 +540,8 @@ export function scoreAccessories(mainLift, options = {}) {
 
     let score = 0;
     const r = [];
-    const equipAvailable = equip[custom.equipment] !== false;
+    const customEquip = equipmentOverride || store.equipmentProfile || {};
+    const equipAvailable = customEquip[custom.equipment] !== false;
     if (!equipAvailable) {
       score -= 50;
       r.push('Equipment unavailable');
@@ -582,12 +590,17 @@ export function scoreAccessories(mainLift, options = {}) {
  *
  * @param {string} mainLift - 'squat' | 'bench' | 'deadlift'
  * @param {number} [count=5] - Number of accessories to select
+ * @param {Object} [options]
+ * @param {Object} [options.equipmentOverride] - Session-scoped equipment map
  * @returns {Object[]} Selected accessories (subset of scoreAccessories output)
  */
-export function selectSmartAccessories(mainLift, count) {
+export function selectSmartAccessories(mainLift, count, options = {}) {
   count = count || 5;
   // Only score exercises that support this lift (no cross-lift in auto-selection)
-  const scored = scoreAccessories(mainLift, { crossLift: false });
+  const scored = scoreAccessories(mainLift, {
+    crossLift: false,
+    equipmentOverride: options.equipmentOverride || null,
+  });
   const available = scored.filter((ex) => ex.equipAvailable !== false);
   const picked = [];
   const usedPatterns = new Set();
@@ -620,4 +633,122 @@ export function selectSmartAccessories(mainLift, count) {
   }
 
   return picked;
+}
+
+// ---------------------------------------------------------------------------
+// Travel workout selection — fatigue-aware, equipment-scoped
+// ---------------------------------------------------------------------------
+
+/**
+ * Select exercises for a travel (off-program) session.
+ *
+ * Skips red-fatigued muscles entirely, down-weights orange/yellow muscles,
+ * and filters to the session-scoped equipment override.
+ *
+ * @param {string} grouping - 'push' | 'pull' | 'legs' | 'full'
+ * @param {Object} equipmentOverride - Session-scoped equipment map
+ * @returns {{ exercises: Object[], skippedMuscles: string[] }}
+ */
+export function selectTravelWorkout(grouping, equipmentOverride) {
+  const cfg = TRAVEL_GROUPINGS[grouping];
+  if (!cfg) return { exercises: [], skippedMuscles: [] };
+
+  const muscleFatigue = calcFatigueByMuscle() || {};
+  const disabledSet = new Set(store.disabledAccessories || []);
+  const equip = equipmentOverride || store.equipmentProfile || {};
+  const now = Date.now();
+
+  // Determine eligible (non-red) and downweighted (orange/yellow) muscles
+  const eligibleMuscles = new Set(
+    cfg.muscles.filter((m) => muscleFatigue[m]?.displayStatus !== 'red')
+  );
+  const downweightedMuscles = new Set(
+    cfg.muscles.filter((m) => {
+      const s = muscleFatigue[m]?.displayStatus;
+      return s === 'orange' || s === 'yellow';
+    })
+  );
+  const skippedMuscles = cfg.muscles.filter((m) => !eligibleMuscles.has(m));
+
+  // Score all catalog exercises
+  const candidates = [];
+  for (const [id, ex] of Object.entries(EXERCISE_CATALOG)) {
+    if (disabledSet.has(id)) continue;
+    if (equip[ex.equipment] === false) continue;
+
+    // Must target at least one eligible muscle from this grouping
+    const targetedEligible = Object.entries(ex.primaryMuscles).filter(
+      ([mg, w]) => w >= 0.2 && eligibleMuscles.has(mg)
+    );
+    if (targetedEligible.length === 0) continue;
+
+    const primaryMuscle = Object.entries(ex.primaryMuscles).sort(([, a], [, b]) => b - a)[0]?.[0];
+
+    let score = 0;
+
+    // Freshness bonus per targeted muscle
+    for (const [mg] of targetedEligible) {
+      const status = muscleFatigue[mg]?.displayStatus || 'green';
+      if (status === 'green' || status === 'lime') score += 8;
+      else if (status === 'yellow') score += 4;
+    }
+
+    // Downweighted penalty when primary muscle is orange/yellow
+    if (primaryMuscle && downweightedMuscles.has(primaryMuscle)) score -= 5;
+
+    // Recency bonus (mirrors scoreAccessories logic)
+    const history = getExerciseHistory(id, store.accessoryLog);
+    const recent = history[0];
+    if (recent) {
+      const daysSince = Math.floor((now - recent.timestamp) / MS_PER_DAY);
+      score += Math.min(20, daysSince * 2);
+    } else {
+      score += 20;
+    }
+
+    // Compound bonus for full-body sessions
+    if (grouping === 'full' && ex.progressionType === 'compound') score += 5;
+
+    candidates.push({ id, ex, score, primaryMuscle });
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+
+  // Pick top N with muscle diversity (max 2 per primary muscle)
+  const count = cfg.count;
+  const picked = [];
+  const muscleCounts = {};
+  for (const { id, ex, primaryMuscle } of candidates) {
+    if (picked.length >= count) break;
+    const pm = primaryMuscle || 'unknown';
+    if ((muscleCounts[pm] || 0) >= 2) continue;
+    picked.push({ id, ex });
+    muscleCounts[pm] = (muscleCounts[pm] || 0) + 1;
+  }
+
+  // Build accessory row objects
+  const liftContext = GROUPING_LIFT_CONTEXT[grouping] || 'squat';
+  const exercises = picked.map(({ id, ex }) => {
+    const defaults = TRAVEL_SET_DEFAULTS[ex.progressionType] || TRAVEL_SET_DEFAULTS_FALLBACK;
+    const weight = getAccessoryWeight(id, liftContext);
+    const setWeights = computeSetWeights(weight, defaults.sets);
+    const isDownweighted =
+      ex.primaryMuscles &&
+      Object.entries(ex.primaryMuscles).some(
+        ([mg, w]) => w >= 0.25 && downweightedMuscles.has(mg)
+      );
+    return {
+      exerciseId: id,
+      name: ex.name,
+      setWeights,
+      targetSets: defaults.sets,
+      repRange: defaults.repRange,
+      equipment: ex.equipment,
+      setsCompleted: [],
+      progressed: false,
+      _downweighted: isDownweighted,
+    };
+  });
+
+  return { exercises, skippedMuscles };
 }

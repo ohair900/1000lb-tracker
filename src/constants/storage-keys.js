@@ -32,6 +32,7 @@ export const CUSTOM_ACCESSORIES_KEY = 'sbd-tracker-custom-accessories';
 export const DISABLED_ACCESSORIES_KEY = 'sbd-tracker-disabled-accessories';
 export const GOAL_MILESTONES_KEY = 'sbd-tracker-goal-milestones';
 export const ACCESSORY_MIGRATION_KEY = 'sbd-tracker-accessory-migration-version';
+export const TRAVEL_EQUIPMENT_PRESET_KEY = 'sbd-tracker-travel-equipment-preset';
 
 export const ALL_DATA_KEYS = [
   STORAGE_KEY,
