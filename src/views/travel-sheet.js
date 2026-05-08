@@ -40,7 +40,8 @@ let _currentEquipment = null;
 // ---------------------------------------------------------------------------
 
 function renderEquipmentStep() {
-  const equipment = _currentEquipment || store.travelEquipmentPreset || { ...TRAVEL_DEFAULT_EQUIPMENT };
+  const equipment = _currentEquipment ||
+    store.travelEquipmentPreset || { ...TRAVEL_DEFAULT_EQUIPMENT };
   _currentEquipment = { ...equipment };
 
   $('travel-sheet-title').textContent = 'Available Equipment';
@@ -99,11 +100,13 @@ function renderGroupingStep() {
   html += `<div class="travel-grouping-cards">`;
 
   for (const [key, cfg] of Object.entries(TRAVEL_GROUPINGS)) {
-    const dots = cfg.muscles.map((m) => {
-      const status = muscleFatigue[m]?.displayStatus || 'green';
-      const color = STATUS_DOT_COLOR[status] || 'var(--green)';
-      return `<span class="fatigue-dot" style="background:${color}" title="${m}: ${status}"></span>`;
-    }).join('');
+    const dots = cfg.muscles
+      .map((m) => {
+        const status = muscleFatigue[m]?.displayStatus || 'green';
+        const color = STATUS_DOT_COLOR[status] || 'var(--green)';
+        return `<span class="fatigue-dot" style="background:${color}" title="${m}: ${status}"></span>`;
+      })
+      .join('');
 
     html += `<div class="travel-group-card" data-grouping="${key}">
       <div class="travel-group-icon">${cfg.icon}</div>

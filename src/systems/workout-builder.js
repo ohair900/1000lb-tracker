@@ -734,9 +734,7 @@ export function selectTravelWorkout(grouping, equipmentOverride) {
     const setWeights = computeSetWeights(weight, defaults.sets);
     const isDownweighted =
       ex.primaryMuscles &&
-      Object.entries(ex.primaryMuscles).some(
-        ([mg, w]) => w >= 0.25 && downweightedMuscles.has(mg)
-      );
+      Object.entries(ex.primaryMuscles).some(([mg, w]) => w >= 0.25 && downweightedMuscles.has(mg));
     return {
       exerciseId: id,
       name: ex.name,
