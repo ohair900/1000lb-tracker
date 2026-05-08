@@ -13,6 +13,17 @@ export type Classification = 'beginner' | 'novice' | 'intermediate' | 'advanced'
 
 const LEVELS: Classification[] = ['beginner', 'novice', 'intermediate', 'advanced', 'elite'];
 
+interface LiftStandards {
+  beginner: number;
+  novice: number;
+  intermediate: number;
+  advanced: number;
+  elite: number;
+}
+
+// Cast to enable indexed access — STRENGTH_STANDARDS comes from an untyped JS file
+const STANDARDS = STRENGTH_STANDARDS as Record<string, Record<string, LiftStandards>>;
+
 export interface WeightClass {
   className: string;
   limit: number | null;
@@ -26,7 +37,7 @@ export interface WeightClass {
  */
 export function getClassification(lift: Lift, e1rm: number | null): Classification | null {
   if (!store.profile.gender || !store.profile.bodyweight || !e1rm) return null;
-  const stds = STRENGTH_STANDARDS[store.profile.gender]?.[lift];
+  const stds = STANDARDS[store.profile.gender as string]?.[lift];
   if (!stds) return null;
   const ratio = e1rm / store.profile.bodyweight;
   if (ratio >= stds.elite) return 'elite';
