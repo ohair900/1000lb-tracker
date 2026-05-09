@@ -69,7 +69,8 @@ function aggregateFreshness(muscles) {
 function getPreview(grouping) {
   if (!_previewCache[grouping]) {
     try {
-      _previewCache[grouping] = selectTravelWorkout(grouping, _equipment);
+      const result = selectTravelWorkout(grouping, _equipment);
+      _previewCache[grouping] = result.exercises || [];
     } catch {
       _previewCache[grouping] = [];
     }
