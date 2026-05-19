@@ -1082,6 +1082,7 @@ function makeWeek(weekNum, phase, lift, tm, sets, targetRPE, accessories, notes)
       name: a.name,
       sets: a.sets || 3,
       repRange: a.repRange || [8, 12],
+      equipment: a.equipment,
     })),
     notes,
   };

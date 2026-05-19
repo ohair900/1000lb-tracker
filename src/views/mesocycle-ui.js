@@ -165,7 +165,7 @@ export function openMesocycleWorkout(lift) {
   const liftWorkout = week.workouts[lift];
   if (!liftWorkout) return;
 
-  if (week.performance[lift]) {
+  if (week.performance?.[lift]) {
     showToast(`${LIFT_NAMES[lift]} already done this week`);
     return;
   }

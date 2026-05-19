@@ -32,7 +32,7 @@ function renderMesoTimeline(mesocycle) {
   mesocycle.weeks.forEach((w, i) => {
     const isCurrent = i === mesocycle.currentWeek - 1;
     const isCompleted = w.completed;
-    const liftsDone = LIFTS.filter((l) => w.performance[l]).length;
+    const liftsDone = LIFTS.filter((l) => w.performance?.[l]).length;
     html += `<div class="meso-week-card${isCurrent ? ' current' : ''}${isCompleted ? ' completed' : ''}${w.adapted ? ' adapted' : ''}" data-week="${i}">
       <div class="meso-week-num">W${w.weekNum}</div>
       <div class="meso-week-phase">${w.phase}</div>

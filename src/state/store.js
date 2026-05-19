@@ -541,6 +541,10 @@ class Store {
     // 2b. Restore completedSets from backup if main store lost them
     this._restoreCompletedSetsIfLost();
 
+    // 2c. Discard any structurally-invalid activeMesocycle (e.g. from a
+    // plateau-breaker bug) so it can't crash boot or brick Firebase init.
+    this._sanitizeActiveMesocycle();
+
     // 3. Check schema version and migrate if needed
     const version = parseInt(localStorage.getItem(VERSION_KEY)) || 0;
     if (version < CURRENT_VERSION) {
@@ -751,6 +755,26 @@ class Store {
     // since it depends on formula functions not imported here.
     localStorage.setItem(VERSION_KEY, CURRENT_VERSION.toString());
     this.saveAll();
+  }
+
+  /** @private Drop an activeMesocycle that is missing required fields — prevents a malformed record from crashing boot. */
+  _sanitizeActiveMesocycle() {
+    if (!this.activeMesocycle) return;
+    const weeks = this.activeMesocycle.weeks;
+    if (!Array.isArray(weeks) || weeks.length === 0) {
+      this.activeMesocycle = null;
+      this.save('mesocycle');
+      return;
+    }
+    const invalid = weeks.some((w) => {
+      if (!w.performance || !w.completed) return true;
+      const lifts = Object.keys(w.workouts || {});
+      return lifts.some((l) => !Array.isArray(w.workouts[l]?.mainSets));
+    });
+    if (invalid) {
+      this.activeMesocycle = null;
+      this.save('mesocycle');
+    }
   }
 
   /** @private Ensure programConfig has all expected sub-fields. */

@@ -788,10 +788,10 @@ $('timer-custom')?.addEventListener('change', () => {
 // "Start Workout" / choice sheet button
 $('create-workout-btn').addEventListener('click', () => renderChoiceSheetBody());
 
-updateDashboard();
-renderCycleBar();
-renderProgramSection();
-updateWorkoutButton();
+safeCall(() => updateDashboard(), 'boot:dashboard');
+safeCall(() => renderCycleBar(), 'boot:cycleBar');
+safeCall(() => renderProgramSection(), 'boot:program');
+safeCall(() => updateWorkoutButton(), 'boot:workoutBtn');
 
 // Update timer preset active state
 $('timer-presets')

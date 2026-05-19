@@ -333,18 +333,23 @@ function activateMiniCycle(lift, cycle) {
     currentWeek: 1,
     weeks: cycle.weeks.map((w) => ({
       weekNum: w.weekNum,
+      label: `Week ${w.weekNum}`,
       phase: w.phase,
+      targetRPE: w.targetRPE,
       workouts: {
         [lift]: {
-          targetRPE: w.targetRPE,
-          sets: w.mainSets.map((s) => ({
+          mainSets: w.mainSets.map((s) => ({
             reps: s.reps,
             pct: s.pct,
             weight: s.weight,
+            completed: false,
           })),
           accessories: w.accessories,
         },
       },
+      completed: {},
+      performance: {},
+      adapted: false,
       notes: w.notes,
     })),
     adaptationLog: [],
