@@ -179,7 +179,6 @@ export function calcVelocity(lift, days = 90) {
  */
 export function calcBlockOverBlock(lift, blocks = 3, blockDays = 30) {
   const now = Date.now();
-  const totalMs = blocks * blockDays * MS_PER_DAY;
   const blockMs = blockDays * MS_PER_DAY;
 
   const result = [];
@@ -232,7 +231,14 @@ export function getTopSets(lift, n = 5) {
       return true;
     })
     .slice(0, n)
-    .map((e) => ({ date: e.date, weight: e.weight, reps: e.reps, rpe: e.rpe || null, e1rm: e.e1rm, isPR: !!e.isPR }));
+    .map((e) => ({
+      date: e.date,
+      weight: e.weight,
+      reps: e.reps,
+      rpe: e.rpe || null,
+      e1rm: e.e1rm,
+      isPR: !!e.isPR,
+    }));
 }
 
 // ---------------------------------------------------------------------------

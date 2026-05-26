@@ -4,8 +4,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   getLiftWindow,
-  calcIntensityDistribution,
-  calcRepRangeDistribution,
   calcVelocity,
   calcBlockOverBlock,
   getTopSets,
@@ -53,10 +51,7 @@ beforeEach(() => {
 
 describe('getLiftWindow', () => {
   it('filters to the correct lift', () => {
-    mockStore.entries = [
-      makeEntry('squat', 200, 5, 10),
-      makeEntry('bench', 150, 5, 10),
-    ];
+    mockStore.entries = [makeEntry('squat', 200, 5, 10), makeEntry('bench', 150, 5, 10)];
     const result = getLiftWindow('squat', 90);
     expect(result).toHaveLength(1);
     expect(result[0].lift).toBe('squat');
@@ -65,7 +60,7 @@ describe('getLiftWindow', () => {
   it('excludes entries outside the day window', () => {
     mockStore.entries = [
       makeEntry('squat', 200, 5, 100), // outside 90d
-      makeEntry('squat', 210, 5, 5),   // inside 90d
+      makeEntry('squat', 210, 5, 5), // inside 90d
     ];
     const result = getLiftWindow('squat', 90);
     expect(result).toHaveLength(1);
@@ -73,10 +68,7 @@ describe('getLiftWindow', () => {
   });
 
   it('sorts oldest to newest', () => {
-    mockStore.entries = [
-      makeEntry('squat', 210, 5, 5),
-      makeEntry('squat', 200, 5, 30),
-    ];
+    mockStore.entries = [makeEntry('squat', 210, 5, 5), makeEntry('squat', 200, 5, 30)];
     const result = getLiftWindow('squat', 90);
     expect(result[0].weight).toBe(200);
     expect(result[1].weight).toBe(210);
@@ -112,11 +104,11 @@ describe('bucketIntensity', () => {
     // Entry whose e1rm history has best=100 at the time
     // so 70 lbs = 70%, 80 = 80%, 85 = 85%, 90 = 90%
     const entries = [
-      { lift: 'squat', weight: 69, reps: 1, e1rm: 69, timestamp: now },  // <70%
-      { lift: 'squat', weight: 70, reps: 1, e1rm: 70, timestamp: now },  // 70% → 70-80%
-      { lift: 'squat', weight: 80, reps: 1, e1rm: 80, timestamp: now },  // 80% → 80-85%
-      { lift: 'squat', weight: 85, reps: 1, e1rm: 85, timestamp: now },  // 85% → 85-90%
-      { lift: 'squat', weight: 90, reps: 1, e1rm: 90, timestamp: now },  // 90% → 90%+
+      { lift: 'squat', weight: 69, reps: 1, e1rm: 69, timestamp: now }, // <70%
+      { lift: 'squat', weight: 70, reps: 1, e1rm: 70, timestamp: now }, // 70% → 70-80%
+      { lift: 'squat', weight: 80, reps: 1, e1rm: 80, timestamp: now }, // 80% → 80-85%
+      { lift: 'squat', weight: 85, reps: 1, e1rm: 85, timestamp: now }, // 85% → 85-90%
+      { lift: 'squat', weight: 90, reps: 1, e1rm: 90, timestamp: now }, // 90% → 90%+
     ];
     // Make bestE1RMAsOf return 100 for these timestamps
     mockStore.entries = [

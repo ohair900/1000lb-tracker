@@ -474,12 +474,18 @@ function renderStatsSessionQuality() {
     if (!byWeek[weekKey]) byWeek[weekKey] = [];
     byWeek[weekKey].push(s.gradePoints || 0);
   });
-  const weeklyAvgs = Object.values(byWeek).map((arr) => arr.reduce((s, v) => s + v, 0) / arr.length);
-  const bestWeekGrade = weeklyAvgs.length ? pointsToLetter(Math.round(Math.max(...weeklyAvgs))) : '—';
+  const weeklyAvgs = Object.values(byWeek).map(
+    (arr) => arr.reduce((s, v) => s + v, 0) / arr.length
+  );
+  const bestWeekGrade = weeklyAvgs.length
+    ? pointsToLetter(Math.round(Math.max(...weeklyAvgs)))
+    : '—';
 
   const sessionCount30 = recent.length;
   const durations = sessions.filter((s) => s.duration > 0).map((s) => s.duration);
-  const avgDurMin = durations.length ? Math.round(durations.reduce((s, v) => s + v, 0) / durations.length / 60000) : 0;
+  const avgDurMin = durations.length
+    ? Math.round(durations.reduce((s, v) => s + v, 0) / durations.length / 60000)
+    : 0;
 
   html += `<div class="recap-stat-grid">
     <div class="recap-stat"><div class="recap-stat-label">30d Avg</div><div class="recap-stat-value">${avgGrade}</div></div>
@@ -495,8 +501,12 @@ function renderStatsSessionQuality() {
     const minP = Math.min(...pts);
     const maxP = Math.max(...pts);
     const range = maxP - minP || 1;
-    const svgW = 280, svgH = 60, padX = 8, padY = 6;
-    const plotW = svgW - padX * 2, plotH = svgH - padY * 2;
+    const svgW = 280,
+      svgH = 60,
+      padX = 8,
+      padY = 6;
+    const plotW = svgW - padX * 2,
+      plotH = svgH - padY * 2;
     const points = pts.map((p, i) => ({
       x: padX + (i / (pts.length - 1)) * plotW,
       y: padY + plotH - ((p - minP) / range) * plotH,
@@ -511,7 +521,8 @@ function renderStatsSessionQuality() {
     html += `<polygon points="${areaStr}" fill="url(#sq-grad)"/>`;
     html += `<polyline points="${lineStr}" fill="none" stroke="var(--gold,#ffd700)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
     points.forEach((p) => {
-      if (p.isTop) html += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="var(--gold,#ffd700)" stroke="var(--surface)" stroke-width="1.5"/>`;
+      if (p.isTop)
+        html += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="var(--gold,#ffd700)" stroke="var(--surface)" stroke-width="1.5"/>`;
     });
     html += `</svg></div>`;
   }
@@ -525,16 +536,23 @@ function renderStatsSessionQuality() {
       { label: 'Evening', range: [15, 19] },
       { label: 'Late', range: [20, 28] }, // 20-23 + 0-4 mapped to 24-28
     ];
-    const overallAvgPoints = sessions.reduce((s, r) => s + (r.gradePoints || 0), 0) / sessions.length;
-    const bucketData = buckets.map((b) => {
-      const [lo, hi] = b.range;
-      const inBucket = withHour.filter((s) => {
-        const h = s.hour < 5 ? s.hour + 24 : s.hour;
-        return h >= lo && h <= hi;
-      });
-      const wins = inBucket.filter((s) => (s.gradePoints || 0) > overallAvgPoints).length;
-      return { label: b.label, count: inBucket.length, winRate: inBucket.length ? wins / inBucket.length : 0 };
-    }).filter((b) => b.count > 0);
+    const overallAvgPoints =
+      sessions.reduce((s, r) => s + (r.gradePoints || 0), 0) / sessions.length;
+    const bucketData = buckets
+      .map((b) => {
+        const [lo, hi] = b.range;
+        const inBucket = withHour.filter((s) => {
+          const h = s.hour < 5 ? s.hour + 24 : s.hour;
+          return h >= lo && h <= hi;
+        });
+        const wins = inBucket.filter((s) => (s.gradePoints || 0) > overallAvgPoints).length;
+        return {
+          label: b.label,
+          count: inBucket.length,
+          winRate: inBucket.length ? wins / inBucket.length : 0,
+        };
+      })
+      .filter((b) => b.count > 0);
 
     if (bucketData.length >= 2) {
       const best = bucketData.reduce((a, b) => (b.winRate > a.winRate ? b : a));
@@ -563,14 +581,22 @@ function renderStatsSessionQuality() {
       { label: '75-105m', lo: 75, hi: 105 },
       { label: '105m+', lo: 105, hi: Infinity },
     ];
-    const durData = durBuckets.map((b) => {
-      const inBucket = withDur.filter((s) => {
-        const min = s.duration / 60000;
-        return min >= b.lo && min < b.hi;
-      });
-      const avgPts = inBucket.length ? inBucket.reduce((s, r) => s + (r.gradePoints || 0), 0) / inBucket.length : 0;
-      return { label: b.label, count: inBucket.length, avgGrade: inBucket.length ? pointsToLetter(Math.round(avgPts)) : null };
-    }).filter((b) => b.count > 0 && b.avgGrade);
+    const durData = durBuckets
+      .map((b) => {
+        const inBucket = withDur.filter((s) => {
+          const min = s.duration / 60000;
+          return min >= b.lo && min < b.hi;
+        });
+        const avgPts = inBucket.length
+          ? inBucket.reduce((s, r) => s + (r.gradePoints || 0), 0) / inBucket.length
+          : 0;
+        return {
+          label: b.label,
+          count: inBucket.length,
+          avgGrade: inBucket.length ? pointsToLetter(Math.round(avgPts)) : null,
+        };
+      })
+      .filter((b) => b.count > 0 && b.avgGrade);
 
     if (durData.length >= 2) {
       const maxCount = Math.max(...durData.map((b) => b.count));
@@ -617,7 +643,8 @@ function renderStatsRecoveryProfile() {
     const delta = info.hours - defaultHrs;
     const deltaStr = delta === 0 ? '' : ` (${delta > 0 ? '+' : ''}${delta}h)`;
     const confPct = Math.round(info.confidence * 100);
-    const chipColor = confPct >= 70 ? 'var(--green)' : confPct >= 40 ? 'var(--yellow,#fbc02d)' : 'var(--text-dim)';
+    const chipColor =
+      confPct >= 70 ? 'var(--green)' : confPct >= 40 ? 'var(--yellow,#fbc02d)' : 'var(--text-dim)';
 
     html += `<div style="font-size:var(--text-xs);color:var(--text)">${mg}</div>`;
     html += `<div style="font-size:var(--text-xs);font-weight:600;color:var(--text-strong);text-align:right">${info.isCalibrated ? info.hours + 'h' : '—'}</div>`;

@@ -247,7 +247,12 @@ export function showLiftDetail(lift) {
 
   const rr90 = calcRepRangeDistribution(lift, 90);
   if (rr90.total >= 5) {
-    const rrColors = [COLORS[lift] + 'cc', COLORS[lift] + '99', COLORS[lift] + '66', COLORS[lift] + '44'];
+    const rrColors = [
+      COLORS[lift] + 'cc',
+      COLORS[lift] + '99',
+      COLORS[lift] + '66',
+      COLORS[lift] + '44',
+    ];
     const rrEntries = Object.entries(rr90.ranges);
     html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
     html += `<div class="section-label-lg">Rep Range Mix</div>`;

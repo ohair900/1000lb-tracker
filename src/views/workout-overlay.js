@@ -1116,7 +1116,9 @@ export function completeWorkout() {
       store.sessionHistory = store.sessionHistory.slice(-365);
     }
     store.saveSessionHistory();
-  } catch { /* best-effort — never block workout completion */ }
+  } catch {
+    /* best-effort — never block workout completion */
+  }
 
   store.workoutSession = null;
   store._sessionOptimizer = null; // Clear ephemeral optimizer state
