@@ -1085,6 +1085,39 @@ export function completeWorkout() {
   // Session Optimizer: grade the session
   const sessionGrade = gradeSession(completedSession);
 
+  // Persist compact session record for Session Quality Trends in stats
+  try {
+    const completedMainSets = completedSession.mainSets.filter((s) => s.completed);
+    const startTime = completedSession.startTime || Date.now();
+    const completedAt = Date.now();
+    const rpes = completedMainSets.map((s) => s.rpe).filter((v) => v != null);
+    const avgRPE = rpes.length ? rpes.reduce((s, v) => s + v, 0) / rpes.length : null;
+    store.sessionHistory.push({
+      id: completedSession.id || `s${startTime}`,
+      date: completedSession.date,
+      startTime,
+      completedAt,
+      duration: completedAt - startTime,
+      mainLift: completedSession.mainLift,
+      programWeek: completedSession.programWeek || null,
+      source: completedSession.source || 'manual',
+      templateId: completedSession.templateId || null,
+      grade: sessionGrade.grade,
+      gradePoints: sessionGrade.gradePoints,
+      completionPct: sessionGrade.completionPct,
+      rpeDrift: sessionGrade.rpeDrift?.avg ?? 0,
+      tonnage: sessionGrade.tonnage,
+      mainSetCount: completedSession.mainSets.length,
+      completedMainSets: completedMainSets.length,
+      avgRPE,
+      hour: new Date(startTime).getHours(),
+    });
+    if (store.sessionHistory.length > 365) {
+      store.sessionHistory = store.sessionHistory.slice(-365);
+    }
+    store.saveSessionHistory();
+  } catch { /* best-effort — never block workout completion */ }
+
   store.workoutSession = null;
   store._sessionOptimizer = null; // Clear ephemeral optimizer state
   store.saveWorkoutSession();

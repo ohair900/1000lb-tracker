@@ -5,7 +5,7 @@
 
 import { $ } from '../utils/helpers.js';
 import { COLORS } from '../constants/lift-config.js';
-import { MUSCLE_GROUPS } from '../data/muscle-groups.js';
+import { MUSCLE_GROUPS, MUSCLE_RECOVERY_HOURS } from '../data/muscle-groups.js';
 import { calcFatigueByMuscle, calcFatigueDetail, getRecoveryAdvice } from '../systems/fatigue.js';
 import { openFatigueSheet } from '../ui/sheet.js';
 import { getCalibrationInfo } from '../systems/recovery-calibration.js';
@@ -144,22 +144,31 @@ export function showFatigueDetail(mg) {
     `</div>`;
   html += `</div>`;
 
-  // Calibration confidence
+  // Recovery Calibration section
   const calInfo = getCalibrationInfo(mg);
+  const defaultHrs = MUSCLE_RECOVERY_HOURS[mg] || 72;
+  const confPct = Math.round(calInfo.confidence * 100);
+  html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
+  html += `<div class="section-label-lg" style="margin-bottom:8px">Recovery Calibration</div>`;
   if (calInfo.isCalibrated) {
-    const confLabel =
-      calInfo.confidence >= 0.7
-        ? 'Personalized to your training'
-        : `Learning your patterns (${Math.max(0, 24 - calInfo.sampleCount)} more sessions needed)`;
-    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
+    const delta = calInfo.hours - defaultHrs;
+    const deltaStr = delta === 0 ? '' : ` (${delta > 0 ? '+' : ''}${delta}h vs default)`;
     html +=
-      `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:12px;display:flex;align-items:center;gap:6px">` +
-      `<span>Your recovery: ~${calInfo.hours}h</span>` +
-      `<span style="opacity:0.5">&middot;</span>` +
-      `<span>${confLabel}</span>` +
+      `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">` +
+      `<span style="font-size:var(--text-lg);font-weight:700;color:var(--text-strong)">${calInfo.hours}h</span>` +
+      `<span style="font-size:var(--text-xs);color:var(--text-dim)">default ${defaultHrs}h${deltaStr}</span>` +
       `</div>`;
-    html += `</div>`;
+    html += `<div class="fatigue-recovery-track"><div class="fatigue-recovery-fill ${displayStatus}" style="width:${confPct}%"></div></div>`;
+    html +=
+      `<div style="display:flex;justify-content:space-between;font-size:var(--text-xs);color:var(--text-dim);margin-top:4px">` +
+      `<span>Confidence ${confPct}%</span>` +
+      `<span>Based on ${calInfo.sampleCount} session${calInfo.sampleCount !== 1 ? 's' : ''}</span>` +
+      `</div>`;
+  } else {
+    const need = Math.max(0, 4 - calInfo.sampleCount);
+    html += `<div style="font-size:var(--text-sm);color:var(--text-dim)">Learning your recovery pattern${need > 0 ? ` — need ${need} more session${need !== 1 ? 's' : ''}` : ''}</div>`;
   }
+  html += `</div>`;
 
   // 4. Weekly tonnage trend
   html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;

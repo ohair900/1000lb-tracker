@@ -52,6 +52,7 @@ import {
   GOAL_MILESTONES_KEY,
   TRAVEL_EQUIPMENT_PRESET_KEY,
   TRAVEL_PRESETS_KEY,
+  SESSION_HISTORY_KEY,
 } from '../constants/storage-keys.js';
 
 import { CURRENT_VERSION } from '../constants/time.js';
@@ -125,6 +126,7 @@ class Store {
     // Persistent per-lift milestone tracking tied to goals.
     // Shape: { squat: { goal, startE1RM, createdAt, milestones: [{ target, label, achievedAt, achievedEntryId }] } | null, ... }
     this.goalMilestones = { squat: null, bench: null, deadlift: null };
+    this.sessionHistory = [];
 
     // -----------------------------------------------------------------------
     // Ephemeral UI state — NOT persisted via the STORES registry.
@@ -387,6 +389,14 @@ class Store {
         },
         default: { squat: null, bench: null, deadlift: null },
       },
+      sessionHistory: {
+        key: SESSION_HISTORY_KEY,
+        get: () => this.sessionHistory,
+        set: (v) => {
+          this.sessionHistory = v;
+        },
+        default: [],
+      },
     };
 
     // -----------------------------------------------------------------------
@@ -460,6 +470,7 @@ class Store {
     'accessoryOverrides',
     'customAccessories',
     'disabledAccessories',
+    'sessionHistory',
   ];
 
   init() {
@@ -655,6 +666,9 @@ class Store {
   }
   saveMesocycleHistory() {
     this.save('mesocycleHistory');
+  }
+  saveSessionHistory() {
+    this.save('sessionHistory');
   }
   saveEquipmentProfile() {
     this.save('equipmentProfile');

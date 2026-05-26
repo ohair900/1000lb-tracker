@@ -6,6 +6,14 @@
 import store from '../state/store.js';
 import { $ } from '../utils/helpers.js';
 import { LIFT_NAMES, COLORS } from '../constants/lift-config.js';
+import {
+  calcIntensityDistribution,
+  calcRepRangeDistribution,
+  calcVelocity,
+  calcBlockOverBlock,
+  getTopSets,
+  hasRpeData,
+} from '../systems/lift-insights.js';
 import { DIRECTION_ARROWS } from '../constants/ui.js';
 import { bestE1RM } from '../formulas/e1rm.js';
 import { formatWeight, lbsToKg } from '../formulas/units.js';
@@ -178,7 +186,117 @@ export function showLiftDetail(lift) {
     }
   }
 
-  // --- 5. Last 3 sessions (compact single-line) ---
+  // --- 5. Lift Insights: velocity, distributions, blocks, top sets ---
+  const vel = calcVelocity(lift, 90);
+  if (vel && Math.abs(vel.delta) > 0.5) {
+    const color =
+      vel.classification === 'declining'
+        ? 'var(--red)'
+        : vel.classification === 'flat'
+          ? 'var(--text-dim)'
+          : COLORS[lift];
+    const sign = vel.lbsPerMonth >= 0 ? '+' : '';
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
+    html += `<div class="section-label-lg">Velocity (90d)</div>`;
+    html += `<div style="text-align:center;padding:8px 0">`;
+    html += `<div style="font-size:var(--text-2xl);font-weight:800;color:${color}">${sign}${vel.lbsPerMonth.toFixed(1)} <span style="font-size:var(--text-sm);font-weight:500;color:var(--text-dim)">${store.unit}/mo e1RM</span></div>`;
+    html += `</div></div>`;
+  }
+
+  const id90 = calcIntensityDistribution(lift, 90);
+  if (id90.total >= 5) {
+    const zoneColors = ['var(--text-dim)', '#5c6bc0', '#26a69a', '#fb8c00', '#e53935'];
+    const zoneEntries = Object.entries(id90.zones);
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
+    html += `<div class="section-label-lg">Intensity (% e1RM)</div>`;
+    html += `<div class="vol-bars" style="height:14px;border-radius:7px;overflow:hidden;margin:6px 0">`;
+    zoneEntries.forEach(([, count], i) => {
+      const pct = (count / id90.total) * 100;
+      if (pct > 0)
+        html += `<div class="vol-bar-seg" style="width:${pct}%;background:${zoneColors[i]}"></div>`;
+    });
+    html += `</div><div class="ld-distro-legend">`;
+    zoneEntries.forEach(([label, count], i) => {
+      if (count > 0)
+        html += `<span><i style="background:${zoneColors[i]}"></i>${label} <b>${count}</b></span>`;
+    });
+    html += `</div></div>`;
+
+    if (hasRpeData(lift, 90)) {
+      const rpeColors = ['#29b6f6', '#66bb6a', '#ffa726', '#ef5350'];
+      const rpeEntries = Object.entries(id90.rpe).filter(([k]) => k !== 'none');
+      const rpeTotal = rpeEntries.reduce((s, [, v]) => s + v, 0);
+      if (rpeTotal >= 3) {
+        html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
+        html += `<div class="section-label-lg">RPE Distribution</div>`;
+        html += `<div class="vol-bars" style="height:14px;border-radius:7px;overflow:hidden;margin:6px 0">`;
+        rpeEntries.forEach(([, count], i) => {
+          const pct = (count / rpeTotal) * 100;
+          if (pct > 0)
+            html += `<div class="vol-bar-seg" style="width:${pct}%;background:${rpeColors[i]}"></div>`;
+        });
+        html += `</div><div class="ld-distro-legend">`;
+        rpeEntries.forEach(([label, count], i) => {
+          if (count > 0)
+            html += `<span><i style="background:${rpeColors[i]}"></i>RPE ${label} <b>${count}</b></span>`;
+        });
+        html += `</div></div>`;
+      }
+    }
+  }
+
+  const rr90 = calcRepRangeDistribution(lift, 90);
+  if (rr90.total >= 5) {
+    const rrColors = [COLORS[lift] + 'cc', COLORS[lift] + '99', COLORS[lift] + '66', COLORS[lift] + '44'];
+    const rrEntries = Object.entries(rr90.ranges);
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
+    html += `<div class="section-label-lg">Rep Range Mix</div>`;
+    html += `<div class="vol-bars" style="height:14px;border-radius:7px;overflow:hidden;margin:6px 0">`;
+    rrEntries.forEach(([, count], i) => {
+      const pct = (count / rr90.total) * 100;
+      if (pct > 0)
+        html += `<div class="vol-bar-seg" style="width:${pct}%;background:${rrColors[i]}"></div>`;
+    });
+    html += `</div><div class="ld-distro-legend">`;
+    rrEntries.forEach(([label, count], i) => {
+      if (count > 0)
+        html += `<span><i style="background:${rrColors[i]}"></i>${label.split(' ')[0]} <b>${count}</b></span>`;
+    });
+    html += `</div></div>`;
+  }
+
+  const blocks = calcBlockOverBlock(lift, 3, 30);
+  if (blocks.some((b) => b.sets > 0)) {
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
+    html += `<div class="section-label-lg">90-Day Blocks</div>`;
+    html += `<div class="recap-stat-grid" style="grid-template-columns:repeat(3,1fr)">`;
+    blocks.forEach((b, i) => {
+      html += `<div class="recap-stat">`;
+      html += `<div class="recap-stat-label">Block ${i + 1}</div>`;
+      html += `<div class="recap-stat-value">${b.sets}</div>`;
+      html += `<div style="font-size:var(--text-xs);color:var(--text-dim)">${b.avgIntensityPct}% avg${b.prCount ? ` &middot; ${b.prCount} PR` : ''}</div>`;
+      html += `</div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  const topSets = getTopSets(lift, 5);
+  if (topSets.length > 0) {
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
+    html += `<div class="sheet-section-title">Top 5 Sets Ever</div>`;
+    topSets.forEach((s) => {
+      const rpeStr = s.rpe ? `@${s.rpe}` : '';
+      const star = s.isPR ? ' ★' : '';
+      html += `<div class="ld-compact-session">`;
+      html += `<span class="ld-compact-date">${s.date.slice(5)}</span>`;
+      html += `<span>${formatWeight(s.weight)} &times; ${s.reps}${rpeStr}</span>`;
+      html += `<span class="ld-compact-e1rm">= ${formatWeight(s.e1rm)}${star}</span>`;
+      html += `</div>`;
+    });
+    html += `</div>`;
+  }
+
+  // --- 6. Last 3 sessions (compact single-line) ---
   if (liftEntries.length > 0) {
     const sessions = [];
     const seen = new Set();

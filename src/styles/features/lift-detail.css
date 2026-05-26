@@ -457,6 +457,32 @@
   padding: 0 0 var(--space-1) 18px;
 }
 
+/* ---- Distribution bar legend ---- */
+.ld-distro-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 4px;
+}
+.ld-distro-legend span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-2xs);
+  color: var(--text-dim);
+}
+.ld-distro-legend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.ld-distro-legend b {
+  color: var(--text);
+  font-weight: 600;
+}
+
 /* Feature 7: RPE color dots */
 .ld-rpe-dot {
   width: 8px;

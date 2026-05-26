@@ -6,6 +6,7 @@
 import store from '../state/store.js';
 import { LIFTS, LIFT_NAMES, LIFT_SHORT } from '../constants/lift-config.js';
 import { MS_PER_DAY } from '../constants/time.js';
+import { bestE1RMAsOf, bucketIntensity, bucketRepRange } from './lift-insights.js';
 import { bestE1RM, getTotal } from '../formulas/e1rm.js';
 import { displayWeight, formatWeight } from '../formulas/units.js';
 import { calcWilks, calcDOTS } from '../formulas/scoring.js';
@@ -15,17 +16,6 @@ import { MUSCLE_GROUPS, MAIN_LIFT_WEIGHTS } from '../data/muscle-groups.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
 import { resolveExercise } from '../data/exercise-compat.js';
 import { showToast } from '../ui/toast.js';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function bestE1RMAsOf(lift, beforeTimestamp) {
-  const vals = store.entries
-    .filter((e) => e.lift === lift && e.timestamp <= beforeTimestamp && e.e1rm > 0)
-    .map((e) => e.e1rm);
-  return vals.length > 0 ? Math.max(...vals) : 0;
-}
 
 // ---------------------------------------------------------------------------
 // Athlete profile block
@@ -250,53 +240,19 @@ function buildFatigueBlock() {
 // ---------------------------------------------------------------------------
 
 function buildIntensityDistribution(entries) {
-  const zones = { '<70%': 0, '70-80%': 0, '80-85%': 0, '85-90%': 0, '90%+': 0 };
-  const rpeGroups = { '6-7': 0, '7-8': 0, '8-9': 0, '9+': 0, none: 0 };
-
-  entries.forEach((e) => {
-    const best = bestE1RMAsOf(e.lift, e.timestamp);
-    if (best > 0) {
-      const pct = e.weight / best;
-      if (pct >= 0.9) zones['90%+']++;
-      else if (pct >= 0.85) zones['85-90%']++;
-      else if (pct >= 0.8) zones['80-85%']++;
-      else if (pct >= 0.7) zones['70-80%']++;
-      else zones['<70%']++;
-    }
-    if (e.rpe) {
-      if (e.rpe >= 9) rpeGroups['9+']++;
-      else if (e.rpe >= 8) rpeGroups['8-9']++;
-      else if (e.rpe >= 7) rpeGroups['7-8']++;
-      else rpeGroups['6-7']++;
-    } else {
-      rpeGroups['none']++;
-    }
-  });
-
+  const { zones, rpe } = bucketIntensity(entries);
   let text = `\n=== INTENSITY DISTRIBUTION ===\n`;
   for (const [zone, count] of Object.entries(zones)) text += `${zone} of e1RM: ${count} sets\n`;
   text += `\nRPE Distribution:\n`;
-  for (const [group, count] of Object.entries(rpeGroups)) text += `RPE ${group}: ${count} sets\n`;
+  for (const [group, count] of Object.entries(rpe)) text += `RPE ${group}: ${count} sets\n`;
   return text;
 }
 
 function buildRepRangeDistribution(entries) {
-  const ranges = {
-    'Singles (1-2)': 0,
-    'Strength (3-5)': 0,
-    'Volume (6-8)': 0,
-    'Hypertrophy (8+)': 0,
-  };
-  entries.forEach((e) => {
-    if (e.reps <= 2) ranges['Singles (1-2)']++;
-    else if (e.reps <= 5) ranges['Strength (3-5)']++;
-    else if (e.reps <= 8) ranges['Volume (6-8)']++;
-    else ranges['Hypertrophy (8+)']++;
-  });
+  const { ranges, total } = bucketRepRange(entries);
   let text = `\n=== REP RANGE DISTRIBUTION ===\n`;
-  const total = entries.length || 1;
   for (const [range, count] of Object.entries(ranges)) {
-    text += `${range}: ${count} sets (${Math.round((count / total) * 100)}%)\n`;
+    text += `${range}: ${count} sets (${Math.round((count / (total || 1)) * 100)}%)\n`;
   }
   return text;
 }
