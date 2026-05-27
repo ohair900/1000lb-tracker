@@ -6,7 +6,16 @@
  * Host writes session structure; partners subscribe read-only.
  */
 
-import { db, doc, setDoc, getDoc, onSnapshot, serverTimestamp, updateDoc } from './init.js';
+import {
+  db,
+  doc,
+  setDoc,
+  getDoc,
+  onSnapshot,
+  serverTimestamp,
+  updateDoc,
+  arrayUnion,
+} from './init.js';
 import { currentUser } from './auth.js';
 import { EXERCISE_CATALOG } from '../data/exercise-catalog.js';
 
@@ -98,11 +107,16 @@ export async function createSharedWorkout(session) {
 
   // Generate a unique code (retry up to 5 times on collision)
   let code;
+  let codeFound = false;
   for (let i = 0; i < 5; i++) {
     code = _genShareCode();
     const existing = await getDoc(doc(db, 'sharedWorkouts', code));
-    if (!existing.exists()) break;
+    if (!existing.exists()) {
+      codeFound = true;
+      break;
+    }
   }
+  if (!codeFound) throw new Error('Could not generate a unique share code — please try again');
 
   const hostName = currentUser.displayName?.split(' ')[0] || 'Host';
   const sharedDoc = {
@@ -171,10 +185,8 @@ export async function joinSharedWorkout(rawCode) {
     updatedAt: serverTimestamp(),
   };
 
-  // Add to memberUids if not already present
-  if (!data.memberUids?.includes(currentUser.uid)) {
-    memberUpdate.memberUids = [...(data.memberUids || []), currentUser.uid];
-  }
+  // Use arrayUnion so concurrent joins don't race-overwrite each other's UID
+  memberUpdate.memberUids = arrayUnion(currentUser.uid);
 
   await updateDoc(ref, memberUpdate);
 

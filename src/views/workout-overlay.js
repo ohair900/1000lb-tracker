@@ -192,8 +192,8 @@ function _applyHostStructuralChanges(hostSess, session) {
   // Helper: compute weight for a set using partner's TM, fallback chain
   function _setWeight(pct, hostW) {
     if (!pct) return hostW ?? 0;
-    const refTM =
-      partnerTM ?? (bestE1RM(mainLift) != null ? bestE1RM(mainLift) * 0.9 : null) ?? hostW;
+    const refTM = partnerTM ?? (bestE1RM(mainLift) != null ? bestE1RM(mainLift) * 0.9 : null);
+    // If partner has a TM or e1RM, scale from it; otherwise use host's exact weight directly
     return refTM != null ? roundToPlate((refTM * pct) / 100) : (hostW ?? 0);
   }
 
@@ -1118,13 +1118,18 @@ export async function openWorkoutView(mainLift) {
     store.workoutSession.mainLift === mainLift &&
     !store.workoutSession.completed
   ) {
-    // Sync main set completion state
-    const sessionWeek =
-      store.workoutSession.programWeek || store.programConfig.liftWeeks?.[mainLift] || 1;
-    if (store.workoutSession.mainSets.length > 0) {
-      store.workoutSession.mainSets.forEach((s, i) => {
-        s.completed = !!store.programConfig.completedSets[`${mainLift}-${sessionWeek}-${i}`];
-      });
+    // Sync main set completion state from program config — skip for shared partner
+    // sessions because they have programWeek: null and the lookup would return
+    // undefined→false, silently resetting any sets the partner already completed.
+    const isPartnerSession = store.workoutSession.shared?.role === 'partner';
+    if (!isPartnerSession) {
+      const sessionWeek =
+        store.workoutSession.programWeek || store.programConfig.liftWeeks?.[mainLift] || 1;
+      if (store.workoutSession.mainSets.length > 0) {
+        store.workoutSession.mainSets.forEach((s, i) => {
+          s.completed = !!store.programConfig.completedSets[`${mainLift}-${sessionWeek}-${i}`];
+        });
+      }
     }
     // Clear _dropped on uncompleted sets so the user can re-engage them on resume
     store.workoutSession.mainSets.forEach((s) => {
