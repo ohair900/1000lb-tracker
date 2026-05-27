@@ -755,6 +755,7 @@ export function renderWorkoutView() {
   const body = $('workout-body');
   const lift = store.workoutSession.mainLift;
   const _sharedRole = store.workoutSession.shared?.role ?? null;
+  const _hostName = store.workoutSession.shared?.hostName ?? '';
 
   // Show/hide the share button based on role
   const _shareBtn = $('workout-share');
@@ -851,7 +852,6 @@ export function renderWorkoutView() {
   if (store.workoutSession.mainSets.length > 0) {
     html += `<div class="workout-exercise-meta">Program sets \u2014 tap to log</div>`;
     const _hostMainProgress = store.workoutSession.shared?.hostProgress?.mainSets ?? [];
-    const _hostName = store.workoutSession.shared?.hostName ?? '';
     store.workoutSession.mainSets.forEach((s, i) => {
       if (s._dropped) return; // Dropped by session optimizer
       const isAmrap = typeof s.reps === 'string' && s.reps.toString().includes('+');
