@@ -764,7 +764,7 @@ export function renderWorkoutView() {
     _shareBtn.title = _hasCode
       ? `Shared \u2014 code: ${store.workoutSession.shared.code}`
       : 'Share this workout';
-    _shareBtn.innerHTML = _hasCode ? '&#128279;&#10003;' : '&#128279;';
+    _shareBtn.textContent = _hasCode ? 'Sharing ✓' : 'Share';
     _shareBtn.classList.toggle('active', _hasCode);
   }
 
@@ -1939,12 +1939,15 @@ export function initWorkoutOverlay() {
     _shareBtn.className = 'workout-share-btn';
     _shareBtn.id = 'workout-share';
     _shareBtn.title = 'Share this workout';
-    _shareBtn.innerHTML = '&#128279;';
+    _shareBtn.textContent = 'Share';
     _shareBtn.style.display = 'none';
     _closeBtn.parentNode.insertBefore(_shareBtn, _closeBtn);
     _shareBtn.addEventListener('click', async () => {
       const session = store.workoutSession;
-      if (!session) return;
+      if (!session) {
+        showToast('Start a workout before sharing');
+        return;
+      }
       try {
         if (!session.shared?.code) {
           const code = await createSharedWorkout(session);
@@ -1958,9 +1961,11 @@ export function initWorkoutOverlay() {
           };
           persistSession();
           subscribeSharedWorkout(code, onSharedWorkoutUpdate);
+          renderWorkoutView();
         }
         shareWorkoutCode(session.shared.code);
       } catch (err) {
+        console.error('[share] click handler failed:', err);
         showToast('Could not share: ' + (err.message || err));
       }
     });
