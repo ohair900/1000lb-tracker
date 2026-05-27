@@ -54,7 +54,11 @@ import { recordMesocyclePerformance, adaptRemainingWeeks } from './systems/mesoc
 // ===== 5. Firebase =====
 import { DEFAULT_FIREBASE_CONFIG, loadFirebaseConfig } from './firebase/config.js';
 import { initFirebase } from './firebase/init.js';
-import { setupAuthListener, setOnAuthStatusChange, setOnSharedWorkoutRestore } from './firebase/auth.js';
+import {
+  setupAuthListener,
+  setOnAuthStatusChange,
+  setOnSharedWorkoutRestore,
+} from './firebase/auth.js';
 import {
   scheduleCloudSync,
   flushPendingSync,
@@ -81,10 +85,7 @@ import {
   triggerLiftCompleteCelebration,
 } from './ui/confetti.js';
 import { sharePRCard, shareMilestoneCard } from './ui/share.js';
-import {
-  subscribeSharedWorkout,
-  unsubscribeSharedWorkout,
-} from './firebase/shared-workout.js';
+import { subscribeSharedWorkout, unsubscribeSharedWorkout } from './firebase/shared-workout.js';
 import { onSharedWorkoutUpdate } from './views/workout-overlay.js';
 import { initSwipeToDelete, setSwipeDeps } from './ui/swipe.js';
 import { initSheetListeners, closeChoiceSheet, openFatigueSheet } from './ui/sheet.js';
@@ -124,7 +125,11 @@ import {
   openBuilder,
   showTemplateList,
 } from './views/builder-overlay.js';
-import { setChoiceSheetDeps, renderChoiceSheetBody, joinSharedWorkoutFlow } from './views/choice-sheet.js';
+import {
+  setChoiceSheetDeps,
+  renderChoiceSheetBody,
+  joinSharedWorkoutFlow,
+} from './views/choice-sheet.js';
 
 import {
   initMesocycleUI,

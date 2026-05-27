@@ -6,15 +6,7 @@
  * Host writes session structure; partners subscribe read-only.
  */
 
-import {
-  db,
-  doc,
-  setDoc,
-  getDoc,
-  onSnapshot,
-  serverTimestamp,
-  updateDoc,
-} from './init.js';
+import { db, doc, setDoc, getDoc, onSnapshot, serverTimestamp, updateDoc } from './init.js';
 import { currentUser } from './auth.js';
 import { EXERCISE_CATALOG } from '../data/exercise-catalog.js';
 
@@ -33,8 +25,9 @@ let _pushTimer = null;
 const _CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 function _genShareCode() {
-  return Array.from({ length: 6 }, () =>
-    _CODE_CHARS[Math.floor(Math.random() * _CODE_CHARS.length)]
+  return Array.from(
+    { length: 6 },
+    () => _CODE_CHARS[Math.floor(Math.random() * _CODE_CHARS.length)]
   ).join('');
 }
 
@@ -80,7 +73,12 @@ export function buildSharedPayload(session) {
         _hostWeights: [...(a.setWeights || [])],
         customDef:
           a.exerciseId.startsWith('custom-') || !EXERCISE_CATALOG[a.exerciseId]
-            ? { id: a.exerciseId, name: a.name, equipment: a.equipment ?? null, repRange: a.repRange }
+            ? {
+                id: a.exerciseId,
+                name: a.name,
+                equipment: a.equipment ?? null,
+                repRange: a.repRange,
+              }
             : null,
       })),
   };
@@ -156,7 +154,7 @@ export async function joinSharedWorkout(rawCode) {
 
   const ref = doc(db, 'sharedWorkouts', code);
   const snap = await getDoc(ref);
-  if (!snap.exists()) throw new Error("Workout not found — check the code and try again");
+  if (!snap.exists()) throw new Error('Workout not found — check the code and try again');
   const data = snap.data();
   if (data.status !== 'active') throw new Error('This workout has already finished');
 

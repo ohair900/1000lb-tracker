@@ -401,9 +401,7 @@ function _scaleSessionForPartner(hostPayload, mainLift, shareInfo) {
   function _setWeight(pct, hostW) {
     if (!pct) return hostW ?? 0;
     const refTM =
-      partnerTM ??
-      (bestE1RM(mainLift) != null ? bestE1RM(mainLift) * 0.9 : null) ??
-      hostW;
+      partnerTM ?? (bestE1RM(mainLift) != null ? bestE1RM(mainLift) * 0.9 : null) ?? hostW;
     return refTM != null ? roundToPlate((refTM * pct) / 100) : (hostW ?? 0);
   }
 

@@ -193,9 +193,7 @@ function _applyHostStructuralChanges(hostSess, session) {
   function _setWeight(pct, hostW) {
     if (!pct) return hostW ?? 0;
     const refTM =
-      partnerTM ??
-      (bestE1RM(mainLift) != null ? bestE1RM(mainLift) * 0.9 : null) ??
-      hostW;
+      partnerTM ?? (bestE1RM(mainLift) != null ? bestE1RM(mainLift) * 0.9 : null) ?? hostW;
     return refTM != null ? roundToPlate((refTM * pct) / 100) : (hostW ?? 0);
   }
 
@@ -253,7 +251,8 @@ function _applyHostStructuralChanges(hostSess, session) {
       (a) => a.exerciseId === hostAcc.exerciseId && !a._localOnly && !a._detached
     );
     if (!existing) {
-      const w = getAccessoryWeight(hostAcc.exerciseId, mainLift) || (hostAcc._hostWeights?.[0] ?? 0);
+      const w =
+        getAccessoryWeight(hostAcc.exerciseId, mainLift) || (hostAcc._hostWeights?.[0] ?? 0);
       session.accessories.push({
         exerciseId: hostAcc.exerciseId,
         name: hostAcc.name,
@@ -858,9 +857,10 @@ export function renderWorkoutView() {
       const repDisplay = s.reps;
       const plateStr = formatPlates(s.weight);
       const rpeLabel = s.completed && s.rpe ? ` @ RPE ${s.rpe}` : '';
-      const hostDoneChip = _sharedRole === 'partner' && _hostMainProgress[i]
-        ? `<span class="shared-host-chip" title="${_hostName} completed this set">${_hostName.charAt(0)} &#10003;</span>`
-        : '';
+      const hostDoneChip =
+        _sharedRole === 'partner' && _hostMainProgress[i]
+          ? `<span class="shared-host-chip" title="${_hostName} completed this set">${_hostName.charAt(0)} &#10003;</span>`
+          : '';
       html += `<div class="workout-set-row${s.completed ? ' completed' : ''}" data-type="main" data-idx="${i}">
         <div class="workout-set-check">${s.completed ? '&#10003;' : ''}</div>
         <div class="workout-set-info">
@@ -892,9 +892,10 @@ export function renderWorkoutView() {
     activeBBB.forEach((s, i) => {
       const plateStr = formatPlates(s.weight);
       const origIdx = store.workoutSession.bbbSets.indexOf(s);
-      const hostBBBChip = _sharedRole === 'partner' && _hostBBBProgress[origIdx]
-        ? `<span class="shared-host-chip" title="${_hostName} completed this set">${_hostName.charAt(0)} &#10003;</span>`
-        : '';
+      const hostBBBChip =
+        _sharedRole === 'partner' && _hostBBBProgress[origIdx]
+          ? `<span class="shared-host-chip" title="${_hostName} completed this set">${_hostName.charAt(0)} &#10003;</span>`
+          : '';
       html += `<div class="workout-set-row${s.completed ? ' completed' : ''}" data-type="bbb" data-idx="${origIdx}">
         <div class="workout-set-check">${s.completed ? '&#10003;' : ''}</div>
         <div class="workout-set-info">
@@ -931,7 +932,9 @@ export function renderWorkoutView() {
       acc._tier && REP_TIERS[acc._tier]
         ? `<span class="acc-tier-badge ${acc._tier}">${REP_TIERS[acc._tier].label}</span>`
         : '';
-    const detachedBadge = acc._detached ? `<span class="acc-detached-badge" title="Removed from shared workout — your progress is kept">Local</span>` : '';
+    const detachedBadge = acc._detached
+      ? `<span class="acc-detached-badge" title="Removed from shared workout — your progress is kept">Local</span>`
+      : '';
     html += `<div class="workout-exercise-name" data-exid="${acc.exerciseId}" data-acc-toggle="${ai}">${acc.name}${tierBadge}${detachedBadge}${acc.progressed ? `<span class="acc-progression-badge">${getProgressionBadgeText(acc)}</span>` : ''}</div>`;
     html += `<div class="acc-action-bar" id="acc-action-bar-${ai}" style="display:none">
       <button class="acc-swap-btn" data-acc-swap="${ai}">&#8644; Swap</button>
@@ -1012,9 +1015,10 @@ export function renderWorkoutView() {
         store.exerciseTimer &&
         store.exerciseTimer.accIdx === ai &&
         store.exerciseTimer.setIdx === si;
-      const _hostAccChip = _sharedRole === 'partner' && _hostAccProgress > si
-        ? `<span class="shared-host-chip" title="${_hostName} completed this set">${_hostName.charAt(0)} &#10003;</span>`
-        : '';
+      const _hostAccChip =
+        _sharedRole === 'partner' && _hostAccProgress > si
+          ? `<span class="shared-host-chip" title="${_hostName} completed this set">${_hostName.charAt(0)} &#10003;</span>`
+          : '';
       html += `<div class="workout-set-row${done ? ' completed' : ''}${isCountingDown ? ' counting-down' : ''}" data-type="acc" data-acc="${ai}" data-set="${si}"${isTimeBased ? ' data-time-based="true"' : ''}>
         <div class="workout-set-check">${done ? '&#10003;' : ''}</div>
         <div class="workout-set-info">
@@ -1099,7 +1103,8 @@ export function renderWorkoutView() {
  */
 export async function openWorkoutView(mainLift) {
   // Shared (partner) sessions are pre-built — skip weak-point setup check
-  const isSharedResume = store.workoutSession?.source === 'shared' &&
+  const isSharedResume =
+    store.workoutSession?.source === 'shared' &&
     store.workoutSession?.mainLift === mainLift &&
     !store.workoutSession?.completed;
   // Check if weak points configured
