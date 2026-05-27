@@ -13,5 +13,19 @@ service cloud.firestore {
     match /crews/{crewId} {
       allow read, write: if request.auth != null;
     }
+    match /sharedWorkouts/{shareCode} {
+      // Read: any signed-in member of this workout
+      allow read: if request.auth != null
+        && request.auth.uid in resource.data.memberUids;
+      // Create: signed-in user must be the designated host
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.hostUid;
+      // Update: any current member (host pushes structure, partners push presence)
+      allow update: if request.auth != null
+        && request.auth.uid in resource.data.memberUids;
+      // Delete: host only (TTL policy handles the 24h auto-delete)
+      allow delete: if request.auth != null
+        && request.auth.uid == resource.data.hostUid;
+    }
   }
 }

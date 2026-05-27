@@ -54,7 +54,7 @@ import { recordMesocyclePerformance, adaptRemainingWeeks } from './systems/mesoc
 // ===== 5. Firebase =====
 import { DEFAULT_FIREBASE_CONFIG, loadFirebaseConfig } from './firebase/config.js';
 import { initFirebase } from './firebase/init.js';
-import { setupAuthListener, setOnAuthStatusChange } from './firebase/auth.js';
+import { setupAuthListener, setOnAuthStatusChange, setOnSharedWorkoutRestore } from './firebase/auth.js';
 import {
   scheduleCloudSync,
   flushPendingSync,
@@ -81,6 +81,11 @@ import {
   triggerLiftCompleteCelebration,
 } from './ui/confetti.js';
 import { sharePRCard, shareMilestoneCard } from './ui/share.js';
+import {
+  subscribeSharedWorkout,
+  unsubscribeSharedWorkout,
+} from './firebase/shared-workout.js';
+import { onSharedWorkoutUpdate } from './views/workout-overlay.js';
 import { initSwipeToDelete, setSwipeDeps } from './ui/swipe.js';
 import { initSheetListeners, closeChoiceSheet, openFatigueSheet } from './ui/sheet.js';
 import { initRouter, updateRoute } from './ui/router.js';
@@ -119,7 +124,7 @@ import {
   openBuilder,
   showTemplateList,
 } from './views/builder-overlay.js';
-import { setChoiceSheetDeps, renderChoiceSheetBody } from './views/choice-sheet.js';
+import { setChoiceSheetDeps, renderChoiceSheetBody, joinSharedWorkoutFlow } from './views/choice-sheet.js';
 
 import {
   initMesocycleUI,
@@ -427,6 +432,24 @@ setOnAuthStatusChange(() => {
   updateSyncButton();
 });
 
+// Parse ?join=CODE from URL — consumed once after auth resolves
+const _joinCodeFromUrl = new URLSearchParams(location.search).get('join') || null;
+if (_joinCodeFromUrl) history.replaceState(null, '', location.pathname);
+let _pendingJoinCode = _joinCodeFromUrl;
+
+// 4d-shared. Re-attach shared workout listener after auth restore (e.g. page refresh mid-workout);
+// also consume any pending ?join= URL param.
+setOnSharedWorkoutRestore(() => {
+  const sharedCode = store.workoutSession?.shared?.code;
+  if (sharedCode) subscribeSharedWorkout(sharedCode, onSharedWorkoutUpdate);
+
+  if (_pendingJoinCode) {
+    const code = _pendingJoinCode;
+    _pendingJoinCode = null;
+    joinSharedWorkoutFlow(code);
+  }
+});
+
 // 4d2. Sync status change — update sync button
 setOnSyncStatusChange(() => {
   updateSyncButton();
@@ -576,6 +599,7 @@ setChoiceSheetDeps({
   renderProgramSection,
   updateWorkoutButton,
   startTravelFlow,
+  onSharedWorkoutUpdate,
 });
 
 // 4q-ii. Travel sheet deps
@@ -857,8 +881,12 @@ document.addEventListener('visibilitychange', () => {
     store._flush(); // Flush any pending localStorage writes before tab goes away
     flushPendingSync();
     stopRealtimeSync(); // #4: detach listener when backgrounded
+    unsubscribeSharedWorkout();
   } else {
     startRealtimeSync(); // #4: reattach when foregrounded
+    // Re-subscribe to shared workout if one was active
+    const sharedCode = store.workoutSession?.shared?.code;
+    if (sharedCode) subscribeSharedWorkout(sharedCode, onSharedWorkoutUpdate);
   }
 });
 

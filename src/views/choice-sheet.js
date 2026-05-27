@@ -12,6 +12,11 @@ import { PROGRAM_TEMPLATES } from '../data/programs.js';
 import { isLiftComplete } from '../systems/programs.js';
 import { showToast } from '../ui/toast.js';
 import { closeChoiceSheet } from '../ui/sheet.js';
+import { joinSharedWorkout, subscribeSharedWorkout } from '../firebase/shared-workout.js';
+import { confirmSheet } from '../ui/confirm-sheet.js';
+import { getAccessoryWeight, computeSetWeights } from '../systems/workout-builder.js';
+import { bestE1RM } from '../formulas/e1rm.js';
+import { roundToPlate } from '../formulas/plates.js';
 
 // ---------------------------------------------------------------------------
 // Dependency injection
@@ -243,6 +248,16 @@ export function renderChoiceSheetBody() {
     <div class="choice-card-arrow">&#8250;</div>
   </div>`;
 
+  // Join a shared workout (always visible)
+  html += `<div class="choice-card" data-action="join-shared">
+    <div class="choice-card-icon" style="background:var(--accent-muted,#1a2a3a);color:var(--accent,#64b5f6)">&#128101;</div>
+    <div class="choice-card-text">
+      <div class="choice-card-title">Join Shared Workout</div>
+      <div class="choice-card-desc">Train along with a friend — enter their 6-char code</div>
+    </div>
+    <div class="choice-card-arrow">&#8250;</div>
+  </div>`;
+
   // Quick start (only if no active program)
   if (!hasProg && !hasMeso) {
     html += `<div class="choice-card" data-action="quick">
@@ -329,6 +344,8 @@ export function renderChoiceSheetBody() {
         _deps.showProgramSetupModal?.();
       } else if (action === 'travel') {
         _deps.startTravelFlow?.();
+      } else if (action === 'join-shared') {
+        _handleJoinShared();
       }
     });
   });
@@ -368,5 +385,168 @@ export function renderChoiceSheetBody() {
           current.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
     }, 50);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Join shared workout flow
+// ---------------------------------------------------------------------------
+
+/**
+ * Scale a host's shared session payload to the partner's own training maxes.
+ */
+function _scaleSessionForPartner(hostPayload, mainLift, shareInfo) {
+  const partnerTM = store.programConfig?.trainingMaxes?.[mainLift];
+
+  function _setWeight(pct, hostW) {
+    if (!pct) return hostW ?? 0;
+    const refTM =
+      partnerTM ??
+      (bestE1RM(mainLift) != null ? bestE1RM(mainLift) * 0.9 : null) ??
+      hostW;
+    return refTM != null ? roundToPlate((refTM * pct) / 100) : (hostW ?? 0);
+  }
+
+  const mainSets = (hostPayload.mainSets || []).map((s) => ({
+    num: s.num,
+    weight: _setWeight(s.pct, s._hostWeight),
+    reps: s.reps,
+    pct: s.pct,
+    tier: s.tier,
+    day: s.day,
+    completed: false,
+    rpe: null,
+  }));
+
+  const bbbSets = (hostPayload.bbbSets || []).map((s) => ({
+    num: s.num,
+    weight: _setWeight(s.pct, s._hostWeight),
+    reps: s.reps,
+    pct: s.pct,
+    tier: s.tier,
+    completed: false,
+  }));
+
+  const accessories = (hostPayload.accessories || []).map((a) => {
+    const w = getAccessoryWeight(a.exerciseId, mainLift) || (a._hostWeights?.[0] ?? 0);
+    return {
+      exerciseId: a.exerciseId,
+      name: a.name,
+      setWeights: computeSetWeights(w, a.targetSets),
+      targetSets: a.targetSets,
+      repRange: a.repRange,
+      equipment: a.equipment,
+      setsCompleted: [],
+      progressed: false,
+    };
+  });
+
+  return {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    mainLift,
+    programWeek: null,
+    date: new Date().toISOString().split('T')[0],
+    startTime: Date.now(),
+    mainSets,
+    bbbSets,
+    accessories,
+    completed: false,
+    source: 'shared',
+    shared: {
+      role: 'partner',
+      code: shareInfo.code,
+      hostUid: shareInfo.hostUid,
+      hostName: shareInfo.hostName,
+      members: {},
+      hostProgress: {
+        mainSets: (hostPayload.mainSets || []).map((s) => s.completed),
+        bbbSets: (hostPayload.bbbSets || []).map((s) => s.completed),
+        accessories: (hostPayload.accessories || []).map((a) => (a.setsCompleted || []).length),
+      },
+    },
+  };
+}
+
+/**
+ * Handle the "Join shared workout" flow:
+ * - Check active session conflict (save to templates / discard / cancel)
+ * - Prompt for 6-char code
+ * - Join the Firestore doc and build partner session
+ * - Subscribe to real-time updates
+ */
+export async function joinSharedWorkoutFlow(prefillCode) {
+  return _handleJoinShared(prefillCode);
+}
+
+async function _handleJoinShared(prefillCode) {
+  // Check for active session conflict
+  if (store.workoutSession && !store.workoutSession.completed) {
+    const proceed = await confirmSheet({
+      title: 'You have an active workout',
+      body: 'Leave it to join a shared workout?',
+      confirmLabel: 'Leave',
+      cancelLabel: 'Cancel',
+      tone: 'danger',
+    });
+    if (!proceed) return;
+
+    // Offer to save as template
+    const save = await confirmSheet({
+      title: 'Save your workout first?',
+      body: 'Save it as a template so you can resume later.',
+      confirmLabel: 'Save template',
+      cancelLabel: 'Discard it',
+      tone: 'primary',
+    });
+    if (save) {
+      const sess = store.workoutSession;
+      const date = sess.date || new Date().toISOString().split('T')[0];
+      store.customTemplates.push({
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        name: `Resumed ${LIFT_NAMES[sess.mainLift] || sess.mainLift} — ${date}`,
+        mainLift: sess.mainLift,
+        createdAt: Date.now(),
+        lastUsed: null,
+        exercises: (sess.accessories || []).map((a) => ({
+          type: 'accessory',
+          exerciseId: a.exerciseId,
+          name: a.name,
+          sets: a.targetSets,
+          reps: a.repRange?.[1] ?? 10,
+          weightMode: 'auto',
+          weightValue: a.setWeights?.[a.setWeights.length - 1] ?? 0,
+          equipment: a.equipment || 'barbell',
+          repRange: a.repRange || [8, 12],
+          order: 0,
+          slotRole: 'accessory',
+          reasons: [],
+        })),
+      });
+      store.saveCustomTemplates();
+      showToast('Workout saved to templates');
+    }
+    store.workoutSession = null;
+    store._sessionOptimizer = null;
+    store.saveNow('workoutSession');
+  }
+
+  // Prompt for share code (or use pre-filled code from URL param)
+  const code = prefillCode || prompt('Enter the 6-character share code:');
+  if (!code || !code.trim()) return;
+
+  try {
+    const joinInfo = await joinSharedWorkout(code.trim());
+    const session = _scaleSessionForPartner(joinInfo.session, joinInfo.mainLift, joinInfo);
+    store.workoutSession = session;
+    store.saveNow('workoutSession');
+
+    // Subscribe to real-time updates — the onSharedWorkoutUpdate callback is
+    // exported from workout-overlay.js and injected via setChoiceSheetDeps
+    subscribeSharedWorkout(joinInfo.code, _deps.onSharedWorkoutUpdate);
+
+    _deps.openWorkoutView?.(joinInfo.mainLift);
+    showToast(`Joined ${joinInfo.hostName}'s workout!`);
+  } catch (err) {
+    showToast('Could not join: ' + (err.message || err));
   }
 }

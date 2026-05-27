@@ -101,6 +101,40 @@ export function drawCardWilks(ctx, cx, y) {
 // Share / download
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Workout code sharing
+// ---------------------------------------------------------------------------
+
+/**
+ * Share a workout join code via the Web Share API (native share sheet),
+ * falling back to clipboard copy + toast on unsupported browsers.
+ *
+ * @param {string} code - 6-character share code
+ */
+export function shareWorkoutCode(code) {
+  const url = `https://1000lbtracker.com/?join=${code}`;
+  const text = `Join my workout — code: ${code}`;
+  if (navigator.share) {
+    navigator
+      .share({ title: '1000lb Club — Join my workout', text, url })
+      .catch(() => _copyCodeFallback(code));
+  } else {
+    _copyCodeFallback(code);
+  }
+}
+
+function _copyCodeFallback(code) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(code).then(() => showToast('Code copied: ' + code));
+  } else {
+    showToast('Share code: ' + code);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Share / download
+// ---------------------------------------------------------------------------
+
 /**
  * Share a canvas as a PNG via the Web Share API, or fall back to download.
  *

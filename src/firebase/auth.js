@@ -32,6 +32,9 @@ export function setCurrentUser(user) {
 // ===== Callbacks (set by UI layer to avoid circular deps) =====
 let onAuthStatusChange = null;
 
+/** @type {Function|null} Called after auth restores to re-subscribe any active shared workout. */
+let onSharedWorkoutRestore = null;
+
 /**
  * Register a callback that fires whenever the user's auth / sync
  * status changes.  The UI layer calls this once at boot with a
@@ -41,6 +44,16 @@ let onAuthStatusChange = null;
  */
 export function setOnAuthStatusChange(cb) {
   onAuthStatusChange = cb;
+}
+
+/**
+ * Register a callback invoked after auth + sync restore to re-attach
+ * any in-progress shared workout listener.
+ *
+ * @param {Function} cb - `() => void`
+ */
+export function setOnSharedWorkoutRestore(cb) {
+  onSharedWorkoutRestore = cb;
 }
 
 function notifyStatusChange() {
@@ -105,6 +118,7 @@ export function setupAuthListener() {
       notifyStatusChange();
       await handleFirstSignIn();
       startRealtimeSync();
+      onSharedWorkoutRestore?.();
     } else {
       if (syncState.unsubSnapshot) {
         syncState.unsubSnapshot();

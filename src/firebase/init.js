@@ -32,6 +32,8 @@ export let deleteDoc = null;
 export let writeBatch = null;
 export let updateDoc = null;
 export let where = null;
+export let arrayUnion = null;
+export let arrayRemove = null;
 export let signInWithPopup = null;
 export let signInWithRedirect = null;
 export let getRedirectResult = null;
@@ -72,6 +74,8 @@ export async function initFirebase(config) {
       writeBatch = fsMod.writeBatch;
       updateDoc = fsMod.updateDoc;
       where = fsMod.where;
+      arrayUnion = fsMod.arrayUnion;
+      arrayRemove = fsMod.arrayRemove;
 
       // Populate Auth symbols
       signInWithPopup = authMod.signInWithPopup;

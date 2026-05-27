@@ -25,6 +25,7 @@ import { PROGRAM_TEMPLATES } from '../data/programs.js';
 import { SUPPLEMENTAL_TIERS } from '../constants/program-tiers.js';
 import { formatWeight } from '../formulas/units.js';
 import { formatPlates, roundToPlate } from '../formulas/plates.js';
+import { bestE1RM } from '../formulas/e1rm.js';
 import {
   getProgramWorkout,
   findFirstIncompleteWeek,
@@ -66,6 +67,14 @@ import {
   setWakeLockNeeded,
 } from '../ui/timer.js';
 import { isRouterResolving, pushRoute, clearOverlayState } from '../ui/router.js';
+import {
+  createSharedWorkout,
+  subscribeSharedWorkout,
+  unsubscribeSharedWorkout,
+  pushHostUpdate,
+  completeSharedWorkout,
+} from '../firebase/shared-workout.js';
+import { shareWorkoutCode } from '../ui/share.js';
 
 // ---------------------------------------------------------------------------
 // Progression badge text (category-specific)
@@ -114,6 +123,156 @@ const _deps = {};
  */
 export function setWorkoutOverlayDeps(deps) {
   Object.assign(_deps, deps);
+}
+
+// ---------------------------------------------------------------------------
+// Shared workout: persist helper + snapshot handler
+// ---------------------------------------------------------------------------
+
+/**
+ * Save the session locally and, if the user is the host of a shared workout,
+ * push the updated structure to Firestore (debounced 500ms).
+ */
+function persistSession() {
+  store.saveNow('workoutSession');
+  if (store.workoutSession?.shared?.role === 'host') {
+    pushHostUpdate(store.workoutSession);
+  }
+}
+
+/**
+ * Apply structural changes from the host's Firestore snapshot to the partner's
+ * local session. Called from the onSnapshot callback registered in
+ * openWorkoutView (partner path).
+ * @param {object} data - full Firestore doc data
+ */
+export function onSharedWorkoutUpdate(data) {
+  const session = store.workoutSession;
+  if (!session?.shared) return;
+
+  if (session.shared.role === 'host') {
+    // Host only needs the updated members map for the member count chip
+    session.shared.members = data.members || {};
+    renderWorkoutView();
+    return;
+  }
+
+  if (session.shared.role === 'partner') {
+    const hostSess = data.session;
+    if (!hostSess) return;
+
+    // Update host progress indicators
+    session.shared.hostProgress = {
+      mainSets: (hostSess.mainSets || []).map((s) => s.completed),
+      bbbSets: (hostSess.bbbSets || []).map((s) => s.completed),
+      accessories: (hostSess.accessories || []).map((a) => (a.setsCompleted || []).length),
+    };
+    session.shared.members = data.members || {};
+
+    // Toast once when host finishes
+    if (data.status === 'completed' && !session.shared._hostFinished) {
+      session.shared._hostFinished = true;
+      showToast(`${data.hostName} finished — keep going at your pace!`);
+    }
+
+    _applyHostStructuralChanges(hostSess, session);
+    persistSession();
+    renderWorkoutView();
+  }
+}
+
+/**
+ * Diff host's accessory/set list against partner's local session and apply
+ * additions, removals, and set-count changes.
+ */
+function _applyHostStructuralChanges(hostSess, session) {
+  const mainLift = session.mainLift;
+  const partnerTM = store.programConfig?.trainingMaxes?.[mainLift];
+
+  // Helper: compute weight for a set using partner's TM, fallback chain
+  function _setWeight(pct, hostW) {
+    if (!pct) return hostW ?? 0;
+    const refTM =
+      partnerTM ??
+      (bestE1RM(mainLift) != null ? bestE1RM(mainLift) * 0.9 : null) ??
+      hostW;
+    return refTM != null ? roundToPlate((refTM * pct) / 100) : (hostW ?? 0);
+  }
+
+  // Sync main set additions
+  const hMain = hostSess.mainSets || [];
+  for (let i = session.mainSets.length; i < hMain.length; i++) {
+    const s = hMain[i];
+    session.mainSets.push({
+      num: s.num,
+      weight: _setWeight(s.pct, s._hostWeight),
+      reps: s.reps,
+      pct: s.pct,
+      tier: s.tier,
+      day: s.day,
+      completed: false,
+      rpe: null,
+    });
+  }
+
+  // Sync BBB set additions
+  const hBBB = hostSess.bbbSets || [];
+  if (!session.bbbSets) session.bbbSets = [];
+  for (let i = session.bbbSets.length; i < hBBB.length; i++) {
+    const s = hBBB[i];
+    session.bbbSets.push({
+      num: s.num,
+      weight: _setWeight(s.pct, s._hostWeight),
+      reps: s.reps,
+      pct: s.pct,
+      tier: s.tier,
+      completed: false,
+    });
+  }
+
+  // Sync accessory changes
+  const hostAccs = hostSess.accessories || [];
+  const hostAccIds = new Set(hostAccs.map((a) => a.exerciseId));
+
+  // Mark removed accessories as detached (if partner has logged sets) or remove
+  for (const acc of session.accessories) {
+    if (acc._localOnly || acc._detached) continue;
+    if (!hostAccIds.has(acc.exerciseId)) {
+      if (acc.setsCompleted.length > 0) {
+        acc._detached = true;
+      } else {
+        acc._removed = true;
+      }
+    }
+  }
+  session.accessories = session.accessories.filter((a) => !a._removed);
+
+  // Add new accessories and sync set counts on existing ones
+  for (const hostAcc of hostAccs) {
+    const existing = session.accessories.find(
+      (a) => a.exerciseId === hostAcc.exerciseId && !a._localOnly && !a._detached
+    );
+    if (!existing) {
+      const w = getAccessoryWeight(hostAcc.exerciseId, mainLift) || (hostAcc._hostWeights?.[0] ?? 0);
+      session.accessories.push({
+        exerciseId: hostAcc.exerciseId,
+        name: hostAcc.name,
+        setWeights: computeSetWeights(w, hostAcc.targetSets),
+        targetSets: hostAcc.targetSets,
+        repRange: hostAcc.repRange,
+        equipment: hostAcc.equipment,
+        setsCompleted: [],
+        progressed: false,
+      });
+    } else if (hostAcc.targetSets > existing.targetSets) {
+      // Host added sets — extend partner's setWeights array
+      const lastW = existing.setWeights[existing.setWeights.length - 1] ?? 0;
+      for (let i = existing.targetSets; i < hostAcc.targetSets; i++) {
+        existing.setWeights.push(lastW);
+      }
+      existing.targetSets = hostAcc.targetSets;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -296,7 +455,7 @@ function createWorkoutSession(mainLift) {
     }));
   }
   store.workoutSession = session;
-  store.saveWorkoutSession();
+  persistSession();
 
   // Session Optimizer: generate coaching plan. Wrap so an error here never
   // blocks the workout overlay from opening — renderWorkoutView will retry
@@ -344,7 +503,7 @@ export function createTravelSession(grouping, equipmentOverride) {
   };
 
   store.workoutSession = session;
-  store.saveWorkoutSession();
+  persistSession();
   store._sessionOptimizer = null;
   return session;
 }
@@ -431,7 +590,7 @@ function _completeMainSet(idx) {
     if (progResult) applyProgression(progResult);
   }
   store.saveProgramConfig();
-  store.saveWorkoutSession();
+  persistSession();
   startTimer(store.timerDuration);
   if (navigator.vibrate) navigator.vibrate(50);
 }
@@ -595,11 +754,33 @@ export function renderWorkoutView() {
 
   const body = $('workout-body');
   const lift = store.workoutSession.mainLift;
+  const _sharedRole = store.workoutSession.shared?.role ?? null;
+
+  // Show/hide the share button based on role
+  const _shareBtn = $('workout-share');
+  if (_shareBtn) {
+    const _hasCode = !!store.workoutSession.shared?.code;
+    _shareBtn.style.display = _sharedRole === 'partner' ? 'none' : '';
+    _shareBtn.title = _hasCode
+      ? `Shared \u2014 code: ${store.workoutSession.shared.code}`
+      : 'Share this workout';
+    _shareBtn.innerHTML = _hasCode ? '&#128279;&#10003;' : '&#128279;';
+    _shareBtn.classList.toggle('active', _hasCode);
+  }
+
   $('workout-title').textContent = LIFT_NAMES[lift] + ' Workout';
   const weekLabel = store.workoutSession.programWeek
     ? ` \u2014 Week ${store.workoutSession.programWeek}`
     : '';
-  $('workout-subtitle').textContent = store.workoutSession.date + weekLabel;
+  let _subtitleExtra = '';
+  if (_sharedRole === 'host') {
+    const memberCount = Object.keys(store.workoutSession.shared?.members ?? {}).length;
+    if (memberCount > 1) _subtitleExtra = ` \u00b7 ${memberCount - 1} training with you`;
+    else _subtitleExtra = ' \u00b7 Shared \u2014 waiting for partners';
+  } else if (_sharedRole === 'partner') {
+    _subtitleExtra = ` \u00b7 Joined ${store.workoutSession.shared.hostName}'s workout`;
+  }
+  $('workout-subtitle').textContent = store.workoutSession.date + weekLabel + _subtitleExtra;
   let html = '';
 
   // Session Optimizer coaching card — ensure the stored plan belongs to this
@@ -669,12 +850,17 @@ export function renderWorkoutView() {
   }
   if (store.workoutSession.mainSets.length > 0) {
     html += `<div class="workout-exercise-meta">Program sets \u2014 tap to log</div>`;
+    const _hostMainProgress = store.workoutSession.shared?.hostProgress?.mainSets ?? [];
+    const _hostName = store.workoutSession.shared?.hostName ?? '';
     store.workoutSession.mainSets.forEach((s, i) => {
       if (s._dropped) return; // Dropped by session optimizer
       const isAmrap = typeof s.reps === 'string' && s.reps.toString().includes('+');
       const repDisplay = s.reps;
       const plateStr = formatPlates(s.weight);
       const rpeLabel = s.completed && s.rpe ? ` @ RPE ${s.rpe}` : '';
+      const hostDoneChip = _sharedRole === 'partner' && _hostMainProgress[i]
+        ? `<span class="shared-host-chip" title="${_hostName} completed this set">${_hostName.charAt(0)} &#10003;</span>`
+        : '';
       html += `<div class="workout-set-row${s.completed ? ' completed' : ''}" data-type="main" data-idx="${i}">
         <div class="workout-set-check">${s.completed ? '&#10003;' : ''}</div>
         <div class="workout-set-info">
@@ -683,6 +869,7 @@ export function renderWorkoutView() {
           ${isAmrap ? '<span class="amrap-badge">AMRAP</span>' : ''}
           ${plateStr ? `<div class="plate-display">${plateStr} /side</div>` : ''}
         </div>
+        ${hostDoneChip}
         ${isAmrap ? `<input type="number" class="workout-set-input" data-main-amrap="${i}" placeholder="${s.reps}" min="1" inputmode="numeric" ${s.completed ? 'disabled' : ''}>` : ''}
       </div>`;
     });
@@ -701,9 +888,13 @@ export function renderWorkoutView() {
     html += `<div class="workout-exercise-name" style="color:var(--text-dim)">${suppLabel}</div>`;
     const activeBBB = store.workoutSession.bbbSets.filter((s) => !s._dropped);
     html += `<div class="workout-exercise-meta">${activeBBB.length}&times;${store.workoutSession.bbbSets[0].reps} at ${store.workoutSession.bbbSets[0].pct}%</div>`;
+    const _hostBBBProgress = store.workoutSession.shared?.hostProgress?.bbbSets ?? [];
     activeBBB.forEach((s, i) => {
       const plateStr = formatPlates(s.weight);
       const origIdx = store.workoutSession.bbbSets.indexOf(s);
+      const hostBBBChip = _sharedRole === 'partner' && _hostBBBProgress[origIdx]
+        ? `<span class="shared-host-chip" title="${_hostName} completed this set">${_hostName.charAt(0)} &#10003;</span>`
+        : '';
       html += `<div class="workout-set-row${s.completed ? ' completed' : ''}" data-type="bbb" data-idx="${origIdx}">
         <div class="workout-set-check">${s.completed ? '&#10003;' : ''}</div>
         <div class="workout-set-info">
@@ -711,6 +902,7 @@ export function renderWorkoutView() {
           <span style="color:var(--text-dim);font-size:var(--text-xs)"> (${s.pct}%)</span>
           ${plateStr ? `<div class="plate-display">${plateStr} /side</div>` : ''}
         </div>
+        ${hostBBBChip}
       </div>`;
     });
     html += `<button class="workout-add-set-btn" data-add-bbb-set>+ Add Set</button>`;
@@ -734,12 +926,13 @@ export function renderWorkoutView() {
       : !ex || ex.pctOfTM === 0;
     const isTimeBased = catalogEx ? !!catalogEx.timeBased : !!(ex && ex.timeBased);
     const targetReps = acc.repRange[1];
-    html += `<div class="workout-exercise">`;
+    html += `<div class="workout-exercise"${acc._detached ? ' data-detached="true"' : ''}>`;
     const tierBadge =
       acc._tier && REP_TIERS[acc._tier]
         ? `<span class="acc-tier-badge ${acc._tier}">${REP_TIERS[acc._tier].label}</span>`
         : '';
-    html += `<div class="workout-exercise-name" data-exid="${acc.exerciseId}" data-acc-toggle="${ai}">${acc.name}${tierBadge}${acc.progressed ? `<span class="acc-progression-badge">${getProgressionBadgeText(acc)}</span>` : ''}</div>`;
+    const detachedBadge = acc._detached ? `<span class="acc-detached-badge" title="Removed from shared workout — your progress is kept">Local</span>` : '';
+    html += `<div class="workout-exercise-name" data-exid="${acc.exerciseId}" data-acc-toggle="${ai}">${acc.name}${tierBadge}${detachedBadge}${acc.progressed ? `<span class="acc-progression-badge">${getProgressionBadgeText(acc)}</span>` : ''}</div>`;
     html += `<div class="acc-action-bar" id="acc-action-bar-${ai}" style="display:none">
       <button class="acc-swap-btn" data-acc-swap="${ai}">&#8644; Swap</button>
       <button class="acc-remove-btn" data-acc-remove="${ai}">&times; Remove</button>
@@ -798,6 +991,7 @@ export function renderWorkoutView() {
     }
 
     // Set rows with per-set weights
+    const _hostAccProgress = store.workoutSession.shared?.hostProgress?.accessories?.[ai] ?? 0;
     for (let si = 0; si < acc.targetSets; si++) {
       const done = si < acc.setsCompleted.length;
       const repsVal = done ? acc.setsCompleted[si] : '';
@@ -818,6 +1012,9 @@ export function renderWorkoutView() {
         store.exerciseTimer &&
         store.exerciseTimer.accIdx === ai &&
         store.exerciseTimer.setIdx === si;
+      const _hostAccChip = _sharedRole === 'partner' && _hostAccProgress > si
+        ? `<span class="shared-host-chip" title="${_hostName} completed this set">${_hostName.charAt(0)} &#10003;</span>`
+        : '';
       html += `<div class="workout-set-row${done ? ' completed' : ''}${isCountingDown ? ' counting-down' : ''}" data-type="acc" data-acc="${ai}" data-set="${si}"${isTimeBased ? ' data-time-based="true"' : ''}>
         <div class="workout-set-check">${done ? '&#10003;' : ''}</div>
         <div class="workout-set-info">
@@ -866,6 +1063,7 @@ export function renderWorkoutView() {
             : ''
         }
         ${!done && !isTimeBased ? `<input type="number" class="workout-set-input" data-acc-input="${ai}-${si}" placeholder="${perSetTarget}" min="1" inputmode="numeric">` : ''}
+        ${_hostAccChip}
       </div>`;
     }
     html += `<button class="workout-add-set-btn small" data-add-acc-set="${ai}">+ Set</button>`;
@@ -900,8 +1098,12 @@ export function renderWorkoutView() {
  * @param {string} mainLift - 'squat' | 'bench' | 'deadlift'
  */
 export async function openWorkoutView(mainLift) {
+  // Shared (partner) sessions are pre-built — skip weak-point setup check
+  const isSharedResume = store.workoutSession?.source === 'shared' &&
+    store.workoutSession?.mainLift === mainLift &&
+    !store.workoutSession?.completed;
   // Check if weak points configured
-  if (!store.workoutConfig.weakPoints[mainLift]) {
+  if (!isSharedResume && !store.workoutConfig.weakPoints[mainLift]) {
     _deps.showWeakPointSetupModal?.(mainLift);
     return;
   }
@@ -933,6 +1135,10 @@ export async function openWorkoutView(mainLift) {
         delete acc.weight;
       }
     });
+    // Re-subscribe to shared workout if resuming a shared session
+    if (store.workoutSession.shared?.code) {
+      subscribeSharedWorkout(store.workoutSession.shared.code, onSharedWorkoutUpdate);
+    }
   } else {
     // Warn if there's an in-progress session for a different lift
     if (
@@ -1120,9 +1326,17 @@ export function completeWorkout() {
     /* best-effort — never block workout completion */
   }
 
+  // Shared workout: notify partners and tear down listener
+  if (completedSession.shared?.code) {
+    if (completedSession.shared.role === 'host') {
+      completeSharedWorkout(completedSession.shared.code);
+    }
+    unsubscribeSharedWorkout();
+  }
+
   store.workoutSession = null;
   store._sessionOptimizer = null; // Clear ephemeral optimizer state
-  store.saveWorkoutSession();
+  persistSession();
   closeWorkoutView();
   showToast('Workout complete!');
   if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
@@ -1289,7 +1503,7 @@ export function initWorkoutOverlay() {
         cancelExerciseTimer();
       }
       store.workoutSession.accessories.splice(ai, 1);
-      store.saveWorkoutSession();
+      persistSession();
       renderWorkoutView();
       showToast(`${acc.name} removed`, {
         action: 'Undo',
@@ -1298,7 +1512,7 @@ export function initWorkoutOverlay() {
           if (!store.workoutSession) return;
           const insertAt = Math.min(ai, store.workoutSession.accessories.length);
           store.workoutSession.accessories.splice(insertAt, 0, snapshot);
-          store.saveWorkoutSession();
+          persistSession();
           renderWorkoutView();
         },
       });
@@ -1373,7 +1587,7 @@ export function initWorkoutOverlay() {
             _progressionMessage: px.message,
             _progressionAction: px.action,
           };
-          store.saveWorkoutSession();
+          persistSession();
           renderWorkoutView();
           showToast(`Swapped to ${alt.name}`);
         });
@@ -1399,7 +1613,7 @@ export function initWorkoutOverlay() {
       acc.setWeights[si] = isBWExercise
         ? roundToPlate(newWeight)
         : roundToPlate(Math.max(0, newWeight));
-      store.saveWorkoutSession();
+      persistSession();
       renderWorkoutView();
       return;
     }
@@ -1417,7 +1631,7 @@ export function initWorkoutOverlay() {
       if (Array.isArray(acc._targetReps)) {
         acc._targetReps = acc._targetReps.map((t) => Math.max(5, t + delta));
       }
-      store.saveWorkoutSession();
+      persistSession();
       renderWorkoutView();
       return;
     }
@@ -1428,7 +1642,7 @@ export function initWorkoutOverlay() {
       if (sets.length > 0) {
         const last = sets[sets.length - 1];
         sets.push({ ...last, num: sets.length + 1, completed: false });
-        store.saveWorkoutSession();
+        persistSession();
         renderWorkoutView();
       }
       return;
@@ -1440,7 +1654,7 @@ export function initWorkoutOverlay() {
       if (sets && sets.length > 0) {
         const last = sets[sets.length - 1];
         sets.push({ ...last, num: sets.length + 1, completed: false });
-        store.saveWorkoutSession();
+        persistSession();
         renderWorkoutView();
       }
       return;
@@ -1457,7 +1671,7 @@ export function initWorkoutOverlay() {
       if (Array.isArray(acc._targetReps) && acc._targetReps.length > 0) {
         acc._targetReps.push(acc._targetReps[acc._targetReps.length - 1]);
       }
-      store.saveWorkoutSession();
+      persistSession();
       renderWorkoutView();
       return;
     }
@@ -1517,8 +1731,11 @@ export function initWorkoutOverlay() {
         _targetReps: px.targetReps,
         _progressionMessage: px.message,
         _progressionAction: px.action,
+        // Partners can add their own exercises — mark as local-only so they
+        // don't get pushed back to the host's shared workout doc.
+        _localOnly: store.workoutSession.shared?.role === 'partner' ? true : undefined,
       });
-      store.saveWorkoutSession();
+      persistSession();
       renderWorkoutView();
       showToast(`Added ${catalogEx.name}`);
       return;
@@ -1546,7 +1763,7 @@ export function initWorkoutOverlay() {
         delete store.programConfig.amrapResults[key];
         delete store.programConfig.completedSetData[key];
         store.saveProgramConfig();
-        store.saveWorkoutSession();
+        persistSession();
         renderWorkoutView();
         _deps.renderProgramSection?.();
       } else {
@@ -1597,7 +1814,7 @@ export function initWorkoutOverlay() {
                 store.saveEntries();
               }
             }
-            store.saveWorkoutSession();
+            persistSession();
             // Update the set row display
             const infoEl = completedRow.querySelector('.workout-set-info');
             if (infoEl) {
@@ -1652,7 +1869,7 @@ export function initWorkoutOverlay() {
         startTimer(store.timerDuration);
         if (navigator.vibrate) navigator.vibrate(50);
       }
-      store.saveWorkoutSession();
+      persistSession();
       renderWorkoutView();
       return;
     }
@@ -1699,11 +1916,45 @@ export function initWorkoutOverlay() {
         startTimer(store.timerDuration);
         if (navigator.vibrate) navigator.vibrate(50);
       }
-      store.saveWorkoutSession();
+      persistSession();
       renderWorkoutView();
       return;
     }
   });
+
+  // Inject Share button into the workout header (before the close button)
+  const _closeBtn = $('workout-close');
+  if (_closeBtn) {
+    const _shareBtn = document.createElement('button');
+    _shareBtn.className = 'workout-share-btn';
+    _shareBtn.id = 'workout-share';
+    _shareBtn.title = 'Share this workout';
+    _shareBtn.innerHTML = '&#128279;';
+    _shareBtn.style.display = 'none';
+    _closeBtn.parentNode.insertBefore(_shareBtn, _closeBtn);
+    _shareBtn.addEventListener('click', async () => {
+      const session = store.workoutSession;
+      if (!session) return;
+      try {
+        if (!session.shared?.code) {
+          const code = await createSharedWorkout(session);
+          session.shared = {
+            role: 'host',
+            code,
+            hostUid: null,
+            hostName: null,
+            members: {},
+            hostProgress: null,
+          };
+          persistSession();
+          subscribeSharedWorkout(code, onSharedWorkoutUpdate);
+        }
+        shareWorkoutCode(session.shared.code);
+      } catch (err) {
+        showToast('Could not share: ' + (err.message || err));
+      }
+    });
+  }
 
   // Complete & discard buttons
   $('workout-complete-btn').addEventListener('click', completeWorkout);
@@ -1756,9 +2007,10 @@ export function initWorkoutOverlay() {
       });
       store.saveProgramConfig();
     }
+    if (session?.shared?.code) unsubscribeSharedWorkout();
     store.workoutSession = null;
     store._sessionOptimizer = null; // keep lifecycle symmetric with completeWorkout
-    store.saveWorkoutSession();
+    persistSession();
     closeWorkoutView();
     _deps.updateDashboard?.();
     showToast('Workout discarded');

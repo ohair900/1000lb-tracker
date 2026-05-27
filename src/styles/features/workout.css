@@ -751,3 +751,64 @@
   background: var(--green);
   color: #fff;
 }
+
+/* ===== Shared workout ===== */
+
+.workout-share-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 1.1rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast);
+  margin-right: var(--space-2);
+}
+.workout-share-btn:hover {
+  background: var(--border);
+}
+.workout-share-btn.active {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent);
+}
+
+/* Small chip showing that the host completed this set */
+.shared-host-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  margin-left: 4px;
+  vertical-align: middle;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+}
+
+/* Badge on accessories removed from the shared workout */
+.acc-detached-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--text-dim) 15%, transparent);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* Detached accessories rendered slightly dimmed */
+.workout-accessory-group[data-detached='true'] {
+  opacity: 0.65;
+}
