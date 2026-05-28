@@ -769,23 +769,20 @@ export function renderWorkoutView() {
     _subtitleExtra = ` \u00b7 Joined ${store.workoutSession.shared.hostName}'s workout`;
   }
   $('workout-subtitle').textContent = store.workoutSession.date + weekLabel + _subtitleExtra;
-  let html = '';
 
-  // Share banner rendered inside the body (click delegation via workout-body)
-  if (_sharedRole !== 'partner') {
+  // Update share button label/visibility (static element in index.src.html)
+  const _shareBtn = $('workout-share');
+  if (_shareBtn) {
     const _hasCode = !!store.workoutSession.shared?.code;
-    const _codeText = _hasCode
-      ? `Code: ${store.workoutSession.shared.code}`
-      : "Train alongside a friend — they'll see your sets live";
-    html += `
-      <div class="share-banner ${_hasCode ? 'is-sharing' : ''}">
-        <div class="share-banner-text">${_codeText}</div>
-        <button class="share-banner-btn" data-share-action type="button">
-          ${_hasCode ? 'Re-share' : 'Share'}
-        </button>
-      </div>
-    `;
+    _shareBtn.style.display = _sharedRole === 'partner' ? 'none' : '';
+    _shareBtn.textContent = _hasCode ? 'Sharing ✓' : 'Share';
+    _shareBtn.title = _hasCode
+      ? 'Code: ' + store.workoutSession.shared.code + ' — tap to re-share'
+      : 'Share this workout with a training partner';
+    _shareBtn.classList.toggle('active', _hasCode);
   }
+
+  let html = '';
 
   // Session Optimizer coaching card — ensure the stored plan belongs to this
   // session. If it's missing or belongs to a prior lift, regenerate it in
@@ -1417,34 +1414,6 @@ export function initWorkoutOverlay() {
   body.addEventListener('click', (e) => {
     if (!store.workoutSession) return;
 
-    // Share banner button
-    if (e.target.closest('[data-share-action]')) {
-      const session = store.workoutSession;
-      (async () => {
-        try {
-          if (!session.shared?.code) {
-            const code = await createSharedWorkout(session);
-            session.shared = {
-              role: 'host',
-              code,
-              hostUid: null,
-              hostName: null,
-              members: {},
-              hostProgress: null,
-            };
-            persistSession();
-            subscribeSharedWorkout(code, onSharedWorkoutUpdate);
-            renderWorkoutView();
-          }
-          shareWorkoutCode(session.shared.code);
-        } catch (err) {
-          console.error('[share] click handler failed:', err);
-          showToast('Could not share: ' + (err.message || err));
-        }
-      })();
-      return;
-    }
-
     // Session Optimizer: coaching card toggle
     if (e.target.closest('[data-coach-toggle]')) {
       const card = document.getElementById('coach-card');
@@ -1963,6 +1932,43 @@ export function initWorkoutOverlay() {
       return;
     }
   });
+
+  // Wire the share button (static element in index.src.html)
+  const _shareEl = $('workout-share');
+  if (_shareEl) {
+    const _handleShare = async () => {
+      const session = store.workoutSession;
+      if (!session) {
+        showToast('Start a workout before sharing');
+        return;
+      }
+      try {
+        if (!session.shared?.code) {
+          const code = await createSharedWorkout(session);
+          session.shared = {
+            role: 'host',
+            code,
+            hostUid: null,
+            hostName: null,
+            members: {},
+            hostProgress: null,
+          };
+          persistSession();
+          subscribeSharedWorkout(code, onSharedWorkoutUpdate);
+          renderWorkoutView();
+        }
+        shareWorkoutCode(session.shared.code);
+      } catch (err) {
+        console.error('[share] click handler failed:', err);
+        showToast('Could not share: ' + (err.message || err));
+      }
+    };
+    _shareEl.addEventListener('click', _handleShare);
+    _shareEl.addEventListener('pointerup', (e) => {
+      e.preventDefault();
+      _handleShare();
+    });
+  }
 
   // Complete & discard buttons
   $('workout-complete-btn').addEventListener('click', completeWorkout);

@@ -734,44 +734,31 @@
 
 /* ===== Shared workout ===== */
 
-.share-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  margin-bottom: var(--space-3);
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border));
-  border-radius: var(--radius-md);
-}
-.share-banner.is-sharing {
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
-}
-.share-banner-text {
+.workout-share-btn {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
   font-size: 0.85rem;
-  color: var(--text-dim);
-  font-weight: 500;
-}
-.share-banner.is-sharing .share-banner-text {
-  color: var(--accent);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.share-banner-btn {
-  flex-shrink: 0;
-  height: 32px;
-  padding: 0 14px;
-  border: none;
-  background: var(--accent);
-  color: var(--bg);
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 600;
   border-radius: var(--radius-md);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast);
+  margin-right: var(--space-2);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-.share-banner-btn:active {
-  transform: scale(0.97);
+.workout-share-btn:hover {
+  background: var(--border);
+}
+.workout-share-btn.active {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 /* Small chip showing that the host completed this set */
