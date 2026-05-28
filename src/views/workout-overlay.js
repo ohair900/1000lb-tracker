@@ -175,7 +175,11 @@ export function onSharedWorkoutUpdate(data) {
       showToast(`${data.hostName} finished — keep going at your pace!`);
     }
 
-    _applyHostStructuralChanges(hostSess, session);
+    try {
+      _applyHostStructuralChanges(hostSess, session);
+    } catch (err) {
+      console.error('[shared] _applyHostStructuralChanges failed:', err);
+    }
     persistSession();
     renderWorkoutView();
   }
@@ -1428,6 +1432,7 @@ export function initWorkoutOverlay() {
         const evaluation = optimizer.evaluations.find((ev) => ev.setIndex === evalIdx);
         if (evaluation) {
           applyAdjustments(evaluation);
+          persistSession();
           renderWorkoutView();
           showToast('Adjustments applied');
         }
@@ -1445,6 +1450,7 @@ export function initWorkoutOverlay() {
         (plan.insights || []).forEach((ins) => {
           if (ins.type === 'volume') ins._accepted = true;
         });
+        persistSession();
         renderWorkoutView();
       }
       return;
@@ -1463,6 +1469,7 @@ export function initWorkoutOverlay() {
           (plan.insights || []).forEach((ins) => {
             if (ins.type === 'gap' && ins.swapIndex === idx) ins._accepted = true;
           });
+          persistSession();
           renderWorkoutView();
           if (result === 'added') {
             showToast(`${swap.suggestedName} added`);

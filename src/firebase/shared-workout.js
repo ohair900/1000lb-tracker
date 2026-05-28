@@ -214,10 +214,20 @@ export function subscribeSharedWorkout(code, onUpdate) {
     _unsub = null;
   }
   if (!db || !code) return;
-  _unsub = onSnapshot(doc(db, 'sharedWorkouts', code), (snap) => {
-    if (!snap.exists()) return;
-    onUpdate(snap.data());
-  });
+  _unsub = onSnapshot(
+    doc(db, 'sharedWorkouts', code),
+    (snap) => {
+      if (!snap.exists()) return;
+      onUpdate(snap.data());
+    },
+    (err) => {
+      // Subscription error (permissions, network, etc.) — log and re-subscribe
+      // after a brief delay so transient failures self-heal.
+      console.error('[shared] onSnapshot error — will retry in 3s:', err);
+      _unsub = null;
+      setTimeout(() => subscribeSharedWorkout(code, onUpdate), 3000);
+    }
+  );
 }
 
 /**
