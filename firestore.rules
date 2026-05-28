@@ -20,9 +20,17 @@ service cloud.firestore {
       // Create: signed-in user must be the designated host
       allow create: if request.auth != null
         && request.auth.uid == request.resource.data.hostUid;
-      // Update: any current member (host pushes structure, partners push presence)
+      // Update: existing member (host pushes structure, partners push presence)
+      // OR a new partner joining an active workout (adds self, doesn't remove anyone)
       allow update: if request.auth != null
-        && request.auth.uid in resource.data.memberUids;
+        && (
+          request.auth.uid in resource.data.memberUids
+          || (
+            resource.data.status == 'active'
+            && request.auth.uid in request.resource.data.memberUids
+            && request.resource.data.memberUids.hasAll(resource.data.memberUids)
+          )
+        );
       // Delete: host only (TTL policy handles the 24h auto-delete)
       allow delete: if request.auth != null
         && request.auth.uid == resource.data.hostUid;
