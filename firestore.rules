@@ -14,9 +14,9 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
     match /sharedWorkouts/{shareCode} {
-      // Read: any signed-in member of this workout
-      allow read: if request.auth != null
-        && request.auth.uid in resource.data.memberUids;
+      // Read: any signed-in user (share code acts as the secret;
+      // needed for existence checks during code generation and for join-before-member reads)
+      allow read: if request.auth != null;
       // Create: signed-in user must be the designated host
       allow create: if request.auth != null
         && request.auth.uid == request.resource.data.hostUid;
