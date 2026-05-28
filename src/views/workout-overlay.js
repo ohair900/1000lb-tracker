@@ -756,18 +756,6 @@ export function renderWorkoutView() {
   const _sharedRole = store.workoutSession.shared?.role ?? null;
   const _hostName = store.workoutSession.shared?.hostName ?? '';
 
-  // Show/hide the share button based on role
-  const _shareBtn = $('workout-share');
-  if (_shareBtn) {
-    const _hasCode = !!store.workoutSession.shared?.code;
-    _shareBtn.style.display = _sharedRole === 'partner' ? 'none' : '';
-    _shareBtn.title = _hasCode
-      ? `Shared \u2014 code: ${store.workoutSession.shared.code}`
-      : 'Share this workout';
-    _shareBtn.textContent = _hasCode ? 'Sharing ✓' : 'Share';
-    _shareBtn.classList.toggle('active', _hasCode);
-  }
-
   $('workout-title').textContent = LIFT_NAMES[lift] + ' Workout';
   const weekLabel = store.workoutSession.programWeek
     ? ` \u2014 Week ${store.workoutSession.programWeek}`
@@ -782,6 +770,22 @@ export function renderWorkoutView() {
   }
   $('workout-subtitle').textContent = store.workoutSession.date + weekLabel + _subtitleExtra;
   let html = '';
+
+  // Share banner rendered inside the body (click delegation via workout-body)
+  if (_sharedRole !== 'partner') {
+    const _hasCode = !!store.workoutSession.shared?.code;
+    const _codeText = _hasCode
+      ? `Code: ${store.workoutSession.shared.code}`
+      : "Train alongside a friend — they'll see your sets live";
+    html += `
+      <div class="share-banner ${_hasCode ? 'is-sharing' : ''}">
+        <div class="share-banner-text">${_codeText}</div>
+        <button class="share-banner-btn" data-share-action type="button">
+          ${_hasCode ? 'Re-share' : 'Share'}
+        </button>
+      </div>
+    `;
+  }
 
   // Session Optimizer coaching card — ensure the stored plan belongs to this
   // session. If it's missing or belongs to a prior lift, regenerate it in
@@ -1413,6 +1417,34 @@ export function initWorkoutOverlay() {
   body.addEventListener('click', (e) => {
     if (!store.workoutSession) return;
 
+    // Share banner button
+    if (e.target.closest('[data-share-action]')) {
+      const session = store.workoutSession;
+      (async () => {
+        try {
+          if (!session.shared?.code) {
+            const code = await createSharedWorkout(session);
+            session.shared = {
+              role: 'host',
+              code,
+              hostUid: null,
+              hostName: null,
+              members: {},
+              hostProgress: null,
+            };
+            persistSession();
+            subscribeSharedWorkout(code, onSharedWorkoutUpdate);
+            renderWorkoutView();
+          }
+          shareWorkoutCode(session.shared.code);
+        } catch (err) {
+          console.error('[share] click handler failed:', err);
+          showToast('Could not share: ' + (err.message || err));
+        }
+      })();
+      return;
+    }
+
     // Session Optimizer: coaching card toggle
     if (e.target.closest('[data-coach-toggle]')) {
       const card = document.getElementById('coach-card');
@@ -1931,45 +1963,6 @@ export function initWorkoutOverlay() {
       return;
     }
   });
-
-  // Inject Share button into the workout header (before the close button)
-  const _closeBtn = $('workout-close');
-  if (_closeBtn) {
-    const _shareBtn = document.createElement('button');
-    _shareBtn.className = 'workout-share-btn';
-    _shareBtn.id = 'workout-share';
-    _shareBtn.title = 'Share this workout';
-    _shareBtn.textContent = 'Share';
-    _shareBtn.style.display = 'none';
-    _closeBtn.parentNode.insertBefore(_shareBtn, _closeBtn);
-    _shareBtn.addEventListener('click', async () => {
-      const session = store.workoutSession;
-      if (!session) {
-        showToast('Start a workout before sharing');
-        return;
-      }
-      try {
-        if (!session.shared?.code) {
-          const code = await createSharedWorkout(session);
-          session.shared = {
-            role: 'host',
-            code,
-            hostUid: null,
-            hostName: null,
-            members: {},
-            hostProgress: null,
-          };
-          persistSession();
-          subscribeSharedWorkout(code, onSharedWorkoutUpdate);
-          renderWorkoutView();
-        }
-        shareWorkoutCode(session.shared.code);
-      } catch (err) {
-        console.error('[share] click handler failed:', err);
-        showToast('Could not share: ' + (err.message || err));
-      }
-    });
-  }
 
   // Complete & discard buttons
   $('workout-complete-btn').addEventListener('click', completeWorkout);
