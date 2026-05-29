@@ -85,7 +85,11 @@ import {
   triggerLiftCompleteCelebration,
 } from './ui/confetti.js';
 import { sharePRCard, shareMilestoneCard } from './ui/share.js';
-import { subscribeSharedWorkout, unsubscribeSharedWorkout } from './firebase/shared-workout.js';
+import {
+  subscribeSharedWorkout,
+  unsubscribeSharedWorkout,
+  flushHostUpdate,
+} from './firebase/shared-workout.js';
 import { onSharedWorkoutUpdate } from './views/workout-overlay.js';
 import { initSwipeToDelete, setSwipeDeps } from './ui/swipe.js';
 import { initSheetListeners, closeChoiceSheet, openFatigueSheet } from './ui/sheet.js';
@@ -886,6 +890,7 @@ document.addEventListener('visibilitychange', () => {
     store._flush(); // Flush any pending localStorage writes before tab goes away
     flushPendingSync();
     stopRealtimeSync(); // #4: detach listener when backgrounded
+    flushHostUpdate();
     unsubscribeSharedWorkout();
   } else {
     startRealtimeSync(); // #4: reattach when foregrounded

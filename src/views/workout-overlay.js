@@ -135,7 +135,9 @@ export function setWorkoutOverlayDeps(deps) {
  */
 function persistSession() {
   store.saveNow('workoutSession');
-  if (store.workoutSession?.shared?.role === 'host') {
+  const role = store.workoutSession?.shared?.role;
+  if (role === 'host') {
+    console.log('[shared/host] persistSession -> push');
     pushHostUpdate(store.workoutSession);
   }
 }
@@ -148,6 +150,11 @@ function persistSession() {
  */
 export function onSharedWorkoutUpdate(data) {
   const session = store.workoutSession;
+  console.log('[shared/partner] onSharedWorkoutUpdate', {
+    role: session?.shared?.role,
+    haveSession: !!session,
+    haveHostSess: !!data?.session,
+  });
   if (!session?.shared) return;
 
   if (session.shared.role === 'host') {
@@ -160,6 +167,19 @@ export function onSharedWorkoutUpdate(data) {
   if (session.shared.role === 'partner') {
     const hostSess = data.session;
     if (!hostSess) return;
+
+    // Stale-snapshot guard: drop updates older than the last one we processed
+    const incomingTs = data.updatedAt?.toMillis?.() ?? 0;
+    if (incomingTs && session.shared._lastSyncTs && incomingTs < session.shared._lastSyncTs) {
+      console.warn(
+        '[shared/partner] dropping stale snapshot',
+        incomingTs,
+        '<',
+        session.shared._lastSyncTs
+      );
+      return;
+    }
+    if (incomingTs) session.shared._lastSyncTs = incomingTs;
 
     // Update host progress indicators
     session.shared.hostProgress = {
@@ -235,6 +255,11 @@ function _applyHostStructuralChanges(hostSess, session) {
   // Sync accessory changes
   const hostAccs = hostSess.accessories || [];
   const hostAccIds = new Set(hostAccs.map((a) => a.exerciseId));
+
+  const toRemove = session.accessories
+    .filter((a) => !a._localOnly && !a._detached && !hostAccIds.has(a.exerciseId))
+    .map((a) => a.exerciseId);
+  if (toRemove.length) console.log('[shared/partner] removing accessories', toRemove);
 
   // Mark removed accessories as detached (if partner has logged sets) or remove
   for (const acc of session.accessories) {
@@ -942,8 +967,12 @@ export function renderWorkoutView() {
       : '';
     html += `<div class="workout-exercise-name" data-exid="${acc.exerciseId}" data-acc-toggle="${ai}">${acc.name}${tierBadge}${detachedBadge}${acc.progressed ? `<span class="acc-progression-badge">${getProgressionBadgeText(acc)}</span>` : ''}</div>`;
     html += `<div class="acc-action-bar" id="acc-action-bar-${ai}" style="display:none">
-      <button class="acc-swap-btn" data-acc-swap="${ai}">&#8644; Swap</button>
-      <button class="acc-remove-btn" data-acc-remove="${ai}">&times; Remove</button>
+      ${
+        _sharedRole !== 'partner'
+          ? `<button class="acc-swap-btn" data-acc-swap="${ai}">&#8644; Swap</button>
+      <button class="acc-remove-btn" data-acc-remove="${ai}">&times; Remove</button>`
+          : ''
+      }
     </div>`;
     const accLogs = store.accessoryLog.filter((l) => l.exerciseId === acc.exerciseId);
     const accLogCount = new Set(accLogs.map((l) => l.date)).size;
@@ -1513,6 +1542,10 @@ export function initWorkoutOverlay() {
       const ai = parseInt(removeBtn.dataset.accRemove);
       const acc = store.workoutSession.accessories[ai];
       if (!acc) return;
+      console.log('[shared/host] removeAccessory', acc.exerciseId, {
+        role: store.workoutSession.shared?.role,
+        code: store.workoutSession.shared?.code,
+      });
       // Snapshot for undo (deep clone the accessory object)
       const snapshot = JSON.parse(JSON.stringify(acc));
       // Cancel any running exercise timer — index arithmetic is error-prone when

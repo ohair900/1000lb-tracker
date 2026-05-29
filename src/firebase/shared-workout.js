@@ -18,6 +18,7 @@ import {
 } from './init.js';
 import { currentUser } from './auth.js';
 import { EXERCISE_CATALOG } from '../data/exercise-catalog.js';
+import { showToast } from '../ui/toast.js';
 
 // ---------------------------------------------------------------------------
 // Internal state
@@ -25,6 +26,7 @@ import { EXERCISE_CATALOG } from '../data/exercise-catalog.js';
 
 let _unsub = null;
 let _pushTimer = null;
+let _pendingSession = null;
 
 // ---------------------------------------------------------------------------
 // Share code generator
@@ -70,7 +72,7 @@ export function buildSharedPayload(session) {
       _hostWeight: s.weight ?? 0,
     })),
     accessories: (session.accessories || [])
-      .filter((a) => !a._localOnly)
+      .filter((a) => !a._localOnly && !a._removed)
       .map((a) => ({
         exerciseId: a.exerciseId,
         name: a.name,
@@ -217,8 +219,17 @@ export function subscribeSharedWorkout(code, onUpdate) {
   _unsub = onSnapshot(
     doc(db, 'sharedWorkouts', code),
     (snap) => {
-      if (!snap.exists()) return;
-      onUpdate(snap.data());
+      if (!snap.exists()) {
+        console.warn('[shared/partner] snapshot: doc missing', code);
+        return;
+      }
+      const data = snap.data();
+      console.log('[shared/partner] snapshot received', code, {
+        updatedAt: data.updatedAt?.toMillis?.() ?? data.updatedAt,
+        mainSets: data.session?.mainSets?.length,
+        accessories: data.session?.accessories?.length,
+      });
+      onUpdate(data);
     },
     (err) => {
       // Subscription error (permissions, network, etc.) — log and re-subscribe
@@ -232,8 +243,10 @@ export function subscribeSharedWorkout(code, onUpdate) {
 
 /**
  * Tear down the shared workout listener.
+ * Flushes any pending host write first so no final mutation is lost.
  */
 export function unsubscribeSharedWorkout() {
+  flushHostUpdate();
   if (_unsub) {
     _unsub();
     _unsub = null;
@@ -246,18 +259,56 @@ export function unsubscribeSharedWorkout() {
 
 /**
  * Debounced push of the host's session structure to Firestore (500ms).
- * Safe to call on every mutation.
+ * Safe to call on every mutation. Stores a reference to the session so
+ * flushHostUpdate() can fire the write synchronously before teardown.
  * @param {object} session
  */
 export function pushHostUpdate(session) {
-  if (!currentUser || !db || !session?.shared?.code) return;
+  const code = session?.shared?.code;
+  if (!currentUser || !db || !code) {
+    console.warn('[shared/host] pushHostUpdate skipped', {
+      hasUser: !!currentUser,
+      hasDb: !!db,
+      code,
+    });
+    return;
+  }
+  _pendingSession = session;
   clearTimeout(_pushTimer);
-  _pushTimer = setTimeout(() => {
-    updateDoc(doc(db, 'sharedWorkouts', session.shared.code), {
-      session: buildSharedPayload(session),
-      updatedAt: serverTimestamp(),
-    }).catch((err) => console.warn('[shared] pushHostUpdate failed:', err));
-  }, 500);
+  console.log('[shared/host] pushHostUpdate queued', code);
+  _pushTimer = setTimeout(_flushPendingWrite, 500);
+}
+
+function _flushPendingWrite() {
+  if (!_pendingSession) return;
+  const session = _pendingSession;
+  const code = session.shared.code;
+  _pendingSession = null;
+  _pushTimer = null;
+  console.log('[shared/host] pushHostUpdate firing', code, {
+    mainSets: session.mainSets?.length,
+    bbbSets: session.bbbSets?.length,
+    accessories: session.accessories?.length,
+  });
+  updateDoc(doc(db, 'sharedWorkouts', code), {
+    session: buildSharedPayload(session),
+    updatedAt: serverTimestamp(),
+  })
+    .then(() => console.log('[shared/fb] write OK', code))
+    .catch((err) => {
+      console.error('[shared/fb] write FAILED', code, err);
+      showToast('Shared sync failed — check console');
+    });
+}
+
+/**
+ * Flush any debounced host write immediately.
+ * Call before unsubscribing or completing to avoid losing the last mutation.
+ */
+export function flushHostUpdate() {
+  if (!_pushTimer) return;
+  clearTimeout(_pushTimer);
+  _flushPendingWrite();
 }
 
 // ---------------------------------------------------------------------------
@@ -288,6 +339,7 @@ export function pushMemberPresence(code, { exerciseIdx, setIdx }) {
  */
 export function completeSharedWorkout(code) {
   if (!currentUser || !db || !code) return;
+  flushHostUpdate();
   const expireAt = new Date(Date.now() + 24 * 3600 * 1000);
   updateDoc(doc(db, 'sharedWorkouts', code), {
     status: 'completed',
