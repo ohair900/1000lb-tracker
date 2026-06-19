@@ -8,6 +8,7 @@
 
 import store from '../state/store.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
+import { resolveExercise } from '../data/exercise-compat.js';
 import { checkAccessoryProgression } from './workout-builder.js';
 
 /**
@@ -21,12 +22,13 @@ export function getAccessorySummaries() {
     let s = map.get(entry.exerciseId);
     if (!s) {
       const db = ACCESSORY_DB[entry.exerciseId];
+      const catalogEx = resolveExercise(entry.exerciseId);
       s = {
         exerciseId: entry.exerciseId,
-        name: db ? db.name : entry.exerciseId,
-        mainLift: entry.mainLift || (db ? db.mainLift : 'squat'),
-        equipment: db ? db.equipment : '',
-        category: db ? db.category : '',
+        name: catalogEx?.name || db?.name || entry.name || entry.exerciseId,
+        mainLift: entry.mainLift || db?.mainLift || 'squat',
+        equipment: catalogEx?.equipment || db?.equipment || entry.equipment || '',
+        category: db?.category || catalogEx?.movementPattern || '',
         sessionCount: 0,
         dates: new Set(),
         lastDate: null,
@@ -83,29 +85,34 @@ export function getAccessorySummaries() {
  */
 export function getAccessoryDetail(exerciseId) {
   const db = ACCESSORY_DB[exerciseId];
+  const catalogEx = resolveExercise(exerciseId);
   const entries = store.accessoryLog
     .filter((l) => l.exerciseId === exerciseId)
     .sort((a, b) => b.timestamp - a.timestamp);
 
   if (entries.length === 0) return null;
 
-  const mainLift = entries[0].mainLift || (db ? db.mainLift : 'squat');
+  const mainLift = entries[0].mainLift || db?.mainLift || 'squat';
+  const fallbackRepRange = db?.repRange || catalogEx?.repRange || [8, 12];
+  const fallbackSets = db?.sets || catalogEx?.sets || 3;
 
   // Sessions (one per date, newest first)
-  const sessions = entries.map((e) => ({
-    date: e.date,
-    weight: e.weight,
-    setWeights: e.setWeights || [],
-    setsCompleted: e.setsCompleted || [],
-    targetSets: e.targetSets || (db ? db.sets : 3),
-    repRange: e.repRange || (db ? db.repRange : [8, 12]),
-    mainLift: e.mainLift,
-    allHitTop:
-      e.setsCompleted && db
-        ? e.setsCompleted.length >= (e.targetSets || db.sets) &&
-          e.setsCompleted.every((r) => r >= (e.repRange ? e.repRange[1] : db.repRange[1]))
+  const sessions = entries.map((e) => {
+    const targetSets = e.targetSets || fallbackSets;
+    const repRange = e.repRange || fallbackRepRange;
+    return {
+      date: e.date,
+      weight: e.weight,
+      setWeights: e.setWeights || [],
+      setsCompleted: e.setsCompleted || [],
+      targetSets,
+      repRange,
+      mainLift: e.mainLift,
+      allHitTop: e.setsCompleted
+        ? e.setsCompleted.length >= targetSets && e.setsCompleted.every((r) => r >= repRange[1])
         : false,
-  }));
+    };
+  });
 
   // Weight history for chart (oldest first)
   const weightHistory = entries
@@ -131,12 +138,12 @@ export function getAccessoryDetail(exerciseId) {
 
   return {
     exerciseId,
-    name: db ? db.name : exerciseId,
+    name: catalogEx?.name || db?.name || entries[0].name || exerciseId,
     mainLift,
-    equipment: db ? db.equipment : '',
-    category: db ? db.category : '',
-    repRange: db ? db.repRange : [8, 12],
-    timeBased: !!(db && db.timeBased),
+    equipment: catalogEx?.equipment || db?.equipment || entries[0].equipment || '',
+    category: db?.category || catalogEx?.movementPattern || '',
+    repRange: fallbackRepRange,
+    timeBased: !!(db?.timeBased || catalogEx?.timeBased),
     sessionCount: dates.size,
     lastDate: sessions[0].date,
     lastWeight: sessions[0].weight,

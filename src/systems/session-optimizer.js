@@ -304,7 +304,9 @@ export function generateSessionPlan(lift, session) {
     // Base expected RPE: ramps across sets, with adjustments
     let expectedRPE;
     if (isAmrap) {
-      expectedRPE = 9.0 + baseFatigueRPE + comebackRPEAdj;
+      // AMRAP is always all-out — fatigue/comeback temper BBB volume and
+      // accessories instead. Don't lower the target the lifter pushes for.
+      expectedRPE = 9.0;
     } else {
       // Non-AMRAP: estimate from percentage
       const pct = s.pct || 75;

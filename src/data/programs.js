@@ -1,4 +1,4 @@
-// src/data/programs.js — Training program templates (6 programs)
+// src/data/programs.js — Training program templates (5 programs)
 
 export const PROGRAM_TEMPLATES = {
   '5/3/1': {
@@ -81,15 +81,17 @@ export const PROGRAM_TEMPLATES = {
       1: {
         label: 'nSuns T1',
         sets: [
+          // Three heavy top sets drive progression (main work)
           { pct: 75, reps: 5 },
           { pct: 85, reps: 3 },
           { pct: 95, reps: '1+' },
-          { pct: 90, reps: 3 },
-          { pct: 85, reps: 3 },
-          { pct: 80, reps: 3 },
-          { pct: 75, reps: 5 },
-          { pct: 70, reps: 5 },
-          { pct: 65, reps: '5+' },
+          // Six back-off sets are supplemental volume (reducible by the coach)
+          { pct: 90, reps: 3, tier: 'T2' },
+          { pct: 85, reps: 3, tier: 'T2' },
+          { pct: 80, reps: 3, tier: 'T2' },
+          { pct: 75, reps: 5, tier: 'T2' },
+          { pct: 70, reps: 5, tier: 'T2' },
+          { pct: 65, reps: '5+', tier: 'T2' },
         ],
       },
     },
@@ -164,28 +166,38 @@ export const PROGRAM_TEMPLATES = {
   Texas: {
     name: 'Texas Method',
     description:
-      'Weekly periodization with volume, recovery, and intensity days. Best for late novices / early intermediates who need more than linear progression but less complexity than 5/3/1.',
-    weeks: 1,
+      'Weekly periodization split across three training days — Volume, Recovery, and Intensity. Best for late novices / early intermediates who need more than linear progression but less complexity than 5/3/1.',
+    weeks: 3,
+    // Each "week" is one of the three Texas training days, rotating in order.
+    dayRotation: true,
     progression: {
       type: 'intensity-pr',
       upperIncrement: 5,
       lowerIncrement: 5,
-      cycleWeeks: 1,
+      cycleWeeks: 3,
       minReps: 5,
     },
     schedule: {
       1: {
-        label: 'Texas Method',
+        label: 'Volume Day',
         sets: [
           { pct: 81, reps: 5, day: 'Volume' },
           { pct: 81, reps: 5, day: 'Volume' },
           { pct: 81, reps: 5, day: 'Volume' },
           { pct: 81, reps: 5, day: 'Volume' },
           { pct: 81, reps: 5, day: 'Volume' },
-          { pct: 65, reps: 5, day: 'Recovery' },
-          { pct: 65, reps: 5, day: 'Recovery' },
-          { pct: 100, reps: '5+', day: 'Intensity' },
         ],
+      },
+      2: {
+        label: 'Recovery Day',
+        sets: [
+          { pct: 65, reps: 5, day: 'Recovery' },
+          { pct: 65, reps: 5, day: 'Recovery' },
+        ],
+      },
+      3: {
+        label: 'Intensity Day',
+        sets: [{ pct: 100, reps: '5+', day: 'Intensity' }],
       },
     },
   },
@@ -201,23 +213,6 @@ export const PROGRAM_TEMPLATES = {
         sets: [
           { pct: 100, reps: 5 },
           { pct: 100, reps: 5 },
-          { pct: 100, reps: 5 },
-          { pct: 100, reps: 5 },
-          { pct: 100, reps: 5 },
-        ],
-      },
-    },
-  },
-  SS: {
-    name: 'Starting Strength',
-    description:
-      'The original novice barbell program by Mark Rippetoe. 3 sets of 5 at one working weight with linear progression each session. Perfect for brand-new lifters building a strength foundation.',
-    weeks: 1,
-    progression: { type: 'session', upperIncrement: 5, lowerIncrement: 5, cycleWeeks: 1 },
-    schedule: {
-      1: {
-        label: 'Starting Strength',
-        sets: [
           { pct: 100, reps: 5 },
           { pct: 100, reps: 5 },
           { pct: 100, reps: 5 },

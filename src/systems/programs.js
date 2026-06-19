@@ -255,13 +255,17 @@ export function checkCycleBoundaryProgression(lift, cycleEndWeek, tmpl) {
   if (!tm) return null;
   const startWeek = cycleEndWeek - tmpl.weeks + 1;
 
-  // Check all sets completed across the entire cycle
+  // Check all PRIMARY sets completed across the entire cycle. Supplemental
+  // tiers (BBB/T2) are excluded: the workout overlay only records completedSets
+  // for main sets, so requiring supplemental completion would make progression
+  // unreachable for any program with back-off volume (nSuns, 5/3/1, GZCL).
   let allSetsComplete = true;
   for (let w = startWeek; w <= cycleEndWeek; w++) {
     const schedWeek = ((w - 1) % tmpl.weeks) + 1;
     const weekData = tmpl.schedule[schedWeek];
     if (!weekData) continue;
     for (let i = 0; i < weekData.sets.length; i++) {
+      if (SUPPLEMENTAL_TIERS.includes(weekData.sets[i].tier)) continue;
       if (!store.programConfig.completedSets[`${lift}-${w}-${i}`]) {
         allSetsComplete = false;
         break;

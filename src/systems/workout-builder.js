@@ -139,6 +139,101 @@ export function computeSetWeights(workingWeight, numSets, fatigueStatus) {
 }
 
 // ---------------------------------------------------------------------------
+// Bodybuilding split targets
+// ---------------------------------------------------------------------------
+
+/**
+ * Build an accessory-row target for one resolved bodybuilding split slot.
+ *
+ * Intentionally simpler than the accessory engine: clean role-based rep ranges
+ * (no per-exercise catalog ranges), history-seeded double progression, and NO
+ * SBD-TM seeding or fatigue weight scalar — those are the noise sources that
+ * make output feel random. Straight sets (flat weight), not a ramp.
+ *
+ * - Competition lifts (no catalog id): seed weight from the lift's e1RM at the
+ *   middle of the rep range (auto-progresses as the real max climbs).
+ * - Accessories: repeat last weight, climbing reps; when all sets hit the top
+ *   of the range, add the catalog increment and reset reps to the bottom.
+ *   First time (no history): weight 0 for the user to enter; it self-seeds.
+ *
+ * @param {Object} slot - A resolved slot from getSplitDay()
+ * @returns {Object} Accessory-row object for the workout session
+ */
+export function computeSplitTargets(slot) {
+  const { sets: targetSets, repRange } = slot.scheme;
+  const [lo, hi] = repRange;
+
+  // Competition lift — seed from e1RM, log toward the SBD max later.
+  if (slot.isCompLift) {
+    const e1rm = bestE1RM(slot.compLift);
+    const midReps = Math.round((lo + hi) / 2);
+    const weight = e1rm ? roundToPlate(e1rm / (1 + midReps / 30)) : 0;
+    return {
+      exerciseId: slot.compLift,
+      name: slot.name,
+      compLift: slot.compLift,
+      setWeights: Array(targetSets).fill(weight),
+      targetSets,
+      repRange: [lo, hi],
+      equipment: slot.equipment,
+      setsCompleted: [],
+      progressed: false,
+      _targetReps: Array(targetSets).fill(midReps),
+    };
+  }
+
+  // Accessory — history-based double progression on the clean scheme.
+  const exerciseId = slot.exerciseId;
+  const catalogEx = EXERCISE_CATALOG[exerciseId];
+  const progressionType = catalogEx ? catalogEx.progressionType : 'compound';
+  const canonId = resolveCanonicalId(exerciseId);
+  const history = getExerciseHistory(canonId, store.accessoryLog);
+  const recent = history[0];
+
+  let weight = 0;
+  let progressed = false;
+  let reps = lo;
+  if (recent) {
+    const lastWeight = recent.setWeights
+      ? recent.setWeights[recent.setWeights.length - 1]
+      : recent.weight || 0;
+    const allHitTop =
+      recent.setsCompleted &&
+      recent.setsCompleted.length >= targetSets &&
+      recent.setsCompleted.every((r) => r >= hi);
+    if (allHitTop && lastWeight > 0) {
+      const model = PROGRESSION_MODELS[progressionType];
+      const bump = model?.increment
+        ? store.unit === 'kg'
+          ? model.increment.kg
+          : model.increment.lbs
+        : store.unit === 'kg'
+          ? 2.5
+          : 5;
+      weight = roundToPlate(lastWeight + bump);
+      progressed = true;
+      reps = lo; // reset to bottom of range after a weight bump
+    } else {
+      weight = lastWeight;
+      reps = hi; // keep climbing reps toward the top
+    }
+  }
+
+  return {
+    exerciseId,
+    name: slot.name,
+    compLift: null,
+    setWeights: Array(targetSets).fill(weight),
+    targetSets,
+    repRange: [lo, hi],
+    equipment: slot.equipment,
+    setsCompleted: [],
+    progressed,
+    _targetReps: Array(targetSets).fill(reps),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Accessory weight determination
 // ---------------------------------------------------------------------------
 

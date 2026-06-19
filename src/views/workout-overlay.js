@@ -39,7 +39,9 @@ import {
   getAccessoryWeight,
   scoreAccessories,
   selectTravelWorkout,
+  computeSplitTargets,
 } from '../systems/workout-builder.js';
+import { getSplitDay, advanceSplitDay } from '../systems/split-plan.js';
 import { TRAVEL_GROUPINGS } from '../constants/travel-config.js';
 import { computeNextTarget } from '../systems/accessory-progression.js';
 import { REP_TIERS } from '../constants/rotation.js';
@@ -536,6 +538,44 @@ export function createTravelSession(grouping, equipmentOverride) {
   return session;
 }
 
+/**
+ * Create a bodybuilding split session for the given day (defaults to the
+ * plan's current rotating day). Like travel, it has no program main sets and
+ * logs through accessoryLog — except slots that resolve to a competition lift,
+ * which log toward the SBD max on completion (see completeWorkout).
+ *
+ * @param {number} [dayIndex] - Override the rotating day; omit for current.
+ * @returns {Object|null} The session, or null if no split is active.
+ */
+export function createSplitSession(dayIndex) {
+  const day = getSplitDay(dayIndex);
+  if (!day) return null;
+  const now = new Date();
+
+  const session = {
+    id: now.getTime().toString(36) + Math.random().toString(36).slice(2, 6),
+    mainLift: day.key,
+    source: 'split',
+    splitType: store.programConfig.splitPlan?.type || null,
+    splitDayIndex: day.index,
+    splitLabel: day.label,
+    splitMuscles: day.muscles,
+    programWeek: null,
+    date: now.toISOString().split('T')[0],
+    startTime: now.getTime(),
+    mainSets: [],
+    bbbSets: [],
+    accessories: day.slots.map((slot) => computeSplitTargets(slot)),
+    loggedEntryIds: [],
+    completed: false,
+  };
+
+  store.workoutSession = session;
+  persistSession();
+  store._sessionOptimizer = null;
+  return session;
+}
+
 function updateCompleteButton() {
   const btn = $('workout-complete-btn');
   if (!store.workoutSession) {
@@ -629,38 +669,53 @@ function _completeMainSet(idx) {
 
 function _renderTravelWorkoutView() {
   const session = store.workoutSession;
+  const isSplit = session.source === 'split';
   const grouping = session.travelGrouping;
   const cfg = TRAVEL_GROUPINGS[grouping] || { label: grouping, icon: '' };
   const body = $('workout-body');
 
-  $('workout-title').textContent = cfg.label + ' — Travel';
-  $('workout-subtitle').textContent = session.date + ' · Off-program';
-
-  // Equipment chip
-  const activeEquip = session.equipmentOverride
-    ? Object.entries(session.equipmentOverride)
-        .filter(([, v]) => v)
-        .map(([k]) => k.charAt(0).toUpperCase() + k.slice(1))
-    : [];
-
   let html = '';
 
-  if (activeEquip.length > 0) {
-    html += `<div class="travel-info-bar">&#127959; ${activeEquip.join(' &middot; ')}</div>`;
-  }
+  if (isSplit) {
+    $('workout-title').textContent = session.splitLabel + ' — Bodybuilding';
+    $('workout-subtitle').textContent =
+      session.date + ' · ' + (session.splitMuscles || []).join(' · ');
+  } else {
+    $('workout-title').textContent = cfg.label + ' — Travel';
+    $('workout-subtitle').textContent = session.date + ' · Off-program';
 
-  if (session._skippedMuscles && session._skippedMuscles.length > 0) {
-    html += `<div class="travel-skip-banner">&#9888; ${session._skippedMuscles.join(', ')} fatigued &mdash; skipped this session</div>`;
+    // Equipment chip
+    const activeEquip = session.equipmentOverride
+      ? Object.entries(session.equipmentOverride)
+          .filter(([, v]) => v)
+          .map(([k]) => k.charAt(0).toUpperCase() + k.slice(1))
+      : [];
+
+    if (activeEquip.length > 0) {
+      html += `<div class="travel-info-bar">&#127959; ${activeEquip.join(' &middot; ')}</div>`;
+    }
+
+    if (session._skippedMuscles && session._skippedMuscles.length > 0) {
+      html += `<div class="travel-skip-banner">&#9888; ${session._skippedMuscles.join(', ')} fatigued &mdash; skipped this session</div>`;
+    }
   }
 
   // Accessories section (reuse same rendering path as standard workout)
   session.accessories.forEach((acc, ai) => {
     const ex = ACCESSORY_DB[acc.exerciseId];
     const catalogEx = resolveExercise(acc.exerciseId);
-    const isBodyweight = catalogEx
-      ? catalogEx.progressionType === 'bodyweight'
-      : !ex || ex.pctOfTM === 0;
-    const isTimeBased = catalogEx ? !!catalogEx.timeBased : !!(ex && ex.timeBased);
+    // Competition lifts (Bench/Squat/Deadlift) carry real loaded weights —
+    // never render them as bodyweight/time-based.
+    const isBodyweight = acc.compLift
+      ? false
+      : catalogEx
+        ? catalogEx.progressionType === 'bodyweight'
+        : !ex || ex.pctOfTM === 0;
+    const isTimeBased = acc.compLift
+      ? false
+      : catalogEx
+        ? !!catalogEx.timeBased
+        : !!(ex && ex.timeBased);
     const targetReps = acc.repRange[1];
     html += `<div class="workout-exercise">`;
     const downweightBadge = acc._downweighted
@@ -774,8 +829,9 @@ function _renderTravelWorkoutView() {
 export function renderWorkoutView() {
   if (!store.workoutSession) return;
 
-  // Travel sessions get a separate render path (no optimizer, no main sets)
-  if (store.workoutSession.source === 'travel') {
+  // Travel and bodybuilding-split sessions share an accessory-only render path
+  // (no optimizer, no program main sets).
+  if (store.workoutSession.source === 'travel' || store.workoutSession.source === 'split') {
     _renderTravelWorkoutView();
     return;
   }
@@ -1236,6 +1292,22 @@ export function openTravelWorkoutView() {
 }
 
 /**
+ * Open the workout overlay for a bodybuilding split session.
+ * Session must already be created via createSplitSession.
+ */
+export function openSplitWorkoutView() {
+  if (!isRouterResolving()) {
+    pushRoute('#workout/split', 'workout', closeWorkoutView);
+  }
+  $('workout-overlay').style.display = 'flex';
+  $('workout-overlay').dataset.lift = 'split';
+  document.body.style.overflow = 'hidden';
+  setWakeLockNeeded(true);
+  requestWakeLock();
+  renderWorkoutView();
+}
+
+/**
  * Close the workout overlay.
  */
 export function closeWorkoutView() {
@@ -1269,6 +1341,23 @@ export function completeWorkout() {
   const sessionTemplateId = store.workoutSession.templateId || null;
   store.workoutSession.accessories.forEach((acc) => {
     if (acc.setsCompleted.length === 0) return;
+    // Bodybuilding split slots that ARE a competition lift log as real lift
+    // entries so they count toward the SBD max — not to the accessory log.
+    if (acc.compLift) {
+      acc.setsCompleted.forEach((reps, i) => {
+        if (!reps) return;
+        const w = acc.setWeights[i] ?? acc.setWeights[acc.setWeights.length - 1];
+        // Skip un-weighted comp-lift sets (first session seeds 0 until the user
+        // enters a load) so we never log a junk 0-weight squat/bench/deadlift.
+        if (!w || w <= 0) return;
+        const result = _deps.addEntry?.(acc.compLift, w, reps, null, '', ['bodybuilding']);
+        if (result?.entry) {
+          if (!store.workoutSession.loggedEntryIds) store.workoutSession.loggedEntryIds = [];
+          store.workoutSession.loggedEntryIds.push(result.entry.id);
+        }
+      });
+      return;
+    }
     store.accessoryLog.push({
       id: now.getTime().toString(36) + Math.random().toString(36).slice(2, 6) + acc.exerciseId,
       exerciseId: acc.exerciseId,
@@ -1287,6 +1376,13 @@ export function completeWorkout() {
     });
   });
   store.saveNow('accessoryLog');
+
+  // Bodybuilding split: advance the rotating day (Push → Pull → Legs → …)
+  if (sessionSource === 'split') {
+    advanceSplitDay();
+    const next = getSplitDay();
+    if (next) setTimeout(() => showToast(`Next: ${next.label}`), 1500);
+  }
 
   // #16: Offer weight updates back to template
   if (sessionTemplateId) {

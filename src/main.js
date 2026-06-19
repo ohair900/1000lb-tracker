@@ -39,7 +39,7 @@ import {
 } from './systems/pr-tracking.js';
 import { checkMilestonesAchieved, lockMilestones } from './systems/goals.js';
 import { migrateAccessoryIds } from './systems/accessory-migration.js';
-import { runProgramHistoryMigration } from './systems/program-migration.js';
+import { runProgramHistoryMigration, migrateRemovedPrograms } from './systems/program-migration.js';
 import {
   getProgramWorkout,
   updateWeekStreak,
@@ -118,6 +118,8 @@ import {
   updateWorkoutButton,
   createTravelSession,
   openTravelWorkoutView,
+  createSplitSession,
+  openSplitWorkoutView,
 } from './views/workout-overlay.js';
 import { startTravelFlow, setTravelSheetDeps } from './views/travel-sheet.js';
 import { initLiftDetailSheet, showLiftDetail } from './views/lift-detail.js';
@@ -366,6 +368,13 @@ function initPWA() {
 
 installRoundRectPolyfill();
 store.init();
+// Remap removed programs (e.g. Starting Strength → StrongLifts 5×5) before any
+// view renders, so the UI never references a deleted program template.
+try {
+  migrateRemovedPrograms();
+} catch (_e) {
+  // noop — never let a remap block boot
+}
 // Firebase SDK loaded lazily — deferred to after first paint (see Step 13)
 
 // ----- Step 4: Wire dependency injection -----
@@ -574,6 +583,8 @@ setProgramSectionDeps({
   startTimer,
   triggerWeekCompleteCelebration,
   triggerLiftCompleteCelebration,
+  updateWorkoutButton,
+  switchToTab,
 });
 
 // 4o. Workout overlay deps
@@ -608,6 +619,8 @@ setChoiceSheetDeps({
   renderProgramSection,
   updateWorkoutButton,
   startTravelFlow,
+  createSplitSession,
+  openSplitWorkoutView,
   onSharedWorkoutUpdate,
 });
 

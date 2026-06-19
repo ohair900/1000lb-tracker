@@ -10,6 +10,7 @@ import { $, escapeHTML } from '../utils/helpers.js';
 import { LIFTS, LIFT_NAMES } from '../constants/lift-config.js';
 import { PROGRAM_TEMPLATES } from '../data/programs.js';
 import { isLiftComplete } from '../systems/programs.js';
+import { isSplitActive, getSplitDay } from '../systems/split-plan.js';
 import { showToast } from '../ui/toast.js';
 import { closeChoiceSheet } from '../ui/sheet.js';
 import { joinSharedWorkout, subscribeSharedWorkout } from '../firebase/shared-workout.js';
@@ -59,9 +60,13 @@ function showPlanSwitcher() {
   let html = '';
 
   const hasMeso = store.activeMesocycle && store.activeMesocycle.status === 'active';
-  const hasProg = !!store.programConfig.activeProgram;
+  const hasSplit = isSplitActive();
+  const hasProg = !!store.programConfig.activeProgram && !hasSplit;
   if (hasMeso) {
     html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:var(--space-3)">Current: ${store.activeMesocycle.name} (Week ${store.activeMesocycle.currentWeek}/${store.activeMesocycle.durationWeeks})</div>`;
+  } else if (hasSplit) {
+    const day = getSplitDay();
+    html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:var(--space-3)">Current: Bodybuilding${day ? ` (${day.label}, Day ${day.index + 1}/${day.total})` : ''}</div>`;
   } else if (hasProg) {
     html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:var(--space-3)">Current: ${PROGRAM_TEMPLATES[store.programConfig.activeProgram].name} (Week ${store.programConfig.liftWeeks?.[store.currentLift] || 1})</div>`;
   }
@@ -70,7 +75,7 @@ function showPlanSwitcher() {
     <div class="choice-card-icon green">&#128203;</div>
     <div class="choice-card-text">
       <div class="choice-card-title">${hasProg ? 'Change' : 'Choose a'} Program</div>
-      <div class="choice-card-desc">5/3/1, nSuns, GZCL, Texas Method, SL5x5, Starting Strength</div>
+      <div class="choice-card-desc">5/3/1, nSuns, GZCL, Texas Method, StrongLifts 5×5, Bodybuilding</div>
     </div>
     <div class="choice-card-arrow">&#8250;</div>
   </div>`;
@@ -84,12 +89,12 @@ function showPlanSwitcher() {
     <div class="choice-card-arrow">&#8250;</div>
   </div>`;
 
-  if (hasProg || hasMeso) {
+  if (hasProg || hasMeso || hasSplit) {
     html += `<div class="choice-card" data-action="disable-plan" style="opacity:0.6">
       <div class="choice-card-icon red">&#10005;</div>
       <div class="choice-card-text">
         <div class="choice-card-title">Remove Plan</div>
-        <div class="choice-card-desc">Disable active program${hasMeso ? ' and abandon mesocycle' : ''}</div>
+        <div class="choice-card-desc">Disable active ${hasSplit ? 'bodybuilding plan' : 'program'}${hasMeso ? ' and abandon mesocycle' : ''}</div>
       </div>
       <div class="choice-card-arrow">&#8250;</div>
     </div>`;
@@ -112,11 +117,51 @@ function showPlanSwitcher() {
       } else if (action === 'disable-plan') {
         if (hasMeso) _deps.abandonMesocycle?.();
         store.programConfig.activeProgram = null;
+        store.programConfig.splitPlan = null;
         store.saveProgramConfig();
         _deps.renderProgramSection?.();
         _deps.updateWorkoutButton?.();
         showToast('Training plan removed');
       }
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Split day override picker (sub-view)
+// ---------------------------------------------------------------------------
+
+function showSplitDayPicker() {
+  const current = getSplitDay();
+  if (!current) return;
+  const body = $('choice-sheet-body');
+  $('choice-sheet-title').textContent = 'Choose a Day';
+
+  let html = `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:var(--space-3)">Start any day without changing your rotation.</div>`;
+  for (let i = 0; i < current.total; i++) {
+    const day = getSplitDay(i);
+    const isCurrent = i === current.index;
+    html += `<div class="choice-card" data-split-day="${i}">
+      <div class="choice-card-icon purple">&#127947;</div>
+      <div class="choice-card-text">
+        <div class="choice-card-title">${day.label}${isCurrent ? ' (next up)' : ''}</div>
+        <div class="choice-card-desc">${escapeHTML(day.muscles.join(' · '))}</div>
+      </div>
+      <div class="choice-card-arrow">&#8250;</div>
+    </div>`;
+  }
+
+  body.innerHTML = html;
+  $('choice-sheet-backdrop').style.display = 'block';
+  $('choice-sheet').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+
+  body.querySelectorAll('[data-split-day]').forEach((card) => {
+    card.addEventListener('click', () => {
+      const idx = parseInt(card.dataset.splitDay);
+      closeChoiceSheet();
+      _deps.createSplitSession?.(idx);
+      _deps.openSplitWorkoutView?.();
     });
   });
 }
@@ -131,6 +176,15 @@ function showPlanSwitcher() {
  */
 export function renderChoiceSheetBody() {
   const lift = store.currentLift;
+  // Resume an in-progress bodybuilding split session regardless of lift tab
+  if (
+    store.workoutSession &&
+    !store.workoutSession.completed &&
+    store.workoutSession.source === 'split'
+  ) {
+    _deps.openSplitWorkoutView?.();
+    return;
+  }
   // If resuming an active session for THIS lift, skip choice sheet
   if (
     store.workoutSession &&
@@ -144,11 +198,12 @@ export function renderChoiceSheetBody() {
   $('choice-sheet-title').textContent = `${LIFT_NAMES[lift]} Workout`;
   let html = '';
 
-  // --- Active Training Plan section (program OR mesocycle) ---
+  // --- Active Training Plan section (program OR mesocycle OR split) ---
   const hasMeso = store.activeMesocycle && store.activeMesocycle.status === 'active';
-  const hasProg = !!store.programConfig.activeProgram;
+  const hasSplit = isSplitActive();
+  const hasProg = !!store.programConfig.activeProgram && !hasSplit;
 
-  if (hasMeso || hasProg) {
+  if (hasMeso || hasSplit || hasProg) {
     html += `<div class="section-label">Active Plan</div>`;
 
     if (hasMeso) {
@@ -164,6 +219,19 @@ export function renderChoiceSheetBody() {
         </div>
         <div class="choice-card-arrow">&#8250;</div>
       </div>`;
+    } else if (hasSplit) {
+      const day = getSplitDay();
+      if (day) {
+        html += `<div class="choice-card" data-action="split">
+          <div class="choice-card-icon purple">&#127947;</div>
+          <div class="choice-card-text">
+            <div class="choice-card-title">Bodybuilding — ${day.label} (Day ${day.index + 1}/${day.total})</div>
+            <div class="choice-card-desc">${escapeHTML(day.muscles.join(' · '))}</div>
+          </div>
+          <div class="choice-card-arrow">&#8250;</div>
+        </div>`;
+        html += `<button class="choice-plan-link" data-action="split-pick-day" style="display:block;margin-bottom:var(--space-2)">Choose a different day</button>`;
+      }
     } else if (hasProg) {
       const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
       const liftDone = isLiftComplete(lift);
@@ -186,7 +254,7 @@ export function renderChoiceSheetBody() {
   }
 
   // --- Workout options ---
-  html += `<div class="section-label">${hasMeso || hasProg ? 'Or start a different workout' : 'Choose a workout'}</div>`;
+  html += `<div class="section-label">${hasMeso || hasProg || hasSplit ? 'Or start a different workout' : 'Choose a workout'}</div>`;
 
   // Guided Builder
   html += `<div class="choice-card" data-action="custom">
@@ -259,7 +327,7 @@ export function renderChoiceSheetBody() {
   </div>`;
 
   // Quick start (only if no active program)
-  if (!hasProg && !hasMeso) {
+  if (!hasProg && !hasMeso && !hasSplit) {
     html += `<div class="choice-card" data-action="quick">
       <div class="choice-card-icon green">&#9889;</div>
       <div class="choice-card-text">
@@ -271,13 +339,13 @@ export function renderChoiceSheetBody() {
   }
 
   // --- Plan setup ---
-  if (!hasMeso && !hasProg) {
+  if (!hasMeso && !hasProg && !hasSplit) {
     html += `<div class="section-label" style="margin:var(--space-3) 0 var(--space-2)">Set up a training plan</div>`;
     html += `<div class="choice-card" data-action="setup-program">
       <div class="choice-card-icon green">&#128203;</div>
       <div class="choice-card-text">
         <div class="choice-card-title">Choose a Program</div>
-        <div class="choice-card-desc">5/3/1, nSuns, GZCL, Texas Method, SL5x5, Starting Strength</div>
+        <div class="choice-card-desc">5/3/1, nSuns, GZCL, Texas Method, StrongLifts 5×5, Bodybuilding</div>
       </div>
       <div class="choice-card-arrow">&#8250;</div>
     </div>`;
@@ -338,6 +406,9 @@ export function renderChoiceSheetBody() {
         _deps.showTemplateList?.();
       } else if (action === 'mesocycle') {
         _deps.openMesocycleWorkout?.(store.currentLift);
+      } else if (action === 'split') {
+        _deps.createSplitSession?.();
+        _deps.openSplitWorkoutView?.();
       } else if (action === 'mesogen') {
         _deps.showMesocycleGenerator?.();
       } else if (action === 'setup-program') {
@@ -361,6 +432,8 @@ export function renderChoiceSheetBody() {
       } else if (action === 'switch-plan') {
         closeChoiceSheet();
         showPlanSwitcher();
+      } else if (action === 'split-pick-day') {
+        showSplitDayPicker();
       }
     });
   });

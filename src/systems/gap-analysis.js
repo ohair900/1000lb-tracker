@@ -123,6 +123,70 @@ export function analyzeWeeklyVolume() {
   return result;
 }
 
+/**
+ * Per-muscle weekly set volume over the last N weeks, for trend sparklines.
+ * Uses the same effective-set attribution as analyzeWeeklyVolume (main lifts
+ * via MAIN_LIFT_WEIGHTS, accessories via catalog primaryMuscles / legacy
+ * category weights).
+ *
+ * @param {number} [weeks=8]
+ * @returns {{ [muscleGroup: string]: number[] }} Each array oldest→newest
+ *   (last element = current week).
+ */
+export function calcMuscleVolumeTrend(weeks = 8) {
+  const now = Date.now();
+  const result = {};
+  MUSCLE_GROUPS.forEach((mg) => {
+    result[mg] = new Array(weeks).fill(0);
+  });
+
+  const bucketFor = (ts) => {
+    const weeksAgo = Math.floor((now - ts) / (7 * MS_PER_DAY));
+    if (weeksAgo < 0 || weeksAgo >= weeks) return -1;
+    return weeks - 1 - weeksAgo; // newest at the end
+  };
+
+  for (const entry of store.entries) {
+    const b = bucketFor(entry.timestamp);
+    if (b < 0) continue;
+    const w = MAIN_LIFT_WEIGHTS[entry.lift];
+    if (!w) continue;
+    for (const mg of MUSCLE_GROUPS) {
+      if (w[mg] >= 0.2) result[mg][b] += 1;
+      else if (w[mg] >= 0.1) result[mg][b] += 0.5;
+    }
+  }
+
+  for (const log of store.accessoryLog) {
+    const b = bucketFor(log.timestamp);
+    if (b < 0) continue;
+    const sets = log.setsCompleted ? log.setsCompleted.length : 0;
+    if (!sets) continue;
+    const catalogEx = resolveExercise(log.exerciseId);
+    if (catalogEx && catalogEx.primaryMuscles) {
+      for (const [mg, weight] of Object.entries(catalogEx.primaryMuscles)) {
+        if (!result[mg]) continue;
+        if (weight >= 0.2) result[mg][b] += sets;
+        else if (weight >= 0.1) result[mg][b] += sets * 0.5;
+      }
+      continue;
+    }
+    const legacyEx = ACCESSORY_DB[log.exerciseId];
+    const catWeights = legacyEx ? ACCESSORY_CAT_WEIGHTS[legacyEx.category] : null;
+    if (catWeights) {
+      for (const mg of MUSCLE_GROUPS) {
+        if (catWeights[mg] >= 0.2) result[mg][b] += sets;
+        else if (catWeights[mg] >= 0.1) result[mg][b] += sets * 0.5;
+      }
+    }
+  }
+
+  for (const mg of MUSCLE_GROUPS) {
+    result[mg] = result[mg].map((v) => Math.round(v * 10) / 10);
+  }
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // Layer 2: Weekly push:pull ratio
 // ---------------------------------------------------------------------------

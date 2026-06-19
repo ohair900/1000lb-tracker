@@ -30,6 +30,7 @@ import { getRepPRs } from '../systems/pr-tracking.js';
 import { calcVolumeSummaries } from '../systems/volume.js';
 import { calcGoalProjection, calcMilestoneRoadmap } from '../systems/goals.js';
 import { getAccessorySummaries } from '../systems/accessory-progress.js';
+import { analyzeWeeklyVolume, calcMuscleVolumeTrend } from '../systems/gap-analysis.js';
 import { showAccessoryDetail } from './accessory-detail.js';
 import { showToast } from '../ui/toast.js';
 import { sharePRCard, shareOrDownloadCanvas } from '../ui/share.js';
@@ -724,18 +725,57 @@ function renderStatsCycles() {
   return html + SECTION_CLOSE;
 }
 
+function renderStatsMuscleVolume() {
+  const trend = calcMuscleVolumeTrend(8);
+  const muscles = MUSCLE_GROUPS.filter((mg) => (trend[mg] || []).some((v) => v > 0));
+  if (muscles.length === 0) return '';
+
+  const vol = analyzeWeeklyVolume();
+  muscles.sort((a, b) => (vol[b]?.sets || 0) - (vol[a]?.sets || 0));
+
+  const statusColor = { under: 'var(--red)', optimal: 'var(--green)', over: 'var(--yellow)' };
+  let html = statsSection('muscle-volume', 'Volume by Muscle', store.statsCollapsed);
+  html += `<div style="font-size:var(--text-2xs);color:var(--text-dim);margin-bottom:6px">Weekly working sets per muscle (last 8 weeks). Dot shows this week vs target.</div>`;
+
+  for (const mg of muscles) {
+    const series = trend[mg] || [];
+    const max = Math.max(1, ...series);
+    const spark = series
+      .map((v, i) => {
+        const h = v > 0 ? Math.max(3, Math.round((v / max) * 22)) : 2;
+        const isCurrent = i === series.length - 1;
+        return `<span style="flex:1;min-width:3px;height:${h}px;border-radius:1px;background:var(--accent);opacity:${isCurrent ? 1 : 0.45}"></span>`;
+      })
+      .join('');
+    const v = vol[mg] || { sets: 0, target: { min: 0, max: 0 }, status: 'under' };
+    html += `<div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+      <div style="flex:0 0 84px;font-size:var(--text-xs);color:var(--text)">${mg}</div>
+      <div style="flex:1;display:flex;align-items:flex-end;gap:2px;height:24px">${spark}</div>
+      <div style="flex:0 0 auto;font-size:var(--text-xs);color:var(--text);display:flex;align-items:center;gap:4px">
+        <span class="split-prog-dot" style="background:${statusColor[v.status] || 'var(--text-dim)'}"></span>${v.sets}<span style="color:var(--text-dim)">/${v.target.min}-${v.target.max}</span>
+      </div>
+    </div>`;
+  }
+  return html + SECTION_CLOSE;
+}
+
 function renderStatsAccessoryProgress() {
   const summaries = getAccessorySummaries();
   if (summaries.size === 0) return '';
   let html = statsSection('accessory-progress', 'Accessory Progress', store.statsCollapsed);
 
-  const groups = { squat: [], bench: [], deadlift: [] };
+  const groups = { squat: [], bench: [], deadlift: [], other: [] };
   for (const [, s] of summaries) {
-    if (groups[s.mainLift]) groups[s.mainLift].push(s);
+    (groups[s.mainLift] || groups.other).push(s);
   }
 
   const TREND_ARROWS = { up: '\u2191', down: '\u2193', flat: '\u2192' };
-  const GROUP_LABELS = { squat: 'Squat', bench: 'Bench', deadlift: 'Deadlift' };
+  const GROUP_LABELS = {
+    squat: 'Squat',
+    bench: 'Bench',
+    deadlift: 'Deadlift',
+    other: 'Bodybuilding / Other',
+  };
 
   for (const [lift, exercises] of Object.entries(groups)) {
     if (exercises.length === 0) continue;
@@ -891,6 +931,7 @@ export function renderStats() {
     renderStatsPRTimeline(),
     // Tier 3: Analysis
     renderStatsVolume(),
+    renderStatsMuscleVolume(),
     renderStatsPeriodComparison(),
     renderStatsInsights(),
     renderStatsSessionQuality(),

@@ -93,6 +93,7 @@ class Store {
       completedWeeks: {},
       weekStreak: 0,
       progressedCycles: {},
+      splitPlan: null,
       failureCounts: { squat: 0, bench: 0, deadlift: 0 },
       completedSetDataMigrated: false,
       completedSetDataMigrationVersion: 0,
@@ -254,6 +255,9 @@ class Store {
           completedWeeks: {},
           weekStreak: 0,
           progressedCycles: {},
+          // Bodybuilding split plan state (null unless a split is active):
+          // { type: 'ppl', dayIndex: 0 }
+          splitPlan: null,
           completedSetDataMigrated: false,
           completedSetDataMigrationVersion: 0,
           completedSetDataUnrecoveredKeys: [],

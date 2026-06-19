@@ -575,6 +575,25 @@ export function recoverProgramHistory({
 }
 
 /**
+ * Remap programs that have been removed from PROGRAM_TEMPLATES onto their
+ * surviving equivalent. Run once at startup before history migration.
+ *
+ * Starting Strength (`SS`) was consolidated into StrongLifts 5×5 (`SL5x5`) —
+ * both are novice linear programs using `progression.type:'session'`, so
+ * training maxes, lift weeks, and completion logic carry over unchanged.
+ */
+const REMOVED_PROGRAM_REMAP = { SS: 'SL5x5' };
+
+export function migrateRemovedPrograms() {
+  const pc = store.programConfig;
+  if (!pc || !pc.activeProgram) return;
+  const replacement = REMOVED_PROGRAM_REMAP[pc.activeProgram];
+  if (!replacement || !PROGRAM_TEMPLATES[replacement]) return;
+  pc.activeProgram = replacement;
+  store.saveProgramConfig();
+}
+
+/**
  * Run at app startup. The old flag was a one-shot boolean, so users who loaded
  * the partial fix could still be stuck with missing frozen data. Version this
  * pass and rerun whenever completed sets still need recovery.

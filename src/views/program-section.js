@@ -24,6 +24,14 @@ import {
   daysSinceLastLift,
 } from '../systems/programs.js';
 import { recoverProgramHistory } from '../systems/program-migration.js';
+import { isSplitActive, getSplitDay, startSplitPlan } from '../systems/split-plan.js';
+import { getAccessorySummaries } from '../systems/accessory-progress.js';
+import { analyzeWeeklyVolume } from '../systems/gap-analysis.js';
+import {
+  BODYBUILDING_SPLITS,
+  DEFAULT_SPLIT_TYPE,
+  SPLIT_PROGRAM_ID,
+} from '../constants/bodybuilding-config.js';
 import { openModal, closeModal } from '../ui/modal.js';
 import { showToast } from '../ui/toast.js';
 
@@ -66,6 +74,11 @@ export function updateLiftDaysBadges() {
 export function renderProgramSection() {
   const el = $('program-section');
   $('program-sets').style.opacity = '1';
+  // Bodybuilding split plans render their own (program-free) section.
+  if (isSplitActive()) {
+    renderSplitSection();
+    return;
+  }
   if (!store.programConfig.activeProgram) {
     el.style.display = 'block';
     el.classList.remove('week-complete');
@@ -101,7 +114,15 @@ export function renderProgramSection() {
   const firstSentence = desc.split('.')[0];
   const absWeek = getLiftWeek(store.currentLift);
   const cycleNum = Math.ceil(absWeek / tmpl.weeks);
-  const cycleLabel = tmpl.weeks > 1 && cycleNum > 1 ? ` \u2014 Cycle ${cycleNum}` : '';
+  // Day-rotation programs (Texas) cycle through training days, not multi-week
+  // blocks \u2014 show a plain week counter instead of "Cycle N".
+  const cycleLabel = tmpl.dayRotation
+    ? cycleNum > 1
+      ? ` \u2014 Week ${cycleNum}`
+      : ''
+    : tmpl.weeks > 1 && cycleNum > 1
+      ? ` \u2014 Cycle ${cycleNum}`
+      : '';
   $('program-week').innerHTML =
     workout.label +
     cycleLabel +
@@ -262,6 +283,104 @@ export function renderProgramSection() {
 }
 
 // ---------------------------------------------------------------------------
+// Bodybuilding split section
+// ---------------------------------------------------------------------------
+
+/**
+ * Render the bodybuilding split plan in the log tab: current rotating day,
+ * its target muscles, and the resolved exercise list with clean schemes.
+ */
+function renderSplitSection() {
+  const el = $('program-section');
+  el.style.display = 'block';
+  el.classList.remove('week-complete', 'lift-complete');
+  const badge = el.querySelector('.week-streak-badge');
+  if (badge) badge.remove();
+  document.querySelector('.program-actions').style.display = 'flex';
+  $('program-prev').style.display = 'none';
+  $('program-next').style.display = 'none';
+  updateLiftDaysBadges();
+
+  const day = getSplitDay();
+  const split = BODYBUILDING_SPLITS[store.programConfig.splitPlan?.type] || {};
+  if (!day) {
+    $('program-title').textContent = split.name || 'Bodybuilding';
+    $('program-week').textContent = '';
+    $('program-sets').innerHTML = `<div class="empty-msg">No split day configured</div>`;
+    return;
+  }
+
+  $('program-title').textContent = `${split.name || 'Bodybuilding'} — ${day.label}`;
+  $('program-week').innerHTML =
+    `Day ${day.index + 1}/${day.total}` +
+    `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${day.muscles.join(' · ')}</div>`;
+
+  const slotsHtml = day.slots
+    .map((slot) => {
+      const [lo, hi] = slot.scheme.repRange;
+      const reps = lo === hi ? `${lo}` : `${lo}–${hi}`;
+      const compBadge = slot.isCompLift
+        ? `<span style="font-size:var(--text-xs);color:var(--gold);font-weight:600;margin-left:4px">counts to max</span>`
+        : '';
+      return `<div class="program-set-row">
+      <span class="program-set-weight">${slot.name}${compBadge}</span>
+      <span class="program-set-pct">${slot.scheme.sets}×${reps}</span>
+    </div>`;
+    })
+    .join('');
+
+  $('program-sets').innerHTML = slotsHtml + renderSplitProgressCard(day);
+
+  const moreBtn = $('split-progress-more');
+  if (moreBtn) moreBtn.addEventListener('click', () => _deps.switchToTab?.('stats'));
+}
+
+/**
+ * Compact Plan Progress card: recent movers + this week's volume for the
+ * day's muscles. Full breakdown lives in the Stats tab.
+ */
+function renderSplitProgressCard(day) {
+  // Top movers — exercises trending up, most recent first.
+  const movers = [...getAccessorySummaries().values()]
+    .filter((s) => s.trend === 'up' && s.lastWeight > 0)
+    .slice(0, 3);
+
+  const moversHtml = movers.length
+    ? movers
+        .map(
+          (m) =>
+            `<div class="split-prog-mover">${m.name} <span style="color:var(--green)">↑ ${formatWeight(m.lastWeight)} ${store.unit}</span></div>`
+        )
+        .join('')
+    : `<div class="split-prog-mover" style="color:var(--text-dim)">Log a few sessions to see movers</div>`;
+
+  // This week's set volume for the day's target muscles.
+  const vol = analyzeWeeklyVolume();
+  const statusColor = { under: 'var(--red)', optimal: 'var(--green)', over: 'var(--yellow)' };
+  const volHtml = day.muscles
+    .map((mg) => {
+      const v = vol[mg];
+      if (!v) return '';
+      return `<span class="split-prog-vol">
+        <span class="split-prog-dot" style="background:${statusColor[v.status] || 'var(--text-dim)'}"></span>
+        ${mg} ${v.sets}/${v.target.min}
+      </span>`;
+    })
+    .join('');
+
+  return `<div class="split-progress-card">
+    <div class="split-progress-head">
+      <span>Plan Progress</span>
+      <button class="program-nav-btn" id="split-progress-more">Stats →</button>
+    </div>
+    <div class="split-prog-section-label">Recent movers</div>
+    ${moversHtml}
+    <div class="split-prog-section-label">This week's volume</div>
+    <div class="split-prog-vol-row">${volHtml}</div>
+  </div>`;
+}
+
+// ---------------------------------------------------------------------------
 // Program setup modal
 // ---------------------------------------------------------------------------
 
@@ -272,32 +391,46 @@ export function renderProgramSection() {
 export function showProgramSetupModal() {
   const body = $('edit-body');
   const programs = Object.keys(PROGRAM_TEMPLATES);
+  const splitName = BODYBUILDING_SPLITS[DEFAULT_SPLIT_TYPE].name;
+  const splitBlurb = BODYBUILDING_SPLITS[DEFAULT_SPLIT_TYPE].blurb;
   const current = store.programConfig.activeProgram || '';
 
   let html = `<div class="input-group" style="margin-bottom:8px"><label>Program</label>
     <select id="program-select" style="width:100%;padding:10px;border:2px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-size:0.9rem">
       <option value="">None (disable)</option>
       ${programs.map((p) => `<option value="${p}"${p === current ? ' selected' : ''}>${PROGRAM_TEMPLATES[p].name}</option>`).join('')}
+      <option value="${SPLIT_PROGRAM_ID}"${current === SPLIT_PROGRAM_ID ? ' selected' : ''}>Bodybuilding — ${splitName}</option>
     </select>
   </div>`;
 
   // Description area
-  const initDesc = current ? PROGRAM_TEMPLATES[current].description : '';
+  const initDesc =
+    current === SPLIT_PROGRAM_ID
+      ? splitBlurb
+      : current && PROGRAM_TEMPLATES[current]
+        ? PROGRAM_TEMPLATES[current].description
+        : '';
   html += `<div id="program-desc" style="font-size:0.75rem;color:var(--text-dim);line-height:1.4;margin-bottom:12px;min-height:20px">${initDesc}</div>`;
 
+  // Training-max block (SBD programs only — hidden for bodybuilding)
+  html += `<div id="program-tm-block">`;
   html += `<div class="section-label-lg" style="margin-bottom:8px">Training Maxes <span style="font-size:0.65rem;color:var(--text-dim);font-weight:normal">(auto-updated)</span></div>`;
   LIFTS.forEach((lift) => {
     if (lift === 'total') return;
     const best = bestE1RM(lift);
-    const suggestedTM = best ? Math.round(best * 0.9) : '';
-    const currentTM = store.programConfig.trainingMaxes[lift] || '';
+    const suggestedTM = best ? Math.round(best * 0.9) : 0;
+    const currentTM = store.programConfig.trainingMaxes[lift] || 0;
+    // Pre-fill: use the saved TM, otherwise the suggested 90% e1RM.
+    const prefill = currentTM || suggestedTM;
     const lw = getLiftWeek(lift);
     html += `<div class="tm-row">
       <span class="tm-lift-label" style="color:${COLORS[lift]}">${LIFT_NAMES[lift]}</span>
-      <input type="number" class="tm-input" id="tm-${lift}" value="${currentTM ? displayWeight(currentTM) : ''}" placeholder="${suggestedTM ? displayWeight(suggestedTM) : '0'}" inputmode="decimal" step="any">
+      <input type="number" class="tm-input" id="tm-${lift}" value="${prefill ? displayWeight(prefill) : ''}" placeholder="${suggestedTM ? displayWeight(suggestedTM) : '0'}" inputmode="decimal" step="any">
       <span class="tm-unit-label">${store.unit}</span>
-      <input type="number" id="week-${lift}" value="${lw}" min="1" style="width:52px;padding:6px;border:2px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:0.75rem;text-align:center;outline:none" title="Week">
-      <span style="font-size:0.6rem;color:var(--text-dim)">Wk</span>
+      <span class="tm-week-wrap" data-week-wrap="${lift}" style="display:none">
+        <input type="number" id="week-${lift}" value="${lw}" min="1" style="width:52px;padding:6px;border:2px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:0.75rem;text-align:center;outline:none" title="Week">
+        <span class="tm-week-label" style="font-size:0.6rem;color:var(--text-dim)">Wk</span>
+      </span>
       ${best ? `<button class="program-nav-btn tm-suggest-btn" data-suggest="${lift}">90% e1RM</button>` : ''}
     </div>`;
   });
@@ -307,6 +440,12 @@ export function showProgramSetupModal() {
     <input type="checkbox" id="auto-progress-toggle" ${store.programConfig.autoProgressEnabled ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--green)">
     Auto-progress TM when targets hit
   </label>`;
+  html += `</div>`; // #program-tm-block
+
+  // Bodybuilding info (shown only when the split is selected)
+  html += `<div id="split-info" style="display:none;font-size:0.75rem;color:var(--text-dim);line-height:1.5;margin-bottom:12px">
+    Auto-rotates <strong>Push → Pull → Legs</strong>. No training maxes needed — exercises are picked for your equipment and progress by adding reps then weight. Big compounds (bench/squat/deadlift) still count toward your maxes.
+  </div>`;
 
   html += `<button class="modal-save-btn" id="program-save">Save Program</button>`;
 
@@ -314,11 +453,29 @@ export function showProgramSetupModal() {
   body.innerHTML = html;
   openModal('edit-modal');
 
-  // Update description on program change
-  $('program-select').addEventListener('change', () => {
-    const sel = $('program-select').value;
-    $('program-desc').textContent = sel ? PROGRAM_TEMPLATES[sel].description || '' : '';
-  });
+  // Toggle UI based on the selected program's shape
+  function updateSetupUI(sel) {
+    const isSplit = sel === SPLIT_PROGRAM_ID;
+    const tmpl = !isSplit && sel ? PROGRAM_TEMPLATES[sel] : null;
+    $('program-desc').textContent = isSplit ? splitBlurb : tmpl ? tmpl.description || '' : '';
+    $('program-tm-block').style.display = sel && !isSplit ? 'block' : 'none';
+    $('split-info').style.display = isSplit ? 'block' : 'none';
+    // Week inputs: only multi-week programs need a starting week; day-rotation
+    // programs (Texas) relabel it "Day".
+    const showWeeks = !!tmpl && tmpl.weeks > 1;
+    body.querySelectorAll('.tm-week-wrap').forEach((w) => {
+      w.style.display = showWeeks ? '' : 'none';
+    });
+    if (showWeeks && tmpl.dayRotation) {
+      body.querySelectorAll('.tm-week-label').forEach((l) => (l.textContent = 'Day'));
+    } else {
+      body.querySelectorAll('.tm-week-label').forEach((l) => (l.textContent = 'Wk'));
+    }
+  }
+  updateSetupUI(current);
+
+  // React to program changes
+  $('program-select').addEventListener('change', () => updateSetupUI($('program-select').value));
 
   // Suggest TM buttons
   body.querySelectorAll('[data-suggest]').forEach((btn) => {
@@ -337,6 +494,26 @@ export function showProgramSetupModal() {
     if (programChanged && Object.keys(store.programConfig.completedSets || {}).length > 0) {
       if (!confirm('Changing programs will reset your weekly progress. Continue?')) return;
     }
+
+    const resetCompletion = () => {
+      store.programConfig.completedSets = {};
+      store.programConfig.completedWeeks = {};
+      store.programConfig.weekStreak = 0;
+      store.programConfig.progressedCycles = {};
+      store.programConfig.liftWeeks = { squat: 1, bench: 1, deadlift: 1 };
+    };
+
+    // Bodybuilding split selected
+    if (sel === SPLIT_PROGRAM_ID) {
+      if (programChanged) resetCompletion();
+      startSplitPlan(DEFAULT_SPLIT_TYPE); // sets activeProgram + splitPlan + saves
+      closeModal('edit-modal');
+      renderProgramSection();
+      _deps.updateWorkoutButton?.();
+      showToast(`Bodybuilding plan set: ${splitName}`);
+      return;
+    }
+
     if (!programChanged) {
       // Freeze any legacy completed rows before changing TMs, so only
       // incomplete workouts are recalculated from the new maxes.
@@ -347,6 +524,7 @@ export function showProgramSetupModal() {
       });
     }
     store.programConfig.activeProgram = sel || null;
+    store.programConfig.splitPlan = null; // leaving any split plan
     LIFTS.forEach((lift) => {
       if (lift === 'total') return;
       const v = parseFloat($('tm-' + lift).value);
@@ -356,16 +534,11 @@ export function showProgramSetupModal() {
     });
     store.programConfig.autoProgressEnabled = $('auto-progress-toggle').checked;
     // Only reset completion data when the program itself changes
-    if (programChanged) {
-      store.programConfig.completedSets = {};
-      store.programConfig.completedWeeks = {};
-      store.programConfig.weekStreak = 0;
-      store.programConfig.progressedCycles = {};
-      store.programConfig.liftWeeks = { squat: 1, bench: 1, deadlift: 1 };
-    }
+    if (programChanged) resetCompletion();
     store.saveProgramConfig();
     closeModal('edit-modal');
     renderProgramSection();
+    _deps.updateWorkoutButton?.();
     showToast(sel ? `Program set: ${PROGRAM_TEMPLATES[sel].name}` : 'Program disabled');
   });
 }
