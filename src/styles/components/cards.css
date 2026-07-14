@@ -40,6 +40,12 @@
   color: var(--text-strong);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
+  /* Flex row so the plateau badge can sit beside the number without
+     changing the row's height or wrapping (see .plateau-icon). */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
 }
 .card-value.empty {
   color: var(--text-dim);

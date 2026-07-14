@@ -52,19 +52,20 @@
   color: var(--text-strong);
 }
 
-/* Plateau indicator — now a tappable button that opens plateau analysis */
+/* Plateau indicator — tappable badge inline with the card value.
+   Rendered inside .card-value (a flex row shorter than the number's line box)
+   so it never wraps the card label or shifts content out of alignment. */
 .plateau-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   cursor: pointer;
   position: relative;
-  font-size: 0.85rem;
-  margin-left: 4px;
-  vertical-align: middle;
-  min-width: 28px;
-  min-height: 28px;
-  padding: 0 4px;
+  font-size: 0.7rem;
+  width: 20px;
+  height: 20px;
+  padding: 0;
   background: rgba(253, 216, 53, 0.12);
   border: 1px solid rgba(253, 216, 53, 0.3);
   border-radius: var(--radius-sm);
@@ -72,6 +73,12 @@
   -webkit-tap-highlight-color: transparent;
   transition: all var(--transition-fast);
   animation: plateauPulse 2.4s ease-in-out infinite;
+}
+/* Expanded touch target beyond the small visual badge */
+.plateau-icon::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
 }
 .plateau-icon:hover,
 .plateau-icon:active {

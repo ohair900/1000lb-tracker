@@ -118,7 +118,9 @@ export function updateLiftCard(lift) {
   } else {
     trendEl.style.display = 'none';
   }
-  const platEl = ensureChild(card.querySelector('.card-label'), 'plateau-icon', 'button');
+  // Lives inside the value row (el.textContent above wipes it each render,
+  // ensureChild recreates it) so it never wraps the label or shifts card layout.
+  const platEl = ensureChild(el, 'plateau-icon', 'button');
   if (best && detectPlateau(lift)) {
     platEl.innerHTML = '\u26A0\uFE0F';
     platEl.setAttribute('aria-label', `${LIFT_NAMES[lift]} plateau — tap for analysis`);
