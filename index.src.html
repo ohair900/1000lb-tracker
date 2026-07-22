@@ -346,7 +346,7 @@
       ></div>
       <div
         class="sheet-panel fatigue-sheet lift-detail-sheet"
-        id="lift-detail-sheet"
+        id="lift-detail-sheet" role="dialog" aria-modal="true" aria-label="Lift detail"
         style="display: none"
       >
         <div class="sheet-handle fatigue-sheet-handle"></div>
@@ -363,7 +363,7 @@
       ></div>
       <div
         class="sheet-panel fatigue-sheet acc-detail-sheet"
-        id="acc-detail-sheet"
+        id="acc-detail-sheet" role="dialog" aria-modal="true" aria-label="Accessory detail"
         style="display: none"
       >
         <div class="sheet-handle fatigue-sheet-handle"></div>
@@ -378,7 +378,7 @@
         id="fatigue-sheet-backdrop"
         style="display: none"
       ></div>
-      <div class="sheet-panel fatigue-sheet" id="fatigue-sheet" style="display: none">
+      <div class="sheet-panel fatigue-sheet" id="fatigue-sheet" role="dialog" aria-modal="true" aria-label="Fatigue detail" style="display: none">
         <div class="sheet-handle fatigue-sheet-handle"></div>
         <div class="fatigue-sheet-header">
           <h3 id="fatigue-sheet-title">Fatigue</h3>
@@ -393,7 +393,7 @@
       ></div>
       <div
         class="sheet-panel workout-summary-sheet"
-        id="workout-summary-sheet"
+        id="workout-summary-sheet" role="dialog" aria-modal="true" aria-label="Workout summary"
         style="display: none"
       >
         <div class="sheet-handle fatigue-sheet-handle"></div>
@@ -408,7 +408,7 @@
         id="plateau-sheet-backdrop"
         style="display: none"
       ></div>
-      <div class="sheet-panel fatigue-sheet" id="plateau-sheet" style="display: none">
+      <div class="sheet-panel fatigue-sheet" id="plateau-sheet" role="dialog" aria-modal="true" aria-label="Plateau analysis" style="display: none">
         <div class="sheet-handle fatigue-sheet-handle"></div>
         <div class="fatigue-sheet-header">
           <h3 id="plateau-sheet-title">Plateau Analysis</h3>
@@ -421,7 +421,7 @@
         id="review-sheet-backdrop"
         style="display: none"
       ></div>
-      <div class="sheet-panel fatigue-sheet" id="review-sheet" style="display: none">
+      <div class="sheet-panel fatigue-sheet" id="review-sheet" role="dialog" aria-modal="true" aria-label="Weekly review" style="display: none">
         <div class="sheet-handle fatigue-sheet-handle"></div>
         <div class="fatigue-sheet-header">
           <h3 id="review-sheet-title">Last Week Review</h3>
@@ -434,7 +434,7 @@
         id="recap-sheet-backdrop"
         style="display: none"
       ></div>
-      <div class="sheet-panel fatigue-sheet" id="recap-sheet" style="display: none">
+      <div class="sheet-panel fatigue-sheet" id="recap-sheet" role="dialog" aria-modal="true" aria-label="Weekly recap" style="display: none">
         <div class="sheet-handle fatigue-sheet-handle"></div>
         <div class="fatigue-sheet-header">
           <h3 id="recap-sheet-title">This Week</h3>
@@ -780,7 +780,7 @@
       <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
       <!-- Edit Modal -->
-      <div class="modal-backdrop" id="edit-modal" style="display: none">
+      <div class="modal-backdrop" id="edit-modal" role="dialog" aria-modal="true" aria-label="Edit entry" style="display: none">
         <div class="modal">
           <div class="modal-header">
             <h3>Edit Entry</h3>
@@ -791,7 +791,7 @@
       </div>
 
       <!-- Settings Modal -->
-      <div class="modal-backdrop" id="settings-modal" style="display: none">
+      <div class="modal-backdrop" id="settings-modal" role="dialog" aria-modal="true" aria-label="Settings" style="display: none">
         <div class="modal">
           <div class="modal-header">
             <h3>Settings</h3>
@@ -938,7 +938,7 @@
         id="choice-sheet-backdrop"
         style="display: none"
       ></div>
-      <div class="sheet-panel choice-sheet" id="choice-sheet" style="display: none">
+      <div class="sheet-panel choice-sheet" id="choice-sheet" role="dialog" aria-modal="true" aria-label="Start workout" style="display: none">
         <div class="sheet-handle choice-sheet-handle"></div>
         <div class="choice-sheet-header">
           <h3 id="choice-sheet-title">Start Workout</h3>
@@ -949,7 +949,7 @@
 
       <!-- Travel Workout Sheet -->
       <div class="sheet-backdrop fatigue-sheet-backdrop" id="travel-sheet-backdrop" style="display: none"></div>
-      <div class="sheet-panel fatigue-sheet" id="travel-sheet" style="display: none">
+      <div class="sheet-panel fatigue-sheet" id="travel-sheet" role="dialog" aria-modal="true" aria-label="Travel workout" style="display: none">
         <div class="sheet-handle fatigue-sheet-handle"></div>
         <div class="fatigue-sheet-header">
           <h3 id="travel-sheet-title">Travel Workout</h3>
