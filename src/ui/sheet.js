@@ -14,6 +14,7 @@
 import { $ } from '../utils/helpers.js';
 import store from '../state/store.js';
 import { isRouterResolving, pushRoute, clearOverlayState } from './router.js';
+import { trapFocus, releaseFocus } from './focus-trap.js';
 
 // ---------------------------------------------------------------------------
 // Generic sheet helpers
@@ -26,9 +27,15 @@ import { isRouterResolving, pushRoute, clearOverlayState } from './router.js';
  * @param {string} backdropId - Element ID of the backdrop
  */
 export function openSheet(sheetId, backdropId) {
+  const sheet = $(sheetId);
   $(backdropId).style.display = 'block';
-  $(sheetId).style.display = 'block';
+  sheet.style.display = 'block';
   document.body.style.overflow = 'hidden';
+  trapFocus(sheet, () => {
+    const closeBtn = sheet.querySelector('.modal-close');
+    if (closeBtn) closeBtn.click();
+    else $(backdropId).click();
+  });
 }
 
 /**
@@ -48,6 +55,7 @@ export function closeSheet(sheetId, backdropId) {
   backdrop.style.display = 'none';
   sheet.style.display = 'none';
   document.body.style.overflow = '';
+  releaseFocus(sheet);
 }
 
 // ---------------------------------------------------------------------------

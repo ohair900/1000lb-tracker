@@ -5,6 +5,8 @@
  * logic for JSON parsing and other fail-prone calls.
  */
 
+import { recordError } from './diagnostics.js';
+
 /**
  * Execute `fn` inside a try/catch.  On failure, log a warning with
  * the provided `context` label and return `undefined`.
@@ -17,6 +19,7 @@ export function safeCall(fn, context = '') {
     return fn();
   } catch (err) {
     console.warn(`[${context}]`, err);
+    recordError(context, err);
     return undefined;
   }
 }

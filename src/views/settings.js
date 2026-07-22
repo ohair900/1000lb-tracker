@@ -17,6 +17,7 @@ import {
 } from '../constants/storage-keys.js';
 import { WEAK_POINT_OPTIONS } from '../data/accessories.js';
 import { CURRENT_VERSION } from '../constants/time.js';
+import { copyDiagnostics } from '../utils/diagnostics.js';
 import { getTotal } from '../formulas/e1rm.js';
 import { formatWeight, inputToLbs } from '../formulas/units.js';
 import { rebuildPRs } from '../systems/pr-tracking.js';
@@ -141,6 +142,7 @@ function renderToolsTab() {
       <button class="data-btn" id="s-export-csv">Export CSV</button>
       <button class="data-btn" id="s-import">Import JSON</button>
     </div>
+    <button class="data-btn" id="s-diagnostics" style="width:100%;margin-bottom:12px">Copy Diagnostics</button>
     <button class="data-btn danger" id="s-clear" style="width:100%">Clear All Data</button>`;
   return html;
 }
@@ -494,6 +496,10 @@ export function attachSettingsListeners() {
   $('s-export').addEventListener('click', exportData);
   $('s-export-csv').addEventListener('click', exportCSV);
   $('s-import').addEventListener('click', () => $('import-file').click());
+  $('s-diagnostics')?.addEventListener('click', async () => {
+    const ok = await copyDiagnostics();
+    showToast(ok ? 'Diagnostics copied to clipboard' : 'Copy failed — clipboard unavailable');
+  });
   $('s-clear').addEventListener('click', async function () {
     if (!store.clearConfirm) {
       store.clearConfirm = true;

@@ -213,3 +213,20 @@
   animation: sheetSectionEnter 0.35s ease both;
   animation-delay: calc(var(--i, 0) * 60ms);
 }
+
+/* ===== Reduced motion ===== */
+/* Honour the OS "reduce motion" setting: collapse animations and
+   transitions to near-instant so vestibular-sensitive users aren't
+   subjected to slides, bounces, confetti falls, or pulses. Durations
+   are kept non-zero so `animationend` / `transitionend` listeners
+   (e.g. the welcome overlay teardown) still fire. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
