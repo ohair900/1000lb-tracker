@@ -96,6 +96,7 @@ import { initSwipeToDelete, setSwipeDeps } from './ui/swipe.js';
 import { initSheetListeners, closeChoiceSheet, openFatigueSheet } from './ui/sheet.js';
 import { initRouter, updateRoute } from './ui/router.js';
 import { applyAccentColor, setThemeDeps } from './ui/theme.js';
+import { initInstallPrompt } from './ui/install.js';
 import { on } from './ui/events.js';
 
 // ===== 7. Views =====
@@ -362,8 +363,9 @@ function initExercisePreview() {
 
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js?v=27').catch(() => {});
+    navigator.serviceWorker.register('/sw.js?v=28').catch(() => {});
   }
+  initInstallPrompt();
 }
 
 // =========================================================================

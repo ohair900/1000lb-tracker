@@ -12,6 +12,7 @@ import { bestE1RM } from '../formulas/e1rm.js';
 import { formatWeight } from '../formulas/units.js';
 import { roundToPlate } from '../formulas/plates.js';
 import { showToast } from '../ui/toast.js';
+import { trapFocus } from '../ui/focus-trap.js';
 
 // ---------------------------------------------------------------------------
 // Smart accessory card
@@ -228,5 +229,8 @@ export function openSmartRecommendation() {
   $('builder-title').textContent = 'Smart Workout';
   $('builder-overlay').style.display = 'flex';
   document.body.style.overflow = 'hidden';
+  // Reuses the builder shell; Escape routes through its close button, which
+  // runs closeBuilder (and releaseFocus).
+  trapFocus($('builder-overlay'), () => $('builder-close')?.click());
   render(store.currentLift);
 }

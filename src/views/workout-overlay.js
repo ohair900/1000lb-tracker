@@ -69,6 +69,7 @@ import {
   setWakeLockNeeded,
 } from '../ui/timer.js';
 import { isRouterResolving, pushRoute, clearOverlayState } from '../ui/router.js';
+import { trapFocus, releaseFocus } from '../ui/focus-trap.js';
 import {
   createSharedWorkout,
   subscribeSharedWorkout,
@@ -1269,6 +1270,8 @@ export async function openWorkoutView(mainLift) {
   $('workout-overlay').style.display = 'flex';
   $('workout-overlay').dataset.lift = mainLift;
   document.body.style.overflow = 'hidden';
+  // Escape / back closes the overlay; the session persists and resumes.
+  trapFocus($('workout-overlay'), closeWorkoutView);
   // Keep the screen on for the duration of the workout
   setWakeLockNeeded(true);
   requestWakeLock();
@@ -1286,6 +1289,7 @@ export function openTravelWorkoutView() {
   $('workout-overlay').style.display = 'flex';
   $('workout-overlay').dataset.lift = store.workoutSession?.mainLift || 'travel';
   document.body.style.overflow = 'hidden';
+  trapFocus($('workout-overlay'), closeWorkoutView);
   setWakeLockNeeded(true);
   requestWakeLock();
   renderWorkoutView();
@@ -1302,6 +1306,7 @@ export function openSplitWorkoutView() {
   $('workout-overlay').style.display = 'flex';
   $('workout-overlay').dataset.lift = 'split';
   document.body.style.overflow = 'hidden';
+  trapFocus($('workout-overlay'), closeWorkoutView);
   setWakeLockNeeded(true);
   requestWakeLock();
   renderWorkoutView();
@@ -1316,6 +1321,7 @@ export function closeWorkoutView() {
   setWakeLockNeeded(false);
   releaseWakeLock();
   $('workout-overlay').style.display = 'none';
+  releaseFocus($('workout-overlay'));
   document.body.style.overflow = '';
   clearOverlayState('#' + store.currentTab);
   _deps.updateWorkoutButton?.();

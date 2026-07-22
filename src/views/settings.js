@@ -18,6 +18,7 @@ import {
 import { WEAK_POINT_OPTIONS } from '../data/accessories.js';
 import { CURRENT_VERSION } from '../constants/time.js';
 import { copyDiagnostics } from '../utils/diagnostics.js';
+import { canInstall, promptInstall } from '../ui/install.js';
 import { getTotal } from '../formulas/e1rm.js';
 import { formatWeight, inputToLbs } from '../formulas/units.js';
 import { rebuildPRs } from '../systems/pr-tracking.js';
@@ -137,6 +138,9 @@ function renderToolsTab() {
     </div>`;
   html += settingsDivider;
   html += sectionLabel('Data');
+  if (canInstall()) {
+    html += `<button class="data-btn" id="s-install" style="width:100%;margin-bottom:12px">📲 Install App</button>`;
+  }
   html += `<div class="data-row" style="margin-bottom:12px">
       <button class="data-btn" id="s-export">Export JSON</button>
       <button class="data-btn" id="s-export-csv">Export CSV</button>
@@ -604,6 +608,11 @@ export function attachSettingsListeners() {
   $('s-diagnostics')?.addEventListener('click', async () => {
     const ok = await copyDiagnostics();
     showToast(ok ? 'Diagnostics copied to clipboard' : 'Copy failed — clipboard unavailable');
+  });
+  $('s-install')?.addEventListener('click', async () => {
+    const accepted = await promptInstall();
+    if (accepted) showToast('Installing app…');
+    else $('s-install')?.remove();
   });
   $('s-clear').addEventListener('click', async function () {
     if (!store.clearConfirm) {

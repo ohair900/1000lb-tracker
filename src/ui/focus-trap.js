@@ -98,8 +98,12 @@ export function trapFocus(container, onEscape) {
     if (!document.contains(container) || container.style.display === 'none') return;
     // Don't steal focus if the user already tabbed somewhere inside.
     if (container.contains(document.activeElement)) return;
-    const focusable = focusableWithin(container);
-    (focusable[0] || container).focus?.();
+    // Focus the dialog container itself (standard dialog pattern) rather than
+    // the first focusable child. Focusing a first text/number input would pop
+    // the mobile keyboard on open; a caller that wants a specific control
+    // focused (e.g. confirm sheet's Cancel) can focus it after trapping.
+    if (!container.hasAttribute('tabindex')) container.setAttribute('tabindex', '-1');
+    container.focus?.();
   });
 }
 

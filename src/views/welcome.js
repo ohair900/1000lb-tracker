@@ -9,6 +9,7 @@ import store from '../state/store.js';
 import { $ } from '../utils/helpers.js';
 import { WELCOME_KEY } from '../constants/storage-keys.js';
 import { LBS_PER_KG } from '../constants/formulas.js';
+import { trapFocus, releaseFocus } from '../ui/focus-trap.js';
 
 // ---------------------------------------------------------------------------
 // Dependency injection
@@ -33,6 +34,7 @@ export function showWelcomeScreen() {
   const overlay = $('welcome-overlay');
   overlay.style.display = 'flex';
   document.body.style.overflow = 'hidden';
+  trapFocus(overlay, () => dismiss());
   let selectedGender = null;
 
   function showStep(n) {
@@ -67,6 +69,7 @@ export function showWelcomeScreen() {
 
   function dismiss() {
     localStorage.setItem(WELCOME_KEY, '1');
+    releaseFocus(overlay);
     overlay.classList.add('fade-out');
     document.body.style.overflow = '';
     overlay.addEventListener('animationend', () => overlay.remove(), { once: true });
