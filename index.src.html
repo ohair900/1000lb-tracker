@@ -253,7 +253,7 @@
           </svg>
         </div>
         <div style="position: relative">
-          <button class="sync-btn" id="sync-btn" title="Cloud sync">
+          <button class="sync-btn" id="sync-btn" type="button" title="Cloud sync" aria-label="Cloud sync">
             <svg
               width="20"
               height="20"
@@ -270,7 +270,7 @@
           </button>
           <div class="sync-menu" id="sync-menu"></div>
         </div>
-        <button class="gear-btn" id="gear-btn" title="Settings">
+        <button class="gear-btn" id="gear-btn" type="button" title="Settings" aria-label="Settings">
           <svg
             width="20"
             height="20"
@@ -289,9 +289,9 @@
         </button>
       </div>
 
-      <div class="unit-toggle">
-        <button class="unit-btn active" data-unit="lbs">lbs</button>
-        <button class="unit-btn" data-unit="kg">kg</button>
+      <div class="unit-toggle" role="group" aria-label="Weight unit">
+        <button class="unit-btn active" type="button" data-unit="lbs" aria-pressed="true">lbs</button>
+        <button class="unit-btn" type="button" data-unit="kg" aria-pressed="false">kg</button>
       </div>
 
       <div class="dashboard">
@@ -346,13 +346,13 @@
       ></div>
       <div
         class="sheet-panel fatigue-sheet lift-detail-sheet"
-        id="lift-detail-sheet"
+        id="lift-detail-sheet" role="dialog" aria-modal="true" aria-label="Lift detail"
         style="display: none"
       >
         <div class="sheet-handle fatigue-sheet-handle"></div>
         <div class="fatigue-sheet-header">
           <h3 id="lift-detail-title">Lift Detail</h3>
-          <button class="modal-close" id="lift-detail-close">&times;</button>
+          <button class="modal-close" type="button" id="lift-detail-close" aria-label="Close">&times;</button>
         </div>
         <div class="fatigue-sheet-body" id="lift-detail-body"></div>
       </div>
@@ -363,13 +363,13 @@
       ></div>
       <div
         class="sheet-panel fatigue-sheet acc-detail-sheet"
-        id="acc-detail-sheet"
+        id="acc-detail-sheet" role="dialog" aria-modal="true" aria-label="Accessory detail"
         style="display: none"
       >
         <div class="sheet-handle fatigue-sheet-handle"></div>
         <div class="fatigue-sheet-header">
           <h3 id="acc-detail-title">Accessory Detail</h3>
-          <button class="modal-close" id="acc-detail-close">&times;</button>
+          <button class="modal-close" type="button" id="acc-detail-close" aria-label="Close">&times;</button>
         </div>
         <div class="fatigue-sheet-body" id="acc-detail-body"></div>
       </div>
@@ -378,11 +378,11 @@
         id="fatigue-sheet-backdrop"
         style="display: none"
       ></div>
-      <div class="sheet-panel fatigue-sheet" id="fatigue-sheet" style="display: none">
+      <div class="sheet-panel fatigue-sheet" id="fatigue-sheet" role="dialog" aria-modal="true" aria-label="Fatigue detail" style="display: none">
         <div class="sheet-handle fatigue-sheet-handle"></div>
         <div class="fatigue-sheet-header">
           <h3 id="fatigue-sheet-title">Fatigue</h3>
-          <button class="modal-close" id="fatigue-sheet-close">&times;</button>
+          <button class="modal-close" type="button" id="fatigue-sheet-close" aria-label="Close">&times;</button>
         </div>
         <div class="fatigue-sheet-body" id="fatigue-sheet-body"></div>
       </div>
@@ -393,13 +393,13 @@
       ></div>
       <div
         class="sheet-panel workout-summary-sheet"
-        id="workout-summary-sheet"
+        id="workout-summary-sheet" role="dialog" aria-modal="true" aria-label="Workout summary"
         style="display: none"
       >
         <div class="sheet-handle fatigue-sheet-handle"></div>
         <div class="fatigue-sheet-header">
           <h3 id="workout-summary-title">Workout Summary</h3>
-          <button class="modal-close" id="workout-summary-close">&times;</button>
+          <button class="modal-close" type="button" id="workout-summary-close" aria-label="Close">&times;</button>
         </div>
         <div class="fatigue-sheet-body" id="workout-summary-body"></div>
       </div>
@@ -408,11 +408,11 @@
         id="plateau-sheet-backdrop"
         style="display: none"
       ></div>
-      <div class="sheet-panel fatigue-sheet" id="plateau-sheet" style="display: none">
+      <div class="sheet-panel fatigue-sheet" id="plateau-sheet" role="dialog" aria-modal="true" aria-label="Plateau analysis" style="display: none">
         <div class="sheet-handle fatigue-sheet-handle"></div>
         <div class="fatigue-sheet-header">
           <h3 id="plateau-sheet-title">Plateau Analysis</h3>
-          <button class="modal-close" id="plateau-sheet-close">&times;</button>
+          <button class="modal-close" type="button" id="plateau-sheet-close" aria-label="Close">&times;</button>
         </div>
         <div class="fatigue-sheet-body" id="plateau-sheet-body"></div>
       </div>
@@ -421,11 +421,11 @@
         id="review-sheet-backdrop"
         style="display: none"
       ></div>
-      <div class="sheet-panel fatigue-sheet" id="review-sheet" style="display: none">
+      <div class="sheet-panel fatigue-sheet" id="review-sheet" role="dialog" aria-modal="true" aria-label="Weekly review" style="display: none">
         <div class="sheet-handle fatigue-sheet-handle"></div>
         <div class="fatigue-sheet-header">
           <h3 id="review-sheet-title">Last Week Review</h3>
-          <button class="modal-close" id="review-sheet-close">&times;</button>
+          <button class="modal-close" type="button" id="review-sheet-close" aria-label="Close">&times;</button>
         </div>
         <div class="fatigue-sheet-body" id="review-sheet-body"></div>
       </div>
@@ -434,11 +434,11 @@
         id="recap-sheet-backdrop"
         style="display: none"
       ></div>
-      <div class="sheet-panel fatigue-sheet" id="recap-sheet" style="display: none">
+      <div class="sheet-panel fatigue-sheet" id="recap-sheet" role="dialog" aria-modal="true" aria-label="Weekly recap" style="display: none">
         <div class="sheet-handle fatigue-sheet-handle"></div>
         <div class="fatigue-sheet-header">
           <h3 id="recap-sheet-title">This Week</h3>
-          <button class="modal-close" id="recap-sheet-close">&times;</button>
+          <button class="modal-close" type="button" id="recap-sheet-close" aria-label="Close">&times;</button>
         </div>
         <div class="fatigue-sheet-body" id="recap-sheet-body"></div>
       </div>
@@ -454,21 +454,79 @@
       </div>
       <div id="plateau-cards" style="display: none"></div>
 
-      <div class="tabs">
-        <button class="tab-btn active" data-tab="log">Log</button>
-        <button class="tab-btn" data-tab="history">History</button>
-        <button class="tab-btn" data-tab="charts">Charts</button>
-        <button class="tab-btn" data-tab="stats">Stats</button>
-        <button class="tab-btn" data-tab="ranks">Ranks</button>
+      <div class="tabs" role="tablist" aria-label="Main navigation">
+        <button
+          class="tab-btn active"
+          type="button"
+          role="tab"
+          id="tabbtn-log"
+          data-tab="log"
+          aria-controls="tab-log"
+          aria-selected="true"
+        >
+          Log
+        </button>
+        <button
+          class="tab-btn"
+          type="button"
+          role="tab"
+          id="tabbtn-history"
+          data-tab="history"
+          aria-controls="tab-history"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          History
+        </button>
+        <button
+          class="tab-btn"
+          type="button"
+          role="tab"
+          id="tabbtn-charts"
+          data-tab="charts"
+          aria-controls="tab-charts"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          Charts
+        </button>
+        <button
+          class="tab-btn"
+          type="button"
+          role="tab"
+          id="tabbtn-stats"
+          data-tab="stats"
+          aria-controls="tab-stats"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          Stats
+        </button>
+        <button
+          class="tab-btn"
+          type="button"
+          role="tab"
+          id="tabbtn-ranks"
+          data-tab="ranks"
+          aria-controls="tab-ranks"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          Ranks
+        </button>
       </div>
 
       <!-- Log Tab -->
-      <div class="tab-panel active" id="tab-log">
+      <div class="tab-panel active" id="tab-log" role="tabpanel" aria-labelledby="tabbtn-log">
         <div class="cycle-bar" id="cycle-bar"></div>
-        <div class="lift-selector">
-          <button class="lift-btn active" data-lift="squat">Squat</button>
-          <button class="lift-btn" data-lift="bench">Bench</button>
-          <button class="lift-btn" data-lift="deadlift">Deadlift</button>
+        <div class="lift-selector" role="group" aria-label="Select lift">
+          <button class="lift-btn active" type="button" data-lift="squat" aria-pressed="true">
+            Squat
+          </button>
+          <button class="lift-btn" type="button" data-lift="bench" aria-pressed="false">Bench</button>
+          <button class="lift-btn" type="button" data-lift="deadlift" aria-pressed="false">
+            Deadlift
+          </button>
         </div>
         <div class="input-row">
           <div class="input-group">
@@ -498,17 +556,17 @@
         </div>
         <div class="rpe-section">
           <label class="rpe-label">RPE <span class="optional">(optional)</span></label>
-          <div class="rpe-row" id="rpe-row">
-            <button class="rpe-pill active" data-rpe="">--</button>
-            <button class="rpe-pill" data-rpe="6">6</button>
-            <button class="rpe-pill" data-rpe="6.5">6.5</button>
-            <button class="rpe-pill" data-rpe="7">7</button>
-            <button class="rpe-pill" data-rpe="7.5">7.5</button>
-            <button class="rpe-pill" data-rpe="8">8</button>
-            <button class="rpe-pill" data-rpe="8.5">8.5</button>
-            <button class="rpe-pill" data-rpe="9">9</button>
-            <button class="rpe-pill" data-rpe="9.5">9.5</button>
-            <button class="rpe-pill" data-rpe="10">10</button>
+          <div class="rpe-row" id="rpe-row" role="group" aria-label="Rate of perceived exertion">
+            <button class="rpe-pill active" type="button" data-rpe="" aria-pressed="true" aria-label="No RPE">--</button>
+            <button class="rpe-pill" type="button" data-rpe="6" aria-pressed="false">6</button>
+            <button class="rpe-pill" type="button" data-rpe="6.5" aria-pressed="false">6.5</button>
+            <button class="rpe-pill" type="button" data-rpe="7" aria-pressed="false">7</button>
+            <button class="rpe-pill" type="button" data-rpe="7.5" aria-pressed="false">7.5</button>
+            <button class="rpe-pill" type="button" data-rpe="8" aria-pressed="false">8</button>
+            <button class="rpe-pill" type="button" data-rpe="8.5" aria-pressed="false">8.5</button>
+            <button class="rpe-pill" type="button" data-rpe="9" aria-pressed="false">9</button>
+            <button class="rpe-pill" type="button" data-rpe="9.5" aria-pressed="false">9.5</button>
+            <button class="rpe-pill" type="button" data-rpe="10" aria-pressed="false">10</button>
           </div>
         </div>
         <div class="log-meta-row">
@@ -544,7 +602,7 @@
       </div>
 
       <!-- History Tab -->
-      <div class="tab-panel" id="tab-history">
+      <div class="tab-panel" id="tab-history" role="tabpanel" aria-labelledby="tabbtn-history">
         <div class="filter-bar">
           <div class="filter-pills" id="history-filter-pills">
             <button class="filter-pill active" data-filter="all">All</button>
@@ -568,7 +626,7 @@
       </div>
 
       <!-- Charts Tab -->
-      <div class="tab-panel" id="tab-charts">
+      <div class="tab-panel" id="tab-charts" role="tabpanel" aria-labelledby="tabbtn-charts">
         <div class="chart-type-selector">
           <button class="chart-type-btn active" data-type="e1rm">e1RM</button>
           <button class="chart-type-btn" data-type="volume">Volume</button>
@@ -597,12 +655,12 @@
       </div>
 
       <!-- Stats Tab -->
-      <div class="tab-panel" id="tab-stats">
+      <div class="tab-panel" id="tab-stats" role="tabpanel" aria-labelledby="tabbtn-stats">
         <div id="stats-content"></div>
       </div>
 
       <!-- Ranks Tab (Leaderboard) -->
-      <div class="tab-panel" id="tab-ranks">
+      <div class="tab-panel" id="tab-ranks" role="tabpanel" aria-labelledby="tabbtn-ranks">
         <!-- Crew chip strip (shown only if user has crews) -->
         <div class="lb-crew-strip" id="lb-crew-strip" style="display: none">
           <div class="lb-crew-chips" id="lb-crew-chips"></div>
@@ -635,7 +693,7 @@
         <div class="modal-content">
           <div class="modal-header">
             <h3>Create Crew</h3>
-            <button class="modal-close" id="crew-create-close">&times;</button>
+            <button class="modal-close" type="button" id="crew-create-close" aria-label="Close">&times;</button>
           </div>
           <div class="modal-body">
             <input
@@ -677,7 +735,7 @@
         <div class="modal-content">
           <div class="modal-header">
             <h3>Join Crew</h3>
-            <button class="modal-close" id="crew-join-close">&times;</button>
+            <button class="modal-close" type="button" id="crew-join-close" aria-label="Close">&times;</button>
           </div>
           <div class="modal-body">
             <input
@@ -719,32 +777,32 @@
       </div>
 
       <!-- Toast -->
-      <div class="toast" id="toast"></div>
+      <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
       <!-- Edit Modal -->
-      <div class="modal-backdrop" id="edit-modal" style="display: none">
+      <div class="modal-backdrop" id="edit-modal" role="dialog" aria-modal="true" aria-label="Edit entry" style="display: none">
         <div class="modal">
           <div class="modal-header">
             <h3>Edit Entry</h3>
-            <button class="modal-close" id="edit-close">&times;</button>
+            <button class="modal-close" type="button" id="edit-close" aria-label="Close">&times;</button>
           </div>
           <div class="modal-body" id="edit-body"></div>
         </div>
       </div>
 
       <!-- Settings Modal -->
-      <div class="modal-backdrop" id="settings-modal" style="display: none">
+      <div class="modal-backdrop" id="settings-modal" role="dialog" aria-modal="true" aria-label="Settings" style="display: none">
         <div class="modal">
           <div class="modal-header">
             <h3>Settings</h3>
-            <button class="modal-close" id="settings-close">&times;</button>
+            <button class="modal-close" type="button" id="settings-close" aria-label="Close">&times;</button>
           </div>
           <div class="modal-body" id="settings-body"></div>
         </div>
       </div>
 
       <!-- Welcome Overlay -->
-      <div class="welcome-overlay" id="welcome-overlay" style="display: none">
+      <div class="welcome-overlay" id="welcome-overlay" style="display: none" role="dialog" aria-modal="true" aria-label="Welcome">
         <div class="welcome-content">
           <!-- Step 1: Welcome -->
           <div class="welcome-step" id="welcome-step-1">
@@ -880,28 +938,28 @@
         id="choice-sheet-backdrop"
         style="display: none"
       ></div>
-      <div class="sheet-panel choice-sheet" id="choice-sheet" style="display: none">
+      <div class="sheet-panel choice-sheet" id="choice-sheet" role="dialog" aria-modal="true" aria-label="Start workout" style="display: none">
         <div class="sheet-handle choice-sheet-handle"></div>
         <div class="choice-sheet-header">
           <h3 id="choice-sheet-title">Start Workout</h3>
-          <button class="modal-close" id="choice-sheet-close">&times;</button>
+          <button class="modal-close" type="button" id="choice-sheet-close" aria-label="Close">&times;</button>
         </div>
         <div class="choice-sheet-body" id="choice-sheet-body"></div>
       </div>
 
       <!-- Travel Workout Sheet -->
       <div class="sheet-backdrop fatigue-sheet-backdrop" id="travel-sheet-backdrop" style="display: none"></div>
-      <div class="sheet-panel fatigue-sheet" id="travel-sheet" style="display: none">
+      <div class="sheet-panel fatigue-sheet" id="travel-sheet" role="dialog" aria-modal="true" aria-label="Travel workout" style="display: none">
         <div class="sheet-handle fatigue-sheet-handle"></div>
         <div class="fatigue-sheet-header">
           <h3 id="travel-sheet-title">Travel Workout</h3>
-          <button class="modal-close" id="travel-sheet-close">&times;</button>
+          <button class="modal-close" type="button" id="travel-sheet-close" aria-label="Close">&times;</button>
         </div>
         <div class="fatigue-sheet-body" id="travel-sheet-body"></div>
       </div>
 
       <!-- Builder Overlay -->
-      <div class="builder-overlay" id="builder-overlay" style="display: none">
+      <div class="builder-overlay" id="builder-overlay" style="display: none" role="dialog" aria-modal="true" aria-labelledby="builder-title">
         <div class="builder-header">
           <div>
             <div class="builder-header-title" id="builder-title">Build Workout</div>
@@ -1042,13 +1100,13 @@
         <div class="sheet-handle leaderboard-sheet-handle"></div>
         <div class="fatigue-sheet-header">
           <h3 id="leaderboard-sheet-title">Lifter</h3>
-          <button class="modal-close" id="leaderboard-sheet-close">&times;</button>
+          <button class="modal-close" type="button" id="leaderboard-sheet-close" aria-label="Close">&times;</button>
         </div>
         <div class="fatigue-sheet-body" id="leaderboard-sheet-body"></div>
       </div>
 
       <!-- Workout Overlay -->
-      <div class="workout-overlay" id="workout-overlay" style="display: none">
+      <div class="workout-overlay" id="workout-overlay" style="display: none" role="dialog" aria-modal="true" aria-label="Workout session">
         <div class="workout-header">
           <div>
             <div class="workout-header-title" id="workout-title"></div>

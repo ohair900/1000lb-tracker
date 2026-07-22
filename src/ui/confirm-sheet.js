@@ -23,6 +23,8 @@
  *   if (ok) { ... }
  */
 
+import { trapFocus, releaseFocus } from './focus-trap.js';
+
 let _active = null;
 
 /**
@@ -82,13 +84,19 @@ export function confirmSheet(opts = {}) {
     const cancelBtn = sheet.querySelector('.confirm-sheet-cancel');
     const confirmBtn = sheet.querySelector('.confirm-sheet-confirm');
 
-    // Cancel button is initially focused (safe default)
+    // Trap focus inside the sheet; Escape resolves as cancel. This also makes
+    // the confirm sheet the topmost trap when it opens over an already-trapped
+    // modal/sheet (e.g. the workout choice sheet), so Escape dismisses the
+    // confirm rather than the surface beneath it.
+    trapFocus(sheet, () => dismiss(false));
+    // Cancel button is the safe default focus target.
     setTimeout(() => cancelBtn.focus(), 50);
 
     function dismiss(result) {
       if (!_active) return;
       _active = null;
       document.removeEventListener('keydown', onKeydown);
+      releaseFocus(sheet);
       backdrop.classList.remove('open');
       sheet.classList.remove('open');
       setTimeout(() => {
@@ -99,11 +107,9 @@ export function confirmSheet(opts = {}) {
       resolve(result);
     }
 
+    // Escape and Tab are handled by the focus trap; this only adds Enter-to-confirm.
     function onKeydown(e) {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        dismiss(false);
-      } else if (e.key === 'Enter' && document.activeElement === confirmBtn) {
+      if (e.key === 'Enter' && document.activeElement === confirmBtn) {
         e.preventDefault();
         dismiss(true);
       }

@@ -7,27 +7,44 @@
  */
 
 import { $ } from '../utils/helpers.js';
+import { trapFocus, releaseFocus } from './focus-trap.js';
+
+/**
+ * Close a modal via its own close affordance so any router / cleanup
+ * listeners wired to that button also run. Falls back to a plain close.
+ * @param {HTMLElement} el - The `.modal-backdrop` element
+ * @param {string} id
+ */
+function dismissModal(el, id) {
+  const closeBtn = el.querySelector('.modal-close');
+  if (closeBtn) closeBtn.click();
+  else closeModal(id);
+}
 
 /**
  * Show a modal by its container element ID.
- * Locks body scroll while the modal is visible.
+ * Locks body scroll and traps keyboard focus while the modal is visible.
  *
  * @param {string} id - The element ID of the `.modal-backdrop` wrapper
  */
 export function openModal(id) {
-  $(id).style.display = '';
+  const el = $(id);
+  el.style.display = '';
   document.body.style.overflow = 'hidden';
+  trapFocus(el, () => dismissModal(el, id));
 }
 
 /**
  * Hide a modal by its container element ID.
- * Restores body scroll.
+ * Restores body scroll and returns focus to the opener.
  *
  * @param {string} id - The element ID of the `.modal-backdrop` wrapper
  */
 export function closeModal(id) {
-  $(id).style.display = 'none';
+  const el = $(id);
+  el.style.display = 'none';
   document.body.style.overflow = '';
+  releaseFocus(el);
 }
 
 /**

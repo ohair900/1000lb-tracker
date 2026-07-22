@@ -31,6 +31,7 @@ import { checkGuardrails } from '../systems/workout-guardrails.js';
 import { showToast } from '../ui/toast.js';
 import { displayWeight } from '../formulas/units.js';
 import { isRouterResolving, pushRoute, clearOverlayState } from '../ui/router.js';
+import { trapFocus, releaseFocus } from '../ui/focus-trap.js';
 
 // ---------------------------------------------------------------------------
 // Module state
@@ -484,6 +485,8 @@ export function openBuilder(mainLift, preloadExercises) {
     $('builder-title').textContent = `Build ${LIFT_NAMES[mainLift]} Workout`;
     $('builder-overlay').style.display = 'flex';
     document.body.style.overflow = 'hidden';
+    // Escape mirrors the close button (honours the unsaved-work discard prompt).
+    trapFocus($('builder-overlay'), () => closeBuilder(false));
     renderBuilder(mainLift);
   };
 
@@ -536,6 +539,7 @@ export function closeBuilder(force) {
     return;
   }
   $('builder-overlay').style.display = 'none';
+  releaseFocus($('builder-overlay'));
   document.body.style.overflow = '';
   store.builderExercises = [];
   _builderDirty = false;

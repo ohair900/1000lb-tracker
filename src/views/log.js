@@ -233,8 +233,12 @@ export function initLogTab() {
   // Lift selector
   document.querySelectorAll('.lift-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.lift-btn').forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll('.lift-btn').forEach((b) => {
+        b.classList.remove('active');
+        b.setAttribute('aria-pressed', 'false');
+      });
       btn.classList.add('active');
+      btn.setAttribute('aria-pressed', 'true');
       store.currentLift = btn.dataset.lift;
       updatePreview();
       _deps.renderProgramSection?.();
@@ -245,8 +249,12 @@ export function initLogTab() {
   // RPE selector
   document.querySelectorAll('.rpe-pill').forEach((btn) => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.rpe-pill').forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll('.rpe-pill').forEach((b) => {
+        b.classList.remove('active');
+        b.setAttribute('aria-pressed', 'false');
+      });
       btn.classList.add('active');
+      btn.setAttribute('aria-pressed', 'true');
       store.currentRPE = btn.dataset.rpe ? parseFloat(btn.dataset.rpe) : null;
     });
   });

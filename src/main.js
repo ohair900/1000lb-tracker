@@ -75,6 +75,7 @@ import {
 // ===== 6. UI primitives =====
 import { $ } from './utils/helpers.js';
 import { safeCall } from './utils/error.js';
+import { installGlobalErrorHandlers, setDiagnosticsToast } from './utils/diagnostics.js';
 import { initDOMRefs } from './ui/dom.js';
 import { showToast, setToastDeps, showToastWithUndo } from './ui/toast.js';
 import { openModal, closeModal, initModalListeners } from './ui/modal.js';
@@ -95,6 +96,7 @@ import { initSwipeToDelete, setSwipeDeps } from './ui/swipe.js';
 import { initSheetListeners, closeChoiceSheet, openFatigueSheet } from './ui/sheet.js';
 import { initRouter, updateRoute } from './ui/router.js';
 import { applyAccentColor, setThemeDeps } from './ui/theme.js';
+import { initInstallPrompt } from './ui/install.js';
 import { on } from './ui/events.js';
 
 // ===== 7. Views =====
@@ -246,9 +248,12 @@ function showWeakPointSetupModal(thenOpenLift) {
 const TAB_ORDER = ['log', 'history', 'charts', 'stats', 'ranks'];
 
 function switchToTab(tabName, direction) {
-  document
-    .querySelectorAll('.tab-btn')
-    .forEach((b) => b.classList.toggle('active', b.dataset.tab === tabName));
+  document.querySelectorAll('.tab-btn').forEach((b) => {
+    const selected = b.dataset.tab === tabName;
+    b.classList.toggle('active', selected);
+    b.setAttribute('aria-selected', selected ? 'true' : 'false');
+    b.setAttribute('tabindex', selected ? '0' : '-1');
+  });
   document.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active'));
   const newPanel = $('tab-' + tabName);
   if (direction) {
@@ -358,13 +363,20 @@ function initExercisePreview() {
 
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js?v=25').catch(() => {});
+    navigator.serviceWorker.register('/sw.js?v=28').catch(() => {});
   }
+  initInstallPrompt();
 }
 
 // =========================================================================
 // BOOT SEQUENCE
 // =========================================================================
+
+// Catch otherwise-silent uncaught errors / promise rejections as early as
+// possible so nothing before first paint slips through. The toast is wired
+// once the toast UI is ready (below).
+installGlobalErrorHandlers();
+setDiagnosticsToast(showToast);
 
 installRoundRectPolyfill();
 store.init();
@@ -709,14 +721,33 @@ on('entry:deleted', _onEntryChange);
 applyAccentColor();
 
 // ----- Step 8: Sync unit UI state -----
-document
-  .querySelectorAll('.unit-btn')
-  .forEach((b) => b.classList.toggle('active', b.dataset.unit === store.unit));
+document.querySelectorAll('.unit-btn').forEach((b) => {
+  const on = b.dataset.unit === store.unit;
+  b.classList.toggle('active', on);
+  b.setAttribute('aria-pressed', on ? 'true' : 'false');
+});
 document.querySelectorAll('.unit-label').forEach((el) => (el.textContent = store.unit));
 
 // ----- Step 9: Tab switching -----
-document.querySelectorAll('#app .tabs .tab-btn').forEach((btn) => {
+const _tabButtons = Array.from(document.querySelectorAll('#app .tabs .tab-btn'));
+_tabButtons.forEach((btn) => {
   btn.addEventListener('click', () => switchToTab(btn.dataset.tab));
+});
+// Roving-tabindex arrow-key navigation for the tablist (ARIA tab pattern).
+document.querySelector('#app .tabs')?.addEventListener('keydown', (e) => {
+  const idx = _tabButtons.indexOf(document.activeElement);
+  if (idx === -1) return;
+  let next = null;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (idx + 1) % _tabButtons.length;
+  else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp')
+    next = (idx - 1 + _tabButtons.length) % _tabButtons.length;
+  else if (e.key === 'Home') next = 0;
+  else if (e.key === 'End') next = _tabButtons.length - 1;
+  if (next === null) return;
+  e.preventDefault();
+  const btn = _tabButtons[next];
+  switchToTab(btn.dataset.tab);
+  btn.focus();
 });
 
 // Touch swipe between tabs
@@ -770,7 +801,10 @@ document.querySelectorAll('#app .tabs .tab-btn').forEach((btn) => {
 // ----- Step 10: Unit toggle handlers -----
 document.querySelectorAll('.unit-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.unit-btn').forEach((b) => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('.unit-btn').forEach((b) => {
+      b.classList.toggle('active', b === btn);
+      b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+    });
     store.unit = btn.dataset.unit;
     localStorage.setItem(UNIT_KEY, store.unit);
     scheduleCloudSync();

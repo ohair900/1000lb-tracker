@@ -38,6 +38,21 @@ export function setConfettiDeps(deps) {
   Object.assign(_deps, deps);
 }
 
+/**
+ * Whether the user has asked the OS to minimise motion. Confetti is purely
+ * decorative, so we skip spawning particles entirely when this is set —
+ * cheaper than relying on the CSS reduced-motion override and honours the
+ * preference fully (no swarm of instantly-hidden nodes).
+ * @returns {boolean}
+ */
+function prefersReducedMotion() {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Full milestone celebration overlay
 // ---------------------------------------------------------------------------
@@ -53,9 +68,10 @@ export function showCelebration(total, msTheme) {
   const overlay = document.createElement('div');
   overlay.className = 'celebration-overlay';
 
-  // Confetti particles
+  // Confetti particles (skipped under reduced-motion; the overlay + message
+  // still convey the milestone).
   const confettiColors = msTheme.confettiColors;
-  for (let i = 0; i < CONFETTI_COUNT; i++) {
+  for (let i = 0; !prefersReducedMotion() && i < CONFETTI_COUNT; i++) {
     const p = document.createElement('div');
     p.className = 'confetti';
     const size = CONFETTI_SIZE_MIN + Math.random() * CONFETTI_SIZE_RANGE;
@@ -148,7 +164,7 @@ export function triggerWeekCompleteCelebration() {
   section.style.position = 'relative';
   section.style.overflow = 'hidden';
   const colors = ['#4caf50', '#ffd700', '#66bb6a', '#ffeb3b', '#81c784', '#fff176'];
-  for (let i = 0; i < MINI_CONFETTI_COUNT; i++) {
+  for (let i = 0; !prefersReducedMotion() && i < MINI_CONFETTI_COUNT; i++) {
     const particle = document.createElement('div');
     particle.className = 'mini-confetti';
     particle.style.left = Math.random() * 100 + '%';
@@ -188,7 +204,7 @@ export function burstMilestoneConfetti(lift) {
   document.body.appendChild(container);
 
   const count = 30;
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; !prefersReducedMotion() && i < count; i++) {
     const p = document.createElement('div');
     p.className = 'confetti';
     const size = 6 + Math.random() * 6;
