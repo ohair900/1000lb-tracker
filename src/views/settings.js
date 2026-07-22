@@ -176,8 +176,14 @@ export function renderSettingsBody() {
 // Export / Import
 // ---------------------------------------------------------------------------
 
-function exportData() {
-  const data = {
+/**
+ * Build the full backup payload from current store state. Kept as a single
+ * source of truth so export, the pre-import snapshot, and any future backup
+ * feature all serialize the exact same set of stores.
+ * @returns {object}
+ */
+export function buildExportData() {
+  return {
     version: CURRENT_VERSION,
     entries: store.entries,
     profile: store.profile,
@@ -198,7 +204,17 @@ function exportData() {
     accessoryOverrides: store.accessoryOverrides,
     customAccessories: store.customAccessories,
     disabledAccessories: store.disabledAccessories,
+    // Learned / preference stores — previously dropped from backups, causing
+    // silent loss of calibrated recovery rates and equipment profile on restore.
+    recoveryCalibration: store.recoveryCalibration,
+    equipmentProfile: store.equipmentProfile,
+    reasonTagCounts: store.reasonTagCounts,
+    deletedEntryIds: store._deletedEntryRecords,
   };
+}
+
+function exportData() {
+  const data = buildExportData();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -250,96 +266,185 @@ function exportCSV() {
   showToast('CSV exported');
 }
 
+/** True for a non-null, non-array plain object. */
+function isPlainObject(v) {
+  return v != null && typeof v === 'object' && !Array.isArray(v);
+}
+
+/**
+ * Validate a parsed backup before it is applied. Throws a descriptive error
+ * on any clearly-wrong shape so a malformed file cannot corrupt the store.
+ * All fields except `entries` are optional (older backups omit some).
+ * @param {*} data
+ */
+export function validateImportData(data) {
+  if (!isPlainObject(data)) throw new Error('not a backup file');
+  if (!Array.isArray(data.entries)) throw new Error('missing entries list');
+
+  const arrayFields = [
+    'entries',
+    'prs',
+    'cycles',
+    'accessoryLog',
+    'customTemplates',
+    'mesocycleHistory',
+    'customAccessories',
+    'disabledAccessories',
+    'deletedEntryIds',
+  ];
+  for (const f of arrayFields) {
+    if (data[f] !== undefined && !Array.isArray(data[f])) {
+      throw new Error(`"${f}" must be a list`);
+    }
+  }
+
+  const objectFields = [
+    'profile',
+    'goals',
+    'programs',
+    'dashboardWidgets',
+    'celebratedTotals',
+    'workoutConfig',
+    'accessoryOverrides',
+    'equipmentProfile',
+    'reasonTagCounts',
+  ];
+  for (const f of objectFields) {
+    if (data[f] !== undefined && data[f] !== null && !isPlainObject(data[f])) {
+      throw new Error(`"${f}" must be an object`);
+    }
+  }
+}
+
+/**
+ * Apply a validated backup payload to the store and refresh the UI.
+ * Shared by file import and the post-import undo (which re-applies the
+ * pre-import snapshot).
+ * @param {object} data
+ */
+export function applyImportData(data) {
+  store.entries = data.entries;
+  // Mark every imported entry dirty so v2 push writes them to the subcollection
+  data.entries.forEach((e) => {
+    if (e?.id) store.onEntryDirty?.(e.id);
+  });
+  if (data.profile) store.profile = data.profile;
+  if (data.goals) store.goals = data.goals;
+  if (data.prs) store.prs = data.prs;
+  if (data.cycles) store.cycles = data.cycles;
+  if (data.programs) {
+    store.programConfig = data.programs;
+    store._patchProgramConfig();
+    store.saveProgramConfig();
+  }
+  if (data.unit) {
+    store.unit = data.unit;
+    localStorage.setItem(UNIT_KEY, store.unit);
+  }
+  if (data.badges) {
+    store.unlockedBadges = data.badges;
+    localStorage.setItem(BADGES_KEY, JSON.stringify(store.unlockedBadges));
+  }
+  if (data.dashboardWidgets) {
+    store.dashboardWidgets = { ...store.dashboardWidgets, ...data.dashboardWidgets };
+    localStorage.setItem(DASH_WIDGETS_KEY, JSON.stringify(store.dashboardWidgets));
+  }
+  if (data.accentColor) {
+    store.accentColor = data.accentColor;
+    localStorage.setItem(ACCENT_KEY, store.accentColor);
+    applyAccentColor();
+  }
+  if (data.celebratedTotals) {
+    localStorage.setItem(TOTAL_CELEBRATED_KEY, JSON.stringify(data.celebratedTotals));
+  }
+  if (data.workoutConfig) {
+    store.workoutConfig = data.workoutConfig;
+    store.save('workoutConfig');
+  }
+  if (data.accessoryLog) {
+    store.accessoryLog = data.accessoryLog;
+    store.saveAccessoryLog();
+  }
+  if (data.customTemplates) {
+    store.customTemplates = data.customTemplates;
+    store.saveCustomTemplates();
+  }
+  if (data.activeMesocycle) {
+    store.activeMesocycle = data.activeMesocycle;
+    store.saveMesocycle();
+  }
+  if (data.mesocycleHistory) {
+    store.mesocycleHistory = data.mesocycleHistory;
+    store.saveMesocycleHistory();
+  }
+  if (data.accessoryOverrides) {
+    store.accessoryOverrides = data.accessoryOverrides;
+    store.saveAccessoryOverrides();
+  }
+  if (data.customAccessories) {
+    store.customAccessories = data.customAccessories;
+    store.saveCustomAccessories();
+  }
+  if (data.disabledAccessories) {
+    store.disabledAccessories = data.disabledAccessories;
+    store.saveDisabledAccessories();
+  }
+  if (data.recoveryCalibration !== undefined) {
+    store.recoveryCalibration = data.recoveryCalibration;
+    store.save('recoveryCalibration');
+  }
+  if (data.equipmentProfile) {
+    store.equipmentProfile = data.equipmentProfile;
+    store.saveEquipmentProfile();
+  }
+  if (data.reasonTagCounts) {
+    store.reasonTagCounts = data.reasonTagCounts;
+    store.saveReasonTagCounts();
+  }
+  if (Array.isArray(data.deletedEntryIds)) {
+    store._deletedEntryRecords = data.deletedEntryIds;
+    store.deletedEntryIds = new Set(data.deletedEntryIds.map((r) => r.id));
+    store.save('deletedEntryIds');
+  }
+  if (!store.profile.bodyweightHistory) store.profile.bodyweightHistory = [];
+  store.activeCycleId = (store.cycles.find((c) => c.active) || {}).id || null;
+  localStorage.setItem(VERSION_KEY, CURRENT_VERSION.toString());
+  rebuildPRs();
+  store.saveAll();
+  // Re-init UI
+  document.querySelectorAll('.unit-btn').forEach((b) => {
+    const on = b.dataset.unit === store.unit;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  document.querySelectorAll('.unit-label').forEach((el) => (el.textContent = store.unit));
+  _deps.updateDashboard?.();
+  _deps.renderCycleBar?.();
+  _deps.renderProgramSection?.();
+  _deps.updateWorkoutButton?.();
+  if (store.currentTab === 'history') _deps.renderHistory?.();
+  if (store.currentTab === 'charts') _deps.renderChart?.();
+  if (store.currentTab === 'stats') _deps.renderStats?.();
+}
+
 function handleImport(ev) {
   try {
     const data = JSON.parse(ev.target.result);
-    if (!data.entries || !Array.isArray(data.entries)) throw new Error('Invalid format');
-    store.entries = data.entries;
-    // Mark every imported entry dirty so v2 push writes them to the subcollection
-    data.entries.forEach((e) => {
-      if (e?.id) store.onEntryDirty?.(e.id);
-    });
-    if (data.profile) store.profile = data.profile;
-    if (data.goals) store.goals = data.goals;
-    if (data.prs) store.prs = data.prs;
-    if (data.cycles) store.cycles = data.cycles;
-    if (data.programs) {
-      store.programConfig = data.programs;
-      store._patchProgramConfig();
-      store.saveProgramConfig();
-    }
-    if (data.unit) {
-      store.unit = data.unit;
-      localStorage.setItem(UNIT_KEY, store.unit);
-    }
-    if (data.badges) {
-      store.unlockedBadges = data.badges;
-      localStorage.setItem(BADGES_KEY, JSON.stringify(store.unlockedBadges));
-    }
-    if (data.dashboardWidgets) {
-      store.dashboardWidgets = { ...store.dashboardWidgets, ...data.dashboardWidgets };
-      localStorage.setItem(DASH_WIDGETS_KEY, JSON.stringify(store.dashboardWidgets));
-    }
-    if (data.accentColor) {
-      store.accentColor = data.accentColor;
-      localStorage.setItem(ACCENT_KEY, store.accentColor);
-      applyAccentColor();
-    }
-    if (data.celebratedTotals) {
-      localStorage.setItem(TOTAL_CELEBRATED_KEY, JSON.stringify(data.celebratedTotals));
-    }
-    if (data.workoutConfig) {
-      store.workoutConfig = data.workoutConfig;
-      store.save('workoutConfig');
-    }
-    if (data.accessoryLog) {
-      store.accessoryLog = data.accessoryLog;
-      store.saveAccessoryLog();
-    }
-    if (data.customTemplates) {
-      store.customTemplates = data.customTemplates;
-      store.saveCustomTemplates();
-    }
-    if (data.activeMesocycle) {
-      store.activeMesocycle = data.activeMesocycle;
-      store.saveMesocycle();
-    }
-    if (data.mesocycleHistory) {
-      store.mesocycleHistory = data.mesocycleHistory;
-      store.saveMesocycleHistory();
-    }
-    if (data.accessoryOverrides) {
-      store.accessoryOverrides = data.accessoryOverrides;
-      store.saveAccessoryOverrides();
-    }
-    if (data.customAccessories) {
-      store.customAccessories = data.customAccessories;
-      store.saveCustomAccessories();
-    }
-    if (data.disabledAccessories) {
-      store.disabledAccessories = data.disabledAccessories;
-      store.saveDisabledAccessories();
-    }
-    if (!store.profile.bodyweightHistory) store.profile.bodyweightHistory = [];
-    store.activeCycleId = (store.cycles.find((c) => c.active) || {}).id || null;
-    localStorage.setItem(VERSION_KEY, CURRENT_VERSION.toString());
-    rebuildPRs();
-    store.saveAll();
-    // Re-init UI
-    document
-      .querySelectorAll('.unit-btn')
-      .forEach((b) => b.classList.toggle('active', b.dataset.unit === store.unit));
-    document.querySelectorAll('.unit-label').forEach((el) => (el.textContent = store.unit));
-    _deps.updateDashboard?.();
-    _deps.renderCycleBar?.();
-    _deps.renderProgramSection?.();
-    _deps.updateWorkoutButton?.();
-    if (store.currentTab === 'history') _deps.renderHistory?.();
-    if (store.currentTab === 'charts') _deps.renderChart?.();
-    if (store.currentTab === 'stats') _deps.renderStats?.();
+    validateImportData(data);
+    // Deep-clone a snapshot of current state BEFORE mutating, so a bad or
+    // unwanted import is one tap away from full revert.
+    const snapshot = JSON.parse(JSON.stringify(buildExportData()));
+    applyImportData(data);
     closeModal('settings-modal');
     clearOverlayState('#' + store.currentTab);
-    showToast('Data imported');
+    showToast('Data imported', {
+      action: 'Undo',
+      duration: 8000,
+      onAction: () => {
+        applyImportData(snapshot);
+        showToast('Import reverted');
+      },
+    });
   } catch (err) {
     showToast('Import failed: ' + err.message);
   }
