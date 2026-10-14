@@ -499,7 +499,7 @@
   background: var(--green);
 }
 .ld-rpe-dot.rpe-mod {
-  background: var(--yellow, #fbc02d);
+  background: var(--yellow);
 }
 .ld-rpe-dot.rpe-high {
   background: var(--orange, #fb8c00);
