@@ -14,6 +14,18 @@ import { getCalibratedRecovery } from '../systems/recovery-calibration.js';
 import { findConflicts } from './injury.js';
 
 // ---------------------------------------------------------------------------
+// Injury severity → score penalty for suggestMainLift.
+//
+// Mild is a nudge, moderate a strong steer, and severe effectively
+// disqualifies the lift: no realistic combination of the other scoring
+// factors (recency ≤30, fatigue ≤20, plateau +15, trend +10) can overcome
+// −1000, so a severely injured pattern is rested rather than trained
+// through. Unknown severities fall back to the legacy −25.
+// ---------------------------------------------------------------------------
+
+export const INJURY_SEVERITY_PENALTY = { mild: 15, moderate: 40, severe: 1000 };
+
+// ---------------------------------------------------------------------------
 // Main lift suggestion
 // ---------------------------------------------------------------------------
 
@@ -26,7 +38,9 @@ import { findConflicts } from './injury.js';
  *  - Fatigue: green +20, yellow +10, red -10
  *  - Plateau detected: +15
  *  - Declining trend: +10
- *  - Injury: -25 for lifts that load an injured area (reason shown)
+ *  - Injury: severity-scaled penalty for lifts that load an injured area —
+ *    mild −15, moderate −40, severe −1000 (effectively unwinnable; the
+ *    pattern is rested, not trained through). Reason shown.
  *
  * @returns {{ lift: string, scores: Object, reasons: Object }}
  *   `lift` is the recommended lift, `scores` maps each lift to its score,
@@ -106,14 +120,19 @@ export function suggestMainLift() {
   });
 
   // Injury-aware: steer the suggestion away from lifts that load an
-  // injured area. Penalize rather than exclude — a conflicting lift can
-  // still win if everything else scores far worse, but the reason is shown.
+  // injured area. The penalty scales with severity — mild is a nudge,
+  // moderate a strong steer, severe effectively disqualifies the lift
+  // (rest the pattern). A conflicting lift can still be suggested only if
+  // everything else scores far worse, and the reason is always shown.
   LIFTS.forEach((lift) => {
     const conflicts = findConflicts([lift]);
     if (conflicts.length) {
-      scores[lift] -= 25;
+      const severity = conflicts[0].severity;
+      scores[lift] -= INJURY_SEVERITY_PENALTY[severity] ?? 25;
       reasons[lift].push(
-        `Conflicts with ${conflicts[0].region} injury (${conflicts[0].severity})`
+        severity === 'severe'
+          ? `Severe ${conflicts[0].region} injury — resting this pattern`
+          : `Conflicts with ${conflicts[0].region} injury (${severity})`
       );
     }
   });

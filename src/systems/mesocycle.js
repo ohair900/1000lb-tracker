@@ -14,12 +14,65 @@
 
 import store from '../state/store.js';
 import { MESO_GOALS } from '../data/meso-goals.js';
-import { LIFTS } from '../constants/lift-config.js';
+import { LIFTS, LIFT_NAMES } from '../constants/lift-config.js';
 import { roundToPlate } from '../formulas/plates.js';
 import { bestE1RM } from '../formulas/e1rm.js';
 import { selectSmartAccessories } from './workout-builder.js';
+import { findConflicts } from './injury.js';
 import { calcFatigueLift, calcFatigueByMuscle } from './fatigue.js';
 import { MAIN_LIFT_WEIGHTS } from '../data/muscle-groups.js';
+
+// ---------------------------------------------------------------------------
+// Injury-aware adjustments
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute the injury adjustment for a lift's session.
+ *
+ * - null     → no active injury conflicts with this lift
+ * - 'temper' → mild/moderate conflict: keep the lift, reduce intensity ~10%
+ * - 'rest'   → severe conflict: no heavy barbell work on this pattern
+ *
+ * @param {string} lift - 'squat' | 'bench' | 'deadlift'
+ * @returns {{ kind: 'temper'|'rest', conflict: Object, notice: string }|null}
+ */
+export function getLiftInjuryAdjustment(lift) {
+  const conflicts = findConflicts([lift]);
+  if (!conflicts.length) return null;
+  const severe = conflicts.find((c) => c.severity === 'severe');
+  if (severe) {
+    return {
+      kind: 'rest',
+      conflict: severe,
+      notice:
+        `Severe ${severe.region} injury — ${LIFT_NAMES[lift]} session replaced. ` +
+        `No heavy barbell work on this pattern while it heals.`,
+    };
+  }
+  const c = conflicts[0];
+  return {
+    kind: 'temper',
+    conflict: c,
+    notice: `${c.reason}. Intensity reduced ~10% for this session.`,
+  };
+}
+
+/**
+ * Temper a set list's intensity by a factor, recomputing plate-rounded
+ * weights from the training max. pct is whole-number percent (mesocycle
+ * convention); the result is floored at 50%.
+ *
+ * @param {Object[]} mainSets - sets with pct as whole-number percent
+ * @param {number} tm - training max
+ * @param {number} factor - e.g. 0.9 for a ~10% reduction
+ * @returns {Object[]}
+ */
+export function temperSetsForInjury(mainSets, tm, factor) {
+  return (mainSets || []).map((s) => {
+    const pct = Math.round(Math.max(50, s.pct * factor) * 10) / 10;
+    return { ...s, pct, weight: roundToPlate((tm * pct) / 100) };
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Generation
@@ -187,8 +240,30 @@ export function generateMesoWeek(
       });
     }
     const smartAccs = selectSmartAccessories(lift, accCount);
+
+    // Injury-aware session adjustment. NOTE: selectSmartAccessories() already
+    // substitutes (mild/moderate) or drops (severe) conflicting accessories
+    // upstream via substituteExerciseList — its substitution records are
+    // propagated below for UI badges. What remains here is the main lift:
+    // mild/moderate tempers intensity ~10%, severe replaces the session
+    // with an alternative-focus note (no heavy barbell work on the pattern).
+    const adjustment = getLiftInjuryAdjustment(lift);
+    let finalMainSets = mainSets;
+    let injuryNotice = null;
+    let alternativeFocus = false;
+    if (adjustment) {
+      if (adjustment.kind === 'rest') {
+        finalMainSets = [];
+        alternativeFocus = true;
+        injuryNotice = adjustment.notice;
+      } else {
+        finalMainSets = temperSetsForInjury(mainSets, tm, 0.9);
+        injuryNotice = adjustment.notice;
+      }
+    }
+
     workouts[lift] = {
-      mainSets,
+      mainSets: finalMainSets,
       accessories: smartAccs.map((a) => ({
         exerciseId: a.id,
         name: a.name,
@@ -196,7 +271,10 @@ export function generateMesoWeek(
         repRange: a.repRange,
         equipment: a.equipment,
       })),
-      volumeTarget: liftSets * liftReps,
+      injurySubstitutions: smartAccs.substitutions || [],
+      ...(injuryNotice ? { injuryNotice } : {}),
+      ...(alternativeFocus ? { alternativeFocus: true } : {}),
+      volumeTarget: alternativeFocus ? 0 : liftSets * liftReps,
       stimulus: model === 'dup' && !isDeload ? DUP_STIMULI[(weekNum - 1 + liftIdx) % 3].name : null,
     };
   });
@@ -212,20 +290,43 @@ export function generateMesoWeek(
     adapted: false,
   };
 
-  // Optional light days
+  // Optional light days (injury-aware, same rules as the main session)
   if (includeOptional && !isDeload) {
-    week.optionalDays = LIFTS.map((lift) => ({
-      lift,
-      pct: 60,
-      mainSets: [{ pct: 60, weight: roundToPlate(baseTMs[lift] * 0.6), reps: 5, completed: false }],
-      accessories: selectSmartAccessories(lift, 4).map((a) => ({
+    week.optionalDays = LIFTS.map((lift) => {
+      const adjustment = getLiftInjuryAdjustment(lift);
+      const optAccs = selectSmartAccessories(lift, 4);
+      const accList = optAccs.map((a) => ({
         exerciseId: a.id,
         name: a.name,
         sets: a.sets,
         repRange: a.repRange,
         equipment: a.equipment,
-      })),
-    }));
+      }));
+      if (adjustment && adjustment.kind === 'rest') {
+        return {
+          lift,
+          rested: true,
+          mainSets: [],
+          accessories: accList,
+          injurySubstitutions: optAccs.substitutions || [],
+          injuryNotice: adjustment.notice,
+        };
+      }
+      const lightSets = [
+        { pct: 60, weight: roundToPlate(baseTMs[lift] * 0.6), reps: 5, completed: false },
+      ];
+      return {
+        lift,
+        pct: 60,
+        mainSets:
+          adjustment && adjustment.kind === 'temper'
+            ? temperSetsForInjury(lightSets, baseTMs[lift], 0.9)
+            : lightSets,
+        accessories: accList,
+        injurySubstitutions: optAccs.substitutions || [],
+        ...(adjustment ? { injuryNotice: adjustment.notice } : {}),
+      };
+    });
   }
 
   return week;
