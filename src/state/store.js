@@ -6,7 +6,7 @@
  *  1. **Persistent stores** — data that round-trips through localStorage
  *     (entries, profile, goals, prs, cycles, programs, workoutConfig,
  *      accessoryLog, workoutSession, customTemplates, mesocycle,
- *      mesocycleHistory).
+ *      mesocycleHistory, injuries, leaderboardOptIn).
  *
  *  2. **Ephemeral UI state** — in-memory variables that do NOT persist
  *     across page loads (currentLift, currentTab, timerRunning, etc.).
@@ -41,7 +41,6 @@ import {
   MESOCYCLE_KEY,
   MESOCYCLE_HISTORY_KEY,
   STATS_COLLAPSED_KEY,
-  LEADERBOARD_KEY,
   RECOVERY_CALIBRATION_KEY,
   DELETED_IDS_KEY,
   EQUIPMENT_PROFILE_KEY,
@@ -53,6 +52,8 @@ import {
   TRAVEL_EQUIPMENT_PRESET_KEY,
   TRAVEL_PRESETS_KEY,
   SESSION_HISTORY_KEY,
+  INJURIES,
+  LEADERBOARD_OPT_IN,
 } from '../constants/storage-keys.js';
 
 import { CURRENT_VERSION } from '../constants/time.js';
@@ -109,7 +110,17 @@ class Store {
     this.customTemplates = [];
     this.activeMesocycle = null;
     this.mesocycleHistory = [];
-    this.leaderboardOptedIn = true;
+    // Deprecated alias — single source of truth is `leaderboardOptIn`
+    // (explicit opt-in, default false). Legacy readers/writers
+    // (e.g. sync.js publish gates) keep working through this alias.
+    Object.defineProperty(this, 'leaderboardOptedIn', {
+      get: () => this.leaderboardOptIn,
+      set: (v) => {
+        this.setLeaderboardOptIn(v);
+      },
+      enumerable: true,
+      configurable: true,
+    });
     this.recoveryCalibration = null;
     this._deletedEntryRecords = []; // Array of { id, deletedAt }
     this.deletedEntryIds = new Set();
@@ -128,6 +139,12 @@ class Store {
     // Shape: { squat: { goal, startE1RM, createdAt, milestones: [{ target, label, achievedAt, achievedEntryId }] } | null, ... }
     this.goalMilestones = { squat: null, bench: null, deadlift: null };
     this.sessionHistory = [];
+    // Injury profile — Array of { id, region, side, severity, onsetDate, notes, active }.
+    // Consumed by src/systems/injury.js (workout substitution) and the AI export.
+    this.injuries = [];
+    // Tier-1 leaderboard opt-in (separate from the legacy leaderboardOptedIn
+    // flag, which keeps its own key and default-true behavior).
+    this.leaderboardOptIn = false;
 
     // -----------------------------------------------------------------------
     // Ephemeral UI state — NOT persisted via the STORES registry.
@@ -337,14 +354,6 @@ class Store {
         },
         default: [],
       },
-      leaderboard: {
-        key: LEADERBOARD_KEY,
-        get: () => this.leaderboardOptedIn,
-        set: (v) => {
-          this.leaderboardOptedIn = v;
-        },
-        default: true,
-      },
       equipmentProfile: {
         key: EQUIPMENT_PROFILE_KEY,
         get: () => this.equipmentProfile,
@@ -400,6 +409,22 @@ class Store {
           this.sessionHistory = v;
         },
         default: [],
+      },
+      injuries: {
+        key: INJURIES,
+        get: () => this.injuries,
+        set: (v) => {
+          this.injuries = Array.isArray(v) ? v : [];
+        },
+        default: [],
+      },
+      leaderboardOptIn: {
+        key: LEADERBOARD_OPT_IN,
+        get: () => this.leaderboardOptIn,
+        set: (v) => {
+          this.leaderboardOptIn = v === true;
+        },
+        default: false,
       },
     };
 
@@ -475,6 +500,8 @@ class Store {
     'customAccessories',
     'disabledAccessories',
     'sessionHistory',
+    'injuries',
+    'leaderboardOptIn',
   ];
 
   init() {
@@ -673,6 +700,60 @@ class Store {
   }
   saveSessionHistory() {
     this.save('sessionHistory');
+  }
+  saveInjuries() {
+    this.save('injuries');
+  }
+
+  // -------------------------------------------------------------------------
+  // Injury profile + leaderboard opt-in accessors (state contract — consumed
+  // by src/systems/injury.js and the AI export; do not change the shapes)
+  // -------------------------------------------------------------------------
+
+  /**
+   * All recorded injuries (active and inactive).
+   * @returns {Array<{id: string, region: string, side: string, severity: string, onsetDate: string, notes: string, active: boolean}>}
+   */
+  getInjuries() {
+    return (this.injuries || []).map((i) => ({ ...i }));
+  }
+
+  /**
+   * Replace the injury list (normalizes each entry to the contract shape).
+   * @param {Array} arr
+   */
+  saveInjuries(arr) {
+    const regions = ['wrist', 'elbow', 'shoulder', 'knee', 'hip', 'back', 'ankle', 'neck'];
+    const sides = ['left', 'right', 'both'];
+    const severities = ['mild', 'moderate', 'severe'];
+    this.injuries = (Array.isArray(arr) ? arr : [])
+      .filter((i) => i && regions.includes(i.region))
+      .map((i) => ({
+        id: String(i.id || `inj_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e6)}`),
+        region: i.region,
+        side: sides.includes(i.side) ? i.side : 'both',
+        severity: severities.includes(i.severity) ? i.severity : 'mild',
+        onsetDate: i.onsetDate || '',
+        notes: i.notes || '',
+        active: i.active !== false,
+      }));
+    this.save('injuries');
+  }
+
+  /**
+   * Tier-1 leaderboard opt-in. Defaults to false.
+   * @returns {boolean}
+   */
+  getLeaderboardOptIn() {
+    return this.leaderboardOptIn === true;
+  }
+
+  /**
+   * @param {boolean} v
+   */
+  setLeaderboardOptIn(v) {
+    this.leaderboardOptIn = v === true;
+    this.save('leaderboardOptIn');
   }
   saveEquipmentProfile() {
     this.save('equipmentProfile');

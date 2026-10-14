@@ -4,7 +4,7 @@
  */
 
 import store from '../state/store.js';
-import { $ } from '../utils/helpers.js';
+import { $, generateId, escapeHTML } from '../utils/helpers.js';
 import { LIFTS, COLORS, LIFT_NAMES } from '../constants/lift-config.js';
 import {
   UNIT_KEY,
@@ -16,6 +16,14 @@ import {
   ALL_DATA_KEYS,
 } from '../constants/storage-keys.js';
 import { WEAK_POINT_OPTIONS } from '../data/accessories.js';
+import {
+  INJURY_REGIONS,
+  REGION_LABELS,
+  INJURY_SIDES,
+  SIDE_LABELS,
+  INJURY_SEVERITIES,
+  SEVERITY_LABELS,
+} from '../data/injury-map.js';
 import { CURRENT_VERSION } from '../constants/time.js';
 import { copyDiagnostics } from '../utils/diagnostics.js';
 import { canInstall, promptInstall } from '../ui/install.js';
@@ -73,6 +81,46 @@ function renderProfileTab() {
   return html;
 }
 
+function renderInjuryListHTML() {
+  const injuries = store.getInjuries();
+  if (!injuries.length) {
+    return `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:10px">No injuries recorded — plans use the full exercise selection.</div>`;
+  }
+  return injuries
+    .map(
+      (inj) => `
+    <div data-injury-id="${inj.id}" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface2);${inj.active ? '' : 'opacity:0.55'}">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:var(--text-sm);font-weight:700">${REGION_LABELS[inj.region] || inj.region} <span style="font-weight:400;color:var(--text-dim)">· ${SIDE_LABELS[inj.side] || inj.side} · ${SEVERITY_LABELS[inj.severity] || inj.severity}</span></div>
+        ${inj.onsetDate ? `<div style="font-size:var(--text-xs);color:var(--text-dim)">Since ${escapeHTML(inj.onsetDate)}</div>` : ''}
+        ${inj.notes ? `<div style="font-size:var(--text-xs);color:var(--text-dim)">${escapeHTML(inj.notes)}</div>` : ''}
+      </div>
+      <label class="widget-toggle" style="margin:0;white-space:nowrap"><input type="checkbox" class="injury-active" data-injury-id="${inj.id}" ${inj.active ? 'checked' : ''}> Active</label>
+      <button class="data-btn injury-delete" data-injury-id="${inj.id}" style="padding:6px 10px" aria-label="Delete injury">✕</button>
+    </div>`
+    )
+    .join('');
+}
+
+function renderInjuryFormHTML() {
+  const today = new Date().toISOString().split('T')[0];
+  const sel = 'padding:8px 10px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--text-sm)';
+  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <select id="injury-region" aria-label="Injured area" style="${sel}">
+        ${INJURY_REGIONS.map((r) => `<option value="${r}">${REGION_LABELS[r]}</option>`).join('')}
+      </select>
+      <select id="injury-side" aria-label="Side" style="${sel}">
+        ${INJURY_SIDES.map((s) => `<option value="${s}">${SIDE_LABELS[s]}</option>`).join('')}
+      </select>
+      <select id="injury-severity" aria-label="Severity" style="${sel}">
+        ${INJURY_SEVERITIES.map((s) => `<option value="${s}"${s === 'moderate' ? ' selected' : ''}>${SEVERITY_LABELS[s]}</option>`).join('')}
+      </select>
+      <input id="injury-onset" type="date" aria-label="Onset date" value="${today}" max="${today}" style="${sel}">
+    </div>
+    <input id="injury-notes" placeholder="Notes (optional)" aria-label="Injury notes" style="width:100%;padding:8px 10px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--text-sm);margin-bottom:8px;box-sizing:border-box">
+    <button class="data-btn" id="injury-add" style="width:100%">+ Add injury</button>`;
+}
+
 function renderPrefsTab() {
   let html = '';
   html += sectionLabel('Weak Points');
@@ -89,6 +137,11 @@ function renderPrefsTab() {
     </div>`;
   });
   html += settingsDivider;
+  html += settingsDivider;
+  html += sectionLabel('Injuries');
+  html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:10px">Plans and suggestions automatically route around injured areas</div>`;
+  html += renderInjuryListHTML();
+  html += renderInjuryFormHTML();
   html += sectionLabel('Dashboard Widgets');
   html += `<label class="widget-toggle"><input type="checkbox" data-widget="ratios" ${store.dashboardWidgets.ratios ? 'checked' : ''}> Strength Ratios</label>
     <label class="widget-toggle"><input type="checkbox" data-widget="fatigue" ${store.dashboardWidgets.fatigue ? 'checked' : ''}> Fatigue Indicator</label>
@@ -105,7 +158,7 @@ function renderPrefsTab() {
     <label class="widget-toggle" style="margin-bottom:12px"><input type="checkbox" data-equip="bodyweight" ${ep.bodyweight !== false ? 'checked' : ''}> Bodyweight</label>`;
   html += settingsDivider;
   html += sectionLabel('Leaderboard');
-  html += `<label class="widget-toggle"><input type="checkbox" id="lb-optin" ${store.leaderboardOptedIn !== false ? 'checked' : ''}> Appear on leaderboard</label>`;
+  html += `<label class="widget-toggle"><input type="checkbox" id="lb-optin" ${store.getLeaderboardOptIn() ? 'checked' : ''}> Appear on leaderboard</label>`;
   return html;
 }
 
@@ -573,8 +626,7 @@ export function attachSettingsListeners() {
   const lbCheckbox = body.querySelector('#lb-optin');
   if (lbCheckbox) {
     lbCheckbox.addEventListener('change', () => {
-      store.leaderboardOptedIn = lbCheckbox.checked;
-      store.save('leaderboard');
+      store.setLeaderboardOptIn(lbCheckbox.checked);
       scheduleCloudSync();
       import('../firebase/sync.js').then((m) => {
         m.invalidateLeaderboardCache();
@@ -582,6 +634,53 @@ export function attachSettingsListeners() {
       });
     });
   }
+
+  // Injury profile — add / delete / toggle active
+  const rerenderSettings = () => {
+    const prevTab = _settingsTab;
+    body.innerHTML = renderSettingsBody();
+    attachSettingsListeners();
+    _settingsTab = prevTab;
+  };
+  const injuryAddBtn = body.querySelector('#injury-add');
+  if (injuryAddBtn) {
+    injuryAddBtn.addEventListener('click', () => {
+      const region = body.querySelector('#injury-region')?.value;
+      if (!region) return;
+      const injuries = store.getInjuries();
+      injuries.push({
+        id: generateId(),
+        region,
+        side: body.querySelector('#injury-side')?.value || 'both',
+        severity: body.querySelector('#injury-severity')?.value || 'moderate',
+        onsetDate: body.querySelector('#injury-onset')?.value || '',
+        notes: (body.querySelector('#injury-notes')?.value || '').trim(),
+        active: true,
+      });
+      store.saveInjuries(injuries);
+      scheduleCloudSync();
+      showToast('Injury added — plans will route around it');
+      rerenderSettings();
+    });
+  }
+  body.querySelectorAll('.injury-delete').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      store.saveInjuries(store.getInjuries().filter((i) => i.id !== btn.dataset.injuryId));
+      scheduleCloudSync();
+      rerenderSettings();
+    });
+  });
+  body.querySelectorAll('.injury-active').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      const id = cb.dataset.injuryId;
+      store.saveInjuries(
+        store.getInjuries().map((i) => (i.id === id ? { ...i, active: cb.checked } : i))
+      );
+      scheduleCloudSync();
+      showToast(cb.checked ? 'Injury marked active' : 'Injury marked inactive');
+      rerenderSettings();
+    });
+  });
 
   // AI Coaching
   const aiNotes = () => ($('ai-notes')?.value || '').trim();
@@ -657,7 +756,7 @@ export function attachSettingsListeners() {
     store.customTemplates = [];
     store.activeMesocycle = null;
     store.mesocycleHistory = [];
-    store.leaderboardOptedIn = true;
+    store.setLeaderboardOptIn(false);
     store.accessoryOverrides = {};
     store.customAccessories = [];
     store.disabledAccessories = [];
