@@ -8,6 +8,7 @@ import { $, fmtNum } from '../utils/helpers.js';
 import { canvas, ctx, tooltip } from '../ui/dom.js';
 import { LIFTS, COLORS, LIFT_SHORT, LIFT_NAMES } from '../constants/lift-config.js';
 import { MS_PER_DAY } from '../constants/time.js';
+import { localDateStr } from '../utils/date.js';
 import { displayWeight, formatWeight, lbsToKg } from '../formulas/units.js';
 import { calcWilks, calcDOTS } from '../formulas/scoring.js';
 import { openModal } from '../ui/modal.js';
@@ -68,7 +69,7 @@ function getChartDateCutoff() {
   if (store.chartDateRange === 'all') return null;
   const days = parseInt(store.chartDateRange);
   const cutoff = new Date(Date.now() - days * MS_PER_DAY);
-  return cutoff.toISOString().split('T')[0];
+  return localDateStr(cutoff);
 }
 
 // ---------------------------------------------------------------------------
@@ -393,8 +394,10 @@ function _startOfMonth(d) {
 }
 
 function _bucketKey(date, size) {
-  if (size === 'day') return date.toISOString().slice(0, 10);
-  if (size === 'week') return _startOfWeek(date).toISOString().slice(0, 10);
+  // Local wall-clock keys — toISOString() is UTC and shifts local-midnight
+  // buckets back a day for negative UTC offsets.
+  if (size === 'day') return localDateStr(date);
+  if (size === 'week') return localDateStr(_startOfWeek(date));
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
@@ -617,9 +620,9 @@ function renderBWChart(w, h) {
   if (sorted.length >= 3) {
     const avgPts = [];
     sorted.forEach((b, i) => {
-      const windowStart = new Date(new Date(b.date + 'T12:00:00').getTime() - 7 * MS_PER_DAY)
-        .toISOString()
-        .split('T')[0];
+      const windowStart = localDateStr(
+        new Date(new Date(b.date + 'T12:00:00').getTime() - 7 * MS_PER_DAY)
+      );
       const windowData = sorted.filter((p) => p.date >= windowStart && p.date <= b.date);
       const avg = windowData.reduce((s, p) => s + displayWeight(p.weight), 0) / windowData.length;
       avgPts.push({ x: xPos(i), y: yPos(avg) });
@@ -642,8 +645,20 @@ function renderBWChart(w, h) {
 // ---------------------------------------------------------------------------
 
 function renderWilksChart(w, h) {
-  if (!store.profile.gender || !store.profile.bodyweight || store.entries.length === 0) {
-    drawEmpty(w, h, 'Need profile + lift data');
+  // Name exactly what's missing so the lifter knows the one action to take.
+  if (store.entries.length === 0) {
+    drawEmpty(w, h, 'Log a lift to start your Wilks chart');
+    return;
+  }
+  const missingProfile = [];
+  if (!store.profile.gender) missingProfile.push('sex');
+  if (!store.profile.bodyweight) missingProfile.push('bodyweight');
+  if (missingProfile.length > 0) {
+    drawEmpty(
+      w,
+      h,
+      `Add your ${missingProfile.join(' and ')} in Settings \u2192 Profile to compute Wilks`
+    );
     return;
   }
   const pad = { top: 20, right: 16, bottom: 40, left: 50 };
@@ -695,7 +710,7 @@ function renderWilksChart(w, h) {
   });
 
   if (dataPoints.length === 0) {
-    drawEmpty(w, h, 'Not enough data');
+    drawEmpty(w, h, 'Wilks needs bests for all three lifts — log squat, bench & deadlift');
     return;
   }
   const dates = dataPoints.map((p) => p.date);
@@ -910,7 +925,7 @@ function renderHeatmap(w, h) {
       // Skip cells in the *real* future only — panning back should still
       // let cells between today-window-end and real-today render normally.
       if (cellDate > realToday) continue;
-      const dateStr = cellDate.toISOString().split('T')[0];
+      const dateStr = localDateStr(cellDate);
       const val = valByDate[dateStr] || 0;
       weekTotal += val;
       const x = padLeft + wk * (cellSize + gap);
@@ -924,8 +939,8 @@ function renderHeatmap(w, h) {
 
       // Streak highlight: border on consecutive training days
       if (val > 0) {
-        const prevDateStr = new Date(cellDate.getTime() - MS_PER_DAY).toISOString().split('T')[0];
-        const nextDateStr = new Date(cellDate.getTime() + MS_PER_DAY).toISOString().split('T')[0];
+        const prevDateStr = localDateStr(new Date(cellDate.getTime() - MS_PER_DAY));
+        const nextDateStr = localDateStr(new Date(cellDate.getTime() + MS_PER_DAY));
         if (trainingDates.has(prevDateStr) || trainingDates.has(nextDateStr)) {
           ctx.strokeStyle = 'rgba(255,255,255,0.25)';
           ctx.lineWidth = 1;
@@ -1014,7 +1029,7 @@ function renderHeatmap(w, h) {
 function _calcHeatmapStreak(trainingDates) {
   if (trainingDates.size === 0) return null;
   const sorted = [...trainingDates].sort().reverse();
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
   const dayDiff = (a, b) =>
     Math.round((new Date(a + 'T12:00:00') - new Date(b + 'T12:00:00')) / MS_PER_DAY);
 
@@ -1051,7 +1066,7 @@ export function renderCalendar() {
   const lastDay = new Date(year, month + 1, 0);
   const startDow = (firstDay.getDay() + 6) % 7;
   const daysInMonth = lastDay.getDate();
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
 
   const dayData = {};
   store.entries.forEach((e) => {
@@ -1346,6 +1361,9 @@ function handleChartHover(e) {
 export function renderChart() {
   syncChartUI();
   updateChartSummary();
+  // WORKSTREAM D: empty-data CTA — canvas "No data yet" is a dead end, so
+  // offer one clear action. Toggled on every render (calendar included).
+  _toggleChartEmptyCta();
 
   // Calendar is HTML-based, not canvas
   const calEl = document.getElementById('calendar-view');
@@ -1392,6 +1410,31 @@ export function renderChart() {
     requestAnimationFrame(() => {
       canvas.style.opacity = '1';
     });
+}
+
+/**
+ * WORKSTREAM D — show a "Log your first set" CTA under the chart when there
+ * are no entries at all (the canvas "No data yet" text is a dead end).
+ */
+function _toggleChartEmptyCta() {
+  const host = canvas.parentElement;
+  if (!host) return;
+  let el = document.getElementById('chart-empty-cta');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'chart-empty-cta';
+    el.className = 'flow-empty-state flow-empty-state--compact';
+    el.innerHTML =
+      `<span class="flow-empty-icon">&#128202;</span>` +
+      `<div class="flow-empty-title">No chart data yet</div>` +
+      `<p class="flow-empty-copy">Your e1RM curve, volume, and heatmap start with your first logged set.</p>` +
+      `<button type="button" class="flow-btn flow-btn-primary" id="chart-empty-log">Log your first set</button>`;
+    el
+      .querySelector('#chart-empty-log')
+      .addEventListener('click', () => document.getElementById('tabbtn-log')?.click());
+    host.appendChild(el);
+  }
+  el.style.display = store.entries.length === 0 ? '' : 'none';
 }
 
 // ---------------------------------------------------------------------------
