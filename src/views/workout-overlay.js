@@ -2076,14 +2076,19 @@ export function initWorkoutOverlay() {
   });
 
   // Wire the share button (static element in index.src.html)
+  // NOTE: single 'click' listener only — a second pointerup listener caused
+  // double-fire (two concurrent createSharedWorkout calls -> orphaned docs).
   const _shareEl = $('workout-share');
   if (_shareEl) {
+    let _shareInFlight = false;
     const _handleShare = async () => {
+      if (_shareInFlight) return;
       const session = store.workoutSession;
       if (!session) {
         showToast('Start a workout before sharing');
         return;
       }
+      _shareInFlight = true;
       try {
         if (!session.shared?.code) {
           const code = await createSharedWorkout(session);
@@ -2103,13 +2108,11 @@ export function initWorkoutOverlay() {
       } catch (err) {
         console.error('[share] click handler failed:', err);
         showToast('Could not share: ' + (err.message || err));
+      } finally {
+        _shareInFlight = false;
       }
     };
     _shareEl.addEventListener('click', _handleShare);
-    _shareEl.addEventListener('pointerup', (e) => {
-      e.preventDefault();
-      _handleShare();
-    });
   }
 
   // Complete & discard buttons
