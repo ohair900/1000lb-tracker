@@ -242,26 +242,150 @@ function renderMiniCyclePreview(cycle) {
   html += `<div class="pb-mini-cycle-title">Plateau Breaker: ${cycle.durationWeeks}-Week Plan</div>`;
   html += `<div class="pb-mini-cycle-summary">${escapeHtml(cycle.summary)}</div>`;
 
+  // Cycle-level injury notice — mild/moderate tempering on the plateaued
+  // lift, or the severe-injury rest message for alternative-focus blocks.
+  if (cycle.injuryNotice) {
+    html += `<div class="pb-injury-notice" style="font-size:var(--text-xs);color:var(--orange);margin:6px 0 8px;line-height:1.4">${escapeHtml(cycle.injuryNotice)}</div>`;
+  }
+
+  // Alternative-focus messaging: the injured lift is rested, the other two
+  // lifts are trained instead.
+  if (cycle.alternativeFocus) {
+    const rested = LIFT_NAMES[cycle.restedLift] || cycle.restedLift;
+    html += `<div class="pb-alt-focus-banner" style="font-size:var(--text-sm);font-weight:700;color:var(--danger, #e53935);margin:8px 0;padding:8px 10px;border:1px solid var(--danger, #e53935);border-radius:var(--radius-md);line-height:1.4">Resting ${escapeHtml(rested)} &mdash; training the other two lifts while it heals</div>`;
+  }
+
   cycle.weeks.forEach((week) => {
-    const setsStr = week.mainSets.map((s) => `${s.reps}@${formatWeight(s.weight)}`).join(', ');
     html += `<div class="pb-week">`;
     html +=
       `<div class="pb-week-header">` +
       `<span class="pb-week-num">Week ${week.weekNum}</span>` +
       `<span class="pb-week-phase">${escapeHtml(week.phase)}</span>` +
       `</div>`;
-    html += `<div class="pb-week-sets">${setsStr}</div>`;
-    html += `<div class="pb-week-rpe">Target RPE ${week.targetRPE}</div>`;
-    if (week.accessories.length > 0) {
-      html += `<div class="pb-week-accessories">+ ${week.accessories.map((a) => a.name).join(', ')}</div>`;
+
+    if (week.injuryNotice) {
+      html += `<div class="pb-injury-notice" style="font-size:var(--text-xs);color:var(--orange);margin:6px 0;line-height:1.4">${escapeHtml(week.injuryNotice)}</div>`;
     }
+
+    if (week.alternativeFocus) {
+      html += renderFocusWorkouts(week);
+    } else {
+      const setsStr = (week.mainSets || [])
+        .map((s) => `${s.reps}@${formatWeight(s.weight)}`)
+        .join(', ');
+      if (setsStr) html += `<div class="pb-week-sets">${setsStr}</div>`;
+      html += `<div class="pb-week-rpe">Target RPE ${week.targetRPE}</div>`;
+      if (week.accessories && week.accessories.length > 0) {
+        html += `<div class="pb-week-accessories">+ ${week.accessories.map((a) => escapeHtml(a.name)).join(', ')}</div>`;
+      }
+      // The other two lifts, programmed at maintenance (or rested).
+      html += renderMaintenanceBlocks(week.maintenance);
+    }
+
+    // Injury substitution badges for the week's accessories.
+    html += renderInjurySubBadges(week.injurySubstitutions);
+
     if (week.notes) {
       html += `<div class="pb-week-notes">${escapeHtml(week.notes)}</div>`;
     }
     html += `</div>`;
   });
 
-  html += `<button class="pb-activate-btn" data-action="activate">Activate This Plan</button>`;
+  if (cycle.alternativeFocus) {
+    // No single-lift activation path exists for rest blocks (see
+    // generateAlternativeFocusCycle) — resume the lift when cleared, then
+    // generate a fresh plan.
+    const rested = LIFT_NAMES[cycle.restedLift] || cycle.restedLift;
+    html += `<div class="pb-week-notes">No activation for rest blocks &mdash; resume ${escapeHtml(rested)} only when cleared, then generate a new plan.</div>`;
+  } else {
+    html += `<button class="pb-activate-btn" data-action="activate">Activate This Plan</button>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+/**
+ * Render the `focusWorkouts` map of an alternative-focus week: each trained
+ * lift gets its own main-sets + accessories block.
+ */
+function renderFocusWorkouts(week) {
+  const lifts = Object.keys(week.focusWorkouts || {});
+  if (lifts.length === 0) {
+    return `<div class="pb-week-notes">No trainable lifts this week &mdash; every other pattern also conflicts with a severe injury. Rest.</div>`;
+  }
+  let html = '';
+  lifts.forEach((l) => {
+    const fw = week.focusWorkouts[l];
+    const setsStr = (fw.mainSets || [])
+      .map((s) => `${s.reps}@${formatWeight(s.weight)}`)
+      .join(', ');
+    html += `<div class="pb-focus-lift">`;
+    html += `<div class="pb-focus-lift-name" style="font-size:var(--text-xs);font-weight:700;color:var(--text-strong);text-transform:uppercase;letter-spacing:0.04em;margin-top:6px">${escapeHtml(LIFT_NAMES[l] || l)}</div>`;
+    if (setsStr) html += `<div class="pb-week-sets">${setsStr}</div>`;
+    if (fw.accessories && fw.accessories.length > 0) {
+      html += `<div class="pb-week-accessories">+ ${fw.accessories.map((a) => escapeHtml(a.name)).join(', ')}</div>`;
+    }
+    html += `</div>`;
+  });
+  return html;
+}
+
+/**
+ * Render `week.maintenance` — the two non-focus lifts programmed at
+ * maintenance (2x5 @ 70%), or marked rested when a severe injury applies.
+ */
+function renderMaintenanceBlocks(maintenance) {
+  if (!maintenance) return '';
+  const lifts = Object.keys(maintenance);
+  if (lifts.length === 0) return '';
+  let html = `<div class="pb-maintenance">`;
+  html += `<div class="pb-maintenance-title" style="font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-dim);margin:8px 0 4px">Maintenance &mdash; other lifts</div>`;
+  lifts.forEach((l) => {
+    const m = maintenance[l];
+    const name = LIFT_NAMES[l] || l;
+    if (m.rested) {
+      html += `<div class="pb-maintenance-row" style="font-size:var(--text-xs);color:var(--text-dim);margin-top:4px"><span class="pb-maintenance-name" style="font-weight:700;color:var(--text)">${escapeHtml(name)}</span> <span class="pb-maintenance-rested" style="color:var(--danger, #e53935)">Rested &mdash; severe injury</span></div>`;
+    } else {
+      const setsStr = (m.mainSets || [])
+        .map((s) => `${s.reps}@${formatWeight(s.weight)}`)
+        .join(', ');
+      html += `<div class="pb-maintenance-row" style="font-size:var(--text-xs);color:var(--text-dim);margin-top:4px"><span class="pb-maintenance-name" style="font-weight:700;color:var(--text)">${escapeHtml(name)}</span> <span class="pb-maintenance-sets">${setsStr}</span></div>`;
+    }
+    if (m.injuryNotice) {
+      html += `<div class="pb-injury-notice" style="font-size:var(--text-xs);color:var(--orange);margin:4px 0;line-height:1.4">${escapeHtml(m.injuryNotice)}</div>`;
+    }
+  });
+  html += `</div>`;
+  return html;
+}
+
+/**
+ * Render `week.injurySubstitutions` records as severity-styled badges.
+ * Records follow the injury.js substitution shape ({ originalId,
+ * exerciseId, substituted, reason, injuryRegion, injurySeverity, dropped,
+ * name }).
+ */
+function renderInjurySubBadges(substitutions) {
+  const subs = (substitutions || []).filter((s) => s.substituted || s.dropped || s.reason);
+  if (subs.length === 0) return '';
+  let html = `<div class="pb-substitutions">`;
+  subs.forEach((s) => {
+    const sev = s.injurySeverity || 'mild';
+    const sevColor =
+      sev === 'severe'
+        ? 'var(--danger, #e53935)'
+        : sev === 'moderate'
+          ? 'var(--orange)'
+          : 'var(--yellow)';
+    const style = `display:block;margin-top:6px;font-size:var(--text-xs);line-height:1.4;padding:5px 8px;border:1px solid ${sevColor};border-radius:var(--radius-sm);color:${sevColor}`;
+    if (s.dropped) {
+      html += `<div class="pb-sub-badge" data-severity="severe" style="${style}">&#9888; Dropped ${escapeHtml(s.name || s.originalId || '')} &mdash; rest this pattern while your ${escapeHtml(s.injuryRegion || 'injury')} injury is severe</div>`;
+    } else if (s.substituted) {
+      html += `<div class="pb-sub-badge" data-severity="${sev}" title="${escapeHtml(s.reason || '')}" style="${style}">&#8646; ${escapeHtml(s.name || s.originalId || '')} swapped &mdash; ${escapeHtml(s.injuryRegion || '')} injury</div>`;
+    } else {
+      html += `<div class="pb-sub-badge" data-severity="${sev}" style="${style}">&#9888; ${escapeHtml(s.reason || 'Conflicts with an active injury')}</div>`;
+    }
+  });
   html += `</div>`;
   return html;
 }
@@ -313,6 +437,10 @@ export function wireLiftDetailButtons(containerId, lift, diagnosis) {
 // ---------------------------------------------------------------------------
 
 function activateMiniCycle(lift, cycle) {
+  // Alternative-focus (rest) blocks have no single-lift activation path —
+  // their weeks carry focusWorkouts instead of mainSets. The preview hides
+  // the Activate button for these; this guard is belt-and-braces.
+  if (!cycle || cycle.alternativeFocus) return;
   const now = Date.now();
   const today = new Date().toISOString().slice(0, 10);
 

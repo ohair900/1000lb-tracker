@@ -42,6 +42,7 @@ import {
   computeSplitTargets,
 } from '../systems/workout-builder.js';
 import { getSplitDay, advanceSplitDay } from '../systems/split-plan.js';
+import { findConflicts, substituteExerciseList } from '../systems/injury.js';
 import { TRAVEL_GROUPINGS } from '../constants/travel-config.js';
 import { computeNextTarget } from '../systems/accessory-progression.js';
 import { REP_TIERS } from '../constants/rotation.js';
@@ -396,6 +397,39 @@ function _renderExercisePicker(tab, query) {
   list.innerHTML = html;
 }
 
+/**
+ * Add an exercise from the in-workout picker to the live session.
+ * Extracted so the injury gate's severe-override path can re-enter it.
+ */
+function _addPickedExercise(exId) {
+  const mainLift = store.workoutSession.mainLift;
+  const catalogEx = EXERCISE_CATALOG[exId];
+  if (!catalogEx || !store.workoutSession) return;
+  // Smart progression engine handles target reps + weight per exercise.
+  const px = computeNextTarget(exId, mainLift);
+  const repsLow = px.targetReps[0];
+  const repsHigh = px.targetReps[px.targetReps.length - 1] ?? repsLow;
+  store.workoutSession.accessories.push({
+    exerciseId: exId,
+    name: catalogEx.name,
+    setWeights: computeSetWeights(px.targetWeight, px.targetSets),
+    targetSets: px.targetSets,
+    repRange: [repsLow, repsHigh],
+    equipment: catalogEx.equipment,
+    setsCompleted: [],
+    progressed: px.action === 'bump',
+    _targetReps: px.targetReps,
+    _progressionMessage: px.message,
+    _progressionAction: px.action,
+    // Partners can add their own exercises — mark as local-only so they
+    // don't get pushed back to the host's shared workout doc.
+    _localOnly: store.workoutSession.shared?.role === 'partner' ? true : undefined,
+  });
+  persistSession();
+  renderWorkoutView();
+  showToast(`Added ${catalogEx.name}`);
+}
+
 // ---------------------------------------------------------------------------
 
 function getLastMainPerformance(lift) {
@@ -553,6 +587,18 @@ export function createSplitSession(dayIndex) {
   if (!day) return null;
   const now = new Date();
 
+  // Injury pipeline: the split path is the one auto-programming flow that
+  // can prescribe a conflicting competition lift, so conflicts are resolved
+  // BEFORE targets are computed. Severe conflicts drop the slot (rest the
+  // pattern); safe swaps convert comp-lift slots into catalog accessories.
+  const { slots: safeSlots, notices } = _applyInjuryToSplitSlots(day.slots);
+  if (notices.length > 0) {
+    setTimeout(
+      () => showToast(`Injury adjustments: ${notices.join('; ')}`, { duration: 7000 }),
+      400
+    );
+  }
+
   const session = {
     id: now.getTime().toString(36) + Math.random().toString(36).slice(2, 6),
     mainLift: day.key,
@@ -566,7 +612,12 @@ export function createSplitSession(dayIndex) {
     startTime: now.getTime(),
     mainSets: [],
     bbbSets: [],
-    accessories: day.slots.map((slot) => computeSplitTargets(slot)),
+    accessories: safeSlots.map((slot) => {
+      const row = computeSplitTargets(slot);
+      // Carry the substitution record so the UI can badge swapped rows.
+      if (slot._substitution) row._substitution = slot._substitution;
+      return row;
+    }),
     loggedEntryIds: [],
     completed: false,
   };
@@ -575,6 +626,89 @@ export function createSplitSession(dayIndex) {
   persistSession();
   store._sessionOptimizer = null;
   return session;
+}
+
+/**
+ * Run the injury pipeline over resolved split slots before targets are
+ * computed. Returns adjusted slots plus human-readable notices.
+ *
+ * - dropped (severe): the slot is removed — rest the pattern.
+ * - substituted: the slot is repointed at the safe swap. A conflicting
+ *   competition lift becomes a catalog accessory slot so computeSplitTargets
+ *   seeds it from accessory history instead of the lift's e1RM.
+ * - conflict with no safe swap: the slot is kept and flagged.
+ */
+function _applyInjuryToSplitSlots(slots) {
+  const equip = store.equipmentProfile || {};
+  const ids = slots.map((s) => (s.isCompLift ? s.compLift : s.exerciseId));
+  if (!ids.some(Boolean)) return { slots, notices: [] };
+  const { ids: adjustedIds, substitutions } = substituteExerciseList(ids);
+  const notices = [];
+  const out = [];
+  slots.forEach((slot, i) => {
+    const sub = substitutions[i];
+    const newId = adjustedIds[i];
+    if (sub.dropped) {
+      notices.push(`dropped ${slot.name} — severe ${sub.injuryRegion} injury`);
+      return;
+    }
+    if (sub.substituted && newId && newId !== ids[i]) {
+      const catalogEx = EXERCISE_CATALOG[newId];
+      if (catalogEx && equip[catalogEx.equipment] === false) {
+        const kept = {
+          ...sub,
+          exerciseId: sub.originalId,
+          substituted: false,
+          reason: `${sub.reason} (needs unavailable equipment — kept original)`,
+        };
+        notices.push(`${slot.name}: substitute needs unavailable equipment — kept`);
+        out.push({ ...slot, _substitution: { ...kept, name: slot.name } });
+        return;
+      }
+      notices.push(
+        `${slot.name} → ${(catalogEx && catalogEx.name) || newId} (${sub.injuryRegion} injury)`
+      );
+      out.push({
+        ...slot,
+        isCompLift: false,
+        compLift: null,
+        exerciseId: newId,
+        name: (catalogEx && catalogEx.name) || slot.name,
+        equipment: (catalogEx && catalogEx.equipment) || slot.equipment,
+        _substitution: { ...sub, name: slot.name },
+      });
+      return;
+    }
+    if (sub.reason && !sub.substituted) {
+      notices.push(`${slot.name}: ${sub.reason}`);
+      out.push({ ...slot, _substitution: { ...sub, name: slot.name } });
+      return;
+    }
+    out.push(slot);
+  });
+  return { slots: out, notices };
+}
+
+/**
+ * Warn-before-add gate for in-workout manual adds (exercise picker +
+ * swap alternatives). Mild/moderate conflicts warn via toast and proceed;
+ * severe conflicts hold the add behind an explicit override action.
+ * @returns {boolean} true when the caller should proceed immediately
+ */
+function _warnInjuryConflict(exId, name, onOverride) {
+  const conflicts = findConflicts([exId]);
+  if (conflicts.length === 0) return true;
+  const c = conflicts[0];
+  if (c.severity === 'severe') {
+    showToast(`⚠️ ${name}: ${c.reason} — severe injury, not added.`, {
+      action: 'Add anyway',
+      duration: 8000,
+      onAction: () => onOverride?.(),
+    });
+    return false;
+  }
+  showToast(`⚠️ ${name}: ${c.reason} — ${c.severity} injury`, { duration: 5000 });
+  return true;
 }
 
 function updateCompleteButton() {
@@ -614,6 +748,21 @@ function _completeMainSet(idx) {
   const result =
     _deps.addEntry?.(store.workoutSession.mainLift, set.weight, repsToLog, null, '', []) ?? null;
   _lastMainEntryId = result ? result.entry.id : null;
+  // Collect session PRs for the post-workout summary callouts.
+  if (result && result.entry && (result.isPR || result.isRepPR)) {
+    const s = store.workoutSession;
+    if (s) {
+      if (!s._sessionPRs) s._sessionPRs = [];
+      s._sessionPRs.push({
+        lift: s.mainLift,
+        weight: result.entry.weight,
+        reps: repsToLog,
+        e1rm: result.entry.e1rm,
+        isPR: !!result.isPR,
+        isRepPR: !!result.isRepPR,
+      });
+    }
+  }
   // Track entry for discard rollback
   if (result && result.entry) {
     if (!store.workoutSession.loggedEntryIds) store.workoutSession.loggedEntryIds = [];
@@ -1360,6 +1509,18 @@ export function completeWorkout() {
         if (result?.entry) {
           if (!store.workoutSession.loggedEntryIds) store.workoutSession.loggedEntryIds = [];
           store.workoutSession.loggedEntryIds.push(result.entry.id);
+          // Collect session PRs for the post-workout summary callouts.
+          if (result.isPR || result.isRepPR) {
+            if (!store.workoutSession._sessionPRs) store.workoutSession._sessionPRs = [];
+            store.workoutSession._sessionPRs.push({
+              lift: acc.compLift,
+              weight: w,
+              reps,
+              e1rm: result.entry.e1rm,
+              isPR: !!result.isPR,
+              isRepPR: !!result.isRepPR,
+            });
+          }
         }
       });
       return;
@@ -1724,25 +1885,30 @@ export function initWorkoutOverlay() {
         }
         item.innerHTML = `<div><span>${alt.name}</span><span class="acc-swap-alt-meta">${alt.equipment}</span></div><div>${perfHtml}</div>`;
         item.addEventListener('click', () => {
-          const px = computeNextTarget(alt.id, store.workoutSession.mainLift);
-          const repsLow = px.targetReps[0];
-          const repsHigh = px.targetReps[px.targetReps.length - 1] ?? repsLow;
-          store.workoutSession.accessories[ai] = {
-            exerciseId: alt.id,
-            name: alt.name,
-            setWeights: computeSetWeights(px.targetWeight, px.targetSets),
-            targetSets: px.targetSets,
-            repRange: [repsLow, repsHigh],
-            equipment: alt.equipment,
-            setsCompleted: [],
-            progressed: px.action === 'bump',
-            _targetReps: px.targetReps,
-            _progressionMessage: px.message,
-            _progressionAction: px.action,
+          const doSwap = () => {
+            const px = computeNextTarget(alt.id, store.workoutSession.mainLift);
+            const repsLow = px.targetReps[0];
+            const repsHigh = px.targetReps[px.targetReps.length - 1] ?? repsLow;
+            store.workoutSession.accessories[ai] = {
+              exerciseId: alt.id,
+              name: alt.name,
+              setWeights: computeSetWeights(px.targetWeight, px.targetSets),
+              targetSets: px.targetSets,
+              repRange: [repsLow, repsHigh],
+              equipment: alt.equipment,
+              setsCompleted: [],
+              progressed: px.action === 'bump',
+              _targetReps: px.targetReps,
+              _progressionMessage: px.message,
+              _progressionAction: px.action,
+            };
+            persistSession();
+            renderWorkoutView();
+            showToast(`Swapped to ${alt.name}`);
           };
-          persistSession();
-          renderWorkoutView();
-          showToast(`Swapped to ${alt.name}`);
+          // Injury gate — warn before swapping in a conflicting exercise.
+          if (!_warnInjuryConflict(alt.id, alt.name, doSwap)) return;
+          doSwap();
         });
         altDiv.appendChild(item);
       });
@@ -1860,7 +2026,6 @@ export function initWorkoutOverlay() {
     const pickEx = e.target.closest('[data-pick-exercise]');
     if (pickEx) {
       const exId = pickEx.dataset.pickExercise;
-      const mainLift = store.workoutSession.mainLift;
       const catalogEx = EXERCISE_CATALOG[exId];
       if (!catalogEx) return;
       // Already in session? Skip.
@@ -1868,29 +2033,9 @@ export function initWorkoutOverlay() {
         showToast('Already in your workout');
         return;
       }
-      // Smart progression engine handles target reps + weight per exercise.
-      const px = computeNextTarget(exId, mainLift);
-      const repsLow = px.targetReps[0];
-      const repsHigh = px.targetReps[px.targetReps.length - 1] ?? repsLow;
-      store.workoutSession.accessories.push({
-        exerciseId: exId,
-        name: catalogEx.name,
-        setWeights: computeSetWeights(px.targetWeight, px.targetSets),
-        targetSets: px.targetSets,
-        repRange: [repsLow, repsHigh],
-        equipment: catalogEx.equipment,
-        setsCompleted: [],
-        progressed: px.action === 'bump',
-        _targetReps: px.targetReps,
-        _progressionMessage: px.message,
-        _progressionAction: px.action,
-        // Partners can add their own exercises — mark as local-only so they
-        // don't get pushed back to the host's shared workout doc.
-        _localOnly: store.workoutSession.shared?.role === 'partner' ? true : undefined,
-      });
-      persistSession();
-      renderWorkoutView();
-      showToast(`Added ${catalogEx.name}`);
+      // Injury gate — warn before adding a conflicting exercise.
+      if (!_warnInjuryConflict(exId, catalogEx.name, () => _addPickedExercise(exId))) return;
+      _addPickedExercise(exId);
       return;
     }
 
