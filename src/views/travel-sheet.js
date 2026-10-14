@@ -21,6 +21,8 @@ import { calcFatigueByMuscle } from '../systems/fatigue.js';
 import { renderBodyMapCompact } from './body-map.js';
 import { selectTravelWorkout } from '../systems/workout-builder.js';
 import { EXERCISE_CATALOG } from '../data/exercise-catalog.js';
+import { REGION_LABELS } from '../data/injury-map.js';
+import { escapeHTML } from '../utils/helpers.js';
 
 // ---------------------------------------------------------------------------
 // Dependency injection
@@ -127,6 +129,26 @@ function renderEquipmentRow() {
   return html;
 }
 
+/**
+ * INJURY FEATURE SURFACING (workstream c): visible substitution badge for a
+ * travel preview exercise. The workout builder already auto-substitutes via
+ * applyInjuryToTravel() (ex._substitution); this surfaces the record the
+ * user otherwise never sees. Dropped (severe) exercises never appear in the
+ * preview list — they are excluded from the workout entirely.
+ * @param {Object} ex - preview exercise row (may carry _substitution)
+ * @returns {string} badge HTML or ''
+ */
+function injuryPreviewBadge(ex) {
+  const sub = ex && ex._substitution;
+  if (!sub || (!sub.substituted && !sub.reason)) return '';
+  const regionLabel = (REGION_LABELS[sub.injuryRegion] || sub.injuryRegion || '').toLowerCase();
+  if (sub.substituted) {
+    // _substitution.name is the ORIGINAL name; ex.name is the safe swap.
+    return `<div class="injury-badge injury-badge--swap">🩹 Swapped for your ${regionLabel} injury: ${escapeHTML(sub.name)} → ${escapeHTML(ex.name)}</div>`;
+  }
+  return `<div class="injury-badge injury-badge--warn">⚠️ Loads your injured ${regionLabel} — no safe swap available; rest it while it heals</div>`;
+}
+
 function renderExerciseCount() {
   const n = countAvailableExercises();
   const minCount = Math.min(...Object.values(TRAVEL_GROUPINGS).map((g) => g.count));
@@ -186,9 +208,13 @@ function renderGroupingList() {
           const downTag = ex._downweighted
             ? `<span class="travel-preview-tag travel-preview-tag--light">lighter</span>`
             : '';
-          html += `<div class="travel-preview-row">
-            <span class="travel-preview-name">${ex.name}</span>
-            <span class="travel-preview-sets">${sets}×${repStr}${downTag}</span>
+          const subBadge = injuryPreviewBadge(ex);
+          html += `<div class="travel-preview-row-wrap">
+            <div class="travel-preview-row">
+              <span class="travel-preview-name">${ex.name}</span>
+              <span class="travel-preview-sets">${sets}×${repStr}${downTag}</span>
+            </div>
+            ${subBadge}
           </div>`;
         }
         html += `</div>`; // .travel-preview-list
