@@ -33,13 +33,11 @@ body::before {
 #app {
   position: relative;
   z-index: 1;
-}
-
-#app {
   width: 100%;
   max-width: 600px;
   padding: 16px;
-  padding-bottom: 32px;
+  /* Clear the iOS home indicator on full-height pages */
+  padding-bottom: calc(32px + env(safe-area-inset-bottom, 0));
 }
 
 /* Header */
@@ -50,6 +48,28 @@ body::before {
   margin-bottom: 12px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
+  position: relative;
+}
+/* Tri-color brand hairline — squat / bench / deadlift. Echoes the welcome
+   screen's title bar; pure CSS so the SVG badge markup stays untouched. */
+.header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(
+    90deg,
+    var(--squat) 0%,
+    var(--squat) 33.3%,
+    var(--bench) 33.3%,
+    var(--bench) 66.6%,
+    var(--deadlift) 66.6%,
+    var(--deadlift) 100%
+  );
+  opacity: 0.55;
 }
 .header-brand {
   flex: 1;
@@ -92,8 +112,10 @@ body::before {
   gap: var(--space-1);
   margin-bottom: var(--space-4);
   background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: var(--space-1);
+  box-shadow: var(--shadow-sm);
 }
 .tab-btn {
   flex: 1;
@@ -119,6 +141,9 @@ body::before {
 .tab-btn.active {
   background: var(--surface2);
   color: var(--text-strong);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.25);
 }
 .tab-btn:hover:not(.active) {
   color: var(--text);

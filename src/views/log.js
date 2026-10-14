@@ -42,12 +42,16 @@ export function updatePreview() {
     const e = Math.round(calcE1RM(wLbs, r) * 10) / 10;
     const isPR = checkPR(store.currentLift, e);
     const plateStr = formatPlates(w);
+    // PR state drives the gold ring/glow on the preview card (log-tab.css)
+    previewEl.classList.toggle('is-pr', isPR);
     previewEl.innerHTML =
-      `Estimated 1RM: <span class="value">${formatWeight(e)} ${store.unit}</span>` +
-      (isPR ? ` <span class="pr-indicator">NEW PR!</span>` : '') +
-      (plateStr ? `<div class="plate-display">${plateStr} /side</div>` : '');
+      `<span class="e1rm-label">Estimated 1RM</span>` +
+      `<span class="value">${formatWeight(e)}<span class="e1rm-unit"> ${store.unit}</span></span>` +
+      (isPR ? `<span class="pr-indicator">New PR!</span>` : '') +
+      (plateStr ? `<div class="plate-display">${plateStr}<span> /side</span></div>` : '');
     logBtn.disabled = false;
   } else {
+    previewEl.classList.remove('is-pr');
     previewEl.textContent = 'Enter weight and reps';
     logBtn.disabled = true;
   }

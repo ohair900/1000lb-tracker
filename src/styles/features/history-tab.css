@@ -440,7 +440,7 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0));
   background: var(--surface);
   border-top: 1px solid var(--border);
   z-index: 100;

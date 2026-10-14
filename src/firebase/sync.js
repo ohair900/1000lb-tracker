@@ -220,7 +220,7 @@ export async function pushToCloud() {
     syncState.lastPushHash = hash;
 
     // #2: Only update leaderboard if scores changed
-    if (store.leaderboardOptedIn !== false) {
+    if (store.getLeaderboardOptIn()) {
       const s = bestE1RM('squat') || 0;
       const b = bestE1RM('bench') || 0;
       const d = bestE1RM('deadlift') || 0;
@@ -745,7 +745,7 @@ async function pushToCloudV2() {
     }
 
     // 4. Leaderboard (unchanged from v1 path)
-    if (store.leaderboardOptedIn !== false) {
+    if (store.getLeaderboardOptIn()) {
       const s = bestE1RM('squat') || 0;
       const b = bestE1RM('bench') || 0;
       const d = bestE1RM('deadlift') || 0;
@@ -1173,6 +1173,9 @@ async function updateLeaderboard(s, b, d) {
     store.entries.length > 0 ? Math.max(...store.entries.map((e) => e.timestamp)) : null;
 
   const leaderboardDoc = {
+    // Explicit opt-in marker — Firestore rules reject the write without it.
+    // This function is only reached when the user opted in (see gates below).
+    optedIn: true,
     displayName: currentUser.displayName?.split(' ')[0] || 'Lifter',
     squat: s,
     bench: b,
@@ -1496,6 +1499,14 @@ export async function createCrew(name) {
     updatedAt: serverTimestamp(),
   };
   await setDoc(doc(db, 'crews', crewId), crewDoc);
+  // Publish the invite-code -> crewId lookup (sequential: the invite rule
+  // verifies crew ownership, which requires the crew doc to exist first).
+  // Best-effort: a missing lookup only breaks joining by code.
+  try {
+    await setDoc(doc(db, 'crewInvites', inviteCode), { crewId });
+  } catch (e) {
+    console.warn('crewInvites write failed:', e);
+  }
 
   // Update local user list
   store.userCrews = [
@@ -1525,15 +1536,13 @@ export async function joinCrew(code) {
     throw new Error(`Max ${CREW_LIMIT_PER_USER} crews per user`);
   }
 
-  // Look up crew by inviteCode
-  const q = query(collection(db, 'crews'));
-  const snap = await getDocs(q);
-  let match = null;
-  snap.forEach((d) => {
-    const data = d.data();
-    if (data.inviteCode === cleanCode) match = { id: d.id, ...data };
-  });
-  if (!match) throw new Error('Invite code not found');
+  // Look up the crew via the invite-code index (the code is the secret;
+  // crew docs are no longer listable by non-members, so the old scan is gone).
+  const inviteSnap = await getDoc(doc(db, 'crewInvites', cleanCode));
+  if (!inviteSnap.exists()) throw new Error('Invite code not found');
+  const crewSnap = await getDoc(doc(db, 'crews', inviteSnap.data().crewId));
+  if (!crewSnap.exists()) throw new Error('Invite code not found');
+  const match = { id: crewSnap.id, ...crewSnap.data() };
 
   if (match.memberUids.includes(currentUser.uid)) {
     throw new Error('Already a member of this crew');
@@ -1567,6 +1576,12 @@ export async function leaveCrew(crewId) {
   const data = snap.data();
   const remaining = data.memberUids.filter((u) => u !== currentUser.uid);
   if (remaining.length === 0) {
+    // Remove the invite lookup first (its rule needs the crew to still exist).
+    try {
+      await deleteDoc(doc(db, 'crewInvites', data.inviteCode));
+    } catch (e) {
+      console.warn('crewInvites delete failed:', e);
+    }
     await deleteDoc(ref);
   } else {
     // If owner left, hand ownership to the next remaining member

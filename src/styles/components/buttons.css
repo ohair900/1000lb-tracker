@@ -3,30 +3,41 @@
 /* Primary log button */
 .log-btn {
   width: 100%;
+  min-height: 58px;
   padding: 14px;
   border: none;
   border-radius: var(--radius-lg);
-  background: var(--btn-primary-bg);
+  background: linear-gradient(180deg, #ffffff 0%, #e8e8e8 100%);
   color: var(--btn-primary-color);
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   cursor: pointer;
-  transition: all var(--transition-base);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-base),
+    opacity var(--transition-base);
 }
 .log-btn:disabled {
-  opacity: 0.3;
+  opacity: 0.25;
   cursor: not-allowed;
+  box-shadow: none;
 }
 .log-btn:not(:disabled):hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 .log-btn:not(:disabled):active {
-  transform: translateY(0);
+  transform: scale(0.98);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 /* Builder footer buttons */
@@ -146,7 +157,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  -webkit-tap-highlight-color: transparent;
 }
 .edit-btn:hover {
   border-color: var(--border-hover);

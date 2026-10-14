@@ -1,6 +1,18 @@
 /**
  * AI Coaching Export — builds structured prompts with training data
  * for sharing to external AI apps via native share sheet.
+ *
+ * $0 CONSTRAINT: export ONLY. No paid APIs, no on-device models.
+ * The athlete pastes the output into their own AI app
+ * (ChatGPT, Claude, Gemini, …) for coaching.
+ *
+ * Two best-in-class formats:
+ *   - buildCoachingMarkdown(notes) — prompt-framed, human-readable,
+ *     with a coaching persona + instructions at the top
+ *   - buildCoachingJSON()           — machine-readable structured data
+ *
+ * The existing prompt builders (weekly review / 90-day program check /
+ * lift deep-dive) are preserved — they are the Settings entry points.
  */
 
 import store from '../state/store.js';
@@ -8,6 +20,8 @@ import { LIFTS, LIFT_NAMES, LIFT_SHORT } from '../constants/lift-config.js';
 import { MS_PER_DAY } from '../constants/time.js';
 import { bestE1RMAsOf, bucketIntensity, bucketRepRange } from './lift-insights.js';
 import { bestE1RM, getTotal } from '../formulas/e1rm.js';
+import { detectPlateau } from '../formulas/progression.js';
+import { diagnosePlateau } from './plateau-breaker.js';
 import { displayWeight, formatWeight } from '../formulas/units.js';
 import { calcWilks, calcDOTS } from '../formulas/scoring.js';
 import { getClassification, getOverallClassification } from '../formulas/standards.js';
@@ -92,6 +106,464 @@ function buildAthleteProfile() {
   }
 
   return text;
+}
+
+// ---------------------------------------------------------------------------
+// Injury profile — consumed defensively; the injury system is owned by
+// another module and may not be loaded yet.
+// ---------------------------------------------------------------------------
+
+/**
+ * Read injuries defensively. Never assume the getter exists.
+ * @returns {Object[]} Array of injury objects (possibly empty)
+ */
+function getInjuryList() {
+  try {
+    if (typeof store.getInjuries !== 'function') return [];
+    const list = store.getInjuries();
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+const INJURY_FIELDS = [
+  'name',
+  'title',
+  'bodyPart',
+  'area',
+  'status',
+  'severity',
+  'affectedLifts',
+  'substitutions',
+  'notes',
+  'since',
+];
+
+function injuryToData(inj) {
+  const out = {};
+  for (const k of INJURY_FIELDS) {
+    const v = inj?.[k];
+    if (v !== undefined && v !== null && v !== '') out[k] = v;
+  }
+  if (Object.keys(out).length === 0) out.summary = String(inj);
+  return out;
+}
+
+function buildInjurySection() {
+  const injuries = getInjuryList();
+  let text = `\n=== INJURY PROFILE ===\n`;
+  if (injuries.length === 0) {
+    text += `No injuries on record. Assume no injuries unless the athlete's notes mention pain.\n`;
+    return text;
+  }
+  injuries.forEach((inj) => {
+    const d = injuryToData(inj);
+    const name = d.name || d.title || d.bodyPart || d.area || 'Injury';
+    text += `- ${name}`;
+    if (d.status) text += ` [${d.status}]`;
+    if (d.severity) text += ` (severity: ${d.severity})`;
+    text += `\n`;
+    if (d.affectedLifts)
+      text += `  Affected lifts: ${Array.isArray(d.affectedLifts) ? d.affectedLifts.join(', ') : d.affectedLifts}\n`;
+    if (d.substitutions)
+      text += `  Substitutions: ${Array.isArray(d.substitutions) ? d.substitutions.join(', ') : d.substitutions}\n`;
+    if (d.notes) text += `  Notes: ${d.notes}\n`;
+    if (d.since) text += `  Since: ${d.since}\n`;
+  });
+  return text;
+}
+
+// ---------------------------------------------------------------------------
+// Current program detail
+// ---------------------------------------------------------------------------
+
+function buildProgramSection() {
+  const pc = store.programConfig || {};
+  const unit = store.unit;
+  let text = `\n=== CURRENT PROGRAM ===\n`;
+  text += `Active program: ${pc.activeProgram || 'None (free training)'}\n`;
+  const tms = pc.trainingMaxes || {};
+  const tmParts = LIFTS.filter((l) => tms[l]).map(
+    (l) => `${LIFT_SHORT[l]} ${Math.round(displayWeight(tms[l]))} ${unit}`
+  );
+  text += `Training maxes: ${tmParts.length > 0 ? tmParts.join(' | ') : 'Not set'}\n`;
+  const weeks = pc.liftWeeks || {};
+  text += `Program week: ${LIFTS.map((l) => `${LIFT_SHORT[l]} W${weeks[l] || '?'}`).join(' | ')}\n`;
+  const fails = pc.failureCounts || {};
+  const failParts = LIFTS.filter((l) => fails[l] > 0).map((l) => `${LIFT_SHORT[l]}: ${fails[l]}`);
+  if (failParts.length > 0) text += `Recent failed sets: ${failParts.join(', ')}\n`;
+  if (pc.splitPlan) text += `Split plan: ${pc.splitPlan}\n`;
+  if (store.activeMesocycle) {
+    const m = store.activeMesocycle;
+    text += `Active mesocycle: ${m.name || 'Unnamed'} (week ${m.currentWeek || '?'} of ${m.weeks || '?'})\n`;
+  }
+  return text;
+}
+
+function buildProgramData() {
+  const pc = store.programConfig || {};
+  const tms = {};
+  LIFTS.forEach((l) => {
+    if (pc.trainingMaxes?.[l]) tms[l] = Math.round(displayWeight(pc.trainingMaxes[l]) * 10) / 10;
+  });
+  return {
+    activeProgram: pc.activeProgram || null,
+    trainingMaxes: tms,
+    liftWeeks: pc.liftWeeks || null,
+    failureCounts: pc.failureCounts || null,
+    splitPlan: pc.splitPlan || null,
+    activeMesocycle: store.activeMesocycle
+      ? {
+          name: store.activeMesocycle.name || null,
+          currentWeek: store.activeMesocycle.currentWeek ?? null,
+          weeks: store.activeMesocycle.weeks ?? null,
+        }
+      : null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// PR history
+// ---------------------------------------------------------------------------
+
+function buildPRData(limit = 20) {
+  return [...(store.prs || [])]
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, limit)
+    .map((p) => ({
+      lift: p.lift,
+      date: p.date,
+      e1rm: Math.round(displayWeight(p.e1rm) * 10) / 10,
+      milestone: p.milestone || null,
+    }));
+}
+
+function buildPRSection(limit = 10) {
+  const prs = buildPRData(limit);
+  let text = `\n=== RECENT PRs ===\n`;
+  if (prs.length === 0) {
+    text += `No PRs recorded yet.\n`;
+    return text;
+  }
+  prs.forEach((p) => {
+    text += `${p.date} — ${LIFT_NAMES[p.lift]}: ${p.e1rm} ${store.unit} e1RM${p.milestone ? ` (plate milestone: ${p.milestone})` : ''}\n`;
+  });
+  return text;
+}
+
+// ---------------------------------------------------------------------------
+// e1RM trends (weekly bests per lift)
+// ---------------------------------------------------------------------------
+
+function weeklyE1RMTrend(lift, weeks = 12) {
+  const out = [];
+  const now = Date.now();
+  const weekMs = 7 * MS_PER_DAY;
+  for (let i = weeks - 1; i >= 0; i--) {
+    const end = now - i * weekMs;
+    const start = end - weekMs;
+    const vals = store.entries
+      .filter((e) => e.lift === lift && e.timestamp >= start && e.timestamp < end)
+      .map((e) => e.e1rm)
+      .filter((v) => Number.isFinite(v));
+    out.push({
+      weekEnding: new Date(end).toISOString().split('T')[0],
+      best: vals.length > 0 ? Math.round(Math.max(...vals) * 10) / 10 : null,
+    });
+  }
+  return out;
+}
+
+function buildE1RMTrendSection(weeks = 12) {
+  const unit = store.unit;
+  let text = `\n=== E1RM TRENDS (weekly bests, last ${weeks} weeks) ===\n`;
+  LIFTS.forEach((l) => {
+    const trend = weeklyE1RMTrend(l, weeks);
+    const pts = trend.filter((t) => t.best !== null);
+    if (pts.length === 0) {
+      text += `${LIFT_NAMES[l]}: no data\n`;
+      return;
+    }
+    const first = pts[0].best;
+    const last = pts[pts.length - 1].best;
+    const delta = Math.round((last - first) * 10) / 10;
+    const series = trend.map((t) => (t.best === null ? '—' : Math.round(displayWeight(t.best))));
+    text += `${LIFT_NAMES[l]}: ${series.join(' → ')} ${unit} (Δ ${delta > 0 ? '+' : ''}${Math.round(displayWeight(delta))} ${unit})\n`;
+  });
+  return text;
+}
+
+// ---------------------------------------------------------------------------
+// Plateau summary — reuses the plateau-breaker diagnosis shape
+// ---------------------------------------------------------------------------
+
+function buildPlateauData() {
+  const out = {};
+  LIFTS.forEach((l) => {
+    let plateaued = false;
+    try {
+      plateaued = detectPlateau(l);
+    } catch {
+      plateaued = false;
+    }
+    if (!plateaued) {
+      out[l] = { plateaued: false };
+      return;
+    }
+    let diag = null;
+    try {
+      diag = diagnosePlateau(l);
+    } catch {
+      diag = null;
+    }
+    if (!diag) {
+      out[l] = { plateaued: true, primaryCause: null, confidence: null, causes: [] };
+      return;
+    }
+    out[l] = {
+      plateaued: true,
+      recentBest: Math.round(displayWeight(diag.recentBest) * 10) / 10,
+      olderBest: Math.round(displayWeight(diag.olderBest) * 10) / 10,
+      delta: Math.round(displayWeight(diag.delta) * 10) / 10,
+      primaryCause: diag.primaryCause,
+      confidence: Math.round(diag.confidence * 100) / 100,
+      causes: (diag.causes || []).slice(0, 3).map((c) => ({
+        id: c.id,
+        label: c.label,
+        score: c.score,
+        evidence: (c.evidence || []).slice(0, 2),
+        actions: (c.actions || []).slice(0, 2),
+      })),
+    };
+  });
+  return out;
+}
+
+function buildPlateauSection() {
+  const data = buildPlateauData();
+  const unit = store.unit;
+  let text = `\n=== PLATEAU DIAGNOSIS ===\n`;
+  let any = false;
+  LIFTS.forEach((l) => {
+    const d = data[l];
+    if (!d.plateaued) {
+      text += `${LIFT_NAMES[l]}: progressing — no plateau detected\n`;
+      return;
+    }
+    any = true;
+    text += `${LIFT_NAMES[l]}: PLATEAUED — ${d.recentBest} ${unit} (was ${d.olderBest}, Δ ${d.delta > 0 ? '+' : ''}${d.delta})\n`;
+    if (d.primaryCause) text += `  Primary cause: ${d.primaryCause} (confidence ${Math.round(d.confidence * 100)}%)\n`;
+    d.causes.forEach((c) => {
+      text += `  - ${c.label} (score ${c.score})\n`;
+      c.evidence.forEach((e) => {
+        text += `      evidence: ${e}\n`;
+      });
+      c.actions.forEach((a) => {
+        text += `      suggested: ${a}\n`;
+      });
+    });
+  });
+  if (!any) text += `(All three lifts progressing — no intervention needed.)\n`;
+  return text;
+}
+
+// ---------------------------------------------------------------------------
+// Recent sessions (structured, for JSON export)
+// ---------------------------------------------------------------------------
+
+function recentSessionsData(count = 12) {
+  const dates = [...new Set(store.entries.map((e) => e.date))].sort().reverse().slice(0, count);
+  return dates.reverse().map((date) => {
+    const sets = store.entries
+      .filter((e) => e.date === date)
+      .map((e) => ({
+        lift: e.lift,
+        weight: Math.round(displayWeight(e.weight) * 10) / 10,
+        reps: e.reps,
+        rpe: e.rpe ?? null,
+        e1rm: Number.isFinite(e.e1rm) ? Math.round(displayWeight(e.e1rm) * 10) / 10 : null,
+        isPR: !!e.isPR,
+      }));
+    const accLogs = (store.accessoryLog || []).filter((l) => {
+      const d = l.date || new Date(l.timestamp).toISOString().split('T')[0];
+      return d === date;
+    });
+    const accessories = accLogs.map((l) => ({
+      name: resolveAccName(l.exerciseId),
+      weight: l.weight != null ? Math.round(displayWeight(l.weight) * 10) / 10 : null,
+      setsCompleted: l.setsCompleted || [],
+    }));
+    return { date, sets, accessories };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Full structured coaching data (JSON export)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the complete structured coaching dataset.
+ * @returns {Object} JSON-serializable coaching export
+ */
+export function buildCoachingData() {
+  const unit = store.unit;
+  const bw = store.profile.bodyweight;
+  const total = getTotal();
+  const wilks = bw ? calcWilks(total, bw, store.profile.gender || 'male') : null;
+  const dots = bw ? calcDOTS(total, bw, store.profile.gender || 'male') : null;
+
+  const sorted = [...store.entries].sort((a, b) => a.timestamp - b.timestamp);
+  const trainingAgeMonths =
+    sorted.length > 0
+      ? Math.round((Date.now() - sorted[0].timestamp) / (MS_PER_DAY * 30))
+      : null;
+  const last30 = store.entries.filter((e) => Date.now() - e.timestamp <= 30 * MS_PER_DAY);
+  const sessionsPerWeek =
+    last30.length > 0 ? Math.round((new Set(last30.map((e) => e.date)).size / 4.3) * 10) / 10 : 0;
+
+  const currentMaxes = {};
+  LIFTS.forEach((l) => {
+    const best = bestE1RM(l);
+    currentMaxes[l] = best ? Math.round(displayWeight(best) * 10) / 10 : null;
+  });
+
+  const e1rmTrends = {};
+  LIFTS.forEach((l) => {
+    e1rmTrends[l] = weeklyE1RMTrend(l, 12).map((t) => ({
+      weekEnding: t.weekEnding,
+      best: t.best === null ? null : Math.round(displayWeight(t.best) * 10) / 10,
+    }));
+  });
+
+  // Fatigue snapshot
+  let fatigue = null;
+  try {
+    const byMuscle = calcFatigueByMuscle();
+    if (byMuscle) {
+      fatigue = {};
+      MUSCLE_GROUPS.forEach((mg) => {
+        const f = byMuscle[mg];
+        if (f)
+          fatigue[mg] = {
+            status: f.status || f.displayStatus || null,
+            label: f.label || f.displayLabel || null,
+            acwr: f.acwr != null ? Math.round(f.acwr * 100) / 100 : null,
+          };
+      });
+    }
+  } catch {
+    fatigue = null;
+  }
+
+  const bwHist = (store.profile.bodyweightHistory || [])
+    .slice()
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .slice(-12)
+    .map((b) => ({
+      date: b.date || new Date(b.timestamp).toISOString().split('T')[0],
+      weight: Math.round(displayWeight(b.weight) * 10) / 10,
+    }));
+
+  return {
+    exportedAt: new Date().toISOString(),
+    app: '1000lb Tracker',
+    unit,
+    athlete: {
+      gender: store.profile.gender || null,
+      bodyweight: bw ? Math.round(displayWeight(bw) * 10) / 10 : null,
+      bodyweightHistory: bwHist,
+      classification: getOverallClassification() || null,
+      total: total ? Math.round(displayWeight(total) * 10) / 10 : null,
+      wilks: wilks ? Math.round(wilks) : null,
+      dots: dots ? Math.round(dots) : null,
+      trainingAgeMonths,
+      sessionsPerWeekLast30d: sessionsPerWeek,
+      goals: store.goals || null,
+      weakPoints: store.workoutConfig?.weakPoints || null,
+    },
+    program: buildProgramData(),
+    injuries: getInjuryList().map(injuryToData),
+    currentMaxes,
+    e1rmTrends,
+    prs: buildPRData(20),
+    plateau: buildPlateauData(),
+    recentSessions: recentSessionsData(12),
+    fatigue,
+  };
+}
+
+/**
+ * JSON coaching export — machine-readable, paste into any AI.
+ * @returns {string} Pretty-printed JSON
+ */
+export function buildCoachingJSON() {
+  return JSON.stringify(buildCoachingData(), null, 2);
+}
+
+// ---------------------------------------------------------------------------
+// Full markdown coaching export — prompt-framed, human-readable
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the complete prompt-framed markdown coaching export.
+ * Starts with a coaching persona + instructions so it can be pasted
+ * straight into any AI chat app.
+ * @param {string} [notes=''] - Optional athlete notes appended to the prompt
+ * @returns {string} Markdown export
+ */
+export function buildCoachingMarkdown(notes = '') {
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  const { start, end } = getDateRange(30);
+  const entries30 = store.entries.filter((e) => e.date >= start && e.date <= end);
+
+  let prompt = `You are an expert powerlifting coach specializing in raw powerlifting for novice-to-intermediate lifters. You coach with RPE-based autoregulation, evidence-based volume landmarks, and conservative progression. You are direct, specific, and practical — no fluff, no generic advice.\n\n`;
+  prompt += `Below is a complete structured export of my training data from my training log app ("1000lb Tracker"), generated ${today}. It includes my athlete profile, current program, injury history, current maxes, e1RM trends, PR history, plateau diagnoses, the last 30 days of sessions, and fatigue status.\n\n`;
+  prompt += `Analyze all of it and give me actionable coaching: what to keep doing, what to change, and exactly how. Reference specific numbers from my data — never give advice I could have gotten without it.\n`;
+
+  prompt += buildAthleteProfile();
+  prompt += buildProgramSection();
+  prompt += buildInjurySection();
+  prompt += buildE1RMTrendSection(12);
+  prompt += buildPRSection(10);
+  prompt += buildPlateauSection();
+  prompt += `\n=== LAST 30 DAYS OF SESSIONS ===`;
+  prompt += buildSessionLog(start, end);
+  prompt += buildCoverageBlock(start, end);
+  prompt += buildIntensityDistribution(entries30);
+  prompt += buildRepRangeDistribution(entries30);
+  prompt += buildFatigueBlock();
+
+  if (notes) prompt += `\n=== ATHLETE NOTES ===\n${notes}\n`;
+
+  prompt += `\n=== INSTRUCTIONS ===
+Evaluate: progression rate vs classification level, volume adequacy per muscle group, intensity distribution, RPE management, training frequency, push:pull balance, strength ratios, recovery indicators, and plateau diagnoses above.
+
+=== RESPONSE FORMAT ===
+**Executive Summary** (3-4 sentences — trajectory, biggest win, biggest concern)
+**What's Working** (2-4 bullets — be specific, reference actual numbers)
+**What Needs Work** (2-4 bullets — identify the ROOT issue, not symptoms)
+**Injury-Safe Adjustments** (only if injuries are listed — substitutions and loading rules)
+**Plateau Action Plan** (only for lifts flagged PLATEAUED — 2-3 specific interventions)
+**Next 4 Weeks** (3-5 concrete priorities, in order)
+
+=== GUARDRAILS ===
+- Do not comment on the data format, structure, or quality. Treat all provided data as accurate and complete. Focus entirely on coaching.
+- Respect the INJURY PROFILE section: never recommend loading an injured area; always suggest substitutions. If no injuries are listed, assume none unless the athlete's notes mention pain.
+- Do not suggest increasing weekly volume by more than 10-20% in a single week.
+- Do not recommend intensity above 90% of e1RM for more than 1-2 sets per lift per week at this level.
+- If ACWR for any muscle group is elevated, recommend reducing volume for that group.
+- If the lifter has not deloaded in 6+ weeks and fatigue is elevated, recommend a deload first.
+- Default to adjusting the current program, not replacing it.
+- Frame suggestions within the athlete's ${store.unit} system and training schedule.
+- Keep recommendations practical for a commercial gym.`;
+
+  return prompt;
 }
 
 // ---------------------------------------------------------------------------
@@ -313,6 +785,7 @@ export function buildWeeklyReviewPrompt(notes = '') {
 
   let prompt = `You are an experienced powerlifting coach specializing in novice-to-intermediate raw lifters. You use RPE-based autoregulation and evidence-based volume landmarks. Review one week of training and give specific, actionable feedback.\n\n`;
   prompt += buildAthleteProfile();
+  prompt += buildInjurySection();
   prompt += `\n=== THIS WEEK'S SESSIONS ===`;
   prompt += buildSessionLog(start, end);
   prompt += buildCoverageBlock(start, end);
@@ -331,10 +804,10 @@ Evaluate volume adequacy per muscle group, intensity distribution, RPE managemen
 
 === GUARDRAILS ===
 - Do not comment on the data format, structure, or quality. Treat all provided data as accurate and complete. Focus entirely on coaching.
+- Respect the INJURY PROFILE section: never recommend loading an injured area; always suggest substitutions. If no injuries are listed, assume none unless the athlete's notes mention pain.
 - Do not suggest increasing weekly volume by more than 10-20% in a single week.
 - Do not recommend intensity above 90% of e1RM for more than 1-2 sets per lift per week at this level.
 - If ACWR for any muscle group is elevated, recommend reducing volume for that group.
-- Assume no injuries unless the athlete's notes mention pain.
 - Do not recommend a complete program overhaul based on one week of data.
 - Keep recommendations practical for a commercial gym.`;
 
@@ -347,6 +820,8 @@ export function buildProgramCheckPrompt(notes = '') {
 
   let prompt = `You are an experienced powerlifting coach reviewing a 90-day training block for a raw powerlifter. Evaluate long-term programming effectiveness and recommend specific adjustments.\n\n`;
   prompt += buildAthleteProfile();
+  prompt += buildProgramSection();
+  prompt += buildInjurySection();
 
   // E1RM progression
   prompt += `\n=== E1RM PROGRESSION (Last 90 Days) ===\n`;
@@ -375,6 +850,7 @@ export function buildProgramCheckPrompt(notes = '') {
     prompt += `${LIFT_NAMES[l]}: ${Math.round(displayWeight(firstBest))} → ${Math.round(displayWeight(lastBest))} (${change > 0 ? '+' : ''}${Math.round(displayWeight(change))} ${store.unit}) | Rate: ${rate} ${store.unit}/month\n`;
   });
 
+  prompt += buildPlateauSection();
   prompt += buildMonthlyAggregates(start, end);
   prompt += buildRepRangeDistribution(entries);
   prompt += buildIntensityDistribution(entries);
@@ -393,7 +869,7 @@ export function buildProgramCheckPrompt(notes = '') {
   if (notes) prompt += `\n=== ATHLETE NOTES ===\n${notes}\n`;
 
   prompt += `\n=== INSTRUCTIONS ===
-Analyze this 90-day block. Evaluate: progression rate vs classification level, volume progression trends, intensity management, frequency per lift, exercise selection, strength balance, periodization structure, and red flags (stagnant maxes, missing rep ranges, junk volume, overreaching).
+Analyze this 90-day block. Evaluate: progression rate vs classification level, volume progression trends, intensity management, frequency per lift, exercise selection, strength balance, periodization structure, plateau diagnoses, and red flags (stagnant maxes, missing rep ranges, junk volume, overreaching).
 
 === RESPONSE FORMAT ===
 **90-Day Summary** (3-4 sentences — trajectory, biggest win, biggest concern)
@@ -404,6 +880,7 @@ Analyze this 90-day block. Evaluate: progression rate vs classification level, v
 
 === GUARDRAILS ===
 - Do not comment on the data format, structure, or quality. Treat all provided data as accurate and complete. Focus entirely on coaching.
+- Respect the INJURY PROFILE section: never recommend loading an injured area; always suggest substitutions. If no injuries are listed, assume none unless the athlete's notes mention pain.
 - Default to adjusting the current program, not replacing it.
 - Do not recommend more than 15-20% volume increase per mesocycle.
 - If the lifter has not deloaded in 6+ weeks and fatigue is elevated, recommend a deload first.
@@ -421,6 +898,7 @@ export function buildLiftDeepDivePrompt(lift, notes = '') {
 
   let prompt = `You are an experienced powerlifting coach doing a deep technical and programming analysis of the ${LIFT_NAMES[lift]}. You understand biomechanics, common weak points, and accessory transfer.\n\n`;
   prompt += buildAthleteProfile();
+  prompt += buildInjurySection();
 
   const currentBest = bestE1RM(lift);
   const cls = currentBest ? getClassification(lift, currentBest) || '' : '';
@@ -535,6 +1013,7 @@ Perform a complete analysis of this lift:
 
 === GUARDRAILS ===
 - Do not comment on the data format, structure, or quality. Treat all provided data as accurate and complete. Focus entirely on coaching.
+- Respect the INJURY PROFILE section: never recommend loading an injured area; always suggest substitutions. If no injuries are listed, assume none unless the athlete's notes mention pain.
 - Max 5 accessory recommendations, standard gym equipment.
 - If e1RM trend is positive, reinforce what's working.
 - All prescriptions appropriate for ${cls || 'intermediate'}-level lifter.

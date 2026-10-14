@@ -83,6 +83,9 @@ export function showCelebration(total, msTheme) {
     p.style.animationDuration =
       CONFETTI_DURATION_BASE_S + Math.random() * CONFETTI_DURATION_RANGE_S + 's';
     p.style.animationDelay = Math.random() * CONFETTI_DELAY_RANGE_S + 's';
+    // Per-particle horizontal drift, read by the confettiFall keyframes.
+    // Falls back to a straight drop where unsupported.
+    p.style.setProperty('--sway', (Math.random() * 70 - 35).toFixed(1) + 'px');
     overlay.appendChild(p);
   }
 
@@ -217,6 +220,7 @@ export function burstMilestoneConfetti(lift) {
     p.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
     p.style.animationDuration = 1.6 + Math.random() * 1.0 + 's';
     p.style.animationDelay = Math.random() * 0.2 + 's';
+    p.style.setProperty('--sway', (Math.random() * 50 - 25).toFixed(1) + 'px');
     container.appendChild(p);
   }
   setTimeout(() => container.remove(), 2800);

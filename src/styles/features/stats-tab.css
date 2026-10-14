@@ -480,9 +480,6 @@
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
-  .hero-lifts {
-    gap: 10px;
-  }
 }
 
 @media (min-width: 600px) {

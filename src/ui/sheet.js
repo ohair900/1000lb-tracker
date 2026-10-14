@@ -13,7 +13,6 @@
 
 import { $ } from '../utils/helpers.js';
 import store from '../state/store.js';
-import { isRouterResolving, pushRoute, clearOverlayState } from './router.js';
 import { trapFocus, releaseFocus } from './focus-trap.js';
 
 // ---------------------------------------------------------------------------
@@ -63,13 +62,16 @@ export function closeSheet(sheetId, backdropId) {
 // ---------------------------------------------------------------------------
 
 export function openFatigueSheet() {
+  // NOTE: bottom sheets intentionally do NOT push router entries — the
+  // fatigue sheet was the only one that did (removed in the tier-1
+  // upgrade for consistency). All sheets (fatigue, review, recap,
+  // choice, workout summary, travel) open/close without touching history,
+  // so the back button behaves identically for every sheet.
   openSheet('fatigue-sheet', 'fatigue-sheet-backdrop');
-  if (!isRouterResolving()) pushRoute('#fatigue', 'fatigueSheet', closeFatigueSheet);
 }
 
 export function closeFatigueSheet() {
   closeSheet('fatigue-sheet', 'fatigue-sheet-backdrop');
-  clearOverlayState('#' + store.currentTab);
 }
 
 // ---------------------------------------------------------------------------

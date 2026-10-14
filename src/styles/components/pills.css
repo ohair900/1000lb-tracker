@@ -4,6 +4,7 @@
 .lift-btn {
   flex: 1;
   padding: 10px 0;
+  min-height: 56px;
   border: 2px solid var(--border);
   background: var(--surface);
   color: var(--text-dim);
@@ -15,24 +16,39 @@
   text-transform: uppercase;
   cursor: pointer;
   transition: all var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .lift-btn[data-lift='squat'].active {
   border-color: var(--squat);
   color: var(--squat);
   background: rgba(229, 57, 53, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(229, 57, 53, 0.35),
+    0 4px 16px rgba(229, 57, 53, 0.22);
 }
 .lift-btn[data-lift='bench'].active {
   border-color: var(--bench);
   color: var(--bench);
   background: rgba(30, 136, 229, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(30, 136, 229, 0.35),
+    0 4px 16px rgba(30, 136, 229, 0.22);
 }
 .lift-btn[data-lift='deadlift'].active {
   border-color: var(--deadlift);
   color: var(--deadlift);
   background: rgba(67, 160, 71, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(67, 160, 71, 0.35),
+    0 4px 16px rgba(67, 160, 71, 0.22);
 }
 .lift-btn:hover:not(.active) {
   border-color: var(--text-dim);
+}
+.lift-btn:active:not(.active) {
+  transform: scale(0.97);
 }
 
 /* Days-since-last-lift badge on lift selector */
@@ -68,7 +84,10 @@
 
 /* RPE pills */
 .rpe-pill {
-  padding: 6px 10px;
+  padding: 6px 12px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-dim);
@@ -84,6 +103,7 @@
   border-color: var(--text-strong);
   color: var(--text-strong);
   background: var(--surface2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 /* Inline RPE slider row (workout overlay) */

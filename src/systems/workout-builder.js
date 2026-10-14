@@ -33,6 +33,7 @@ import { roundToPlate } from '../formulas/plates.js';
 import { bestE1RM } from '../formulas/e1rm.js';
 import { calcFatigueByMuscle } from '../systems/fatigue.js';
 import { ROTATION_EXCLUDED, REP_TIERS } from '../constants/rotation.js';
+import { substituteExercise, substituteExerciseList } from './injury.js';
 
 // ---------------------------------------------------------------------------
 // Rep-tier rotation (auto-periodized accessories)
@@ -727,7 +728,142 @@ export function selectSmartAccessories(mainLift, count, options = {}) {
     if (!picked.some((p) => p.id === ex.id)) picked.push(ex);
   }
 
-  return picked;
+  return applyInjuryToPicks(picked, options.equipmentOverride || null);
+}
+
+// ---------------------------------------------------------------------------
+// Injury-aware substitution — applied to every generated plan
+// ---------------------------------------------------------------------------
+
+/**
+ * Apply injury substitutions to a list of scored accessory picks.
+ *
+ * Returns new objects for substituted picks (preserving score/reasons) with
+ * an attached `_substitution` record, drops exercises that conflict with a
+ * SEVERE injury (rest the pattern), and sets a `substitutions[]` array on
+ * the returned list so the workout UI can render badges/notices.
+ *
+ * Backward-compatible: callers that ignore the extra `_substitution` field
+ * and the `substitutions` array see the same list shape as before.
+ *
+ * @param {Object[]} picked - Scored accessory picks from scoreAccessories
+ * @param {Object|null} equipmentOverride - Session-scoped equipment map
+ * @returns {Object[]} Adjusted picks with `.substitutions` attached
+ */
+function applyInjuryToPicks(picked, equipmentOverride) {
+  const equip = equipmentOverride || store.equipmentProfile || {};
+  const canonicalIds = picked.map((p) => p.canonicalId || p.id);
+  const { substitutions } = substituteExerciseList(canonicalIds);
+  const subByOriginal = new Map();
+  substitutions.forEach((s, i) => subByOriginal.set(canonicalIds[i], s));
+
+  const out = [];
+  const records = [];
+  for (let i = 0; i < picked.length; i++) {
+    const pick = picked[i];
+    const sub = subByOriginal.get(canonicalIds[i]);
+    if (sub.dropped) {
+      // Severe injury: drop the movement entirely, keep the rest notice.
+      records.push({ ...sub, name: pick.name });
+      continue;
+    }
+    if (sub.substituted) {
+      const resolved = resolveAccessory(sub.exerciseId);
+      if (resolved && equip[resolved.equipment] !== false) {
+        const rec = {
+          id: sub.exerciseId,
+          ...resolved,
+          score: pick.score,
+          reasons: [...(pick.reasons || []), `Injury swap: ${sub.reason}`],
+          equipAvailable: true,
+          canonicalId: resolveCanonicalId(sub.exerciseId),
+          _substitution: { ...sub, name: pick.name },
+        };
+        out.push(rec);
+        records.push({ ...sub, name: pick.name });
+        continue;
+      }
+      // The safe swap needs equipment the user doesn't have — keep the
+      // original and say so rather than prescribing an impossible exercise.
+      const kept = {
+        ...sub,
+        exerciseId: sub.originalId,
+        substituted: false,
+        reason: `${sub.reason} (needs unavailable equipment — kept original)`,
+      };
+      out.push({ ...pick, _substitution: kept });
+      records.push({ ...kept, name: pick.name });
+      continue;
+    }
+    if (sub.reason) {
+      // Conflicts but no safe swap listed — surface the reason on the badge.
+      out.push({ ...pick, _substitution: { ...sub, name: pick.name } });
+      records.push({ ...sub, name: pick.name });
+      continue;
+    }
+    out.push(pick);
+  }
+  out.substitutions = records;
+  return out;
+}
+
+/**
+ * Apply injury substitutions to travel-workout exercise rows.
+ * Rebuilds substituted rows (name, weights, sets, reps, equipment) for the
+ * new exercise; drops rows that conflict with a SEVERE injury.
+ *
+ * @param {Object[]} exercises - Travel exercise rows
+ * @param {Object} equip - Session equipment map
+ * @param {string} liftContext - Lift used for weight estimation
+ * @returns {{ exercises: Object[], substitutions: Object[] }}
+ */
+function applyInjuryToTravel(exercises, equip, liftContext) {
+  const out = [];
+  const substitutions = [];
+  for (const ex of exercises) {
+    const sub = substituteExercise(ex.exerciseId);
+    if (sub.dropped) {
+      substitutions.push({ ...sub, name: ex.name });
+      continue;
+    }
+    if (sub.substituted) {
+      const catalog = EXERCISE_CATALOG[sub.exerciseId];
+      if (catalog && equip[catalog.equipment] !== false) {
+        const defaults = TRAVEL_SET_DEFAULTS[catalog.progressionType] || TRAVEL_SET_DEFAULTS_FALLBACK;
+        const weight = getAccessoryWeight(sub.exerciseId, liftContext);
+        out.push({
+          exerciseId: sub.exerciseId,
+          name: catalog.name,
+          setWeights: computeSetWeights(weight, defaults.sets),
+          targetSets: defaults.sets,
+          repRange: defaults.repRange,
+          equipment: catalog.equipment,
+          setsCompleted: [],
+          progressed: false,
+          _downweighted: ex._downweighted,
+          _substitution: { ...sub, name: ex.name },
+        });
+        substitutions.push({ ...sub, name: ex.name });
+        continue;
+      }
+      const kept = {
+        ...sub,
+        exerciseId: sub.originalId,
+        substituted: false,
+        reason: `${sub.reason} (needs unavailable equipment — kept original)`,
+      };
+      out.push({ ...ex, _substitution: kept });
+      substitutions.push({ ...kept, name: ex.name });
+      continue;
+    }
+    if (sub.reason) {
+      out.push({ ...ex, _substitution: { ...sub, name: ex.name } });
+      substitutions.push({ ...sub, name: ex.name });
+      continue;
+    }
+    out.push(ex);
+  }
+  return { exercises: out, substitutions };
 }
 
 // ---------------------------------------------------------------------------
@@ -827,7 +963,7 @@ export function selectTravelWorkout(grouping, equipmentOverride) {
 
   // Build accessory row objects
   const liftContext = GROUPING_LIFT_CONTEXT[grouping] || 'squat';
-  const exercises = picked.map(({ id, ex }) => {
+  const pickedExercises = picked.map(({ id, ex }) => {
     const defaults = TRAVEL_SET_DEFAULTS[ex.progressionType] || TRAVEL_SET_DEFAULTS_FALLBACK;
     const weight = getAccessoryWeight(id, liftContext);
     const setWeights = computeSetWeights(weight, defaults.sets);
@@ -847,5 +983,9 @@ export function selectTravelWorkout(grouping, equipmentOverride) {
     };
   });
 
-  return { exercises, skippedMuscles };
+  // Injury-aware substitution: auto-swap conflicting exercises, drop
+  // movements that collide with a severe injury (rest the pattern).
+  const { exercises, substitutions } = applyInjuryToTravel(pickedExercises, equip, liftContext);
+
+  return { exercises, skippedMuscles, substitutions };
 }

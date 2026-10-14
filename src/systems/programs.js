@@ -11,6 +11,7 @@ import { LIFT_NAMES } from '../constants/lift-config.js';
 import { roundToPlate } from '../formulas/plates.js';
 import { formatWeight } from '../formulas/units.js';
 import { SUPPLEMENTAL_TIERS } from '../constants/program-tiers.js';
+import { findConflicts, substituteExercise } from './injury.js';
 
 function _validFrozenSetData(data) {
   return !!data && Number.isFinite(Number(data.weight)) && Number.isFinite(Number(data.reps));
@@ -69,7 +70,7 @@ export function getProgramWorkout(lift, weekOverride) {
   const week = ((useWeek - 1) % tmpl.weeks) + 1;
   const weekData = tmpl.schedule[week];
   if (!weekData) return null;
-  return {
+  const workout = {
     label: weekData.label,
     week: useWeek,
     sets: weekData.sets.map((s, i) => {
@@ -89,6 +90,24 @@ export function getProgramWorkout(lift, weekOverride) {
       };
     }),
   };
+  // Injury-aware: when the programmed main lift loads an injured area,
+  // attach a substitution notice (weights stay as programmed — the lifter
+  // decides; the notice names the safe swap). Backward-compatible: callers
+  // that ignore `_injuryNotice` see the same shape as before.
+  const conflicts = findConflicts([lift]);
+  if (conflicts.length) {
+    const sub = substituteExercise(lift);
+    workout._injuryNotice = {
+      lift,
+      region: conflicts[0].region,
+      severity: conflicts[0].severity,
+      reason: conflicts[0].reason,
+      substituteId: sub.substituted ? sub.exerciseId : null,
+      substituteReason: sub.reason,
+      dropped: sub.dropped,
+    };
+  }
+  return workout;
 }
 
 // ---------------------------------------------------------------------------

@@ -163,8 +163,8 @@
   box-shadow: 0 0 4px rgba(229, 57, 53, 0.6);
 }
 .slot-fatigue-dot[data-status='orange'] {
-  background: #ff9800;
-  box-shadow: 0 0 4px rgba(255, 152, 0, 0.5);
+  background: var(--orange);
+  box-shadow: 0 0 4px rgba(251, 140, 0, 0.5);
 }
 
 /* Exercise weight display in builder */
@@ -570,8 +570,8 @@
   color: var(--danger, #e53935);
 }
 .delta-chip.fatigue[data-status='orange'] {
-  background: rgba(255, 152, 0, 0.15);
-  color: #ff9800;
+  background: rgba(251, 140, 0, 0.15);
+  color: var(--orange);
 }
 
 /* Exercise browser tabs */

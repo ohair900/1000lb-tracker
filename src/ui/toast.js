@@ -30,19 +30,11 @@ export function setToastDeps(deps) {
 // ---------------------------------------------------------------------------
 
 /**
- * Push an undoable action onto the stack.
- * Only the most recent action is kept; it expires after 10 seconds.
- *
- * @param {'delete'|'edit'|'add'} type
- * @param {object} data
+ * NOTE: the live undo stack lives in src/state/actions.js (pushUndo is
+ * called by editEntry/deleteEntry). The duplicate pushUndo that used to
+ * live here was removed during the tier-1 upgrade — it had zero callers.
+ * executeUndo below consumes store.undoStack, which actions.js populates.
  */
-export function pushUndo(type, data) {
-  clearTimeout(store.undoTimer);
-  store.undoStack = { type, data };
-  store.undoTimer = setTimeout(() => {
-    store.undoStack = null;
-  }, 10000);
-}
 
 /**
  * Execute the pending undo action (if any).

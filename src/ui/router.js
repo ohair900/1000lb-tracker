@@ -11,7 +11,6 @@ const ROUTES = [
   { pattern: /^#settings$/, handler: 'settings' },
   { pattern: /^#workout\/(.+)$/, handler: 'workout' },
   { pattern: /^#builder\/(.+)$/, handler: 'builder' },
-  { pattern: /^#fatigue$/, handler: 'fatigueSheet' },
   { pattern: /^#lift\/(.+)$/, handler: 'liftDetail' },
 ];
 
@@ -27,7 +26,7 @@ export function isRouterResolving() {
 
 /**
  * Initialize the router. Call once after all DOM listeners are bound.
- * @param {Object} handlerMap - { tab, settings, workout, builder, fatigueSheet, liftDetail }
+ * @param {Object} handlerMap - { tab, settings, workout, builder, liftDetail }
  */
 export function initRouter(handlerMap) {
   _handlers = handlerMap;

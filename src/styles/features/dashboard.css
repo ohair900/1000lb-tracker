@@ -9,28 +9,34 @@
 
 /* Goal bar (inside cards) */
 .goal-bar {
-  margin-top: 6px;
-  height: 3px;
-  background: var(--surface2);
+  margin-top: 8px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.07);
   border-radius: 2px;
   overflow: hidden;
+  position: relative;
+  z-index: 1;
 }
 .goal-fill {
   height: 100%;
   border-radius: 2px;
-  transition: width 0.3s;
+  transition: width 0.4s var(--ease-out-back);
 }
 .goal-fill[data-lift='squat'] {
   background: var(--squat);
+  box-shadow: 0 0 8px rgba(229, 57, 53, 0.7);
 }
 .goal-fill[data-lift='bench'] {
   background: var(--bench);
+  box-shadow: 0 0 8px rgba(30, 136, 229, 0.7);
 }
 .goal-fill[data-lift='deadlift'] {
   background: var(--deadlift);
+  box-shadow: 0 0 8px rgba(67, 160, 71, 0.7);
 }
 .goal-fill[data-lift='total'] {
   background: var(--total);
+  box-shadow: 0 0 8px rgba(253, 216, 53, 0.7);
 }
 
 /* Strength ratios row */
