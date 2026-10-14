@@ -1,0 +1,179 @@
+/* ===== Flow components (workstream d: mobile-first flow overhaul) =====
+ *
+ * Shared building blocks for onboarding, empty states, and confirm-grade
+ * actions. Prefixed `flow-` to avoid collisions with other workstreams.
+ * All interactive elements here are >= 44px targets.
+ */
+
+/* --- Buttons: one primary, one secondary, one danger pattern --- */
+
+.flow-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-base);
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  transition:
+    opacity var(--transition-base),
+    transform var(--transition-fast);
+  text-decoration: none;
+}
+.flow-btn:active {
+  transform: scale(0.98);
+}
+
+.flow-btn-primary {
+  border: none;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-color);
+}
+.flow-btn-primary:hover {
+  opacity: 0.88;
+}
+
+.flow-btn-secondary {
+  border: 2px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+}
+.flow-btn-secondary:hover {
+  border-color: var(--border-hover);
+}
+
+.flow-btn-danger {
+  border: none;
+  background: var(--danger);
+  color: #fff;
+}
+
+/* Compact in-row button (PR rows, toasts) — still a 44px target */
+.flow-btn-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.flow-btn-mini:hover {
+  border-color: var(--border-hover);
+  color: var(--text-strong);
+}
+
+/* --- Empty states: one clear CTA, no dead ends --- */
+
+.flow-empty-state {
+  text-align: center;
+  padding: var(--space-6) var(--space-4);
+  color: var(--text-dim);
+  font-size: var(--text-base);
+}
+.flow-empty-state .flow-empty-icon {
+  font-size: var(--text-3xl);
+  margin-bottom: var(--space-3);
+  display: block;
+}
+.flow-empty-state .flow-empty-title {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--text-strong);
+  margin-bottom: var(--space-2);
+}
+.flow-empty-state .flow-empty-copy {
+  font-size: var(--text-sm);
+  color: var(--text-dim);
+  line-height: 1.5;
+  max-width: 300px;
+  margin: 0 auto var(--space-4);
+}
+.flow-empty-state .flow-btn {
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+/* Compact variant — sits inside a chart container or under a sheet */
+.flow-empty-state--compact {
+  padding: var(--space-5) var(--space-4);
+}
+
+/* Dashboard first-run banner (dismissed once entries exist) */
+.flow-dash-empty {
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  text-align: center;
+}
+.flow-dash-empty .flow-empty-title {
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text-strong);
+  margin-bottom: var(--space-1);
+}
+.flow-dash-empty .flow-empty-copy {
+  font-size: var(--text-sm);
+  color: var(--text-dim);
+  margin-bottom: var(--space-3);
+  line-height: 1.5;
+}
+.flow-dash-empty .flow-btn {
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+/* --- Consistent inputs (visible label preferred; aria-label fallback) --- */
+
+.flow-input {
+  width: 100%;
+  min-height: 48px;
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text-strong);
+  font-size: var(--text-base);
+  transition: border-color var(--transition-base);
+}
+.flow-input:focus {
+  border-color: var(--border-hover);
+}
+.flow-input::placeholder {
+  color: var(--text-dim);
+}
+
+.flow-field-label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: var(--space-2);
+}
+
+/* Screen-reader-only text */
+.flow-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

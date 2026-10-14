@@ -49,7 +49,7 @@
 /* Score line */
 .score-line {
   text-align: center;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--text-dim);
   margin-bottom: 16px;
   padding: 4px 0;

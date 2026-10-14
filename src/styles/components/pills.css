@@ -192,6 +192,9 @@
 /* Chart filter buttons */
 .chart-filter-btn {
   padding: 6px 14px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-dim);
@@ -211,6 +214,7 @@
 .chart-type-btn {
   flex: 1;
   padding: 6px 0;
+  min-height: 44px;
   border: none;
   background: transparent;
   color: var(--text-dim);
@@ -228,6 +232,9 @@
 /* Range pills */
 .chart-date-range .range-pill {
   padding: 3px 10px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   background: transparent;
@@ -244,9 +251,13 @@
 
 /* Tag pills */
 .tag-pill {
-  padding: 2px 8px;
+  padding: 10px 14px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   border-radius: var(--radius-pill);
-  font-size: var(--text-2xs);
+  font-size: var(--text-sm);
+  font-weight: 600;
   background: var(--surface2);
   color: var(--text-dim);
   border: 1px solid var(--border);
@@ -348,6 +359,7 @@
 .vol-period-btn {
   flex: 1;
   padding: 4px 0;
+  min-height: 44px;
   border: none;
   background: transparent;
   color: var(--text-dim);
