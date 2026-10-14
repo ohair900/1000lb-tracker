@@ -40,6 +40,8 @@ import {
   buildWeeklyReviewPrompt,
   buildProgramCheckPrompt,
   buildLiftDeepDivePrompt,
+  buildCoachingJSON,
+  buildCoachingMarkdown,
   shareCoachingPrompt,
 } from '../systems/ai-export.js';
 import {
@@ -187,6 +189,14 @@ function renderToolsTab() {
       <button class="data-btn" id="ai-deadlift" style="text-align:left;padding:10px 12px">
         <strong style="display:block;font-size:var(--text-sm)">Deadlift Deep-Dive</strong>
         <span style="font-size:var(--text-xs);color:var(--text-dim)">90-day deadlift analysis + accessory recs</span>
+      </button>
+      <button class="data-btn" id="ai-full-md" style="text-align:left;padding:10px 12px">
+        <strong style="display:block;font-size:var(--text-sm)">Full Coaching Export</strong>
+        <span style="font-size:var(--text-xs);color:var(--text-dim)">Everything + prompt framing — paste into any AI for coaching</span>
+      </button>
+      <button class="data-btn" id="ai-full-json" style="text-align:left;padding:10px 12px">
+        <strong style="display:block;font-size:var(--text-sm)">Full Export — JSON</strong>
+        <span style="font-size:var(--text-xs);color:var(--text-dim)">Structured data: trends, PRs, plateaus, injuries, program</span>
       </button>
     </div>`;
   html += settingsDivider;
@@ -698,6 +708,12 @@ export function attachSettingsListeners() {
   );
   $('ai-deadlift')?.addEventListener('click', () =>
     shareCoachingPrompt(buildLiftDeepDivePrompt('deadlift', aiNotes()), 'Deadlift Deep-Dive')
+  );
+  $('ai-full-md')?.addEventListener('click', () =>
+    shareCoachingPrompt(buildCoachingMarkdown(aiNotes()), '1000lb Tracker — Coaching Export')
+  );
+  $('ai-full-json')?.addEventListener('click', () =>
+    shareCoachingPrompt(buildCoachingJSON(), '1000lb Tracker — Full Export (JSON)')
   );
 
   // Data management
