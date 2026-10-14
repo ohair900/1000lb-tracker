@@ -48,6 +48,10 @@
   align-items: center;
   min-height: 44px;
   padding: 6px 4px;
+  /* <button> reset — these replaced href-less <a> toggles */
+  background: none;
+  border: none;
+  font-family: inherit;
   transition: color var(--transition-fast);
 }
 .notes-toggle:hover,

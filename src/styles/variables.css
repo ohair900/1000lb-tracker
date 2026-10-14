@@ -91,7 +91,9 @@ html {
   --text-strong: #fff;
   --btn-primary-bg: #fff;
   --btn-primary-color: #121212;
-  --text-muted: #666;
+  /* Bumped from #666: secondary body text must clear 4.5:1 on --bg/--surface
+     (was 3.26:1; #9a9a9a is ~6.6:1 on #121212, ~5.1:1 on #2a2a2a). */
+  --text-muted: #9a9a9a;
   --border-hover: #555;
 
   /* Typography — "Gym Journal" direction:

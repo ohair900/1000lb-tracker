@@ -285,6 +285,98 @@ export function analyzePushPullRatio() {
   return _ppCache;
 }
 
+/**
+ * Classify an exercise id as upper-body 'push', 'pull', or null (neutral /
+ * unknown / lower-body). Catalog movementPattern first, legacy category
+ * fallback — the same mapping analyzePushPullRatio uses.
+ *
+ * @param {string} exerciseId
+ * @returns {'push'|'pull'|null}
+ */
+function _classifyPushPull(exerciseId) {
+  if (!exerciseId) return null;
+  const catalogEx = resolveExercise(exerciseId);
+  if (catalogEx) {
+    const mp = catalogEx.movementPattern;
+    if (UPPER_PUSH_PATTERNS.has(mp)) return 'push';
+    if (UPPER_PULL_PATTERNS.has(mp)) return 'pull';
+    // Catalog hit but neutral pattern (squat-pattern, hip-hinge, core,
+    // grip-carry) — excluded, same as the history-based analysis.
+    return null;
+  }
+  const legacyEx = ACCESSORY_DB[exerciseId];
+  if (legacyEx) {
+    const cat = legacyEx.category;
+    if (LEGACY_UPPER_PULL_CATS.has(cat)) return 'pull';
+    if (LEGACY_UPPER_PUSH_CATS.has(cat)) return 'push';
+  }
+  return null;
+}
+
+/**
+ * Compute UPPER-BODY push vs pull set counts for the CURRENT builder
+ * session — the main lift plus the exercises being built — instead of
+ * last-7-day history. Used by the builder's Coverage Gaps panel so the
+ * verdict reflects the workout on screen.
+ *
+ * Each exercise may be an object ({ exerciseId|id, sets, type, name }) or a
+ * plain exercise-id string. The main-lift slot (type 'main') classifies via
+ * `mainLift`: bench is a horizontal push; squat/deadlift are lower-body and
+ * excluded. Planned sets (`ex.sets`, default 3) are the counting unit.
+ * If no main-lift slot is present, the main lift is counted once with the
+ * builder's default 5 sets.
+ *
+ * Thresholds match analyzePushPullRatio: push-heavy at ratio >= 1.5,
+ * pull-heavy at <= 0.67 (target 1:1 to 1:1.5).
+ *
+ * @param {string} mainLift - 'squat' | 'bench' | 'deadlift'
+ * @param {Array<Object|string>} exercises - Current builder exercise list
+ * @returns {{ pushSets: number, pullSets: number, ratio: number, target: number, status: 'balanced'|'push-heavy'|'pull-heavy' }}
+ */
+export function analyzeSessionPushPull(mainLift, exercises) {
+  let pushSets = 0;
+  let pullSets = 0;
+  let sawMainSlot = false;
+
+  const list = Array.isArray(exercises) ? exercises : [];
+  for (const ex of list) {
+    const isObj = typeof ex === 'object' && ex !== null;
+    const isMain = isObj && ex.type === 'main';
+    const id = typeof ex === 'string' ? ex : isObj ? ex.exerciseId || ex.id : null;
+    const sets = isObj && ex.sets > 0 ? ex.sets : 3;
+
+    let cls = null;
+    if (isMain) {
+      sawMainSlot = true;
+      // Main lift contribution — upper-body only. Bench is a horizontal
+      // push; squat and deadlift don't participate in push:pull balance.
+      if (mainLift === 'bench') cls = 'push';
+    } else {
+      cls = _classifyPushPull(id);
+    }
+    if (cls === 'push') pushSets += sets;
+    else if (cls === 'pull') pullSets += sets;
+  }
+
+  // No main-lift slot in the list (e.g. called with bare accessories) —
+  // count the main lift with the builder's default slot size.
+  if (!sawMainSlot && mainLift === 'bench') pushSets += 5;
+
+  const ratio = pullSets > 0 ? pushSets / pullSets : pushSets > 0 ? Infinity : 1;
+  let status = 'balanced';
+  // Same thresholds as the history-based analysis.
+  if (ratio >= 1.5) status = 'push-heavy';
+  else if (ratio <= 0.67) status = 'pull-heavy';
+
+  return {
+    pushSets: Math.round(pushSets),
+    pullSets: Math.round(pullSets),
+    ratio: Math.round(ratio * 100) / 100,
+    target: 1.0,
+    status,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Layer 3: Recency gaps
 // ---------------------------------------------------------------------------
@@ -292,7 +384,11 @@ export function analyzePushPullRatio() {
 /**
  * Days since each muscle group was directly trained.
  *
- * @returns {{ [muscleGroup: string]: { daysSince: number, status: 'fresh'|'due'|'stale' } }}
+ * Never-trained muscle groups get `daysSince: null` (NOT Infinity) so
+ * renderers can distinguish "no data yet" from a real gap. Callers must
+ * handle the null case — never interpolate it into copy.
+ *
+ * @returns {{ [muscleGroup: string]: { daysSince: number|null, status: 'fresh'|'due'|'stale' } }}
  */
 export function analyzeRecencyGaps() {
   if (
@@ -307,7 +403,9 @@ export function analyzeRecencyGaps() {
   const result = {};
 
   MUSCLE_GROUPS.forEach((mg) => {
-    result[mg] = { daysSince: Infinity, status: 'stale' };
+    // null = never trained. Callers must check for null explicitly;
+    // the guardrail renderer turns this into "not trained yet" copy.
+    result[mg] = { daysSince: null, status: 'stale' };
   });
 
   // Check main lift entries
@@ -316,7 +414,7 @@ export function analyzeRecencyGaps() {
     if (!weights) continue;
     const days = Math.floor((now - entry.timestamp) / MS_PER_DAY);
     for (const mg of MUSCLE_GROUPS) {
-      if (weights[mg] >= 0.15 && days < result[mg].daysSince) {
+      if (weights[mg] >= 0.15 && (result[mg].daysSince === null || days < result[mg].daysSince)) {
         result[mg].daysSince = days;
       }
     }
@@ -330,7 +428,7 @@ export function analyzeRecencyGaps() {
     const catalogEx = resolveExercise(log.exerciseId);
     if (catalogEx && catalogEx.primaryMuscles) {
       for (const [mg, weight] of Object.entries(catalogEx.primaryMuscles)) {
-        if (weight >= 0.2 && days < result[mg].daysSince) {
+        if (weight >= 0.2 && (result[mg].daysSince === null || days < result[mg].daysSince)) {
           result[mg].daysSince = days;
         }
       }
@@ -342,7 +440,7 @@ export function analyzeRecencyGaps() {
       const catWeights = ACCESSORY_CAT_WEIGHTS[legacyEx.category];
       if (catWeights) {
         for (const mg of MUSCLE_GROUPS) {
-          if (catWeights[mg] >= 0.2 && days < result[mg].daysSince) {
+          if (catWeights[mg] >= 0.2 && (result[mg].daysSince === null || days < result[mg].daysSince)) {
             result[mg].daysSince = days;
           }
         }
@@ -350,10 +448,11 @@ export function analyzeRecencyGaps() {
     }
   }
 
-  // Classify
+  // Classify. null (never trained) stays 'stale' — it's the stalest there is.
   for (const mg of MUSCLE_GROUPS) {
     const d = result[mg].daysSince;
-    if (d < 3) result[mg].status = 'fresh';
+    if (d === null) result[mg].status = 'stale';
+    else if (d < 3) result[mg].status = 'fresh';
     else if (d < 7) result[mg].status = 'due';
     else result[mg].status = 'stale';
   }
@@ -441,10 +540,12 @@ export function getGapReport(mainLift) {
     });
   }
 
-  // Recency gaps (only flag stale muscles in today's region, 7+ days)
+  // Recency gaps (only flag stale muscles in today's region, 7+ days).
+  // Never-trained (daysSince === null) is covered by the volume layer
+  // above, so it stays out of the recency list.
   for (const mg of MUSCLE_GROUPS) {
     const r = recency[mg];
-    if (r.status !== 'stale' || r.daysSince === Infinity) continue;
+    if (r.status !== 'stale' || r.daysSince === null) continue;
     const mgRegion = MUSCLE_REGION[mg];
     if (mgRegion !== liftRegion && mgRegion !== 'core') continue;
 
