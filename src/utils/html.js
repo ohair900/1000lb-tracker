@@ -9,6 +9,15 @@
 import { COLORS, LIFT_SHORT, LIFT_NAMES, PLATE_MILESTONES } from '../constants/lift-config.js';
 import { escapeHTML } from './helpers.js';
 
+/**
+ * Canonical HTML-escaping helper.
+ *
+ * The implementation lives in utils/helpers.js; it is re-exported here so
+ * that all HTML-building code has a single canonical import location:
+ * `import { escapeHTML } from '../utils/html.js'`. Do not add local copies.
+ */
+export { escapeHTML };
+
 // ---------------------------------------------------------------------------
 // Lift color badges
 // ---------------------------------------------------------------------------

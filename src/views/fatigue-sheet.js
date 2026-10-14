@@ -1,12 +1,16 @@
 /**
- * Fatigue sheet body rendering — fatigue bar, fatigue detail views
- * with ACWR, recovery timeline, tonnage trends, and contributing exercises.
+ * Fatigue sheet body rendering — fatigue detail views with ACWR,
+ * recovery timeline, tonnage trends, and contributing exercises.
+ *
+ * NOTE: the dashboard fatigue-bar widget lives in src/views/dashboard.js
+ * (updateFatigueBar, with the body map + recovery bars). This module only
+ * renders the detail sheet. There is intentionally a single updateFatigueBar.
  */
 
 import { $ } from '../utils/helpers.js';
 import { COLORS } from '../constants/lift-config.js';
-import { MUSCLE_GROUPS, MUSCLE_RECOVERY_HOURS } from '../data/muscle-groups.js';
-import { calcFatigueByMuscle, calcFatigueDetail, getRecoveryAdvice } from '../systems/fatigue.js';
+import { MUSCLE_RECOVERY_HOURS } from '../data/muscle-groups.js';
+import { calcFatigueDetail, getRecoveryAdvice } from '../systems/fatigue.js';
 import { openFatigueSheet } from '../ui/sheet.js';
 import { getCalibrationInfo } from '../systems/recovery-calibration.js';
 
@@ -28,43 +32,6 @@ function relativeDay(ts) {
   if (days === 1) return 'Yesterday';
   if (days < 7) return then.toLocaleDateString('en', { weekday: 'short' });
   return `${days}d ago`;
-}
-
-// ---------------------------------------------------------------------------
-// Fatigue bar (dashboard widget)
-// ---------------------------------------------------------------------------
-
-/**
- * Update the fatigue bar widget on the dashboard.
- * Shows per-muscle-group fatigue status cards.
- */
-export function updateFatigueBar() {
-  const el = $('fatigue-bar');
-  const byMuscle = calcFatigueByMuscle();
-  if (!byMuscle) {
-    el.style.display = 'none';
-    return;
-  }
-  el.style.display = 'block';
-  let html = '';
-  MUSCLE_GROUPS.forEach((mg) => {
-    const f = byMuscle[mg];
-    const st = f ? f.status : 'none';
-    const val = f ? f.label : '&mdash;';
-    html +=
-      `<div class="fatigue-card" data-muscle="${mg}">` +
-      `<div class="fatigue-card-label">${mg}</div>` +
-      `<div class="fatigue-card-status">` +
-      `<span class="fatigue-dot ${st}"></span>` +
-      `<span class="fatigue-level ${st}">${val}</span>` +
-      `</div></div>`;
-  });
-  $('fatigue-row').innerHTML = html;
-  $('fatigue-row')
-    .querySelectorAll('.fatigue-card[data-muscle]')
-    .forEach((card) => {
-      card.addEventListener('click', () => showFatigueDetail(card.dataset.muscle));
-    });
 }
 
 // ---------------------------------------------------------------------------
@@ -208,13 +175,3 @@ export function showFatigueDetail(mg) {
   $('fatigue-sheet-body').innerHTML = html;
   openFatigueSheet();
 }
-
-// ---------------------------------------------------------------------------
-// Aliases for backward compatibility
-// ---------------------------------------------------------------------------
-
-/** @deprecated Use updateFatigueBar instead */
-export const renderFatigueSheet = updateFatigueBar;
-
-/** @deprecated Use showFatigueDetail instead */
-export const renderFatigueDetail = showFatigueDetail;
