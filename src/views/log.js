@@ -4,7 +4,7 @@
  */
 
 import store from '../state/store.js';
-import { $, debounce } from '../utils/helpers.js';
+import { $, debounce, escapeHTML } from '../utils/helpers.js';
 import { PREVIEW_DEBOUNCE_MS, SHAKE_DURATION_MS } from '../constants/ui.js';
 import { weightInput, repsInput, notesInput, previewEl, logBtn } from '../ui/dom.js';
 import { LIFT_NAMES } from '../constants/lift-config.js';
@@ -16,6 +16,8 @@ import { checkPR } from '../systems/pr-tracking.js';
 import { addEntry } from '../state/actions.js';
 import { showToast } from '../ui/toast.js';
 import { burstMilestoneConfetti } from '../ui/confetti.js';
+import { openBuilder, buildDefaultSlots } from './builder-overlay.js';
+import { suggestMainLift, suggestIntensity } from '../systems/smart-workout.js';
 
 // ---------------------------------------------------------------------------
 // Late-bound callbacks — set via inject()
@@ -306,4 +308,70 @@ export function initLogTab() {
 
   // Tag pills
   renderTagPills();
+
+  // "Recommended" entry — the smart-workout engine's proper UI home,
+  // next to the Start Workout button.
+  _initRecommendedEntry();
+}
+
+// ---------------------------------------------------------------------------
+// Recommended workout entry
+// ---------------------------------------------------------------------------
+
+/**
+ * Insert the compact Recommended button next to the Start Workout button.
+ * Tapping it shows the smart-workout engine's top recommendation
+ * (suggestMainLift + suggestIntensity) with human-readable reasons and a
+ * "Start this workout" CTA that opens the builder pre-filled — via
+ * openBuilder, so the #builder/<lift> router entry is pushed exactly like
+ * every other builder entry point.
+ */
+function _initRecommendedEntry() {
+  const anchor = $('create-workout-btn');
+  if (!anchor || $('recommended-btn')) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.id = 'recommended-btn';
+  btn.className = 'btn-dashed';
+  btn.textContent = '✨ Recommended';
+  anchor.insertAdjacentElement('afterend', btn);
+  btn.addEventListener('click', _toggleRecommendedCard);
+}
+
+/** Toggle the recommendation card under the Recommended button. */
+function _toggleRecommendedCard() {
+  const existing = $('recommended-card');
+  if (existing) {
+    existing.remove();
+    return;
+  }
+  let suggestion;
+  try {
+    const { lift, reasons } = suggestMainLift();
+    const intensity = suggestIntensity(lift);
+    suggestion = { lift, reasons: reasons[lift] || [], intensity };
+  } catch (err) {
+    console.warn('Recommended workout failed:', err);
+    showToast('Could not compute a recommendation');
+    return;
+  }
+  const { lift, reasons, intensity } = suggestion;
+  const card = document.createElement('div');
+  card.id = 'recommended-card';
+  card.setAttribute(
+    'style',
+    'margin-top:8px;padding:12px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)'
+  );
+  card.innerHTML =
+    `<div style="font-weight:700;font-size:var(--text-base)">✨ Recommended: ${escapeHTML(LIFT_NAMES[lift] || lift)}</div>` +
+    `<div style="font-size:var(--text-sm);color:var(--text-dim);margin:4px 0">${intensity.sets}×${intensity.reps} @ ${intensity.pctTM}% TM &middot; RPE ${intensity.rpe}</div>` +
+    (reasons.length > 0
+      ? `<ul style="margin:8px 0;padding-left:18px;font-size:var(--text-sm);color:var(--text-dim);line-height:1.5">${reasons.map((r) => `<li>${escapeHTML(r)}</li>`).join('')}</ul>`
+      : '') +
+    `<button type="button" id="recommended-start" class="btn-primary" style="width:100%;margin-top:8px">Start this workout</button>`;
+  $('recommended-btn').insertAdjacentElement('afterend', card);
+  card.querySelector('#recommended-start').addEventListener('click', () => {
+    card.remove();
+    openBuilder(lift, buildDefaultSlots(lift));
+  });
 }

@@ -16,13 +16,15 @@
 
 import store from '../state/store.js';
 import { MS_PER_DAY, WINDOW_4_WEEKS, WINDOW_8_WEEKS } from '../constants/time.js';
-import { LIFT_NAMES } from '../constants/lift-config.js';
+import { LIFTS, LIFT_NAMES } from '../constants/lift-config.js';
 import { bestE1RM } from '../formulas/e1rm.js';
 import { detectPlateau } from '../formulas/progression.js';
 import { calcFatigueByMuscle, calcFatigueDetail, calcFatigueLift } from '../systems/fatigue.js';
 import { MAIN_LIFT_WEIGHTS } from '../data/muscle-groups.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
+import { resolveAccessory } from '../data/exercise-compat.js';
 import { selectSmartAccessories } from '../systems/workout-builder.js';
+import { findConflicts, substituteExerciseList } from '../systems/injury.js';
 import { roundToPlate } from '../formulas/plates.js';
 import { displayWeight } from '../formulas/units.js';
 
@@ -612,8 +614,38 @@ export function diagnosePlateau(lift) {
 // Mini-cycle generator
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// pct unit convention
+// ---------------------------------------------------------------------------
+// STORED `pct` values are ALWAYS whole-number percents (0–100) — the same
+// convention mesocycle.js uses (e.g. suggestIntensity reads
+// `w.mainSets[0].pct` as a percent with fallbacks 75 / 82.5, and mesocycle
+// adaptation does percent arithmetic on it). Generator inputs in THIS file
+// use fractions (0–1) for readability; normalizePctToPercent() is the single
+// choke point that converts at the storage boundary, so a stored value is
+// never ambiguous between "0.7 the fraction" and "70 the percent".
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalize a pct value to a whole-number percent for storage.
+ * Fractions (0–1) are scaled ×100; values already in percent pass through.
+ * @param {number} pct
+ * @returns {number}
+ */
+export function normalizePctToPercent(pct) {
+  if (pct == null || Number.isNaN(pct)) return pct;
+  return pct <= 1 ? Math.round(pct * 100) : Math.round(pct);
+}
+
 /**
  * Generate a targeted mini-cycle to break through a plateau.
+ *
+ * Injury-aware: a SEVERE conflict on the plateaued lift produces an
+ * alternative-focus block (the injured lift is rested; the other two lifts
+ * are trained) instead of heavy singles. Mild/moderate conflicts keep the
+ * lift but temper intensity ~10% with a notice. Accessories are
+ * injury-adjusted (substituted or dropped) and the other two lifts are
+ * included at maintenance in every week.
  *
  * @param {string} lift - 'squat' | 'bench' | 'deadlift'
  * @param {PlateauDiagnosis} diagnosis - Output of diagnosePlateau
@@ -623,6 +655,16 @@ export function generatePlateauMiniCycle(lift, diagnosis) {
   const tm = getTM(lift);
   if (!tm) return null;
 
+  // Injury check on the plateaued lift itself. A SEVERE conflict means no
+  // heavy work on this pattern at all — generate an alternative-focus block
+  // (rest the injured lift, train the other two) instead of heavy singles.
+  const liftConflicts = findConflicts([lift]);
+  const severeConflict = liftConflicts.find((c) => c.severity === 'severe');
+  if (severeConflict) {
+    const alt = generateAlternativeFocusCycle(lift, severeConflict);
+    return { lift, intervention: diagnosis.primaryCause, ...alt };
+  }
+
   const intervention = diagnosis.primaryCause;
   const generators = {
     intensity_stale: () => generateIntensityCycle(lift, tm),
@@ -630,12 +672,31 @@ export function generatePlateauMiniCycle(lift, diagnosis) {
     fatigue_interference: () => generateFatigueCycle(lift, tm, diagnosis),
     deload_needed: () => generateDeloadCycle(lift, tm),
     frequency_low: () => generateFrequencyCycle(lift, tm),
-    frequency_high: () => generateFrequencyCycle(lift, tm),
+    frequency_high: () => generateFrequencyReductionCycle(lift, tm),
     weak_point_undertrained: () => generateWeakPointCycle(lift, tm, diagnosis),
   };
 
   const gen = generators[intervention] || generators.intensity_stale;
   const cycle = gen();
+
+  // Mild/moderate conflict on the plateaued lift: keep the lift (a plateau
+  // block needs its specificity — substituting the main lift would break
+  // the TM-based programming), but temper intensity ~10% and attach a
+  // notice.
+  const mildModConflict = liftConflicts.find((c) => c.severity !== 'severe');
+  if (mildModConflict) {
+    cycle.injuryNotice =
+      `${mildModConflict.reason}. Main-lift intensity tempered ~10% for this block — ` +
+      `train through only while it stays pain-free.`;
+    temperCycleIntensity(cycle, tm, 0.9);
+  }
+
+  // Keep the other two lifts programmed at maintenance so they don't go
+  // unprogrammed for 3–4 weeks while the plateaued lift gets the focus.
+  const maintenance = buildMaintenanceBlocks(lift);
+  cycle.weeks.forEach((w) => {
+    w.maintenance = maintenance;
+  });
 
   return {
     lift,
@@ -982,6 +1043,63 @@ function generateFrequencyCycle(lift, tm) {
   };
 }
 
+// --- Frequency reduction: 3wk cut back to 1–2 sessions ---
+// (frequency_high diagnosis: the analyzer's own actions say "drop to 1–2
+// sessions/week", so this REDUCES sessions/volume — it must not reuse the
+// additive generateFrequencyCycle.)
+
+function generateFrequencyReductionCycle(lift, tm) {
+  const acc = selectSmartAccessories(lift, 2);
+  return {
+    durationWeeks: 3,
+    summary: `Cuts ${LIFT_NAMES[lift]} back to one quality session per week with reduced volume so accumulated fatigue can dissipate.`,
+    weeks: [
+      makeWeek(
+        1,
+        'Consolidate',
+        lift,
+        tm,
+        [
+          { pct: 0.7, reps: 5 },
+          { pct: 0.7, reps: 5 },
+          { pct: 0.75, reps: 3 },
+        ],
+        7.0,
+        acc,
+        'One session only — drop the extra days, keep the pattern fresh'
+      ),
+      makeWeek(
+        2,
+        'Recover',
+        lift,
+        tm,
+        [
+          { pct: 0.75, reps: 3 },
+          { pct: 0.78, reps: 3 },
+          { pct: 0.8, reps: 2 },
+        ],
+        7.5,
+        acc,
+        'Still one session. Use the freed recovery for weak-point accessories'
+      ),
+      makeWeek(
+        3,
+        'Test',
+        lift,
+        tm,
+        [
+          { pct: 0.8, reps: 2 },
+          { pct: 0.85, reps: 2 },
+          { pct: 0.88, reps: 1 },
+        ],
+        8.0,
+        acc,
+        'Fresh legs — see if the PR comes'
+      ),
+    ],
+  };
+}
+
 // --- Weak point cycle: 4wk targeted accessories ---
 
 function generateWeakPointCycle(lift, tm, diagnosis) {
@@ -992,8 +1110,18 @@ function generateWeakPointCycle(lift, tm, diagnosis) {
     .slice(0, 3)
     .map(([id, ex]) => ({ id, ...ex }));
 
-  // Fall back to smart selection if not enough targeting accessories
-  const acc = allAcc.length >= 2 ? allAcc : selectSmartAccessories(lift, 3);
+  // Fall back to smart selection if not enough targeting accessories.
+  // NOTE: selectSmartAccessories() already injury-adjusts its picks upstream
+  // (substitutes mild/moderate, drops severe); the raw ACCESSORY_DB path
+  // needs substitution applied explicitly here.
+  let acc;
+  if (allAcc.length >= 2) {
+    const adjusted = applyInjuryToRawAccessories(allAcc);
+    adjusted.accessories.substitutions = adjusted.substitutions;
+    acc = adjusted.accessories;
+  } else {
+    acc = selectSmartAccessories(lift, 3);
+  }
 
   return {
     durationWeeks: 4,
@@ -1073,7 +1201,7 @@ function makeWeek(weekNum, phase, lift, tm, sets, targetRPE, accessories, notes)
     phase,
     targetRPE,
     mainSets: sets.map((s) => ({
-      pct: Math.round(s.pct * 100),
+      pct: normalizePctToPercent(s.pct),
       weight: roundToPlate(displayWeight(tm * s.pct)),
       reps: s.reps,
     })),
@@ -1084,6 +1212,221 @@ function makeWeek(weekNum, phase, lift, tm, sets, targetRPE, accessories, notes)
       repRange: a.repRange || [8, 12],
       equipment: a.equipment,
     })),
+    // Injury substitution records for UI badges. selectSmartAccessories()
+    // attaches `substitutions` to its picks upstream; the raw ACCESSORY_DB
+    // path (weak-point cycle) attaches them via
+    // applyInjuryToRawAccessories().
+    injurySubstitutions: (accessories && accessories.substitutions) || [],
     notes,
+  };
+}
+
+/**
+ * Injury-adjust a raw accessory list (the ACCESSORY_DB-direct path used by
+ * generateWeakPointCycle). Picks from selectSmartAccessories() are already
+ * adjusted upstream — this covers the raw path only.
+ *
+ * Mild/moderate conflicts substitute the exercise; severe conflicts drop it
+ * from the plan entirely (rest the pattern — no substitute is offered).
+ *
+ * @param {Object[]} accessories - raw accessory objects with at least { id, name }
+ * @returns {{ accessories: Object[], substitutions: Object[] }}
+ */
+export function applyInjuryToRawAccessories(accessories) {
+  const list = accessories || [];
+  const { substitutions } = substituteExerciseList(list.map((a) => a.id));
+  const kept = [];
+  const records = [];
+  list.forEach((a, i) => {
+    const sub = substitutions[i];
+    records.push({ ...sub, name: a.name });
+    if (sub.dropped) return; // severe: rest the pattern — drop from the plan
+    if (sub.substituted) {
+      const resolved = resolveAccessory(sub.exerciseId);
+      kept.push({
+        ...a,
+        id: sub.exerciseId,
+        name: (resolved && resolved.name) || a.name,
+        equipment: (resolved && resolved.equipment) || a.equipment,
+      });
+      return;
+    }
+    kept.push(a);
+  });
+  return { accessories: kept, substitutions: records };
+}
+
+/**
+ * Temper every week's main-set intensity in a mini-cycle by a factor,
+ * recomputing plate-rounded weights from the training max.
+ *
+ * @param {Object} cycle - mini-cycle with weeks[].mainSets (pct as percent)
+ * @param {number} tm - training max the cycle was programmed from
+ * @param {number} factor - e.g. 0.9 for a ~10% reduction
+ */
+export function temperCycleIntensity(cycle, tm, factor) {
+  (cycle.weeks || []).forEach((w) => {
+    if (!Array.isArray(w.mainSets)) return;
+    w.mainSets = w.mainSets.map((s) => {
+      const pct = Math.round(s.pct * factor * 10) / 10;
+      return { ...s, pct, weight: roundToPlate(displayWeight((tm * pct) / 100)) };
+    });
+  });
+}
+
+/**
+ * Build maintenance blocks for the two lifts that are NOT the focus of a
+ * mini-cycle, so they stay programmed (light 2×5 @ ~70%) instead of going
+ * untouched for 3–4 weeks.
+ *
+ * Injury-aware: a severely conflicting lift is rested (block marked rested
+ * with a notice); mild/moderate conflicts keep the light block with a
+ * notice. Lifts with no available TM are skipped.
+ *
+ * @param {string} lift - the plateaued (focus) lift
+ * @returns {Object} map of lift → maintenance block
+ */
+export function buildMaintenanceBlocks(lift) {
+  const blocks = {};
+  LIFTS.filter((l) => l !== lift).forEach((other) => {
+    const conflicts = findConflicts([other]);
+    const severe = conflicts.find((c) => c.severity === 'severe');
+    if (severe) {
+      blocks[other] = {
+        lift: other,
+        rested: true,
+        mainSets: [],
+        accessories: [],
+        injuryNotice:
+          `Severe ${severe.region} injury — ${LIFT_NAMES[other]} is rested ` +
+          `during this block. No heavy barbell work on this pattern while it heals.`,
+        notes: `${LIFT_NAMES[other]} rested — severe injury.`,
+      };
+      return;
+    }
+    const tm = getTM(other);
+    if (!tm) return;
+    const pctFrac = 0.7;
+    blocks[other] = {
+      lift: other,
+      mainSets: [0, 1].map(() => ({
+        pct: normalizePctToPercent(pctFrac),
+        weight: roundToPlate(displayWeight(tm * pctFrac)),
+        reps: 5,
+      })),
+      accessories: [],
+      injuryNotice: conflicts.length
+        ? `${conflicts[0].reason}. Kept light at maintenance volume — train through only while pain-free.`
+        : null,
+      notes:
+        `Maintenance — 2×5 @ 70% keeps the ${LIFT_NAMES[other]} pattern fresh ` +
+        `while ${LIFT_NAMES[lift]} gets the focus.`,
+    };
+  });
+  return blocks;
+}
+
+/**
+ * Alternative-focus block for a SEVERELY injured plateaued lift: no heavy
+ * singles on the injured pattern. The injured lift is rested entirely and
+ * the other two lifts are programmed at moderate intensity with accessories,
+ * with clear user-facing messaging.
+ *
+ * Week shape differs from makeWeek on purpose: `focusWorkouts` maps each
+ * trained lift → { mainSets, accessories }. The plateau-analysis view
+ * renders this shape (it cannot reuse the single-lift activation path).
+ *
+ * @param {string} lift - the plateaued (injured) lift
+ * @param {Object} severeConflict - the severe conflict record from findConflicts
+ * @returns {Object} cycle fragment { durationWeeks, summary, weeks, ... }
+ */
+export function generateAlternativeFocusCycle(lift, severeConflict) {
+  const otherLifts = LIFTS.filter((l) => l !== lift);
+  const region = severeConflict.region;
+  const summary =
+    `Severe ${region} injury — ${LIFT_NAMES[lift]} is rested for this entire block. ` +
+    `No heavy singles on an injured pattern. Instead, you'll push the other two lifts ` +
+    `while it heals; resume ${LIFT_NAMES[lift]} only when cleared.`;
+
+  const weekPlans = [
+    {
+      sets: [
+        { pct: 0.7, reps: 5 },
+        { pct: 0.7, reps: 5 },
+        { pct: 0.72, reps: 5 },
+      ],
+      rpe: 7.0,
+      notes: 'Moderate work on the healthy lifts — the injured pattern stays rested',
+    },
+    {
+      sets: [
+        { pct: 0.75, reps: 4 },
+        { pct: 0.75, reps: 4 },
+        { pct: 0.78, reps: 3 },
+      ],
+      rpe: 7.5,
+      notes: 'Build on the healthy lifts',
+    },
+    {
+      sets: [
+        { pct: 0.78, reps: 3 },
+        { pct: 0.82, reps: 2 },
+        { pct: 0.85, reps: 2 },
+      ],
+      rpe: 8.0,
+      notes: 'Push the healthy lifts — the injured pattern stays rested',
+    },
+  ];
+
+  const weeks = weekPlans.map((plan, i) => {
+    const focusWorkouts = {};
+    const injurySubstitutions = [];
+    otherLifts.forEach((other) => {
+      // Don't program a second severely-injured pattern either.
+      const oConflicts = findConflicts([other]);
+      if (oConflicts.some((c) => c.severity === 'severe')) return;
+      const tm = getTM(other);
+      if (!tm) return;
+      const acc = selectSmartAccessories(other, 2);
+      if (acc.substitutions) injurySubstitutions.push(...acc.substitutions);
+      focusWorkouts[other] = {
+        mainSets: plan.sets.map((s) => ({
+          pct: normalizePctToPercent(s.pct),
+          weight: roundToPlate(displayWeight(tm * s.pct)),
+          reps: s.reps,
+        })),
+        accessories: acc.map((a) => ({
+          exerciseId: a.id,
+          name: a.name,
+          sets: a.sets || 3,
+          repRange: a.repRange || [8, 12],
+          equipment: a.equipment,
+        })),
+      };
+    });
+    return {
+      weekNum: i + 1,
+      phase: 'Alternative Focus',
+      targetRPE: plan.rpe,
+      alternativeFocus: true,
+      restedLift: lift,
+      injuryNotice:
+        `Severe ${region} injury — resting ${LIFT_NAMES[lift]} entirely. ` +
+        `No substitute is programmed: rest the pattern until cleared.`,
+      focusWorkouts,
+      injurySubstitutions,
+      notes: plan.notes,
+    };
+  });
+
+  return {
+    durationWeeks: 3,
+    summary,
+    weeks,
+    alternativeFocus: true,
+    restedLift: lift,
+    injuryNotice:
+      `Severe ${region} injury — ${LIFT_NAMES[lift]} is rested for this block. ` +
+      `Heavy work resumes only when cleared.`,
   };
 }

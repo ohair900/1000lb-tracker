@@ -1,4 +1,13 @@
-// src/data/programs.js — Training program templates (5 programs)
+// src/data/programs.js — Training program templates (6 programs)
+//
+// Optional scheduled-deload config (template root):
+//   deloadEvery: N   — every Nth absolute week is a deload week
+//   deloadPct: 50    — intensity for deload sets (% of TM)
+//   deloadSets: 3    — number of deload sets (default 3)
+//   deloadReps: 5    — reps per deload set (default 5)
+// On deload weeks getProgramWorkout() prescribes the reduced volume at
+// deloadPct, labeled as a deload. Not applied to day-rotation programs
+// (Texas) — their "weeks" are training days, not calendar weeks.
 
 export const PROGRAM_TEMPLATES = {
   '5/3/1': {
@@ -69,6 +78,12 @@ export const PROGRAM_TEMPLATES = {
     description:
       'High-volume linear progression based on 5/3/1. Ideal for early intermediates who can still add weight weekly. 9 sets per lift with heavy AMRAP top set followed by back-off volume.',
     weeks: 1,
+    // Scheduled deload: every 4th week drops to 3x5 @ 50% (standard nSuns
+    // advice). No TM progression is earned on the deload week.
+    deloadEvery: 4,
+    deloadPct: 50,
+    deloadSets: 3,
+    deloadReps: 5,
     progression: {
       type: 'amrap',
       upperIncrement: 5,
@@ -216,6 +231,56 @@ export const PROGRAM_TEMPLATES = {
           { pct: 100, reps: 5 },
           { pct: 100, reps: 5 },
           { pct: 100, reps: 5 },
+        ],
+      },
+    },
+  },
+  Peaking: {
+    name: '4-Week Peak & Test',
+    description:
+      'Short peaking block that tapers volume while intensity climbs, ending in a test day to set a new training max. The natural closer after a strength block when chasing a milestone total — run it for the test, not year-round.',
+    weeks: 4,
+    progression: {
+      type: 'amrap',
+      upperIncrement: 5,
+      lowerIncrement: 10,
+      cycleWeeks: 4,
+      amrapWeek: 4,
+      minReps: 1,
+    },
+    schedule: {
+      1: {
+        label: 'Week 1 (Base)',
+        sets: [
+          { pct: 75, reps: 5 },
+          { pct: 80, reps: 5 },
+          { pct: 85, reps: 5 },
+        ],
+      },
+      2: {
+        label: 'Week 2 (Build)',
+        sets: [
+          { pct: 80, reps: 3 },
+          { pct: 85, reps: 3 },
+          { pct: 90, reps: 3 },
+        ],
+      },
+      3: {
+        label: 'Week 3 (Heavy)',
+        sets: [
+          { pct: 85, reps: 2 },
+          { pct: 90, reps: 2 },
+          { pct: 95, reps: 2 },
+        ],
+      },
+      4: {
+        label: 'Week 4 (Test Day)',
+        sets: [
+          { pct: 70, reps: 3 },
+          { pct: 80, reps: 2 },
+          { pct: 90, reps: 1 },
+          { pct: 95, reps: 1 },
+          { pct: 100, reps: '1+' },
         ],
       },
     },

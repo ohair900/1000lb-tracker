@@ -7,12 +7,13 @@
 
 import store from '../state/store.js';
 import { $ } from '../utils/helpers.js';
-import { LIFT_NAMES } from '../constants/lift-config.js';
+import { LIFT_NAMES, LIFTS } from '../constants/lift-config.js';
 import { formatWeight } from '../formulas/units.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
 import { resolveExercise } from '../data/exercise-compat.js';
 import { renderSessionGrade } from './session-coach-ui.js';
 import { TRAVEL_GROUPINGS, EQUIPMENT_LABELS } from '../constants/travel-config.js';
+import { openBuilder, saveAsTemplate } from './builder-overlay.js';
 
 // ---------------------------------------------------------------------------
 // Show workout summary
@@ -84,6 +85,30 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
   html += `<div class="summary-completion-bar"><div class="fill" style="width:${completionPct}%;background:${completionColor}"></div></div>`;
   html += `</div>`;
 
+  // New PRs hit this session — collected at log time (see completeWorkout).
+  const sessionPRs = session._sessionPRs || [];
+  if (sessionPRs.length > 0) {
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
+    html += `<div class="section-label-lg" style="margin:12px 0 6px">New PRs 🏆</div>`;
+    sessionPRs.forEach((p) => {
+      const liftName = LIFT_NAMES[p.lift] || p.lift;
+      if (p.isPR) {
+        const e1rmStr =
+          p.e1rm != null ? ` = ${formatWeight(p.e1rm)} e1RM` : '';
+        html += `<div class="summary-set-row completed">
+          <span>${liftName} ${formatWeight(p.weight)} ${store.unit} × ${p.reps}${e1rmStr}</span>
+          <span style="font-weight:700;color:var(--gold)">PR</span>
+        </div>`;
+      } else {
+        html += `<div class="summary-set-row completed">
+          <span>${p.reps}-Rep PR: ${liftName} ${formatWeight(p.weight)} ${store.unit}</span>
+          <span style="font-weight:700;color:var(--gold)">PR</span>
+        </div>`;
+      }
+    });
+    html += `</div>`;
+  }
+
   // Main lift sets detail
   if (mainTotal > 0) {
     html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
@@ -139,6 +164,17 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
     html += `</div>`;
   }
 
+  // Repeat / save-as-template CTAs — only for real SBD sessions (travel
+  // and split sessions use non-program "lifts" the builder can't pre-fill).
+  const canRebuild = LIFTS.includes(session.mainLift) && session.accessories.length > 0;
+  if (canRebuild) {
+    html += `<div class="sheet-section" style="--i:${sectionIdx++}">`;
+    html += `<div style="display:flex;gap:8px;margin:12px 0 4px">`;
+    html += `<button type="button" class="btn-secondary" id="summary-repeat-workout" style="flex:1">Repeat this workout</button>`;
+    html += `<button type="button" class="btn-secondary" id="summary-save-template" style="flex:1">Save as template</button>`;
+    html += `</div></div>`;
+  }
+
   // Mesocycle data
   if (session.source === 'mesocycle') {
     const meso =
@@ -186,11 +222,72 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
   $('workout-summary-sheet').style.display = 'block';
   document.body.style.overflow = 'hidden';
 
+  // Wire the (previously unwired) close affordances plus the repeat/template
+  // CTAs. onclick assignment — showWorkoutSummary runs per session, so
+  // addEventListener would stack duplicates.
+  const closeBtn = $('workout-summary-close');
+  if (closeBtn) closeBtn.onclick = _closeWorkoutSummary;
+  const backdrop = $('workout-summary-backdrop');
+  if (backdrop) backdrop.onclick = _closeWorkoutSummary;
+
+  const repeatBtn = $('summary-repeat-workout');
+  if (repeatBtn)
+    repeatBtn.onclick = () => {
+      const slots = _sessionToBuilderSlots(session);
+      _closeWorkoutSummary();
+      openBuilder(session.mainLift, slots);
+    };
+  const tmplBtn = $('summary-save-template');
+  if (tmplBtn)
+    tmplBtn.onclick = () => {
+      const slots = _sessionToBuilderSlots(session);
+      _closeWorkoutSummary();
+      // openBuilder pushes the #builder/<lift> route; the template sheet
+      // then opens above the pre-filled builder.
+      openBuilder(session.mainLift, slots);
+      saveAsTemplate(session.mainLift);
+    };
+
   // Celebrate A / A+ grades with a mini confetti burst in the grade section.
   // Core Principle 7: celebration for wins, matter-of-fact for neutral.
   if (sessionGrade && (sessionGrade.grade === 'A' || sessionGrade.grade === 'A+')) {
     setTimeout(() => burstGradeConfetti(), 400);
   }
+}
+
+/**
+ * Hide the summary sheet + backdrop.
+ */
+function _closeWorkoutSummary() {
+  $('workout-summary-backdrop').style.display = 'none';
+  $('workout-summary-sheet').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+/**
+ * Convert a completed session's accessories back into builder slot objects
+ * for "Repeat this workout" / "Save as template". Last performed weight is
+ * carried as a manual value (editable per-slot in the builder).
+ */
+function _sessionToBuilderSlots(session) {
+  return (session.accessories || []).map((acc, i) => ({
+    type: 'accessory',
+    exerciseId: acc.exerciseId,
+    canonicalId: acc.exerciseId,
+    name: acc.name,
+    sets: acc.targetSets,
+    reps: Array.isArray(acc.repRange) ? acc.repRange[1] : acc.reps,
+    weightMode: 'manual',
+    weightValue:
+      acc.setWeights && acc.setWeights.length
+        ? acc.setWeights[acc.setWeights.length - 1]
+        : 0,
+    equipment: acc.equipment,
+    repRange: Array.isArray(acc.repRange) ? [...acc.repRange] : [acc.reps, acc.reps],
+    order: i + 1,
+    slotRole: 'accessory',
+    reasons: [],
+  }));
 }
 
 /**

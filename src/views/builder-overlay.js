@@ -28,6 +28,7 @@ import { MAIN_LIFT_WEIGHTS } from '../data/muscle-groups.js';
 import { calcFatigueByMuscle } from '../systems/fatigue.js';
 import { MS_PER_DAY } from '../constants/time.js';
 import { checkGuardrails } from '../systems/workout-guardrails.js';
+import { findConflicts, substituteExerciseList } from '../systems/injury.js';
 import { showToast } from '../ui/toast.js';
 import { displayWeight } from '../formulas/units.js';
 import { isRouterResolving, pushRoute, clearOverlayState } from '../ui/router.js';
@@ -365,10 +366,45 @@ function _slotRowHTML(ex, i, ctx) {
       ? `data-pattern="${pattern}"`
       : '';
 
-  // Weight chip (accessories only).
-  const weightDisplay = isMain
+  // Per-slot weight editor (accessories only) — a number input replacing the
+  // old read-only chip, plus a reset-to-auto affordance when the weight was
+  // manually overridden (auto-pipeline values recompute on template load).
+  const canResetWeight = !isMain && ex.weightMode === 'manual' && !ex.custom;
+  const weightEdit = isMain
     ? ''
-    : `<span class="slot-weight">${formatBWWeight(ex.weightValue, catalogEx)}</span>`;
+    : `<span class="slot-weight-wrap" style="display:inline-flex;align-items:center;gap:4px;margin-left:4px">
+        <input type="number" class="slot-weight-input" value="${ex.weightValue ?? 0}" step="2.5" inputmode="decimal"
+          data-field="weight" data-idx="${i}"
+          title="Weight: ${formatBWWeight(ex.weightValue, catalogEx)} — edit to override the auto value"
+          aria-label="Weight for ${escapeHTML(ex.name)}"
+          style="width:64px;padding:4px 6px;text-align:center;font-size:var(--text-xs);border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text)">
+        ${canResetWeight ? `<button type="button" class="slot-btn" data-weight-reset="${i}" title="Reset to auto-computed weight">&#8635;</button>` : ''}
+      </span>`;
+
+  // Injury substitution badge — the engine attaches `_substitution` records
+  // to picked accessories; render them visibly instead of swapping silently.
+  // Severity-styled; tapping a swapped badge reverts to the original exercise
+  // (session-scoped override, per the injury.js UI contract).
+  let subBadge = '';
+  const sub = !isMain ? ex._substitution : null;
+  if (sub && (sub.substituted || sub.dropped || sub.reason)) {
+    const sev = sub.injurySeverity || 'mild';
+    const region = sub.injuryRegion || 'injured area';
+    const sevColor =
+      sev === 'severe'
+        ? 'var(--danger, #e53935)'
+        : sev === 'moderate'
+          ? 'var(--orange)'
+          : 'var(--yellow)';
+    const badgeStyle = `display:block;margin-top:6px;font-size:var(--text-xs);line-height:1.4;padding:5px 8px;border:1px solid ${sevColor};border-radius:var(--radius-sm);color:${sevColor};background:transparent;width:100%;text-align:left;box-sizing:border-box`;
+    if (sub.dropped) {
+      subBadge = `<div class="slot-sub-badge" data-severity="${sev}" title="${escapeHTML(sub.reason || '')}" style="${badgeStyle};cursor:default">&#9888; Dropped &mdash; rest this pattern while your ${escapeHTML(region)} injury is severe</div>`;
+    } else if (sub.substituted) {
+      subBadge = `<button type="button" class="slot-sub-badge" data-severity="${sev}" data-sub-override="${i}" title="${escapeHTML(`Original: ${sub.name || sub.originalId}. ${sub.reason || ''}`)}" style="${badgeStyle};cursor:pointer">&#8646; Swapped due to your ${escapeHTML(region)} injury &mdash; tap to keep original</button>`;
+    } else {
+      subBadge = `<div class="slot-sub-badge" data-severity="${sev}" title="${escapeHTML(sub.reason || '')}" style="${badgeStyle};cursor:default">&#9888; ${escapeHTML(sub.reason || 'Conflicts with an active injury')}</div>`;
+    }
+  }
 
   // Inline reason preview — first 3 displays per exercise (existing behavior).
   let reasonHtml = '';
@@ -433,8 +469,9 @@ function _slotRowHTML(ex, i, ctx) {
     <div class="builder-slot-body">
       <div class="builder-slot-head">
         ${dragHandle}<span class="slot-role-tag">${role}</span>
-        <span class="slot-name">${escapeHTML(ex.name)}</span>${fatigueDot}${weightDisplay}${whyDot}
+        <span class="slot-name">${escapeHTML(ex.name)}</span>${fatigueDot}${weightEdit}${whyDot}
       </div>
+      ${subBadge}
       <div class="builder-slot-meta">${ex.equipment} &bull; ${ex.sets}x${repsDisplay}</div>
       ${reasonHtml}
       ${whyBody}
@@ -571,9 +608,21 @@ function buildMainLiftSlot(mainLift) {
   };
 }
 
-function buildDefaultSlots(mainLift) {
+export function buildDefaultSlots(mainLift) {
   const slots = [buildMainLiftSlot(mainLift)];
   const smart = selectSmartAccessories(mainLift, 4);
+
+  // selectSmartAccessories already ran the injury pipeline (attaching
+  // `_substitution` records to the picks). Severe-injury drops never make it
+  // into the slot list — surface them so the removal isn't silent.
+  const dropped = (smart.substitutions || []).filter((s) => s.dropped);
+  if (dropped.length > 0) {
+    const names = dropped.map((d) => d.name || d.originalId).join(', ');
+    setTimeout(
+      () => showToast(`Skipped ${names} — severe injury, rest that movement`),
+      400
+    );
+  }
 
   smart.forEach((ex, i) => {
     const catalogEx = EXERCISE_CATALOG[ex.id] || ex;
@@ -598,6 +647,9 @@ function buildDefaultSlots(mainLift) {
       order: i + 1,
       slotRole,
       reasons: ex.reasons || [],
+      // Injury pipeline record (if the engine swapped/flagged this pick) —
+      // rendered as a badge by _slotRowHTML.
+      _substitution: ex._substitution,
     });
   });
 
@@ -902,6 +954,123 @@ function _trackRecent(exId) {
 }
 
 // ---------------------------------------------------------------------------
+// Injury gates — warn before manually adding a conflicting exercise,
+// and re-run the pipeline when loading saved templates.
+// ---------------------------------------------------------------------------
+
+/**
+ * Warn-before-add gate for manual exercise adds (swap sheet, exercise
+ * browser, recents, gap panel, staleness hints). Never silently blocks:
+ *  - mild / moderate → the add proceeds immediately + a warning toast.
+ *  - severe → the add is held; the toast offers an explicit "Add anyway"
+ *    override (stronger friction, still the user's call).
+ * @param {string} exId - catalog exercise id
+ * @param {string} name - display name for the warning copy
+ * @param {Function} onOverride - called when the user overrides a severe hold
+ * @returns {boolean} true when the caller should proceed with the add now
+ */
+function _warnInjuryConflict(exId, name, onOverride) {
+  const conflicts = findConflicts([exId]);
+  if (conflicts.length === 0) return true;
+  const c = conflicts[0];
+  const label = `${name || exId}: ${c.reason} — ${c.severity} injury`;
+  if (c.severity === 'severe') {
+    showToast(`⚠️ ${label} — not added.`, {
+      action: 'Add anyway',
+      duration: 8000,
+      onAction: () => onOverride?.(),
+    });
+    return false;
+  }
+  showToast(`⚠️ ${label}`, { duration: 5000 });
+  return true;
+}
+
+/**
+ * Re-run the injury pipeline over builder slot objects (template loads —
+ * templates saved pre-injury can contain conflicting exercises).
+ * Substitutes conflicting accessories, drops severe-conflict slots, and
+ * attaches `_substitution` records so badges render on the affected slots.
+ * @param {Object[]} slots - builder slot objects
+ * @param {string} mainLift
+ * @returns {{ slots: Object[], notices: string[] }}
+ */
+function _applyInjurySubstitutions(slots, mainLift) {
+  const equip = store.equipmentProfile || {};
+  const idxs = [];
+  const ids = [];
+  slots.forEach((s, i) => {
+    if (s.type !== 'main' && s.exerciseId) {
+      idxs.push(i);
+      ids.push(s.exerciseId);
+    }
+  });
+  if (ids.length === 0) return { slots, notices: [] };
+  const { ids: adjustedIds, substitutions } = substituteExerciseList(ids);
+  const notices = [];
+  const out = [];
+  const bySlot = new Map();
+  idxs.forEach((slotIdx, j) =>
+    bySlot.set(slotIdx, { newId: adjustedIds[j], sub: substitutions[j] })
+  );
+  slots.forEach((s, i) => {
+    if (!bySlot.has(i)) {
+      out.push(s);
+      return;
+    }
+    const { newId, sub } = bySlot.get(i);
+    if (sub.dropped) {
+      notices.push(`Removed ${s.name} — severe ${sub.injuryRegion} injury, rest this pattern`);
+      return;
+    }
+    if (sub.substituted) {
+      const catalogEx = resolveExercise(newId);
+      const needEquip = catalogEx && catalogEx.equipment;
+      if (needEquip && equip[needEquip] === false) {
+        const kept = {
+          ...sub,
+          exerciseId: sub.originalId,
+          substituted: false,
+          reason: `${sub.reason} (needs unavailable equipment — kept original)`,
+        };
+        notices.push(`${s.name}: substitute needs unavailable equipment — kept original`);
+        out.push({ ...s, _substitution: { ...kept, name: s.name } });
+        return;
+      }
+      notices.push(
+        `${s.name} → ${(catalogEx && catalogEx.name) || newId} (${sub.injuryRegion} injury)`
+      );
+      out.push({
+        ...s,
+        exerciseId: newId,
+        canonicalId: resolveCanonicalId(newId),
+        name: (catalogEx && catalogEx.name) || s.name,
+        equipment: (catalogEx && catalogEx.equipment) || s.equipment,
+        repRange: catalogEx && catalogEx.repRange ? [...catalogEx.repRange] : s.repRange,
+        weightMode: 'auto',
+        weightValue: getAccessoryWeight(newId, mainLift),
+        _substitution: { ...sub, name: s.name },
+      });
+      return;
+    }
+    if (sub.reason) {
+      notices.push(`${s.name}: ${sub.reason}`);
+      out.push({ ...s, _substitution: { ...sub, name: s.name } });
+      return;
+    }
+    // No conflict — clear any stale substitution record (the injury may
+    // have healed since the template was saved).
+    if (s._substitution) {
+      const { _substitution, ...clean } = s;
+      out.push(clean);
+    } else {
+      out.push(s);
+    }
+  });
+  return { slots: out, notices };
+}
+
+// ---------------------------------------------------------------------------
 // Swap sheet
 // ---------------------------------------------------------------------------
 
@@ -976,8 +1145,13 @@ function openSwapSheet(slotIdx) {
       item.addEventListener('click', () => {
         const exId = item.dataset.exid;
         const idx = parseInt(item.dataset.slot);
-        swapExercise(idx, exId);
-        closeSwapSheet();
+        const doSwap = () => {
+          swapExercise(idx, exId);
+          closeSwapSheet();
+        };
+        // Injury gate — warn before swapping in a conflicting exercise.
+        if (_warnInjuryConflict(exId, (EXERCISE_CATALOG[exId] || {}).name || exId, doSwap))
+          doSwap();
       });
     });
 
@@ -1068,7 +1242,7 @@ function swapExercise(slotIdx, newExId) {
 // Add exercise from browser or gap panel
 // ---------------------------------------------------------------------------
 
-function addExerciseFromCatalog(exId) {
+function addExerciseFromCatalog(exId, opts = {}) {
   const catalogEx = EXERCISE_CATALOG[exId];
   if (!catalogEx) return;
   // #10: Duplicate detection
@@ -1080,6 +1254,12 @@ function addExerciseFromCatalog(exId) {
   ) {
     showToast('Exercise already in workout');
     return;
+  }
+  // Injury gate — warn before adding a conflicting exercise (mild/moderate
+  // proceed with a warning; severe holds for an explicit override).
+  if (!opts.skipInjuryGate) {
+    const proceed = () => addExerciseFromCatalog(exId, { skipInjuryGate: true });
+    if (!_warnInjuryConflict(exId, catalogEx.name, proceed)) return;
   }
   const mainLift = _builderMainLift;
   const weight = getAccessoryWeight(exId, mainLift);
@@ -1365,7 +1545,16 @@ export function showTemplateList() {
         .filter(Boolean);
       if (staleCount > 0)
         showToast(`Removed ${staleCount} unavailable exercise${staleCount > 1 ? 's' : ''}`);
-      openBuilder(lift, exercises);
+      // Re-run the injury pipeline — templates saved pre-injury can load
+      // exercises that conflict with a current injury.
+      const { slots: safeExercises, notices } = _applyInjurySubstitutions(exercises, lift);
+      if (notices.length > 0) {
+        setTimeout(
+          () => showToast(`Injury check: ${notices.join('; ')}`, { duration: 6000 }),
+          400
+        );
+      }
+      openBuilder(lift, safeExercises);
     });
   });
 
@@ -1406,7 +1595,9 @@ export function showTemplateList() {
       if (!template) return;
       _deps.closeChoiceSheet?.();
       const exercises = (template.exercises || []).map((e) => ({ ...e }));
-      openBuilder(lift, exercises);
+      // Re-run the injury pipeline on edit-load too (pre-injury templates).
+      const { slots: safeExercises } = _applyInjurySubstitutions(exercises, lift);
+      openBuilder(lift, safeExercises);
       $('builder-save-template')._templateId = tid;
     });
   });
@@ -1551,6 +1742,47 @@ export function initBuilderOverlay() {
       return;
     }
 
+    // Per-slot weight reset — restore the pipeline-computed auto value.
+    const weightReset = e.target.closest('[data-weight-reset]');
+    if (weightReset) {
+      const idx = parseInt(weightReset.dataset.weightReset);
+      const ex = store.builderExercises[idx];
+      if (ex && !ex.custom) {
+        ex.weightMode = 'auto';
+        ex.weightValue = getAccessoryWeight(ex.exerciseId, mainLift);
+        _markDirty();
+        renderBuilder(mainLift);
+        showToast(`Weight reset to auto: ${formatBWWeight(ex.weightValue, resolveExercise(ex.exerciseId))}`);
+      }
+      return;
+    }
+
+    // Injury substitution badge — tap to keep the original exercise for
+    // this builder session (the injury record itself is unchanged).
+    const subOverride = e.target.closest('[data-sub-override]');
+    if (subOverride) {
+      const idx = parseInt(subOverride.dataset.subOverride);
+      const ex = store.builderExercises[idx];
+      const sub = ex && ex._substitution;
+      if (ex && sub && sub.originalId) {
+        const catalogEx = resolveExercise(sub.originalId);
+        ex.exerciseId = sub.originalId;
+        ex.canonicalId = resolveCanonicalId(sub.originalId);
+        ex.name = (catalogEx && catalogEx.name) || ex.name;
+        if (catalogEx) {
+          ex.equipment = catalogEx.equipment || ex.equipment;
+          if (catalogEx.repRange) ex.repRange = [...catalogEx.repRange];
+        }
+        ex.weightMode = 'auto';
+        ex.weightValue = getAccessoryWeight(sub.originalId, mainLift);
+        delete ex._substitution;
+        _markDirty();
+        renderBuilder(mainLift);
+        showToast(`Kept ${ex.name} despite ${sub.injuryRegion || 'injury'} — train pain-free`);
+      }
+      return;
+    }
+
     // Fatigue dot — surface the muscle + status as a toast.
     const fatigueDot = e.target.closest('.slot-fatigue-dot');
     if (fatigueDot) {
@@ -1685,7 +1917,11 @@ export function initBuilderOverlay() {
         (e) => resolveCanonicalId(e.exerciseId) === staleId
       );
       if (idx >= 0) {
-        swapExercise(idx, altId);
+        const doSwap = () => swapExercise(idx, altId);
+        if (
+          _warnInjuryConflict(altId, (EXERCISE_CATALOG[altId] || {}).name || altId, doSwap)
+        )
+          doSwap();
       }
       return;
     }
@@ -1740,18 +1976,27 @@ export function initBuilderOverlay() {
     }
   });
 
-  // Delegated change for sets/reps inputs
+  // Delegated change for sets/reps/weight inputs
   body.addEventListener('change', (e) => {
     const inp = e.target.closest('input[data-field]');
     if (!inp) return;
     const idx = parseInt(inp.dataset.idx);
     const field = inp.dataset.field;
-    const val = parseInt(inp.value) || 1;
-    if (field === 'sets') store.builderExercises[idx].sets = val;
-    else if (field === 'reps') {
-      store.builderExercises[idx].reps = val;
-      if (Array.isArray(store.builderExercises[idx].repRange)) {
-        store.builderExercises[idx].repRange[1] = val;
+    const ex = store.builderExercises[idx];
+    if (!ex) return;
+    if (field === 'weight') {
+      // 0 is valid (bodyweight) — only fall back on NaN.
+      const w = parseFloat(inp.value);
+      ex.weightValue = Number.isFinite(w) ? w : 0;
+      ex.weightMode = 'manual';
+    } else {
+      const val = parseInt(inp.value) || 1;
+      if (field === 'sets') ex.sets = val;
+      else if (field === 'reps') {
+        ex.reps = val;
+        if (Array.isArray(ex.repRange)) {
+          ex.repRange[1] = val;
+        }
       }
     }
     _markDirty();

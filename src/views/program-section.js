@@ -20,6 +20,7 @@ import {
   isLiftComplete,
   checkAutoProgression,
   applyProgression,
+  recordSessionFailure,
   checkCycleBoundaryProgression,
   daysSinceLastLift,
 } from '../systems/programs.js';
@@ -123,8 +124,12 @@ export function renderProgramSection() {
     : tmpl.weeks > 1 && cycleNum > 1
       ? ` \u2014 Cycle ${cycleNum}`
       : '';
+  const deloadBadge = workout.isDeload
+    ? ' <span style="font-size:0.6rem;color:var(--gold);border:1px solid var(--gold);border-radius:4px;padding:1px 6px;margin-left:4px;font-weight:700;vertical-align:middle">DELOAD</span>'
+    : '';
   $('program-week').innerHTML =
     workout.label +
+    deloadBadge +
     cycleLabel +
     (firstSentence
       ? `<div style="font-size:0.65rem;color:var(--text-dim);font-weight:400;margin-top:2px">${firstSentence}.</div>`
@@ -168,6 +173,7 @@ export function renderProgramSection() {
     el.classList.remove('lift-complete');
     $('program-week').innerHTML =
       workout.label +
+      deloadBadge +
       cycleLabel +
       ' \u2014 Complete! \u2713' +
       (firstSentence
@@ -178,6 +184,7 @@ export function renderProgramSection() {
     el.classList.add('lift-complete');
     $('program-week').innerHTML =
       workout.label +
+      deloadBadge +
       cycleLabel +
       ' \u2014 Complete! \u2713' +
       (firstSentence
@@ -244,10 +251,26 @@ export function renderProgramSection() {
           date: new Date().toISOString().split('T')[0],
           entryId: null,
         };
-        // Check session-type auto-progression (SL5x5 / SS)
+        // Check session-type auto-progression (SL5x5 / SS).
+        // Success results auto-apply after a beat; deload results NEVER
+        // auto-apply — they require an explicit user confirmation.
         const tmpl2 = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
         if (tmpl2 && tmpl2.progression && tmpl2.progression.type === 'session') {
           const result = checkAutoProgression(currentLift);
+          if (result && result.type === 'deload') {
+            store.saveProgramConfig();
+            renderProgramSection();
+            const name = LIFT_NAMES[currentLift];
+            const ok = confirm(
+              `${name}: ${result.reason}.\n\nDeload TM ${formatWeight(result.oldTM)} \u2192 ${formatWeight(result.newTM)} ${store.unit}?`
+            );
+            if (ok) {
+              const msg = applyProgression(result);
+              if (msg) showToast(msg);
+              renderProgramSection();
+            }
+            return;
+          }
           if (result) {
             store.saveProgramConfig();
             renderProgramSection();
@@ -497,6 +520,12 @@ export function showProgramSetupModal() {
 
     const resetCompletion = () => {
       store.programConfig.completedSets = {};
+      // Clear stale per-set state too: old-program keys (`lift-week-idx`)
+      // would otherwise collide with the new program's keys.
+      store.programConfig.completedSetData = {};
+      store.programConfig.amrapResults = {};
+      store.programConfig.failureCounts = { squat: 0, bench: 0, deadlift: 0 };
+      store.programConfig.lastFailureWeek = { squat: 0, bench: 0, deadlift: 0 };
       store.programConfig.completedWeeks = {};
       store.programConfig.weekStreak = 0;
       store.programConfig.progressedCycles = {};
@@ -527,8 +556,16 @@ export function showProgramSetupModal() {
     store.programConfig.splitPlan = null; // leaving any split plan
     LIFTS.forEach((lift) => {
       if (lift === 'total') return;
-      const v = parseFloat($('tm-' + lift).value);
-      if (v > 0 && v < 2000) store.programConfig.trainingMaxes[lift] = inputToLbs(v);
+      const raw = ($('tm-' + lift).value || '').trim();
+      const v = parseFloat(raw);
+      if (raw === '') {
+        // Untouched — leave the saved TM alone.
+      } else if (v > 0 && v < 2000) {
+        store.programConfig.trainingMaxes[lift] = inputToLbs(v);
+      } else {
+        // Rejected values were previously ignored silently — say so.
+        showToast(`${LIFT_NAMES[lift]} TM not saved \u2014 enter 1\u20131999 ${store.unit}`);
+      }
       const wk = parseInt($('week-' + lift)?.value);
       if (wk >= 1) store.programConfig.liftWeeks[lift] = wk;
     });
@@ -568,6 +605,27 @@ export function initProgramSection() {
     const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
     const oldWeek = getLiftWeek(lift);
     const oldCycle = tmpl ? Math.ceil(oldWeek / tmpl.weeks) : 0;
+
+    // Session-type programs (SL5x5): evaluate the OUTGOING week for a failed
+    // session before leaving it. recordSessionFailure() is per-week gated,
+    // and a deload result here NEVER auto-applies — explicit confirmation.
+    if (
+      tmpl &&
+      tmpl.progression?.type === 'session' &&
+      store.programConfig.autoProgressEnabled
+    ) {
+      const failure = recordSessionFailure(lift);
+      if (failure && failure.type === 'deload') {
+        const name = LIFT_NAMES[lift];
+        const ok = confirm(
+          `${name}: ${failure.reason}.\n\nTake the deload? TM ${formatWeight(failure.oldTM)} \u2192 ${formatWeight(failure.newTM)} ${store.unit}`
+        );
+        if (ok) {
+          const msg = applyProgression(failure);
+          if (msg) showToast(msg);
+        }
+      }
+    }
 
     $('program-sets').style.opacity = '0.3';
     store.programConfig.liftWeeks[lift] = oldWeek + 1;
