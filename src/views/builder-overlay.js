@@ -21,6 +21,7 @@ import { getProgramWorkout, findFirstIncompleteWeek } from '../systems/programs.
 import {
   analyzeWeeklyVolume,
   analyzePushPullRatio,
+  analyzeSessionPushPull,
   getGapReport,
   estimateWorkoutDuration,
 } from '../systems/gap-analysis.js';
@@ -170,9 +171,16 @@ function _currentReasonsForSlot(ex, ctx) {
  * exercise) and a push/pull imbalance row when the ratio is off. Whole
  * block is hidden when nothing is actionable.
  */
-function _renderGapPanelHTML(mainLift) {
+function _renderGapPanelHTML(mainLift, sessionExercises) {
   const gapReport = getGapReport(mainLift);
-  const pushPull = analyzePushPullRatio();
+  // Session-scoped push:pull: this panel describes the workout being built,
+  // so count the current builder session (main lift + exercises) instead of
+  // last-7-day history. Falls back to the live builder list when the caller
+  // doesn't pass the session explicitly.
+  const pushPull = analyzeSessionPushPull(
+    mainLift,
+    sessionExercises === undefined ? store.builderExercises : sessionExercises
+  );
   const volume = analyzeWeeklyVolume();
 
   // Build muscle action rows — under-trained muscles with a recommendation.
@@ -674,7 +682,7 @@ export function renderBuilder(mainLift) {
   // Only render rows that imply an action: under-trained muscles or push/pull
   // imbalance. Each row is itself the tap target — no separate "+ Add" button
   // hanging at the end. Hide the panel entirely when nothing's actionable.
-  html += _renderGapPanelHTML(mainLift);
+  html += _renderGapPanelHTML(mainLift, store.builderExercises);
 
   // --- Exercise browser ---
   html += `<div class="exercise-browser" id="builder-browser" hidden>`;
