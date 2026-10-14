@@ -14,6 +14,7 @@
  */
 
 import store from '../state/store.js';
+import { localDateStr } from '../utils/date.js';
 import { LIFTS } from '../constants/lift-config.js';
 import { MUSCLE_GROUPS, MAIN_LIFT_WEIGHTS } from '../data/muscle-groups.js';
 import { ACCESSORY_CAT_WEIGHTS } from '../data/muscle-groups.js';
@@ -96,7 +97,7 @@ export function calcWeeklyGrade(options = {}) {
   // Insufficient data: hide grade until at least 1 training day
   const uniqueDays = new Set([
     ...weekEntries.map((e) => e.date),
-    ...weekAccessories.map((l) => new Date(l.timestamp).toISOString().split('T')[0]),
+    ...weekAccessories.map((l) => localDateStr(new Date(l.timestamp))),
   ]);
   if (uniqueDays.size < 1) {
     return {

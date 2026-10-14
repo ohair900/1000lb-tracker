@@ -11,6 +11,7 @@ import { resolveExercise, resolveCanonicalId } from '../data/exercise-compat.js'
 import { calcFatigueByMuscle } from '../systems/fatigue.js';
 import { analyzeRecencyGaps } from '../systems/gap-analysis.js';
 import { estimateWorkoutDuration } from '../systems/gap-analysis.js';
+import { localDateStr } from '../utils/date.js';
 
 // ---------------------------------------------------------------------------
 // Main guardrail check
@@ -80,9 +81,10 @@ export function checkGuardrails(mainLift, exercises) {
     }
   }
 
-  // 4. Core not trained 10+ days
+  // 4. Core not trained 10+ days (or never trained)
   const recency = analyzeRecencyGaps();
-  if (recency.Core && recency.Core.daysSince >= 10) {
+  const coreDays = recency.Core ? recency.Core.daysSince : null;
+  if (recency.Core && (coreDays === null || coreDays >= 10)) {
     // Only hint if no core exercise is already in the builder
     const hasCore = accessories.some((ex) => {
       const catalogEx = resolveExercise(ex.exerciseId || ex.id);
@@ -91,7 +93,10 @@ export function checkGuardrails(mainLift, exercises) {
     if (!hasCore) {
       hints.push({
         type: 'core-neglect',
-        message: `Core hasn't been trained in ${recency.Core.daysSince} days`,
+        message:
+          coreDays === null
+            ? 'Core — not trained yet. Consider adding core work'
+            : `Core hasn't been trained in ${coreDays} days`,
       });
     }
   }
@@ -149,7 +154,7 @@ function checkStaleness(canonicalId, mainLift) {
   const exerciseDates = new Set();
 
   for (const log of store.accessoryLog) {
-    const date = new Date(log.timestamp).toISOString().split('T')[0];
+    const date = localDateStr(new Date(log.timestamp));
     sessionDates.add(date);
 
     const logCanon = resolveCanonicalId(log.exerciseId);

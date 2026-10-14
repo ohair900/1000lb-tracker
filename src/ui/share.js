@@ -9,6 +9,7 @@
  */
 
 import store from '../state/store.js';
+import { $, escapeHTML } from '../utils/helpers.js';
 import { COLORS, LIFT_NAMES } from '../constants/lift-config.js';
 import { SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT } from '../constants/thresholds.js';
 import { TOTAL_MILESTONE_THEMES } from '../data/milestones.js';
@@ -16,6 +17,7 @@ import { formatWeight, lbsToKg } from '../formulas/units.js';
 import { getTotal } from '../formulas/e1rm.js';
 import { calcWilks } from '../formulas/scoring.js';
 import { showToast } from './toast.js';
+import { trapFocus, releaseFocus } from './focus-trap.js';
 
 // ---------------------------------------------------------------------------
 // Canvas helpers
@@ -105,30 +107,156 @@ export function drawCardWilks(ctx, cx, y) {
 // Workout code sharing
 // ---------------------------------------------------------------------------
 
+/** Public origin used for share links. */
+export const SHARE_LINK_ORIGIN = 'https://1000lbtracker.com';
+
 /**
- * Share a workout join code via the Web Share API (native share sheet),
- * falling back to clipboard copy + toast on unsupported browsers.
+ * Build the shareable link for a workout code.
+ * Format: https://1000lbtracker.com/#workout/CODE
+ * The `#workout/:id` router route distinguishes 6-char codes from lift keys.
+ * @param {string} code - 6-character share code
+ */
+export function buildShareLink(code) {
+  return `${SHARE_LINK_ORIGIN}/#workout/${code}`;
+}
+
+/**
+ * Copy text to the clipboard, with a textarea+execCommand fallback for
+ * browsers/contexts where the async Clipboard API is unavailable.
+ * @param {string} text
+ * @returns {Promise<boolean>} whether the copy succeeded
+ */
+export async function copyTextToClipboard(text) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (_) {
+    /* fall through to legacy path */
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
+ * One-line summary of what's being shared: workout name + exercise count.
+ * @param {object} session - the host's workoutSession
+ */
+export function buildShareSummary(session) {
+  if (!session) return 'Workout';
+  const liftName = LIFT_NAMES[session.mainLift] || session.mainLift || 'Workout';
+  const mainSets = (session.mainSets || []).length + (session.bbbSets || []).length;
+  const accessories = (session.accessories || []).length;
+  const exercises = accessories + (mainSets > 0 ? 1 : 0);
+  const parts = [];
+  if (exercises > 0) parts.push(`${exercises} exercise${exercises === 1 ? '' : 's'}`);
+  if (mainSets > 0) parts.push(`${mainSets} set${mainSets === 1 ? '' : 's'}`);
+  return `${liftName} workout${parts.length ? ' · ' + parts.join(' · ') : ''}`;
+}
+
+/**
+ * Show the host's share sheet: a bottom sheet with the full share link,
+ * the 6-char code (big and copyable), a Copy Link button, and a one-line
+ * summary of what's shared. Fully async — no blocking dialogs.
  *
  * @param {string} code - 6-character share code
  */
 export function shareWorkoutCode(code) {
-  const url = `https://1000lbtracker.com/?join=${code}`;
-  const text = `Join my workout — code: ${code}`;
-  if (navigator.share) {
-    navigator
-      .share({ title: '1000lb Club — Join my workout', text, url })
-      .catch(() => _copyCodeFallback(code));
-  } else {
-    _copyCodeFallback(code);
-  }
-}
+  const link = buildShareLink(code);
+  const summary = buildShareSummary(store.workoutSession);
 
-function _copyCodeFallback(code) {
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(code).then(() => showToast('Code copied: ' + code));
-  } else {
-    showToast('Share code: ' + code);
-  }
+  // Dismiss any existing share sheet first.
+  document.getElementById('share-workout-backdrop')?.remove();
+  document.getElementById('share-workout-sheet')?.remove();
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'sheet-backdrop';
+  backdrop.id = 'share-workout-backdrop';
+
+  const sheet = document.createElement('div');
+  sheet.className = 'sheet-panel share-workout-sheet';
+  sheet.id = 'share-workout-sheet';
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-modal', 'true');
+  sheet.setAttribute('aria-label', 'Share workout');
+
+  sheet.innerHTML = `
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <h3>Share this workout</h3>
+      <button class="modal-close" type="button" id="share-workout-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="sheet-body">
+      <div class="share-workout-summary">${escapeHTML(summary)}</div>
+      <div class="share-code-wrap">
+        <div class="share-code-big" id="share-workout-code" role="button" tabindex="0" aria-label="Copy share code">${escapeHTML(code)}</div>
+        <div class="share-code-hint">Tap the code to copy it</div>
+      </div>
+      <div class="share-link-box" id="share-workout-link" role="button" tabindex="0" aria-label="Copy share link">${escapeHTML(link)}</div>
+      <button class="share-copy-btn" type="button" id="share-workout-copy">Copy Link</button>
+      <div class="share-workout-note">Anyone with the link can view your workout and train along.</div>
+    </div>
+  `;
+
+  document.body.appendChild(backdrop);
+  document.body.appendChild(sheet);
+  document.body.style.overflow = 'hidden';
+
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
+    releaseFocus(sheet);
+    backdrop.remove();
+    sheet.remove();
+    if (!document.querySelector('.sheet-panel')) document.body.style.overflow = '';
+  };
+
+  const copyLink = async () => {
+    const ok = await copyTextToClipboard(link);
+    showToast(ok ? 'Link copied' : 'Could not copy — long-press the link');
+  };
+  const copyCode = async () => {
+    const ok = await copyTextToClipboard(code);
+    showToast(ok ? 'Code copied: ' + code : 'Could not copy the code');
+  };
+
+  $('share-workout-close').addEventListener('click', dismiss);
+  backdrop.addEventListener('click', dismiss);
+  // Focus trap: Escape dismisses, Tab cycles within the sheet.
+  trapFocus(sheet, dismiss);
+  // Focus the primary action for keyboard users.
+  setTimeout(() => $('share-workout-copy')?.focus(), 60);
+  $('share-workout-copy').addEventListener('click', copyLink);
+  const codeEl = $('share-workout-code');
+  codeEl.addEventListener('click', copyCode);
+  codeEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      copyCode();
+    }
+  });
+  const linkEl = $('share-workout-link');
+  linkEl.addEventListener('click', copyLink);
+  linkEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      copyLink();
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -6,6 +6,7 @@
  */
 
 import store from '../state/store.js';
+import { localDateStr } from '../utils/date.js';
 import { MS_PER_DAY } from '../constants/time.js';
 import { LIFTS, LIFT_NAMES } from '../constants/lift-config.js';
 import { MUSCLE_GROUPS, MAIN_LIFT_WEIGHTS, ACCESSORY_CAT_WEIGHTS } from '../data/muscle-groups.js';
@@ -281,11 +282,11 @@ export function calcPriorWeekReview() {
   const trainingDaysList = [];
   for (let d = 0; d < 7; d++) {
     const dayDate = new Date(lastWeekStart.getTime() + d * day);
-    const dateStr = dayDate.toISOString().split('T')[0];
+    const dateStr = localDateStr(dayDate);
     trainingDaysList.push(
       weekEntries.some((e) => e.date === dateStr) ||
         weekAccessories.some((l) => {
-          const lDate = l.date || new Date(l.timestamp).toISOString().split('T')[0];
+          const lDate = l.date || localDateStr(new Date(l.timestamp));
           return lDate === dateStr;
         })
     );
@@ -306,7 +307,7 @@ export function calcPriorWeekReview() {
     coverage,
     liftStats,
     focus,
-    weekLabel: lastWeekStart.toISOString().split('T')[0],
+    weekLabel: localDateStr(lastWeekStart),
     totalSets,
     totalVolume,
     prs,
