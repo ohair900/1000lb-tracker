@@ -198,7 +198,11 @@ export function showWorkoutSummary(session, mesoAdaptation, sessionGrade) {
  * an A or A+. Pure visual flourish — no sound, no haptic interruption.
  */
 function burstGradeConfetti() {
-  const section = document.querySelector('.coach-grade-section');
+  // renderSessionGrade() emits <section class="coach-grade"> (there is no
+  // .coach-grade-section in the DOM) — scope the lookup to this sheet so we
+  // hit the current session's grade and nothing else on the page.
+  const sheetBody = $('workout-summary-body');
+  const section = sheetBody ? sheetBody.querySelector('.coach-grade') : null;
   if (!section) return;
   const rect = section.getBoundingClientRect();
   if (rect.height === 0) return;
