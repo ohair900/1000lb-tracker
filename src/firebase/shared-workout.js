@@ -29,6 +29,112 @@ let _pushTimer = null;
 let _pendingSession = null;
 
 // ---------------------------------------------------------------------------
+// Share code format
+// ---------------------------------------------------------------------------
+
+/**
+ * Standardized share-code format: exactly 6 alphanumeric characters.
+ * Generated codes use a restricted alphabet (no 0/O/1/I to reduce read-aloud
+ * confusion), but validation is lenient on input — strict on length only.
+ */
+export const SHARE_CODE_RE = /^[A-Za-z0-9]{6}$/;
+
+/** sessionStorage key for a pending join code (survives reloads, not tabs). */
+export const PENDING_JOIN_CODE_KEY = 'sharedWorkout.pendingJoinCode';
+
+/**
+ * Normalize a raw code: uppercase, strip non-alphanumerics.
+ * @returns {string|null} the normalized 6-char code, or null if invalid.
+ */
+export function normalizeShareCode(raw) {
+  if (raw == null) return null;
+  const code = String(raw)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+  return SHARE_CODE_RE.test(code) ? code : null;
+}
+
+/**
+ * Persist a pending join code to sessionStorage. The code is stored
+ * IMMEDIATELY on link arrival and cleared ONLY on terminal resolution
+ * (success, invalid/expired, or user dismissal) — a network failure or a
+ * signed-out recipient keeps it so the link is never lost.
+ * @returns {string|null} the normalized code that was stored.
+ */
+export function savePendingJoinCode(raw) {
+  const code = normalizeShareCode(raw);
+  if (!code) return null;
+  try {
+    window.sessionStorage.setItem(PENDING_JOIN_CODE_KEY, code);
+  } catch (_) {
+    /* storage unavailable — caller still has the in-memory code */
+  }
+  return code;
+}
+
+/** @returns {string|null} the pending join code, or null if none/invalid. */
+export function readPendingJoinCode() {
+  try {
+    return normalizeShareCode(window.sessionStorage.getItem(PENDING_JOIN_CODE_KEY));
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Clear the pending join code after terminal resolution. */
+export function clearPendingJoinCode() {
+  try {
+    window.sessionStorage.removeItem(PENDING_JOIN_CODE_KEY);
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bounded async helpers
+// ---------------------------------------------------------------------------
+
+/** Typed error for the shared-workout join path. */
+export class ShareJoinError extends Error {
+  /**
+   * @param {'invalid'|'finished'|'network'|'timeout'|'signed-out'} kind
+   * @param {string} message - user-facing message
+   */
+  constructor(kind, message) {
+    super(message);
+    this.name = 'ShareJoinError';
+    this.kind = kind;
+  }
+}
+
+/**
+ * Race a promise against a timeout. Every Firestore await in the join path
+ * goes through this — no await-without-timeout, no unbounded retries.
+ * @template T
+ * @param {Promise<T>} promise
+ * @param {number} ms
+ * @param {string} [message]
+ * @returns {Promise<T>}
+ */
+export function withTimeout(promise, ms, message) {
+  let timer = null;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(
+      () => reject(new ShareJoinError('timeout', message || 'Request timed out')),
+      ms
+    );
+  });
+  return Promise.race([
+    Promise.resolve(promise).finally(() => {
+      if (timer) clearTimeout(timer);
+    }),
+    timeout,
+  ]);
+}
+
+const JOIN_TIMEOUT_MS = 10000;
+
+// ---------------------------------------------------------------------------
 // Share code generator
 // ---------------------------------------------------------------------------
 
@@ -107,12 +213,23 @@ export function buildSharedPayload(session) {
 export async function createSharedWorkout(session) {
   if (!currentUser || !db) throw new Error('Sign in to share a workout');
 
-  // Generate a unique code (retry up to 5 times on collision)
+  // Generate a unique code (retry up to 5 times on collision).
+  // Every Firestore await races the join timeout so a stalled network can
+  // never hang the host share flow (or strand the _shareInFlight guard).
   let code;
   let codeFound = false;
   for (let i = 0; i < 5; i++) {
     code = _genShareCode();
-    const existing = await getDoc(doc(db, 'sharedWorkouts', code));
+    let existing;
+    try {
+      existing = await withTimeout(
+        getDoc(doc(db, 'sharedWorkouts', code)),
+        JOIN_TIMEOUT_MS,
+        'checking share code'
+      );
+    } catch (_err) {
+      throw new ShareJoinError('network', 'Could not reach the server — check your connection and try again');
+    }
     if (!existing.exists()) {
       codeFound = true;
       break;
@@ -145,7 +262,15 @@ export async function createSharedWorkout(session) {
     session: buildSharedPayload(session),
   };
 
-  await setDoc(doc(db, 'sharedWorkouts', code), sharedDoc);
+  try {
+    await withTimeout(
+      setDoc(doc(db, 'sharedWorkouts', code), sharedDoc),
+      JOIN_TIMEOUT_MS,
+      'creating shared workout'
+    );
+  } catch (_err) {
+    throw new ShareJoinError('network', 'Could not reach the server — check your connection and try again');
+  }
   return code;
 }
 
@@ -154,27 +279,65 @@ export async function createSharedWorkout(session) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Read-only fetch of a shared workout doc — no membership write, no local
+ * data required. Used by the recipient preview sheet.
+ * Bounded: the Firestore read races a 10s timeout.
+ *
+ * @param {string} rawCode
+ * @returns {Promise<{ code, hostUid, hostName, mainLift, session, members }>}
+ * @throws {ShareJoinError} kind: 'invalid' | 'finished' | 'network' | 'timeout' | 'signed-out'
+ */
+export async function fetchSharedWorkout(rawCode) {
+  const code = normalizeShareCode(rawCode);
+  if (!code) throw new ShareJoinError('invalid', 'This link is invalid or expired');
+  if (!currentUser || !db)
+    throw new ShareJoinError('signed-out', 'Sign in to join this shared workout');
+
+  const ref = doc(db, 'sharedWorkouts', code);
+  let snap;
+  try {
+    snap = await withTimeout(
+      getDoc(ref),
+      JOIN_TIMEOUT_MS,
+      'Timed out loading the shared workout — check your connection and retry'
+    );
+  } catch (err) {
+    if (err instanceof ShareJoinError) throw err;
+    if (err?.code === 'permission-denied')
+      throw new ShareJoinError('signed-out', 'Sign in to join this shared workout');
+    throw new ShareJoinError(
+      'network',
+      'Couldn\u2019t load this workout — check your connection and try again'
+    );
+  }
+
+  if (!snap.exists()) throw new ShareJoinError('invalid', 'This link is invalid or expired');
+  const data = snap.data();
+  if (data.status !== 'active')
+    throw new ShareJoinError('finished', 'This workout has already finished');
+
+  return {
+    code,
+    hostUid: data.hostUid,
+    hostName: data.hostName || 'Host',
+    mainLift: data.mainLift,
+    session: data.session || {},
+    members: data.members || {},
+  };
+}
+
+/**
  * Join an existing shared workout by code.
  * Adds self to memberUids and members map, returns the doc data.
  * @param {string} rawCode
  * @returns {Promise<{ code, hostUid, hostName, mainLift, session }>}
  */
 export async function joinSharedWorkout(rawCode) {
-  if (!currentUser || !db) throw new Error('Sign in to join a shared workout');
-
-  const code = String(rawCode)
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '')
-    .trim();
-  if (code.length !== 6) throw new Error('Code must be 6 characters');
-
-  const ref = doc(db, 'sharedWorkouts', code);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) throw new Error('Workout not found — check the code and try again');
-  const data = snap.data();
-  if (data.status !== 'active') throw new Error('This workout has already finished');
+  // Read + validate first (bounded, typed errors); requires sign-in.
+  const info = await fetchSharedWorkout(rawCode);
 
   const memberName = currentUser.displayName?.split(' ')[0] || 'You';
+  const ref = doc(db, 'sharedWorkouts', info.code);
   const memberUpdate = {
     [`members.${currentUser.uid}`]: {
       name: memberName,
@@ -185,20 +348,25 @@ export async function joinSharedWorkout(rawCode) {
       currentSetIdx: 0,
     },
     updatedAt: serverTimestamp(),
+    // Use arrayUnion so concurrent joins don't race-overwrite each other's UID
+    memberUids: arrayUnion(currentUser.uid),
   };
 
-  // Use arrayUnion so concurrent joins don't race-overwrite each other's UID
-  memberUpdate.memberUids = arrayUnion(currentUser.uid);
+  try {
+    await withTimeout(
+      updateDoc(ref, memberUpdate),
+      JOIN_TIMEOUT_MS,
+      'Timed out joining the workout — check your connection and retry'
+    );
+  } catch (err) {
+    if (err instanceof ShareJoinError) throw err;
+    throw new ShareJoinError(
+      'network',
+      'Couldn\u2019t join — check your connection and try again'
+    );
+  }
 
-  await updateDoc(ref, memberUpdate);
-
-  return {
-    code,
-    hostUid: data.hostUid,
-    hostName: data.hostName,
-    mainLift: data.mainLift,
-    session: data.session,
-  };
+  return info;
 }
 
 // ---------------------------------------------------------------------------
