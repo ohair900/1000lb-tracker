@@ -24,9 +24,15 @@ import {
 import { currentUser } from '../firebase/auth.js';
 import { openSheet, closeSheet, enableSheetSwipeDismiss } from '../ui/sheet.js';
 import { showToast } from '../ui/toast.js';
+import { confirmSheet } from '../ui/confirm-sheet.js';
 
 const fmt = (v) => _fmt(Math.round(v));
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** Jump to the log form (one tap) — used by every empty-state CTA. */
+function _goToLogTab() {
+  document.getElementById('tabbtn-log')?.click();
+}
 
 // ---------------------------------------------------------------------------
 // Sheet helpers
@@ -59,9 +65,13 @@ export async function renderLeaderboard() {
   const container = $('leaderboard-list');
   if (!currentUser) {
     container.innerHTML =
-      '<div class="empty-state" style="color:var(--text-dim);text-align:center;padding:32px 0">Sign in to view the leaderboard.</div>';
+      '<div class="empty-state flow-empty-state"><span class="flow-empty-icon">&#127942;</span>' +
+      '<div class="flow-empty-title">Sign in to compete</div>' +
+      '<p class="flow-empty-copy">Sign in to compare your SBD total with other lifters and join crews.</p>' +
+      '<button type="button" class="flow-btn flow-btn-secondary" id="lb-empty-settings">Go to settings</button></div>';
     $('lb-crew-strip').style.display = 'none';
     $('lb-controls').innerHTML = '';
+    $('lb-empty-settings')?.addEventListener('click', () => $('gear-btn')?.click());
     return;
   }
 
@@ -126,7 +136,7 @@ function renderStrengthTab() {
   })();
 
   const controls = `<div class="lb-controls-row">
-    <select id="lb-sort-select" class="lb-sort-select">
+    <select id="lb-sort-select" class="lb-sort-select" aria-label="Sort leaderboard">
       <option value="total"${sort === 'total' ? ' selected' : ''}>Total</option>
       <option value="squat"${sort === 'squat' ? ' selected' : ''}>Squat</option>
       <option value="bench"${sort === 'bench' ? ' selected' : ''}>Bench</option>
@@ -160,7 +170,15 @@ function renderStrengthTab() {
 
   if (sorted.length === 0) {
     $('leaderboard-list').innerHTML =
-      `<div class="empty-state" style="color:var(--text-dim);text-align:center;padding:32px 0">No lifters match these filters.</div>`;
+      `<div class="empty-state flow-empty-state"><span class="flow-empty-icon">&#128269;</span>` +
+      `<div class="flow-empty-title">No lifters match</div>` +
+      `<p class="flow-empty-copy">Try a different weight class, or clear the Active 7d filter.</p>` +
+      `<button type="button" class="flow-btn flow-btn-secondary" id="lb-clear-filters">Clear filters</button></div>`;
+    $('lb-clear-filters')?.addEventListener('click', () => {
+      store.leaderboardWeightClass = null;
+      store.leaderboardActiveOnly = false;
+      renderStrengthTab();
+    });
     return;
   }
 
@@ -228,7 +246,11 @@ function renderStreaksTab() {
 
   if (sorted.length === 0) {
     $('leaderboard-list').innerHTML =
-      `<div class="empty-state" style="color:var(--text-dim);text-align:center;padding:32px 0">No active streaks yet.</div>`;
+      `<div class="empty-state flow-empty-state"><span class="flow-empty-icon">&#128293;</span>` +
+      `<div class="flow-empty-title">No active streaks yet</div>` +
+      `<p class="flow-empty-copy">Streaks start the moment you log. Train this week to claim one.</p>` +
+      `<button type="button" class="flow-btn flow-btn-primary" id="lb-streaks-log">Log your first set</button></div>`;
+    $('lb-streaks-log')?.addEventListener('click', _goToLogTab);
     return;
   }
 
@@ -277,7 +299,11 @@ function renderImprovedTab() {
 
   if (withGain.length === 0) {
     $('leaderboard-list').innerHTML =
-      `<div class="empty-state" style="color:var(--text-dim);text-align:center;padding:32px 0">No improvement data yet — check back in a few weeks.</div>`;
+      `<div class="empty-state flow-empty-state"><span class="flow-empty-icon">&#128200;</span>` +
+      `<div class="flow-empty-title">No improvement data yet</div>` +
+      `<p class="flow-empty-copy">Improvement is measured over 30 days of logging — check back in a few weeks, or keep logging now.</p>` +
+      `<button type="button" class="flow-btn flow-btn-primary" id="lb-improved-log">Log a set</button></div>`;
+    $('lb-improved-log')?.addEventListener('click', _goToLogTab);
     return;
   }
 
@@ -349,7 +375,11 @@ function renderHallTab() {
 
   if (!anyShown) {
     $('leaderboard-list').innerHTML =
-      `<div class="empty-state" style="color:var(--text-dim);text-align:center;padding:32px 0">No milestones reached yet.</div>`;
+      `<div class="empty-state flow-empty-state"><span class="flow-empty-icon">&#127942;</span>` +
+      `<div class="flow-empty-title">No milestones reached yet</div>` +
+      `<p class="flow-empty-copy">The Hall of Fame honors 500, 1000, and 1500+ lb totals. Every PR gets you closer.</p>` +
+      `<button type="button" class="flow-btn flow-btn-primary" id="lb-hall-log">Log a set</button></div>`;
+    $('lb-hall-log')?.addEventListener('click', _goToLogTab);
     return;
   }
   $('leaderboard-list').innerHTML = html;
@@ -564,14 +594,20 @@ export function initLeaderboardTab() {
       showToast('Enter a crew name');
       return;
     }
-    try {
-      const crew = await createCrew(name);
-      $('crew-create-modal').style.display = 'none';
-      showToast(`${crew.name} created — code: ${crew.inviteCode}`);
-      renderCrewStrip();
-    } catch (err) {
-      showToast(err.message || 'Could not create crew');
-    }
+    const attemptCreate = async () => {
+      try {
+        const crew = await createCrew(name);
+        $('crew-create-modal').style.display = 'none';
+        showToast(`${crew.name} created — code: ${crew.inviteCode}`);
+        renderCrewStrip();
+      } catch (err) {
+        showToast(err.message || 'Could not create crew', {
+          action: 'Retry',
+          onAction: attemptCreate,
+        });
+      }
+    };
+    attemptCreate();
   });
   $('crew-join-submit').addEventListener('click', async () => {
     const code = $('crew-join-code').value.trim();
@@ -579,15 +615,21 @@ export function initLeaderboardTab() {
       showToast('Enter an invite code');
       return;
     }
-    try {
-      const crew = await joinCrew(code);
-      $('crew-join-modal').style.display = 'none';
-      showToast(`Joined ${crew.name}`);
-      renderCrewStrip();
-      renderActiveTab();
-    } catch (err) {
-      showToast(err.message || 'Could not join crew');
-    }
+    const attemptJoin = async () => {
+      try {
+        const crew = await joinCrew(code);
+        $('crew-join-modal').style.display = 'none';
+        showToast(`Joined ${crew.name}`);
+        renderCrewStrip();
+        renderActiveTab();
+      } catch (err) {
+        showToast(err.message || 'Could not join crew', {
+          action: 'Retry',
+          onAction: attemptJoin,
+        });
+      }
+    };
+    attemptJoin();
   });
 
   // Long-press a crew chip to leave
@@ -599,7 +641,16 @@ export function initLeaderboardTab() {
       const crewId = chip.dataset.lbCrew;
       const crew = (store.userCrews || []).find((c) => c.id === crewId);
       if (!crew) return;
-      if (confirm(`Leave ${crew.name}?`)) {
+      // Destructive action: confirm via sheet (never window.confirm).
+      const ok = await confirmSheet({
+        title: `Leave ${crew.name}?`,
+        body: 'You can rejoin anytime with an invite code.',
+        confirmLabel: 'Leave crew',
+        cancelLabel: 'Stay',
+        tone: 'danger',
+      });
+      if (!ok) return;
+      const attemptLeave = async () => {
         try {
           await leaveCrew(crewId);
           if (store.leaderboardCrewId === crewId) store.leaderboardCrewId = null;
@@ -607,9 +658,13 @@ export function initLeaderboardTab() {
           renderActiveTab();
           showToast(`Left ${crew.name}`);
         } catch (err) {
-          showToast(err.message || 'Could not leave crew');
+          showToast(err.message || 'Could not leave crew', {
+            action: 'Retry',
+            onAction: attemptLeave,
+          });
         }
-      }
+      };
+      attemptLeave();
     }, 600);
   });
   $('lb-crew-chips').addEventListener('pointerup', () => clearTimeout(_crewPressTimer));

@@ -8,6 +8,7 @@
  */
 
 import { formatWeight } from '../formulas/units.js';
+import { escapeHTML as escapeHtml } from '../utils/helpers.js';
 import store from '../state/store.js';
 import { LIFT_NAMES } from '../constants/lift-config.js';
 
@@ -73,6 +74,7 @@ function buildCoachRows(plan) {
   (plan.insights || []).forEach((ins) => {
     const priority = priorityClass(ins.priority);
     let action = null;
+    let rowInjury = null;
 
     if (ins.actionable) {
       if (ins.type === 'volume' && plan.supplementalAdjustment) {
@@ -89,6 +91,9 @@ function buildCoachRows(plan) {
             attr: `data-coach-accept-swap="${ins.swapIndex}"`,
             accepted: !!swap._accepted,
           };
+          // INJURY FEATURE SURFACING (workstream c): carry the substitution
+          // record onto the row so the badge renders below the text.
+          rowInjury = swap._injury || null;
         }
       } else if (ins.type === 'comeback') {
         // Comeback is advisory — no in-session action to apply directly
@@ -101,6 +106,7 @@ function buildCoachRows(plan) {
       text: ins.text,
       action,
       accepted: !!ins._accepted || (action && action.accepted),
+      injury: rowInjury,
     });
   });
 
@@ -123,9 +129,19 @@ function renderCoachRow(row) {
       : `<button class="coach-row-accept" ${row.action.attr}>${label}</button>`
     : '';
 
+  // INJURY FEATURE SURFACING (workstream c): visible substitution badge on
+  // coach-recommended swaps. Copy mirrors the injury.js UI contract.
+  let injuryBadge = '';
+  if (row.injury && row.injury.kind === 'swapped') {
+    injuryBadge = `<p class="injury-badge injury-badge--swap">🩹 Swapped for your ${escapeHtml(row.injury.regionLabel)} injury: ${escapeHtml(row.injury.from)} → ${escapeHtml(row.injury.to)}</p>`;
+  } else if (row.injury && row.injury.kind === 'flagged') {
+    injuryBadge = `<p class="injury-badge injury-badge--warn">⚠️ Loads your injured ${escapeHtml(row.injury.regionLabel)} — no safe swap listed, rest it while it heals</p>`;
+  }
+
   return `
     <li class="coach-row${acceptedCls}" data-priority="${row.priority}"${row.action ? ' data-actionable="true"' : ''}>
       <p class="coach-row-text">${row.text}</p>
+      ${injuryBadge}
       ${buttonHtml}
     </li>`;
 }
