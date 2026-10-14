@@ -56,8 +56,6 @@
 .choice-sheet-backdrop {
   animation: fadeIn 0.15s ease;
 }
-.choice-sheet-handle {
-}
 .choice-sheet-header {
   display: flex;
   align-items: center;
@@ -74,8 +72,6 @@
 }
 
 /* Fatigue sheet */
-.fatigue-sheet-handle {
-}
 .fatigue-sheet-header {
   display: flex;
   align-items: center;
@@ -97,19 +93,27 @@
   margin-bottom: var(--space-3);
 }
 .summary-stat {
-  background: var(--surface);
+  background: linear-gradient(180deg, var(--surface) 0%, #1b1b1b 100%);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-3);
   text-align: center;
+  box-shadow: var(--shadow-sm);
 }
 .summary-stat-label {
-  font-size: var(--text-xs);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: var(--text-dim);
   margin-bottom: 4px;
 }
 .summary-stat-value {
-  font-size: var(--text-lg);
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
   color: var(--text-strong);
 }
 .summary-set-row {
@@ -148,14 +152,14 @@
   font-size: var(--text-xs);
 }
 .summary-completion-bar {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--border);
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.07);
   margin-top: var(--space-2);
   overflow: hidden;
 }
 .summary-completion-bar .fill {
   height: 100%;
-  border-radius: 2px;
-  transition: width 0.3s ease;
+  border-radius: 3px;
+  transition: width 0.4s var(--ease-out-back);
 }

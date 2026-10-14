@@ -1,15 +1,65 @@
 /* ===== Cards ===== */
 
-/* Dashboard cards */
+/* Dashboard cards — premium treatment:
+   - lift-colored top edge (brand tri-color) with a soft glow wash
+   - subtle vertical gradient so cards read as raised surfaces
+   - staggered entrance on app open (GPU: transform/opacity only) */
 .card {
-  background: var(--surface);
+  background: linear-gradient(180deg, var(--surface) 0%, #191919 100%);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 14px var(--space-3);
+  padding: 14px var(--space-3) 12px;
   text-align: center;
   border-top: 3px solid var(--border);
   position: relative;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-fast);
+  /* `backwards` (not `both`): the from-state holds during the stagger delay,
+     but once done the fill releases so :active press feedback keeps working. */
+  animation: cardEnter 0.45s var(--ease-out-back) backwards;
+}
+.dashboard .card:nth-child(1) {
+  animation-delay: 0.02s;
+}
+.dashboard .card:nth-child(2) {
+  animation-delay: 0.07s;
+}
+.dashboard .card:nth-child(3) {
+  animation-delay: 0.12s;
+}
+.dashboard .card:nth-child(4) {
+  animation-delay: 0.17s;
+}
+.card:active {
+  transform: scale(0.96);
+}
+/* Soft lift-colored wash bleeding down from the top edge */
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 44px;
+  pointer-events: none;
+  opacity: 0.5;
+}
+.card[data-lift='squat']::before {
+  background: radial-gradient(ellipse at 50% 0%, rgba(229, 57, 53, 0.22), transparent 70%);
+}
+.card[data-lift='bench']::before {
+  background: radial-gradient(ellipse at 50% 0%, rgba(30, 136, 229, 0.22), transparent 70%);
+}
+.card[data-lift='deadlift']::before {
+  background: radial-gradient(ellipse at 50% 0%, rgba(67, 160, 71, 0.22), transparent 70%);
+}
+.card[data-lift='total']::before {
+  background: radial-gradient(ellipse at 50% 0%, rgba(253, 216, 53, 0.2), transparent 70%);
+}
+/* Total card gets a faint gold-tinted surface to set it apart */
+.card[data-lift='total'] {
+  background: linear-gradient(180deg, #24211a 0%, #1a1a1a 100%);
+  border-color: rgba(255, 215, 0, 0.22);
+  border-top-color: var(--total);
 }
 .card[data-lift='squat'] {
   border-top-color: var(--squat);
@@ -20,9 +70,6 @@
 .card[data-lift='deadlift'] {
   border-top-color: var(--deadlift);
 }
-.card[data-lift='total'] {
-  border-top-color: var(--total);
-}
 
 .card-label {
   font-family: var(--font-display);
@@ -32,20 +79,24 @@
   color: var(--text-dim);
   margin-bottom: var(--space-1);
   font-weight: 800;
+  position: relative;
+  z-index: 1;
 }
 .card-value {
   font-family: var(--font-mono);
-  font-size: 1.4rem;
+  font-size: 1.6rem;
   font-weight: 700;
   color: var(--text-strong);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   /* Flex row so the plateau badge can sit beside the number without
      changing the row's height or wrapping (see .plateau-icon). */
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
+  position: relative;
+  z-index: 1;
 }
 .card-value.empty {
   color: var(--text-dim);
