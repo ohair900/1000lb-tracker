@@ -53,12 +53,61 @@ export function daysSinceLastLift(lift) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Build one rendered set row, merging the template prescription with any
+ * frozen completion data (so a later TM change can't rewrite history).
+ *
+ * @param {Object} s - Template set ({ pct, reps, tier?, day? })
+ * @param {string} key - programConfig storage key for this set
+ * @param {number} i - 0-based set index
+ * @param {number} tm - Current training max (lbs)
+ * @returns {Object} Rendered set
+ */
+function _buildSet(s, key, i, tm) {
+  const maybeFrozen = store.programConfig.completedSets[key]
+    ? store.programConfig.completedSetData?.[key]
+    : null;
+  const frozen = _validFrozenSetData(maybeFrozen) ? maybeFrozen : null;
+  return {
+    num: i + 1,
+    weight: frozen ? frozen.weight : roundToPlate((tm * s.pct) / 100),
+    reps: frozen ? frozen.reps : s.reps,
+    pct: s.pct,
+    tier: s.tier || null,
+    day: s.day || null,
+    completed: !!store.programConfig.completedSets[key],
+  };
+}
+
+/**
+ * Build the reduced prescription for a scheduled deload week.
+ * Uses `-d` key infixes so deload completion marks never collide with the
+ * template's normal set keys for the same absolute week.
+ */
+function _buildDeloadSets(tmpl, lift, useWeek, tm) {
+  const pct = tmpl.deloadPct || 50;
+  const count = tmpl.deloadSets || 3;
+  const reps = tmpl.deloadReps || 5;
+  const sets = [];
+  for (let i = 0; i < count; i++) {
+    sets.push(_buildSet({ pct, reps }, `${lift}-${useWeek}-d${i}`, i, tm));
+  }
+  return sets;
+}
+
+/**
  * Build the workout prescription for a lift on a given program week.
  * Merges template set data with completion state from programConfig.
  *
+ * Templates may declare an optional scheduled deload
+ * (`deloadEvery: N` weeks, `deloadPct`, `deloadSets`, `deloadReps`). On
+ * deload weeks the reduced prescription is returned with `isDeload: true`
+ * and a clearly labeled title. Day-rotation programs (Texas) are excluded:
+ * their "weeks" are training days, not calendar weeks, so modulo arithmetic
+ * would misfire — that's a follow-up.
+ *
  * @param {string} lift - 'squat' | 'bench' | 'deadlift'
  * @param {number} [weekOverride] - Week number to use (defaults to lift's week)
- * @returns {{ label: string, week: number, sets: Object[] }|null}
+ * @returns {{ label: string, week: number, isDeload: boolean, sets: Object[] }|null}
  */
 export function getProgramWorkout(lift, weekOverride) {
   if (!store.programConfig.activeProgram) return null;
@@ -70,25 +119,21 @@ export function getProgramWorkout(lift, weekOverride) {
   const week = ((useWeek - 1) % tmpl.weeks) + 1;
   const weekData = tmpl.schedule[week];
   if (!weekData) return null;
+
+  const deloadEvery = tmpl.deloadEvery;
+  const isDeload =
+    Number.isFinite(deloadEvery) &&
+    deloadEvery > 1 &&
+    !tmpl.dayRotation &&
+    useWeek % deloadEvery === 0;
+
   const workout = {
-    label: weekData.label,
+    label: isDeload ? `${weekData.label} — Deload` : weekData.label,
     week: useWeek,
-    sets: weekData.sets.map((s, i) => {
-      const key = `${lift}-${useWeek}-${i}`;
-      const maybeFrozen = store.programConfig.completedSets[key]
-        ? store.programConfig.completedSetData?.[key]
-        : null;
-      const frozen = _validFrozenSetData(maybeFrozen) ? maybeFrozen : null;
-      return {
-        num: i + 1,
-        weight: frozen ? frozen.weight : roundToPlate((tm * s.pct) / 100),
-        reps: frozen ? frozen.reps : s.reps,
-        pct: s.pct,
-        tier: s.tier || null,
-        day: s.day || null,
-        completed: !!store.programConfig.completedSets[key],
-      };
-    }),
+    isDeload,
+    sets: isDeload
+      ? _buildDeloadSets(tmpl, lift, useWeek, tm)
+      : weekData.sets.map((s, i) => _buildSet(s, `${lift}-${useWeek}-${i}`, i, tm)),
   };
   // Injury-aware: when the programmed main lift loads an injured area,
   // attach a substitution notice (weights stay as programmed — the lifter
@@ -115,6 +160,21 @@ export function getProgramWorkout(lift, weekOverride) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Shared implementation: every PRIMARY set for the lift's current program
+ * week is marked complete (BBB / T2 / other supplemental tiers excluded).
+ *
+ * @param {string} lift - 'squat' | 'bench' | 'deadlift'
+ * @returns {boolean}
+ */
+function _liftWeekComplete(lift) {
+  if (!store.programConfig.activeProgram) return false;
+  if (!store.programConfig.trainingMaxes[lift]) return false;
+  const workout = getProgramWorkout(lift);
+  if (!workout) return false;
+  return _primarySets(workout).every((s) => s.completed);
+}
+
+/**
  * Check whether the given lift's current week is fully complete
  * (all sets done for that lift).
  *
@@ -122,11 +182,7 @@ export function getProgramWorkout(lift, weekOverride) {
  * @returns {boolean}
  */
 export function isWeekComplete(lift) {
-  if (!store.programConfig.activeProgram) return false;
-  if (!store.programConfig.trainingMaxes[lift]) return false;
-  const workout = getProgramWorkout(lift);
-  if (!workout) return false;
-  return _primarySets(workout).every((s) => s.completed);
+  return _liftWeekComplete(lift);
 }
 
 /**
@@ -137,10 +193,7 @@ export function isWeekComplete(lift) {
  * @returns {boolean}
  */
 export function isLiftComplete(lift) {
-  if (!store.programConfig.activeProgram || !store.programConfig.trainingMaxes[lift]) return false;
-  const workout = getProgramWorkout(lift);
-  if (!workout) return false;
-  return _primarySets(workout).every((s) => s.completed);
+  return _liftWeekComplete(lift);
 }
 
 /**
@@ -196,8 +249,13 @@ export function updateWeekStreak(lift) {
  * Determine whether a lift qualifies for automatic training-max progression
  * under the active program's progression rules.
  *
+ * Returns SUCCESS-type results only (`type: 'progress'`). Failure-driven
+ * deloads are evaluated separately via `recordSessionFailure()` — a deload
+ * must never be triggered (or auto-applied) by an individual set click, so
+ * the two result types take deliberately different paths.
+ *
  * @param {string} lift - 'squat' | 'bench' | 'deadlift'
- * @returns {{ lift: string, oldTM: number, newTM: number, reason: string }|null}
+ * @returns {{ type: 'progress', lift: string, oldTM: number, newTM: number, reason: string }|null}
  *   A progression result, or null if no progression is earned.
  */
 export function checkAutoProgression(lift) {
@@ -212,7 +270,10 @@ export function checkAutoProgression(lift) {
   const week = ((lw - 1) % tmpl.weeks) + 1;
 
   if (prog.type === 'session') {
-    // SL5x5 / SS: all sets completed for this lift this week
+    // SL5x5 / SS: all sets completed for this lift this week.
+    // Success path only — failure counting was moved to recordSessionFailure()
+    // (per-week, evaluated at week advance) so mid-workout clicks can never
+    // stack up failure counts or trigger a TM deload.
     const weekData = tmpl.schedule[week];
     if (!weekData) return null;
     const allDone = weekData.sets.every(
@@ -222,19 +283,14 @@ export function checkAutoProgression(lift) {
       // Success: reset failure count, progress
       if (store.programConfig.failureCounts) store.programConfig.failureCounts[lift] = 0;
       store.saveProgramConfig();
-      return { lift, oldTM: tm, newTM: tm + increment, reason: 'All sets completed' };
+      return {
+        type: 'progress',
+        lift,
+        oldTM: tm,
+        newTM: tm + increment,
+        reason: 'All sets completed',
+      };
     }
-    // Failure path: track consecutive failures, deload after 3
-    if (!store.programConfig.failureCounts) {
-      store.programConfig.failureCounts = { squat: 0, bench: 0, deadlift: 0 };
-    }
-    store.programConfig.failureCounts[lift] = (store.programConfig.failureCounts[lift] || 0) + 1;
-    if (store.programConfig.failureCounts[lift] >= 3) {
-      const deloadTM = roundToPlate(tm * 0.9);
-      store.programConfig.failureCounts[lift] = 0;
-      return { lift, oldTM: tm, newTM: deloadTM, reason: 'Deload: 3 consecutive failures' };
-    }
-    store.saveProgramConfig();
     return null;
   }
 
@@ -252,11 +308,86 @@ export function checkAutoProgression(lift) {
     const key = `${lift}-${lw}-${amrapIdx}`;
     const reps = store.programConfig.amrapResults[key];
     if (reps !== undefined && reps >= prog.minReps) {
-      return { lift, oldTM: tm, newTM: tm + increment, reason: `Intensity PR: ${reps} reps` };
+      return {
+        type: 'progress',
+        lift,
+        oldTM: tm,
+        newTM: tm + increment,
+        reason: `Intensity PR: ${reps} reps`,
+      };
     }
     return null;
   }
 
+  return null;
+}
+
+/**
+ * Record a failed session for session-type programs (SL5x5 / SS).
+ *
+ * Call this ONCE per session boundary (e.g. when advancing past the week's
+ * workout) — never per set click. A week counts as a failure only when at
+ * least one primary set was attempted but not all were completed; a week
+ * with zero completed sets is treated as "not trained", not a failure.
+ *
+ * Counting is per-WEEK: `lastFailureWeek` guarantees a given lift-week can
+ * only ever contribute one failure, no matter how often this is called.
+ * After 3 consecutive failed weeks a deload result is returned — the caller
+ * MUST get explicit user confirmation before applying it (never auto-apply).
+ *
+ * @param {string} lift - 'squat' | 'bench' | 'deadlift'
+ * @returns {{ type: 'deload', lift: string, oldTM: number, newTM: number, reason: string }|null}
+ *   A deload result on the 3rd consecutive failed week, otherwise null.
+ */
+export function recordSessionFailure(lift) {
+  if (!store.programConfig.autoProgressEnabled || !store.programConfig.activeProgram) return null;
+  const tmpl = PROGRAM_TEMPLATES[store.programConfig.activeProgram];
+  if (!tmpl || !tmpl.progression || tmpl.progression.type !== 'session') return null;
+  const tm = store.programConfig.trainingMaxes[lift];
+  if (!tm) return null;
+
+  const lw = getLiftWeek(lift);
+  const workout = getProgramWorkout(lift);
+  if (!workout) return null;
+  const primary = _primarySets(workout);
+
+  const doneCount = primary.filter((s) => s.completed).length;
+  if (doneCount === primary.length) {
+    // Completed after all — reset the failure streak, nothing to record.
+    if (store.programConfig.failureCounts) store.programConfig.failureCounts[lift] = 0;
+    store.saveProgramConfig();
+    return null;
+  }
+  if (doneCount === 0) {
+    // No attempt logged this week — not a failed session, don't count it.
+    return null;
+  }
+
+  // Per-week gate: a lift-week contributes at most one failure.
+  if (!store.programConfig.lastFailureWeek) {
+    store.programConfig.lastFailureWeek = { squat: 0, bench: 0, deadlift: 0 };
+  }
+  if (store.programConfig.lastFailureWeek[lift] === lw) return null;
+  store.programConfig.lastFailureWeek[lift] = lw;
+
+  if (!store.programConfig.failureCounts) {
+    store.programConfig.failureCounts = { squat: 0, bench: 0, deadlift: 0 };
+  }
+  store.programConfig.failureCounts[lift] = (store.programConfig.failureCounts[lift] || 0) + 1;
+
+  if (store.programConfig.failureCounts[lift] >= 3) {
+    const deloadTM = roundToPlate(tm * 0.9);
+    store.programConfig.failureCounts[lift] = 0;
+    store.saveProgramConfig();
+    return {
+      type: 'deload',
+      lift,
+      oldTM: tm,
+      newTM: deloadTM,
+      reason: '3 failed sessions in a row — 10% TM deload suggested',
+    };
+  }
+  store.saveProgramConfig();
   return null;
 }
 
@@ -267,7 +398,7 @@ export function checkAutoProgression(lift) {
  * @param {string} lift
  * @param {number} cycleEndWeek - The absolute week number of the cycle's last week
  * @param {Object} tmpl - Program template
- * @returns {{ lift: string, oldTM: number, newTM: number, reason: string }|null}
+ * @returns {{ type: 'progress', lift: string, oldTM: number, newTM: number, reason: string }|null}
  */
 export function checkCycleBoundaryProgression(lift, cycleEndWeek, tmpl) {
   const tm = store.programConfig.trainingMaxes[lift];
@@ -316,6 +447,7 @@ export function checkCycleBoundaryProgression(lift, cycleEndWeek, tmpl) {
   const increment = lift === 'bench' ? prog.upperIncrement : prog.lowerIncrement;
   const newTM = tm + increment;
   return {
+    type: 'progress',
     lift,
     oldTM: tm,
     newTM,
@@ -327,8 +459,9 @@ export function checkCycleBoundaryProgression(lift, cycleEndWeek, tmpl) {
  * Apply a progression result: update the training max, record history,
  * and persist.
  *
- * @param {{ lift: string, oldTM: number, newTM: number, reason: string }} result
- *   The result from `checkAutoProgression`.
+ * @param {{ type: string, lift: string, oldTM: number, newTM: number, reason: string }} result
+ *   The result from `checkAutoProgression`, `checkCycleBoundaryProgression`,
+ *   or `recordSessionFailure` (the latter only after explicit user confirm).
  * @returns {string|null} A human-readable toast message, or null if no result.
  */
 export function applyProgression(result) {
