@@ -11,6 +11,7 @@ import { calcFatigueLift, calcFatigueByMuscle } from '../systems/fatigue.js';
 import { detectPlateau, calcProgression } from '../formulas/progression.js';
 import { MAIN_LIFT_WEIGHTS } from '../data/muscle-groups.js';
 import { getCalibratedRecovery } from '../systems/recovery-calibration.js';
+import { findConflicts } from './injury.js';
 
 // ---------------------------------------------------------------------------
 // Main lift suggestion
@@ -25,6 +26,7 @@ import { getCalibratedRecovery } from '../systems/recovery-calibration.js';
  *  - Fatigue: green +20, yellow +10, red -10
  *  - Plateau detected: +15
  *  - Declining trend: +10
+ *  - Injury: -25 for lifts that load an injured area (reason shown)
  *
  * @returns {{ lift: string, scores: Object, reasons: Object }}
  *   `lift` is the recommended lift, `scores` maps each lift to its score,
@@ -101,6 +103,19 @@ export function suggestMainLift() {
 
     scores[lift] = score;
     reasons[lift] = r;
+  });
+
+  // Injury-aware: steer the suggestion away from lifts that load an
+  // injured area. Penalize rather than exclude — a conflicting lift can
+  // still win if everything else scores far worse, but the reason is shown.
+  LIFTS.forEach((lift) => {
+    const conflicts = findConflicts([lift]);
+    if (conflicts.length) {
+      scores[lift] -= 25;
+      reasons[lift].push(
+        `Conflicts with ${conflicts[0].region} injury (${conflicts[0].severity})`
+      );
+    }
   });
 
   const best = LIFTS.reduce((a, b) => (scores[a] >= scores[b] ? a : b));
