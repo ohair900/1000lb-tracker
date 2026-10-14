@@ -5,9 +5,20 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  /* One global tap-highlight kill for iOS — components no longer need to
+     repeat this per-selector. */
+  -webkit-tap-highlight-color: transparent;
 }
 html {
   touch-action: manipulation;
+}
+/* Form controls don't inherit the app typeface by default — without this,
+   buttons/inputs render in the OS default font and break type coherence. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
 }
 
 /* Focus States */

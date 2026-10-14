@@ -181,11 +181,13 @@
 }
 @keyframes confettiFall {
   0% {
-    transform: translateY(-10px) rotate(0deg);
+    transform: translate3d(0, -10px, 0) rotate(0deg);
     opacity: 1;
   }
   100% {
-    transform: translateY(100vh) rotate(720deg);
+    /* --sway is set per-particle in confetti.js; falls back to a straight
+       drop when absent so older call sites keep working unchanged. */
+    transform: translate3d(var(--sway, 0px), 100vh, 0) rotate(720deg);
     opacity: 0;
   }
 }
@@ -195,6 +197,34 @@
   }
   to {
     opacity: 0;
+  }
+}
+
+/* Dashboard card entrance — staggered via nth-child delays in cards.css */
+@keyframes cardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Workout-summary A/A+ grade burst — radial spread driven by the --dx / --dy
+   custom properties set per particle in burstGradeConfetti() */
+@keyframes gradeConfettiBurst {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--dx, 0px), var(--dy, 60px), 0) rotate(540deg) scale(0.5);
   }
 }
 
