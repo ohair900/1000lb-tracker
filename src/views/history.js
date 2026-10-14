@@ -15,6 +15,7 @@ import { deleteEntry, editEntry, addEntry } from '../state/actions.js';
 import { openModal, closeModal } from '../ui/modal.js';
 import { showToastWithUndo } from '../ui/toast.js';
 import { MS_PER_DAY, SAME_SESSION_MS } from '../constants/time.js';
+import { localDateStr } from '../utils/date.js';
 import { ACCESSORY_DB } from '../data/accessories.js';
 import { resolveExercise } from '../data/exercise-compat.js';
 import { AVAILABLE_TAGS } from '../data/milestones.js';
@@ -106,10 +107,14 @@ export function renderHistory() {
     const hasFilters =
       store.historyFilter !== 'all' || store.historyFrom || store.historyTo || store.historySearch;
     container.innerHTML =
-      '<div class="empty-state"><div class="icon">&#127947;&#65039;</div>No entries' +
+      '<div class="empty-state flow-empty-state"><div class="flow-empty-icon">&#127947;&#65039;</div>' +
       (hasFilters
-        ? ' match filters.<button class="clear-filters-btn" id="clear-all-filters">Clear all filters</button>'
-        : ' yet.<br>Log your first set!') +
+        ? '<div class="flow-empty-title">No entries match</div>' +
+          '<p class="flow-empty-copy">Try widening the date range or clearing your filters.</p>' +
+          '<button class="flow-btn flow-btn-secondary" id="clear-all-filters">Clear all filters</button>'
+        : '<div class="flow-empty-title">No entries yet</div>' +
+          '<p class="flow-empty-copy">Your training history lives here. Log your first set to get started.</p>' +
+          '<button class="flow-btn flow-btn-primary" id="history-empty-log">Log your first set</button>') +
       '</div>';
     if (hasFilters) {
       $('clear-all-filters').addEventListener('click', () => {
@@ -129,6 +134,10 @@ export function renderHistory() {
         renderHistory();
       });
     }
+    // No-entries CTA — jump to the log form (one tap).
+    $('history-empty-log')?.addEventListener('click', () => {
+      document.getElementById('tabbtn-log')?.click();
+    });
     return;
   }
 
@@ -294,7 +303,7 @@ export function renderHistory() {
 
       // Selection checkbox
       const checkboxHtml = selectionMode
-        ? `<div class="select-checkbox${selectedIds.has(e.id) ? ' checked' : ''}" data-select-id="${e.id}"></div>`
+        ? `<div class="select-checkbox${selectedIds.has(e.id) ? ' checked' : ''}" role="checkbox" aria-checked="${selectedIds.has(e.id)}" tabindex="-1" data-select-id="${e.id}"></div>`
         : '';
 
       html += `<div class="swipe-container" data-id="${e.id}">
@@ -664,16 +673,16 @@ function getMonday() {
   const d = new Date();
   const day = d.getDay();
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(d.setDate(diff)).toISOString().split('T')[0];
+  return localDateStr(new Date(d.setDate(diff)));
 }
 
 function getFirstOfMonth() {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+  return localDateStr(new Date(d.getFullYear(), d.getMonth(), 1));
 }
 
 function getDaysAgo(n) {
-  return new Date(Date.now() - n * MS_PER_DAY).toISOString().split('T')[0];
+  return localDateStr(new Date(Date.now() - n * MS_PER_DAY));
 }
 
 // ---------------------------------------------------------------------------
@@ -687,6 +696,7 @@ export function initHistoryTab() {
     const sortSelect = document.createElement('select');
     sortSelect.id = 'history-sort';
     sortSelect.className = 'history-sort';
+    sortSelect.setAttribute('aria-label', 'Sort history');
     sortSelect.innerHTML =
       '<option value="newest">Newest</option><option value="oldest">Oldest</option><option value="heaviest">Heaviest</option><option value="volume">Most Vol</option>';
     filterBar.appendChild(sortSelect);
@@ -757,7 +767,7 @@ export function initHistoryTab() {
     const chip = e.target.closest('.quick-date-chip');
     if (!chip) return;
     const range = chip.dataset.range;
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateStr();
     if (range === 'week') {
       store.historyFrom = getMonday();
       store.historyTo = today;

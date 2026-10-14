@@ -91,6 +91,9 @@ import {
   subscribeSharedWorkout,
   unsubscribeSharedWorkout,
   flushHostUpdate,
+  SHARE_CODE_RE,
+  savePendingJoinCode,
+  readPendingJoinCode,
 } from './firebase/shared-workout.js';
 import { onSharedWorkoutUpdate } from './views/workout-overlay.js';
 import { initSwipeToDelete, setSwipeDeps } from './ui/swipe.js';
@@ -474,27 +477,37 @@ setOnSyncComplete(() => {
   document.querySelectorAll('.unit-label').forEach((el) => (el.textContent = store.unit));
 });
 
-// 4d. Auth status change — update sync button
+// 4d. Auth status change — update sync button, and record that auth resolved
+// so the share-link router can distinguish "signed out" from "still loading".
+let _authResolved = false;
 setOnAuthStatusChange(() => {
   updateSyncButton();
+  _authResolved = true;
+  // Signed-out recipient with a pending share link: the shared-workout
+  // restore hook (below) runs the join flow, which shows the non-blocking
+  // "Sign in to join" nudge itself — no toast here (avoids a duplicate).
 });
 
-// Parse ?join=CODE from URL — consumed once after auth resolves
+// Parse ?join=CODE from URL (legacy share links) — persist to sessionStorage
+// IMMEDIATELY so a failed/expired join never loses the code; the URL param is
+// scrubbed (hash preserved). The auth-restore hook consumes it after sign-in.
 const _joinCodeFromUrl = new URLSearchParams(location.search).get('join') || null;
-if (_joinCodeFromUrl) history.replaceState(null, '', location.pathname);
-let _pendingJoinCode = _joinCodeFromUrl;
+if (_joinCodeFromUrl) {
+  savePendingJoinCode(_joinCodeFromUrl);
+  history.replaceState(null, '', location.pathname + location.hash);
+}
 
 // 4d-shared. Re-attach shared workout listener after auth restore (e.g. page refresh mid-workout);
-// also consume any pending ?join= URL param.
+// also consume any pending share code (legacy ?join= or #workout/CODE links).
+// The pending code is cleared ONLY when the join flow reaches a terminal
+// state — a network failure or dismissal path inside joinSharedWorkoutFlow
+// decides; we never null it before the async join runs.
 setOnSharedWorkoutRestore(() => {
   const sharedCode = store.workoutSession?.shared?.code;
   if (sharedCode) subscribeSharedWorkout(sharedCode, onSharedWorkoutUpdate);
 
-  if (_pendingJoinCode) {
-    const code = _pendingJoinCode;
-    _pendingJoinCode = null;
-    joinSharedWorkoutFlow(code);
-  }
+  const pending = readPendingJoinCode();
+  if (pending) joinSharedWorkoutFlow(pending);
 });
 
 // 4d2. Sync status change — update sync button
@@ -853,10 +866,43 @@ initSyncUI();
 initLeaderboardTab();
 initSettingsListeners();
 
+/**
+ * Route a `#workout/:id` path segment.
+ * - 6-char share code (/^[A-Za-z0-9]{6}$/) → shared-workout join/view flow
+ *   (persisted to sessionStorage; signed-out recipients get a nudge and the
+ *   join runs after sign-in via the auth-restore hook).
+ * - Known lift key (squat/bench/deadlift) → existing openWorkoutView.
+ * - Anything else → graceful "Workout not found" (never a bogus lift view).
+ */
+function routeWorkoutPath(id) {
+  const seg = String(id || '');
+  if (SHARE_CODE_RE.test(seg)) {
+    savePendingJoinCode(seg);
+    // Scrub the code from the URL immediately: the intent lives in
+    // sessionStorage now, and leaving #workout/CODE in place would re-fire
+    // the join on every reload (prompting an unwanted "leave workout?").
+    try {
+      history.replaceState(null, '', location.pathname + location.search);
+    } catch {
+      /* ignore — non-critical */
+    }
+    // If auth hasn't resolved yet, do nothing — setOnSharedWorkoutRestore
+    // will consume the pending code once sign-in state is known.
+    if (_authResolved) joinSharedWorkoutFlow(seg);
+    return;
+  }
+  if (LIFTS.includes(seg)) {
+    openWorkoutView(seg);
+    return;
+  }
+  showToast('Workout not found');
+  updateRoute('#log');
+}
+
 initRouter({
   tab: (m) => switchToTab(m[1]),
   settings: () => openSettings(),
-  workout: (m) => openWorkoutView(m[1]),
+  workout: (m) => routeWorkoutPath(m[1]),
   builder: (m) => openBuilder(m[1]),
   fatigueSheet: () => openFatigueSheet(),
   liftDetail: (m) => showLiftDetail(m[1]),

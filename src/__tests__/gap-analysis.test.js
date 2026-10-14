@@ -219,10 +219,10 @@ describe('analyzePushPullRatio', () => {
 });
 
 describe('analyzeRecencyGaps', () => {
-  it('returns Infinity for muscles that were never trained', () => {
+  it('returns null for muscles that were never trained', () => {
     const result = analyzeRecencyGaps();
     for (const mg of MUSCLE_GROUPS) {
-      expect(result[mg].daysSince).toBe(Infinity);
+      expect(result[mg].daysSince).toBe(null);
     }
   });
 

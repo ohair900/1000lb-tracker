@@ -10,6 +10,7 @@
 import { BADGE_DEFINITIONS } from '../data/badges.js';
 import { BADGES_KEY } from '../constants/storage-keys.js';
 import store from '../state/store.js';
+import { localDateStr } from '../utils/date.js';
 import { bestE1RM, getTotal } from '../formulas/e1rm.js';
 import { calcStreak } from '../formulas/streak.js';
 import { groupSessions } from './volume.js';
@@ -47,7 +48,7 @@ export function checkBadges() {
     try {
       if (badge.check(ctx)) {
         store.unlockedBadges[badge.id] = {
-          date: new Date().toISOString().split('T')[0],
+          date: localDateStr(),
           timestamp: Date.now(),
         };
         newBadges.push(badge);

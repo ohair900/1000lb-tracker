@@ -1,10 +1,14 @@
 /**
  * Date-related utility functions.
  *
- * All date strings in the app use the ISO-8601 `YYYY-MM-DD` format
- * (the "date" portion of `new Date().toISOString()`).  We append
- * "T12:00:00" when constructing Date objects to avoid timezone-boundary
- * bugs near midnight.
+ * All date strings in the app use the ISO-8601 `YYYY-MM-DD` format.
+ * IMPORTANT: "today" and date-grouping keys must use the lifter's LOCAL
+ * wall clock (getFullYear/getMonth/getDate). Using
+ * `new Date().toISOString()` returns UTC, which is already tomorrow for
+ * evening lifters west of Greenwich — that shifted logged sets, streaks,
+ * and chart buckets by a day. Use localDateStr() for any "what day is it"
+ * computation. We append "T12:00:00" when constructing Date objects to
+ * avoid timezone-boundary bugs near midnight.
  */
 
 import { MS_PER_DAY } from '../constants/time.js';
@@ -40,6 +44,31 @@ export function getMonthKey(date) {
 export function todayISO() {
   return new Date().toISOString().split('T')[0];
 }
+
+/**
+ * Return the LOCAL calendar date of `d` as a `YYYY-MM-DD` string, using
+ * the device's wall clock (getFullYear/getMonth/getDate).
+ *
+ * Prefer this over `d.toISOString().split('T')[0]` whenever the question is
+ * "what day is it for the lifter" — toISOString() is UTC, so after ~5-6 PM
+ * in US timezones it already returns tomorrow.
+ *
+ * @param {Date} [d] - Defaults to now.
+ * @returns {string} e.g. "2026-10-13"
+ */
+export function localDateStr(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Alias for localDateStr — same local-wall-clock `YYYY-MM-DD` key.
+ * @param {Date} [d] - Defaults to now.
+ * @returns {string}
+ */
+export const localDateKey = localDateStr;
 
 /**
  * Calculate the integer number of days between two ISO date strings.

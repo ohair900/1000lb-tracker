@@ -1,0 +1,220 @@
+/**
+ * Injury feature styles — INJURY FEATURE SURFACING (workstream c).
+ * All selectors are namespaced .injury-* to avoid collisions with other
+ * workstreams editing the shared stylesheets.
+ */
+
+/* Safety disclaimer — one line, not a lecture */
+.injury-disclaimer {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  font-style: italic;
+  margin-bottom: 10px;
+}
+
+/* --- Profile-tab summary card --- */
+.injury-summary-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface2);
+  padding: 12px;
+  margin-bottom: 4px;
+}
+.injury-summary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.injury-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.injury-chip--mild { border-color: var(--yellow); }
+.injury-chip--moderate { border-color: var(--orange); }
+.injury-chip--severe { border-color: var(--red); }
+.injury-chip-sub {
+  font-weight: 400;
+  color: var(--text-dim);
+}
+.injury-summary-note {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+.injury-manage-btn {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+/* --- Composer: body map --- */
+.injury-body-map {
+  margin-bottom: 4px;
+}
+.injury-body-map .body-map-container {
+  max-width: 340px;
+  margin: 0 auto;
+}
+.injury-body-map .body-map-muscle {
+  cursor: pointer;
+}
+.injury-map-hint {
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+
+/* --- Composer: region chips (one-hand friendly, big tap targets) --- */
+.injury-composer {
+  margin-bottom: 8px;
+}
+.injury-region-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.injury-region-chip {
+  position: relative;
+  min-height: 52px;
+  padding: 10px 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.injury-region-chip.active {
+  border-color: var(--gold);
+  background: rgba(255, 215, 0, 0.12);
+  color: var(--text-strong, #fff);
+}
+.injury-region-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--orange);
+}
+
+/* --- Composer: segmented severity / side controls --- */
+.injury-seg-label {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 6px 2px;
+}
+.injury-seg {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.injury-seg-btn {
+  flex: 1;
+  min-height: 44px;
+  padding: 10px 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.injury-seg-btn.active {
+  border-color: var(--gold);
+  background: rgba(255, 215, 0, 0.12);
+  color: var(--text-strong, #fff);
+}
+
+/* --- Composer: fields + add button --- */
+.injury-field {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: var(--text-sm);
+  margin-bottom: 8px;
+  font-family: inherit;
+}
+.injury-add-btn {
+  width: 100%;
+  min-height: 48px;
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+/* --- Dashboard banner --- */
+.injury-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--orange);
+  background: rgba(251, 140, 0, 0.1);
+  color: var(--text);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.injury-banner-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.5;
+}
+.injury-banner-cta {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+/* --- Substitution / conflict badges (coach rows, travel previews) --- */
+.injury-badge {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.45;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  margin: 6px 0 2px;
+}
+.injury-badge--swap {
+  border: 1px solid var(--orange);
+  background: rgba(251, 140, 0, 0.12);
+  color: var(--text);
+}
+.injury-badge--warn {
+  border: 1px solid var(--red);
+  background: rgba(229, 57, 53, 0.1);
+  color: var(--text);
+}
+
+/* Travel preview rows keep their existing flex layout; the badge sits below */
+.travel-preview-row-wrap {
+  display: block;
+}

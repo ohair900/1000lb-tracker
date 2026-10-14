@@ -219,6 +219,9 @@
 .lb-crew-chip {
   flex-shrink: 0;
   padding: 4px 12px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   background: var(--surface2);
@@ -239,6 +242,9 @@
 }
 .lb-crew-action-btn {
   padding: 4px 10px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -256,6 +262,10 @@
 .lb-tab {
   flex: 1;
   padding: var(--space-2) var(--space-1);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -280,6 +290,7 @@
 }
 .lb-sort-select {
   padding: 4px 8px;
+  min-height: 44px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface2);
@@ -290,6 +301,8 @@
 .lb-active-toggle {
   display: flex;
   align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-2);
   gap: 4px;
   font-size: var(--text-xs);
   color: var(--text-dim);
@@ -304,6 +317,9 @@
 .lb-wc-pill {
   flex-shrink: 0;
   padding: 3px 10px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   background: var(--surface);
@@ -320,6 +336,9 @@
 }
 .lb-range-pill {
   padding: 3px 10px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   background: var(--surface);
@@ -456,13 +475,13 @@
 .lb-cmp-gap-up {
   margin-left: 6px;
   color: var(--red);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 700;
 }
 .lb-cmp-gap-down {
   margin-left: 6px;
   color: var(--green);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 700;
 }
 .lb-cmp-catchup {

@@ -80,6 +80,7 @@
 .repeat-btn {
   width: 100%;
   padding: 10px;
+  min-height: 44px;
   margin-top: 8px;
   border: 1px dashed var(--border);
   border-radius: 10px;
@@ -196,6 +197,7 @@
 .confirm-cancel {
   flex: 1;
   padding: 10px;
+  min-height: 44px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: transparent;
@@ -207,6 +209,7 @@
 .confirm-delete {
   flex: 1;
   padding: 10px;
+  min-height: 44px;
   border: none;
   border-radius: 8px;
   background: var(--danger);

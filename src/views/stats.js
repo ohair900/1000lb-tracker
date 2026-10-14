@@ -19,6 +19,7 @@ import {
   REP_RANGES,
 } from '../constants/lift-config.js';
 import { MS_PER_DAY } from '../constants/time.js';
+import { localDateStr } from '../utils/date.js';
 import { STATS_COLLAPSED_KEY } from '../constants/storage-keys.js';
 import { BADGE_DEFINITIONS } from '../data/badges.js';
 import { bestE1RM, getTotal } from '../formulas/e1rm.js';
@@ -289,7 +290,19 @@ function renderStatsGoals(total) {
 }
 
 function renderStatsPRTimeline() {
-  if (store.prs.length === 0) return '';
+  if (store.prs.length === 0) {
+    // Guided empty state — PRs appear once you beat a previous best.
+    if (store.entries.length === 0) return '';
+    let html = statsSection('pr-timeline', 'PR Timeline', store.statsCollapsed);
+    html += `<div class="flow-empty-state flow-empty-state--compact">` +
+      `<span class="flow-empty-icon">&#127942;</span>` +
+      `<div class="flow-empty-title">No PRs yet</div>` +
+      `<p class="flow-empty-copy">PRs are detected automatically the moment you beat a ` +
+      `previous best. Log a set heavier than your best for its reps and it lands here.</p>` +
+      `<button type="button" class="flow-btn flow-btn-secondary" id="stats-pr-log">Log a set</button>` +
+      `</div>`;
+    return html + SECTION_CLOSE;
+  }
   let html = statsSection('pr-timeline', 'PR Timeline', store.statsCollapsed);
   const sorted = [...store.prs].sort((a, b) => b.timestamp - a.timestamp);
 
@@ -319,7 +332,7 @@ function renderStatsPRTimeline() {
       <div class="pr-dot" style="background:${COLORS[pr.lift]}"></div>
       <div class="pr-content">
         <div class="pr-main"><span style="color:${COLORS[pr.lift]}">${name}</span> <strong>${formatWeight(pr.e1rm)} ${store.unit}</strong> ${milestoneHtml}
-          <button class="toast-share" onclick="return false" data-share-lift="${pr.lift}" data-share-e1rm="${pr.e1rm}" data-share-date="${pr.date}" style="font-size:var(--text-xs);padding:1px 6px;vertical-align:middle">Share</button>
+          <button class="flow-btn-mini" onclick="return false" data-share-lift="${pr.lift}" data-share-e1rm="${pr.e1rm}" data-share-date="${pr.date}" style="vertical-align:middle">Share</button>
         </div>
         <div class="pr-date">${label}${gap !== null ? ` <span class="pr-gap">(${gap}d gap)</span>` : ''}</div>
       </div>
@@ -438,7 +451,7 @@ function renderStatsInsights() {
 
   // Most consistent lift
   if (store.entries.length >= 20) {
-    const last90 = new Date(Date.now() - 90 * MS_PER_DAY).toISOString().split('T')[0];
+    const last90 = localDateStr(new Date(Date.now() - 90 * MS_PER_DAY));
     const recent = store.entries.filter((e) => e.date >= last90);
     const liftFreq = {};
     LIFTS.forEach((l) => {
@@ -938,7 +951,19 @@ function renderStatsYIR() {
 export function renderStats() {
   const c = $('stats-content');
   const total = getTotal();
+  // First-run: one guided empty state instead of a wall of zeros.
+  const noData =
+    store.entries.length === 0
+      ? `<div class="flow-empty-state">` +
+        `<span class="flow-empty-icon">&#128202;</span>` +
+        `<div class="flow-empty-title">No stats yet</div>` +
+        `<p class="flow-empty-copy">Records, PRs, volume trends, and badges appear here ` +
+        `after you log. Your first set takes under a minute.</p>` +
+        `<button type="button" class="flow-btn flow-btn-primary" id="stats-empty-log">Log your first set</button>` +
+        `</div>`
+      : '';
   c.innerHTML = [
+    noData,
     // Tier 1: Hero
     renderStatsHero(total),
     // Tier 2: Progress
@@ -968,6 +993,14 @@ export function renderStats() {
 // ---------------------------------------------------------------------------
 
 function attachStatsListeners() {
+  // Empty-state CTAs — jump to the log form (one tap).
+  document
+    .getElementById('stats-empty-log')
+    ?.addEventListener('click', () => document.getElementById('tabbtn-log')?.click());
+  document
+    .getElementById('stats-pr-log')
+    ?.addEventListener('click', () => document.getElementById('tabbtn-log')?.click());
+
   // Collapsible section headers
   document.querySelectorAll('.stats-header[data-toggle]').forEach((hdr) => {
     hdr.addEventListener('click', () => {
@@ -1007,7 +1040,7 @@ function attachStatsListeners() {
       const cy = store.cycles.find((c) => c.id === id);
       if (cy) {
         cy.active = false;
-        cy.endDate = new Date().toISOString().split('T')[0];
+        cy.endDate = localDateStr();
         store.activeCycleId = null;
         store.saveCycles();
         _deps.renderCycleBar?.();
@@ -1041,24 +1074,24 @@ function attachStatsListeners() {
         if (val === 'this-month')
           return {
             start: now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01',
-            end: now.toISOString().split('T')[0],
+            end: localDateStr(),
           };
         if (val === 'last-month') {
           const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
           const lme = new Date(now.getFullYear(), now.getMonth(), 0);
-          return { start: lm.toISOString().split('T')[0], end: lme.toISOString().split('T')[0] };
+          return { start: localDateStr(lm), end: localDateStr(lme) };
         }
         if (val === 'last-30')
           return {
-            start: new Date(Date.now() - 30 * day).toISOString().split('T')[0],
-            end: now.toISOString().split('T')[0],
+            start: localDateStr(new Date(Date.now() - 30 * day)),
+            end: localDateStr(),
           };
         if (val === 'last-90')
           return {
-            start: new Date(Date.now() - 90 * day).toISOString().split('T')[0],
-            end: now.toISOString().split('T')[0],
+            start: localDateStr(new Date(Date.now() - 90 * day)),
+            end: localDateStr(),
           };
-        return { start: '2000-01-01', end: now.toISOString().split('T')[0] };
+        return { start: '2000-01-01', end: localDateStr() };
       }
       function calcPeriodStats(start, end) {
         const pe = store.entries.filter((e) => e.date >= start && e.date <= end);

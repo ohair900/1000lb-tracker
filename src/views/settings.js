@@ -49,6 +49,7 @@ import {
   attachExercisesListeners,
   resetExercisesTabState,
 } from './exercises-tab.js';
+import { renderBodyMap, initBodyMapEvents } from './body-map.js';
 
 // ---------------------------------------------------------------------------
 // Late-bound callbacks
@@ -72,9 +73,39 @@ const settingsDivider = '<hr style="border:none;border-top:1px solid var(--borde
 
 let _settingsTab = 'profile';
 
+/**
+ * INJURY FEATURE SURFACING (workstream c): the flagship injury-aware planning
+ * was unreachable in QA — this card puts it at the top of the Profile tab so
+ * a first-time user discovers it within 30 seconds of opening Settings.
+ */
+function renderInjurySummaryCard() {
+  const injuries = store.getInjuries().filter((i) => i && i.active);
+  let html = sectionLabel('Injuries & safety');
+  html += `<div class="injury-summary-card">`;
+  if (injuries.length) {
+    html += `<div class="injury-summary-chips">`;
+    for (const inj of injuries) {
+      const label = REGION_LABELS[inj.region] || inj.region;
+      const side = SIDE_LABELS[inj.side] || inj.side;
+      const sev = SEVERITY_LABELS[inj.severity] || inj.severity;
+      html += `<span class="injury-chip injury-chip--${inj.severity}">🩹 ${escapeHTML(label)} <span class="injury-chip-sub">(${escapeHTML(side)}) · ${escapeHTML(sev)}</span></span>`;
+    }
+    html += `</div>`;
+    html += `<div class="injury-summary-note">Plans, previews and coach suggestions automatically swap exercises that load these areas.</div>`;
+  } else {
+    html += `<div class="injury-summary-note">No injuries recorded — plans use the full exercise selection.</div>`;
+  }
+  html += `<button class="data-btn injury-manage-btn" id="injury-manage-btn">${injuries.length ? 'Manage injuries' : '+ Mark an injury'}</button>`;
+  html += `<div class="injury-disclaimer">Not medical advice — when in doubt, rest or see a professional.</div>`;
+  html += `</div>`;
+  return html;
+}
+
 function renderProfileTab() {
   const total = getTotal();
   let html = '';
+  html += renderInjurySummaryCard();
+  html += settingsDivider;
   html += sectionLabel('Profile');
   html += buildProfileHTML();
   html += settingsDivider;
@@ -91,36 +122,91 @@ function renderInjuryListHTML() {
   return injuries
     .map(
       (inj) => `
-    <div data-injury-id="${inj.id}" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface2);${inj.active ? '' : 'opacity:0.55'}">
+    <div data-injury-id="${escapeHTML(inj.id)}" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface2);${inj.active ? '' : 'opacity:0.55'}">
       <div style="flex:1;min-width:0">
-        <div style="font-size:var(--text-sm);font-weight:700">${REGION_LABELS[inj.region] || inj.region} <span style="font-weight:400;color:var(--text-dim)">· ${SIDE_LABELS[inj.side] || inj.side} · ${SEVERITY_LABELS[inj.severity] || inj.severity}</span></div>
+        <div style="font-size:var(--text-sm);font-weight:700">${escapeHTML(REGION_LABELS[inj.region] || inj.region)} <span style="font-weight:400;color:var(--text-dim)">· ${escapeHTML(SIDE_LABELS[inj.side] || inj.side)} · ${escapeHTML(SEVERITY_LABELS[inj.severity] || inj.severity)}</span></div>
         ${inj.onsetDate ? `<div style="font-size:var(--text-xs);color:var(--text-dim)">Since ${escapeHTML(inj.onsetDate)}</div>` : ''}
         ${inj.notes ? `<div style="font-size:var(--text-xs);color:var(--text-dim)">${escapeHTML(inj.notes)}</div>` : ''}
       </div>
-      <label class="widget-toggle" style="margin:0;white-space:nowrap"><input type="checkbox" class="injury-active" data-injury-id="${inj.id}" ${inj.active ? 'checked' : ''}> Active</label>
-      <button class="data-btn injury-delete" data-injury-id="${inj.id}" style="padding:6px 10px" aria-label="Delete injury">✕</button>
+      <label class="widget-toggle" style="margin:0;white-space:nowrap"><input type="checkbox" class="injury-active" data-injury-id="${escapeHTML(inj.id)}" ${inj.active ? 'checked' : ''}> Active</label>
+      <button class="data-btn injury-delete" data-injury-id="${escapeHTML(inj.id)}" style="padding:6px 10px" aria-label="Delete injury">✕</button>
     </div>`
     )
     .join('');
 }
 
+// ---------------------------------------------------------------------------
+// Injury composer — one-hand-friendly input (workstream c).
+// Big tappable region chips + body-map tap-to-mark + segmented severity/side.
+// Region/severity/side vocab comes from src/data/injury-map.js (same lists
+// store.saveInjuries() validates against) — never a parallel hardcoded list.
+// ---------------------------------------------------------------------------
+
+let _injuryRegion = null; // selected region chip (required before Add)
+let _injurySeverity = 'moderate';
+let _injurySide = 'both';
+
+/** Body-map muscle group → injury region. Core has no single equivalent. */
+const MUSCLE_TO_INJURY_REGION = {
+  Forearms: 'wrist',
+  Biceps: 'elbow',
+  Triceps: 'elbow',
+  Chest: 'shoulder',
+  Shoulders: 'shoulder',
+  'Upper Back': 'back',
+  'Lower Back': 'back',
+  Quads: 'knee',
+  Hams: 'knee',
+  Glutes: 'hip',
+  Calves: 'ankle',
+};
+
+/** Severity → body-map highlight color. */
+const INJURY_SEVERITY_STATUS = { mild: 'yellow', moderate: 'orange', severe: 'red' };
+
+function renderInjuryBodyMapHTML() {
+  // Highlight muscles whose region has an active injury, colored by severity.
+  const injuries = store.getInjuries().filter((i) => i && i.active);
+  const regionSeverity = {};
+  for (const inj of injuries) regionSeverity[inj.region] = inj.severity;
+  const fatigue = {};
+  for (const [muscle, region] of Object.entries(MUSCLE_TO_INJURY_REGION)) {
+    const sev = regionSeverity[region];
+    if (sev) fatigue[muscle] = { displayStatus: INJURY_SEVERITY_STATUS[sev] || 'orange' };
+  }
+  return `<div id="injury-body-map" class="injury-body-map">${renderBodyMap(fatigue)}</div>
+  <div class="injury-map-hint">Tap a body area to mark an injury — or pick a region below</div>`;
+}
+
 function renderInjuryFormHTML() {
   const today = new Date().toISOString().split('T')[0];
-  const sel = 'padding:8px 10px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--text-sm)';
-  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-      <select id="injury-region" aria-label="Injured area" style="${sel}">
-        ${INJURY_REGIONS.map((r) => `<option value="${r}">${REGION_LABELS[r]}</option>`).join('')}
-      </select>
-      <select id="injury-side" aria-label="Side" style="${sel}">
-        ${INJURY_SIDES.map((s) => `<option value="${s}">${SIDE_LABELS[s]}</option>`).join('')}
-      </select>
-      <select id="injury-severity" aria-label="Severity" style="${sel}">
-        ${INJURY_SEVERITIES.map((s) => `<option value="${s}"${s === 'moderate' ? ' selected' : ''}>${SEVERITY_LABELS[s]}</option>`).join('')}
-      </select>
-      <input id="injury-onset" type="date" aria-label="Onset date" value="${today}" max="${today}" style="${sel}">
-    </div>
-    <input id="injury-notes" placeholder="Notes (optional)" aria-label="Injury notes" style="width:100%;padding:8px 10px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:var(--text-sm);margin-bottom:8px;box-sizing:border-box">
-    <button class="data-btn" id="injury-add" style="width:100%">+ Add injury</button>`;
+  const activeRegions = new Set(
+    store.getInjuries().filter((i) => i && i.active).map((i) => i.region)
+  );
+  const chips = INJURY_REGIONS.map((r) => {
+    const active = _injuryRegion === r ? ' active' : '';
+    const dot = activeRegions.has(r) ? '<span class="injury-region-dot" aria-hidden="true"></span>' : '';
+    return `<button type="button" class="injury-region-chip${active}" data-injury-region="${r}">${dot}${REGION_LABELS[r]}</button>`;
+  }).join('');
+  const sevBtns = INJURY_SEVERITIES.map(
+    (s) =>
+      `<button type="button" class="injury-seg-btn${_injurySeverity === s ? ' active' : ''}" data-injury-severity="${s}">${SEVERITY_LABELS[s]}</button>`
+  ).join('');
+  const sideBtns = INJURY_SIDES.map(
+    (s) =>
+      `<button type="button" class="injury-seg-btn${_injurySide === s ? ' active' : ''}" data-injury-side="${s}">${SIDE_LABELS[s]}</button>`
+  ).join('');
+  return `<div class="injury-composer">
+    ${renderInjuryBodyMapHTML()}
+    <div class="injury-region-grid" role="group" aria-label="Injured area">${chips}</div>
+    <div class="injury-seg-label">Severity</div>
+    <div class="injury-seg" role="group" aria-label="Severity">${sevBtns}</div>
+    <div class="injury-seg-label">Side</div>
+    <div class="injury-seg" role="group" aria-label="Side">${sideBtns}</div>
+    <input id="injury-onset" type="date" aria-label="Onset date" value="${today}" max="${today}" class="injury-field">
+    <input id="injury-notes" placeholder="Notes (optional)" aria-label="Injury notes" class="injury-field">
+    <button class="data-btn injury-add-btn" id="injury-add">+ Add injury</button>
+  </div>`;
 }
 
 function renderPrefsTab() {
@@ -140,10 +226,13 @@ function renderPrefsTab() {
   });
   html += settingsDivider;
   html += settingsDivider;
+  html += `<div id="injury-section-anchor">`;
   html += sectionLabel('Injuries');
-  html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:10px">Plans and suggestions automatically route around injured areas</div>`;
+  html += `<div class="injury-disclaimer">Not medical advice — when in doubt, rest or see a professional.</div>`;
+  html += `<div style="font-size:var(--text-xs);color:var(--text-dim);margin-bottom:10px">Tap the body map or a region, set severity and side, then add — plans and suggestions automatically route around injured areas.</div>`;
   html += renderInjuryListHTML();
   html += renderInjuryFormHTML();
+  html += `</div>`;
   html += sectionLabel('Dashboard Widgets');
   html += `<label class="widget-toggle"><input type="checkbox" data-widget="ratios" ${store.dashboardWidgets.ratios ? 'checked' : ''}> Strength Ratios</label>
     <label class="widget-toggle"><input type="checkbox" data-widget="fatigue" ${store.dashboardWidgets.fatigue ? 'checked' : ''}> Fatigue Indicator</label>
@@ -277,6 +366,9 @@ export function buildExportData() {
     equipmentProfile: store.equipmentProfile,
     reasonTagCounts: store.reasonTagCounts,
     deletedEntryIds: store._deletedEntryRecords,
+    // Injury profile — previously dropped from backups, silently losing the
+    // user's injury setup on restore (workstream c fix).
+    injuries: store.getInjuries(),
   };
 }
 
@@ -358,6 +450,7 @@ export function validateImportData(data) {
     'customAccessories',
     'disabledAccessories',
     'deletedEntryIds',
+    'injuries',
   ];
   for (const f of arrayFields) {
     if (data[f] !== undefined && !Array.isArray(data[f])) {
@@ -467,6 +560,9 @@ export function applyImportData(data) {
   if (data.reasonTagCounts) {
     store.reasonTagCounts = data.reasonTagCounts;
     store.saveReasonTagCounts();
+  }
+  if (Array.isArray(data.injuries)) {
+    store.saveInjuries(data.injuries);
   }
   if (Array.isArray(data.deletedEntryIds)) {
     store._deletedEntryRecords = data.deletedEntryIds;
@@ -652,25 +748,83 @@ export function attachSettingsListeners() {
     attachSettingsListeners();
     _settingsTab = prevTab;
   };
+  // Injury composer — region chips / severity / side (workstream c)
+  body.querySelectorAll('[data-injury-region]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      _injuryRegion = chip.dataset.injuryRegion;
+      body
+        .querySelectorAll('[data-injury-region]')
+        .forEach((c) => c.classList.toggle('active', c === chip));
+    });
+  });
+  body.querySelectorAll('[data-injury-severity]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      _injurySeverity = btn.dataset.injurySeverity;
+      body
+        .querySelectorAll('[data-injury-severity]')
+        .forEach((b) => b.classList.toggle('active', b === btn));
+    });
+  });
+  body.querySelectorAll('[data-injury-side]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      _injurySide = btn.dataset.injurySide;
+      body
+        .querySelectorAll('[data-injury-side]')
+        .forEach((b) => b.classList.toggle('active', b === btn));
+    });
+  });
+  // Body-map tap-to-mark: tapping a muscle selects the mapped injury region.
+  const injMapEl = body.querySelector('#injury-body-map .body-map-container');
+  if (injMapEl) {
+    initBodyMapEvents(injMapEl, (muscle) => {
+      const region = MUSCLE_TO_INJURY_REGION[muscle];
+      if (!region) {
+        showToast('Core has no single injury region — pick one below');
+        return;
+      }
+      _injuryRegion = region;
+      body
+        .querySelectorAll('[data-injury-region]')
+        .forEach((c) => c.classList.toggle('active', c.dataset.injuryRegion === region));
+      showToast(`${REGION_LABELS[region]} selected — set severity, then Add`);
+    });
+  }
   const injuryAddBtn = body.querySelector('#injury-add');
   if (injuryAddBtn) {
     injuryAddBtn.addEventListener('click', () => {
-      const region = body.querySelector('#injury-region')?.value;
-      if (!region) return;
+      if (!_injuryRegion) {
+        showToast('Pick a body region first');
+        return;
+      }
       const injuries = store.getInjuries();
       injuries.push({
         id: generateId(),
-        region,
-        side: body.querySelector('#injury-side')?.value || 'both',
-        severity: body.querySelector('#injury-severity')?.value || 'moderate',
+        region: _injuryRegion,
+        side: _injurySide,
+        severity: _injurySeverity,
         onsetDate: body.querySelector('#injury-onset')?.value || '',
         notes: (body.querySelector('#injury-notes')?.value || '').trim(),
         active: true,
       });
       store.saveInjuries(injuries);
       scheduleCloudSync();
+      _injuryRegion = null;
       showToast('Injury added — plans will route around it');
       rerenderSettings();
+      _deps.updateDashboard?.();
+    });
+  }
+  // Profile-tab injury card → jump to the Prefs injury section
+  const injuryManageBtn = body.querySelector('#injury-manage-btn');
+  if (injuryManageBtn) {
+    injuryManageBtn.addEventListener('click', () => {
+      const prefsTabBtn = body.querySelector('[data-settings-tab="prefs"]');
+      if (prefsTabBtn) prefsTabBtn.click();
+      requestAnimationFrame(() => {
+        document
+          .querySelector('#injury-section-anchor')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     });
   }
   body.querySelectorAll('.injury-delete').forEach((btn) => {
@@ -678,6 +832,7 @@ export function attachSettingsListeners() {
       store.saveInjuries(store.getInjuries().filter((i) => i.id !== btn.dataset.injuryId));
       scheduleCloudSync();
       rerenderSettings();
+      _deps.updateDashboard?.();
     });
   });
   body.querySelectorAll('.injury-active').forEach((cb) => {
@@ -689,6 +844,7 @@ export function attachSettingsListeners() {
       scheduleCloudSync();
       showToast(cb.checked ? 'Injury marked active' : 'Injury marked inactive');
       rerenderSettings();
+      _deps.updateDashboard?.();
     });
   });
 
@@ -773,6 +929,7 @@ export function attachSettingsListeners() {
     store.activeMesocycle = null;
     store.mesocycleHistory = [];
     store.setLeaderboardOptIn(false);
+    store.saveInjuries([]);
     store.accessoryOverrides = {};
     store.customAccessories = [];
     store.disabledAccessories = [];
@@ -821,14 +978,29 @@ export function attachSettingsListeners() {
  * Set up the gear button click handler and import-file change handler.
  * Call once after DOMContentLoaded.
  */
-export function openSettings() {
+/**
+ * Open the settings modal. `initialTab` allows deep-linking (e.g. the
+ * dashboard injury banner opens straight at Prefs → Injuries). Defaults to
+ * 'profile' — existing callers (gear button) are unaffected.
+ */
+export function openSettings(initialTab = 'profile') {
   store.clearConfirm = false;
-  _settingsTab = 'profile';
+  _settingsTab = initialTab;
+  _injuryRegion = null;
+  _injurySeverity = 'moderate';
+  _injurySide = 'both';
   resetExercisesTabState();
   const body = $('settings-body');
   body.innerHTML = renderSettingsBody();
   openModal('settings-modal');
   attachSettingsListeners();
+  if (initialTab === 'prefs') {
+    requestAnimationFrame(() => {
+      document
+        .querySelector('#injury-section-anchor')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
   if (!isRouterResolving())
     pushRoute('#settings', 'settings', () => {
       closeModal('settings-modal');

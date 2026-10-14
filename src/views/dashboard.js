@@ -5,7 +5,7 @@
  */
 
 import store from '../state/store.js';
-import { $ } from '../utils/helpers.js';
+import { $, escapeHTML } from '../utils/helpers.js';
 import { fmtNum, ensureChild } from '../utils/helpers.js';
 import { LIFTS, COLORS, LIFT_SHORT, LIFT_NAMES } from '../constants/lift-config.js';
 import {
@@ -41,6 +41,7 @@ import { openReviewSheet, closeReviewSheet, openRecapSheet, closeRecapSheet } fr
 import { enableSheetSwipeDismiss } from '../ui/sheet.js';
 import { checkBadges } from '../systems/badges.js';
 import { shareMilestoneCard } from '../ui/share.js';
+import { REGION_LABELS, SIDE_LABELS, SEVERITY_LABELS } from '../data/injury-map.js';
 
 // ---------------------------------------------------------------------------
 // Shared constants
@@ -992,6 +993,60 @@ export function initFatigueSheetListeners() {
 }
 
 // ---------------------------------------------------------------------------
+// Injury banner — INJURY FEATURE SURFACING (workstream c).
+// Clearly-separated region owned by workstream c; keep out of the card
+// updaters above. Surfaces active injuries on the main dashboard so the
+// feature is visible without opening Settings, and deep-links into
+// Settings → Prefs → Injuries on tap.
+// ---------------------------------------------------------------------------
+
+/**
+ * Render (or remove) the injury banner at the top of the log tab.
+ * Exported for testing; called from updateDashboard().
+ */
+export function renderInjuryBanner() {
+  const tab = $('tab-log');
+  if (!tab) return;
+  const injuries =
+    typeof store.getInjuries === 'function'
+      ? store.getInjuries().filter((i) => i && i.active)
+      : [];
+  let banner = tab.querySelector('#injury-banner');
+  if (!injuries.length) {
+    if (banner) banner.remove();
+    return;
+  }
+  if (!banner) {
+    banner = document.createElement('button');
+    banner.type = 'button';
+    banner.id = 'injury-banner';
+    banner.className = 'injury-banner';
+    banner.setAttribute('aria-label', 'Manage injuries in Settings');
+    const anchor = tab.querySelector('.dashboard');
+    if (anchor) tab.insertBefore(banner, anchor);
+    else tab.prepend(banner);
+  }
+  const chips = injuries
+    .map((inj) => {
+      const label = escapeHTML(REGION_LABELS[inj.region] || inj.region);
+      const side = escapeHTML(SIDE_LABELS[inj.side] || inj.side);
+      const sev = escapeHTML(SEVERITY_LABELS[inj.severity] || inj.severity);
+      return `🩹 ${label} (${side}) · ${sev}`;
+    })
+    .join(' &nbsp; ');
+  banner.innerHTML =
+    `<span class="injury-banner-text"><strong>Training around:</strong> ${chips}</span>` +
+    `<span class="injury-banner-cta">Manage →</span>`;
+  if (!banner._injuryBound) {
+    banner._injuryBound = true;
+    banner.addEventListener('click', () => {
+      // Dynamic import avoids any import cycle with settings.js.
+      import('./settings.js').then((m) => m.openSettings('prefs'));
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main updateDashboard()
 // ---------------------------------------------------------------------------
 
@@ -1015,4 +1070,50 @@ export function updateDashboard() {
   updatePlateauCards();
   checkAndCelebrateMilestone();
   checkBadges();
+  // INJURY FEATURE SURFACING (workstream c) — see renderInjuryBanner above.
+  renderInjuryBanner();
+  // FLOW OVERHAUL (workstream d) — see renderFlowDashEmpty at the end of file.
+  renderFlowDashEmpty();
+}
+
+// ===========================================================================
+// WORKSTREAM D — Mobile-first flow overhaul: dashboard empty state
+// First-run banner shown when no entries exist yet. One clear CTA that
+// jumps to the log form. Removes itself once the first set is logged.
+// (Injury banner / date logic live above; this region is layout-only.)
+// ===========================================================================
+
+const FLOW_DASH_EMPTY_ID = 'flow-dash-empty';
+
+function _flowGoToLogForm() {
+  const tabBtn = document.getElementById('tabbtn-log');
+  if (tabBtn) tabBtn.click();
+  const input = document.getElementById('input-weight');
+  if (input) input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/**
+ * Render (or remove) the first-run dashboard banner.
+ * Called from updateDashboard() so it reacts to the first logged set.
+ */
+export function renderFlowDashEmpty() {
+  const tabs = document.querySelector('.tabs');
+  let el = document.getElementById(FLOW_DASH_EMPTY_ID);
+  if (store.entries.length > 0) {
+    if (el) el.remove();
+    return;
+  }
+  if (!tabs) return;
+  if (!el) {
+    el = document.createElement('div');
+    el.id = FLOW_DASH_EMPTY_ID;
+    el.className = 'flow-dash-empty';
+    el.innerHTML =
+      `<div class="flow-empty-title">Your dashboard is empty</div>` +
+      `<div class="flow-empty-copy">Log your first set and this space fills with your ` +
+      `e1RM, goals, trends, and PRs.</div>` +
+      `<button type="button" class="flow-btn flow-btn-primary" id="flow-dash-empty-cta">Log your first set</button>`;
+    el.querySelector('#flow-dash-empty-cta').addEventListener('click', _flowGoToLogForm);
+    tabs.parentElement.insertBefore(el, tabs);
+  }
 }

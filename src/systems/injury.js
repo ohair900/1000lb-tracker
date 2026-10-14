@@ -46,6 +46,8 @@ import { resolveCanonicalId } from '../data/exercise-compat.js';
  * @returns {Object[]} Array of { id, region, side, severity, onsetDate, notes, active }
  */
 export function getActiveInjuries() {
+  // Defensive: some test doubles / partial store shapes omit getInjuries.
+  if (typeof store.getInjuries !== 'function') return [];
   return store.getInjuries().filter((i) => i && i.active);
 }
 

@@ -20,6 +20,7 @@
 
 import store from './store.js';
 import { generateId } from '../utils/helpers.js';
+import { localDateStr } from '../utils/date.js';
 import { emit } from '../ui/events.js';
 
 // ---------------------------------------------------------------------------
@@ -60,7 +61,7 @@ export function addEntry(lift, weight, reps, rpe, notes, tags) {
     weight,
     reps,
     e1rm,
-    date: now.toISOString().split('T')[0],
+    date: localDateStr(now),
     timestamp: now.getTime(),
     rpe,
     notes: notes || '',

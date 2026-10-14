@@ -6,7 +6,7 @@
 
 import store from '../state/store.js';
 import { MS_PER_DAY } from '../constants/time.js';
-import { getWeekKey } from '../utils/date.js';
+import { getWeekKey, localDateStr } from '../utils/date.js';
 
 /**
  * Calculate training streak statistics from the entry log.
@@ -20,7 +20,9 @@ import { getWeekKey } from '../utils/date.js';
 export function calcStreak() {
   const accDates = (store.accessoryLog || [])
     .filter((l) => l.setsCompleted && l.setsCompleted.length > 0)
-    .map((l) => l.date);
+    // Derive the local day from the timestamp: accessory rows stamped by
+    // older code carry UTC date strings, which skew evening sessions.
+    .map((l) => (l.timestamp ? localDateStr(new Date(l.timestamp)) : l.date));
   const allDates = [...store.entries.map((e) => e.date), ...accDates];
   if (allDates.length === 0) return null;
 
@@ -29,7 +31,7 @@ export function calcStreak() {
   const dayDiff = (a, b) =>
     Math.round((new Date(a + 'T12:00:00') - new Date(b + 'T12:00:00')) / MS_PER_DAY);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
 
   // Current streak
   let current = 0;

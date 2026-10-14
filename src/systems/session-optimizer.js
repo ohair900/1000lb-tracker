@@ -28,6 +28,8 @@ import { MAIN_LIFT_WEIGHTS } from '../data/muscle-groups.js';
 import { EXERCISE_CATALOG } from '../data/exercise-catalog.js';
 import { resolveExercise } from '../data/exercise-compat.js';
 import { roundToPlate } from '../formulas/plates.js';
+import { substituteExercise } from './injury.js';
+import { REGION_LABELS } from '../data/injury-map.js';
 
 // ---------------------------------------------------------------------------
 // Pre-session plan generation
@@ -210,16 +212,62 @@ export function generateSessionPlan(lift, session) {
         }
       }
 
+      // Injury-aware: run the suggested exercise through the substitution
+      // pipeline. Severe injuries drop the suggestion entirely (rest the
+      // pattern); mild/moderate swap to the region-safe alternative so the
+      // coach never recommends a movement that loads an injured area.
+      // No active injuries → substituteExercise is a no-op and everything
+      // below behaves exactly as before.
+      const injSub = substituteExercise(gap.suggestedExercise.id);
+      if (injSub.dropped) {
+        const regionLabel = (REGION_LABELS[injSub.injuryRegion] || injSub.injuryRegion || '')
+          .toLowerCase();
+        insights.push({
+          priority: 3,
+          type: 'gap',
+          icon: 'gap',
+          text: `Skipped ${gap.suggestedExercise.name} — your ${regionLabel} injury is severe, so this movement pattern is resting instead.`,
+        });
+        return;
+      }
+      let swapInjury = null;
+      let suggestedId = gap.suggestedExercise.id || null;
+      let suggestedName = gap.suggestedExercise.name;
+      if (injSub.substituted) {
+        const safeName = resolveExercise(injSub.exerciseId)?.name || injSub.exerciseId;
+        const regionLabel = (REGION_LABELS[injSub.injuryRegion] || injSub.injuryRegion || '')
+          .toLowerCase();
+        swapInjury = {
+          kind: 'swapped',
+          region: injSub.injuryRegion,
+          regionLabel,
+          from: gap.suggestedExercise.name,
+          to: safeName,
+          reason: injSub.reason,
+        };
+        suggestedId = injSub.exerciseId;
+        suggestedName = safeName;
+      } else if (injSub.reason) {
+        const regionLabel = (REGION_LABELS[injSub.injuryRegion] || injSub.injuryRegion || '')
+          .toLowerCase();
+        swapInjury = {
+          kind: 'flagged',
+          region: injSub.injuryRegion,
+          regionLabel,
+          reason: injSub.reason,
+        };
+      }
+
       // Coach recommends ADDING an exercise to fill the gap — the workout
       // grows to be complete rather than shuffling existing accessories.
       let text;
       if (gap.muscleGroup) {
         const shortReason = gap.message.replace(`${gap.muscleGroup}: `, '').trim();
-        text = `Add ${gap.suggestedExercise.name} — ${gap.muscleGroup.toLowerCase()} ${isAre(gap.muscleGroup)} ${shortReason}.`;
+        text = `Add ${suggestedName} — ${gap.muscleGroup.toLowerCase()} ${isAre(gap.muscleGroup)} ${shortReason}.`;
       } else if (gap.type === 'ratio') {
-        text = `Add ${gap.suggestedExercise.name} — more pulling needed (${gap.message}).`;
+        text = `Add ${suggestedName} — more pulling needed (${gap.message}).`;
       } else {
-        text = `Add ${gap.suggestedExercise.name}. ${gap.message}.`;
+        text = `Add ${suggestedName}. ${gap.message}.`;
       }
 
       insights.push({
@@ -231,10 +279,11 @@ export function generateSessionPlan(lift, session) {
         swapIndex: accessorySwaps.length,
       });
       accessorySwaps.push({
-        suggestedId: gap.suggestedExercise.id || null,
-        suggestedName: gap.suggestedExercise.name,
+        suggestedId,
+        suggestedName,
         reason: gap.message,
         muscleGroup: gap.muscleGroup || 'Upper Back',
+        _injury: swapInjury,
       });
     });
   }

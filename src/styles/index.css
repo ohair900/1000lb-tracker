@@ -15,6 +15,7 @@
 @import './components/toast.css';
 @import './components/overlays.css';
 @import './components/confirm-sheet.css';
+@import './components/flow.css';
 
 /* Features */
 @import './features/dashboard.css';
@@ -40,6 +41,7 @@
 @import './features/body-map.css';
 @import './features/coach.css';
 @import './features/travel-sheet.css';
+@import './features/injury.css';
 
 /* Utilities & Animations */
 @import './utilities.css';

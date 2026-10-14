@@ -12,9 +12,20 @@ import { PROGRAM_TEMPLATES } from '../data/programs.js';
 import { isLiftComplete } from '../systems/programs.js';
 import { isSplitActive, getSplitDay } from '../systems/split-plan.js';
 import { showToast } from '../ui/toast.js';
-import { closeChoiceSheet } from '../ui/sheet.js';
-import { joinSharedWorkout, subscribeSharedWorkout } from '../firebase/shared-workout.js';
+import { openSheet, closeSheet, closeChoiceSheet } from '../ui/sheet.js';
+import { currentUser } from '../firebase/auth.js';
+import {
+  joinSharedWorkout,
+  subscribeSharedWorkout,
+  normalizeShareCode,
+  savePendingJoinCode,
+  clearPendingJoinCode,
+  fetchSharedWorkout,
+  ShareJoinError,
+} from '../firebase/shared-workout.js';
 import { confirmSheet } from '../ui/confirm-sheet.js';
+import { trapFocus, releaseFocus } from '../ui/focus-trap.js';
+import { formatWeight } from '../formulas/units.js';
 import { getAccessoryWeight, computeSetWeights } from '../systems/workout-builder.js';
 import { bestE1RM } from '../formulas/e1rm.js';
 import { roundToPlate } from '../formulas/plates.js';
@@ -538,86 +549,428 @@ function _scaleSessionForPartner(hostPayload, mainLift, shareInfo) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Join shared workout flow
+//
+// Fully async — no native prompt()/confirm() anywhere in this flow.
+// The code-entry sheet is static markup in index.src.html; the recipient
+// preview sheet is built dynamically (confirm-sheet lifecycle pattern).
+// ---------------------------------------------------------------------------
+
+let _sharedFlowBusy = false;
+let _codeSheetWired = false;
+let _activePreview = null;
+
 /**
- * Handle the "Join shared workout" flow:
- * - Check active session conflict (save to templates / discard / cancel)
- * - Prompt for 6-char code
- * - Join the Firestore doc and build partner session
- * - Subscribe to real-time updates
+ * Entry point for joining a shared workout with a KNOWN code
+ * (from a ?join= link, a #workout/CODE link, or the auth-restore hook).
+ * Never throws; never loses the pending code on non-terminal failures.
+ * @param {string} prefillCode
  */
 export async function joinSharedWorkoutFlow(prefillCode) {
-  return _handleJoinShared(prefillCode);
+  try {
+    await _beginJoinFlow(prefillCode);
+  } catch (err) {
+    console.error('[shared] join flow failed:', err);
+    showToast('Could not join: ' + (err?.message || err));
+  }
 }
 
-async function _handleJoinShared(prefillCode) {
-  // Check for active session conflict
-  if (store.workoutSession && !store.workoutSession.completed) {
-    const proceed = await confirmSheet({
-      title: 'You have an active workout',
-      body: 'Leave it to join a shared workout?',
-      confirmLabel: 'Leave',
-      cancelLabel: 'Cancel',
-      tone: 'danger',
-    });
-    if (!proceed) return;
+/**
+ * Core join flow: validate code → signed-in check → active-session conflict
+ * check → recipient preview sheet → "Train along" seeds a local session.
+ * @param {string} prefillCode
+ */
+async function _beginJoinFlow(prefillCode) {
+  if (_sharedFlowBusy) return;
+  const code = normalizeShareCode(prefillCode);
+  if (!code) return;
 
-    // Offer to save as template
-    const save = await confirmSheet({
-      title: 'Save your workout first?',
-      body: 'Save it as a template so you can resume later.',
-      confirmLabel: 'Save template',
-      cancelLabel: 'Discard it',
-      tone: 'primary',
-    });
-    if (save) {
-      const sess = store.workoutSession;
-      const date = sess.date || new Date().toISOString().split('T')[0];
-      store.customTemplates.push({
-        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-        name: `Resumed ${LIFT_NAMES[sess.mainLift] || sess.mainLift} — ${date}`,
-        mainLift: sess.mainLift,
-        createdAt: Date.now(),
-        lastUsed: null,
-        exercises: (sess.accessories || []).map((a) => ({
-          type: 'accessory',
-          exerciseId: a.exerciseId,
-          name: a.name,
-          sets: a.targetSets,
-          reps: a.repRange?.[1] ?? 10,
-          weightMode: 'auto',
-          weightValue: a.setWeights?.[a.setWeights.length - 1] ?? 0,
-          equipment: a.equipment || 'barbell',
-          repRange: a.repRange || [8, 12],
-          order: 0,
-          slotRole: 'accessory',
-          reasons: [],
-        })),
-      });
-      store.saveCustomTemplates();
-      showToast('Workout saved to templates');
-    }
-    store.workoutSession = null;
-    store._sessionOptimizer = null;
-    store.saveNow('workoutSession');
-  }
-
-  // Prompt for share code (or use pre-filled code from URL param)
-  const code = prefillCode || prompt('Enter the 6-character share code:');
-  if (!code || !code.trim()) return;
-
+  _sharedFlowBusy = true;
   try {
-    const joinInfo = await joinSharedWorkout(code.trim());
-    const session = _scaleSessionForPartner(joinInfo.session, joinInfo.mainLift, joinInfo);
-    store.workoutSession = session;
-    store.saveNow('workoutSession');
-
-    // Subscribe to real-time updates — the onSharedWorkoutUpdate callback is
-    // exported from workout-overlay.js and injected via setChoiceSheetDeps
-    subscribeSharedWorkout(joinInfo.code, _deps.onSharedWorkoutUpdate);
-
-    _deps.openWorkoutView?.(joinInfo.mainLift);
-    showToast(`Joined ${joinInfo.hostName}'s workout!`);
-  } catch (err) {
-    showToast('Could not join: ' + (err.message || err));
+    // Logged-out recipient: non-blocking nudge. The code stays in
+    // sessionStorage so the auth-restore hook runs the join after sign-in.
+    if (!currentUser) {
+      savePendingJoinCode(code);
+      showToast('Sign in to join this shared workout');
+      return;
+    }
+    const canLeave = await _ensureCanLeaveActiveSession();
+    if (!canLeave) {
+      clearPendingJoinCode();
+      return;
+    }
+    const outcome = await _openSharedPreviewSheet(code);
+    // Terminal outcomes clear the pending code; only a signed-out mid-flow
+    // keeps it (the restore hook re-runs the join after sign-in).
+    if (outcome !== 'signed-out') clearPendingJoinCode();
+  } finally {
+    _sharedFlowBusy = false;
   }
+}
+
+/**
+ * "Join Shared Workout" card tap: conflict check first, then the in-app
+ * code-entry sheet (replaces the old native prompt()).
+ */
+async function _handleJoinShared() {
+  const canLeave = await _ensureCanLeaveActiveSession();
+  if (!canLeave) return;
+  openCodeEntrySheet();
+}
+
+/**
+ * Active-session conflict check: offer to save the in-progress workout as a
+ * template before leaving it. Returns false when the user cancels.
+ */
+async function _ensureCanLeaveActiveSession() {
+  if (!store.workoutSession || store.workoutSession.completed) return true;
+
+  const proceed = await confirmSheet({
+    title: 'You have an active workout',
+    body: 'Leave it to join a shared workout?',
+    confirmLabel: 'Leave',
+    cancelLabel: 'Cancel',
+    tone: 'danger',
+  });
+  if (!proceed) return false;
+
+  // Offer to save as template
+  const save = await confirmSheet({
+    title: 'Save your workout first?',
+    body: 'Save it as a template so you can resume later.',
+    confirmLabel: 'Save template',
+    cancelLabel: 'Discard it',
+    tone: 'primary',
+  });
+  if (save) {
+    const sess = store.workoutSession;
+    const date = sess.date || new Date().toISOString().split('T')[0];
+    store.customTemplates.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name: `Resumed ${LIFT_NAMES[sess.mainLift] || sess.mainLift} — ${date}`,
+      mainLift: sess.mainLift,
+      createdAt: Date.now(),
+      lastUsed: null,
+      exercises: (sess.accessories || []).map((a) => ({
+        type: 'accessory',
+        exerciseId: a.exerciseId,
+        name: a.name,
+        sets: a.targetSets,
+        reps: a.repRange?.[1] ?? 10,
+        weightMode: 'auto',
+        weightValue: a.setWeights?.[a.setWeights.length - 1] ?? 0,
+        equipment: a.equipment || 'barbell',
+        repRange: a.repRange || [8, 12],
+        order: 0,
+        slotRole: 'accessory',
+        reasons: [],
+      })),
+    });
+    store.saveCustomTemplates();
+    showToast('Workout saved to templates');
+  }
+  store.workoutSession = null;
+  store._sessionOptimizer = null;
+  store.saveNow('workoutSession');
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Code-entry sheet (static markup in index.src.html)
+// ---------------------------------------------------------------------------
+
+function _wireCodeEntrySheet() {
+  if (_codeSheetWired) return;
+  _codeSheetWired = true;
+  const input = $('code-entry-input');
+  // Uppercase auto-format: strip non-alphanumerics, cap at 6 chars.
+  input.addEventListener('input', () => {
+    const clean = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    if (input.value !== clean) input.value = clean;
+    _hideCodeEntryError();
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      _submitCodeEntry();
+    }
+  });
+  $('code-entry-join').addEventListener('click', _submitCodeEntry);
+  $('code-entry-cancel').addEventListener('click', closeCodeEntrySheet);
+  $('code-entry-close').addEventListener('click', closeCodeEntrySheet);
+  $('code-entry-backdrop').addEventListener('click', closeCodeEntrySheet);
+}
+
+/** Open the in-app code-entry sheet and focus the input. */
+export function openCodeEntrySheet() {
+  _wireCodeEntrySheet();
+  const input = $('code-entry-input');
+  input.value = '';
+  _hideCodeEntryError();
+  openSheet('code-entry-sheet', 'code-entry-backdrop');
+  // Focus after the sheet animates in so the mobile keyboard opens.
+  setTimeout(() => input.focus(), 80);
+}
+
+export function closeCodeEntrySheet() {
+  closeSheet('code-entry-sheet', 'code-entry-backdrop');
+}
+
+function _hideCodeEntryError() {
+  const err = $('code-entry-error');
+  if (err) {
+    err.textContent = '';
+    err.style.display = 'none';
+  }
+}
+
+function _submitCodeEntry() {
+  const input = $('code-entry-input');
+  const code = normalizeShareCode(input.value);
+  if (!code) {
+    const err = $('code-entry-error');
+    err.textContent = 'Codes are 6 letters/numbers — check the code and try again.';
+    err.style.display = 'block';
+    input.focus();
+    return;
+  }
+  closeCodeEntrySheet();
+  // Fire and forget: _beginJoinFlow is guarded and never rejects outwardly.
+  _beginJoinFlow(code).catch((err) => {
+    console.error('[shared] code-entry join failed:', err);
+    showToast('Could not join: ' + (err?.message || err));
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Recipient preview sheet (dynamic DOM, confirm-sheet lifecycle pattern)
+// ---------------------------------------------------------------------------
+
+function _dismissPreviewSheet(outcome = 'dismissed') {
+  if (_activePreview) _activePreview.dismiss(outcome);
+}
+
+/**
+ * Open the recipient preview sheet for a shared workout code.
+ * States: loading skeleton → loaded (exercise list, sets/reps/weights, host
+ * name, "Train along" CTA) → error states (invalid/expired with an
+ * "enter a different code" action; network failure with Retry).
+ * The join path is bounded: fetchSharedWorkout races a 10s timeout, retries
+ * are user-initiated only — no unbounded loops, no await-without-timeout.
+ *
+ * @param {string} code - normalized 6-char share code
+ * @returns {Promise<'started'|'invalid'|'dismissed'|'signed-out'>}
+ */
+function _openSharedPreviewSheet(code) {
+  // Only one preview at a time; the previous one resolves as dismissed.
+  _dismissPreviewSheet('dismissed');
+
+  return new Promise((resolve) => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'sheet-backdrop shared-preview-backdrop';
+
+    const sheet = document.createElement('div');
+    sheet.className = 'sheet-panel shared-preview-sheet';
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-modal', 'true');
+    sheet.setAttribute('aria-label', 'Shared workout');
+    sheet.innerHTML = `
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h3>Shared Workout</h3>
+        <button class="modal-close" type="button" id="shared-preview-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="sheet-body" id="shared-preview-body"></div>
+    `;
+
+    document.body.appendChild(backdrop);
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+
+    let settled = false;
+    const dismiss = (outcome = 'dismissed') => {
+      if (settled) return;
+      settled = true;
+      _activePreview = null;
+      releaseFocus(sheet);
+      backdrop.remove();
+      sheet.remove();
+      if (!document.querySelector('.sheet-panel')) document.body.style.overflow = '';
+      resolve(outcome);
+    };
+    _activePreview = { dismiss };
+
+    $('shared-preview-close').addEventListener('click', () => dismiss('dismissed'));
+    backdrop.addEventListener('click', () => dismiss('dismissed'));
+    // Escape dismisses via the focus trap.
+    trapFocus(sheet, () => dismiss('dismissed'));
+
+    _loadPreview(code, $('shared-preview-body'), dismiss);
+  });
+}
+
+async function _loadPreview(code, body, dismiss) {
+  _renderPreviewSkeleton(body);
+  let info;
+  try {
+    info = await fetchSharedWorkout(code);
+  } catch (err) {
+    if (err instanceof ShareJoinError && err.kind === 'signed-out') {
+      savePendingJoinCode(code);
+      showToast('Sign in to join this shared workout');
+      dismiss('signed-out');
+      return;
+    }
+    _renderPreviewError(body, err, () => _loadPreview(code, body, dismiss), dismiss);
+    return;
+  }
+
+  // Self-tap: the host opened their own link — never join as a partner.
+  if (info.hostUid && currentUser && info.hostUid === currentUser.uid) {
+    dismiss('dismissed');
+    showToast('That\u2019s your own share link — you\u2019re the host');
+    if (store.workoutSession?.shared?.code === code) {
+      _deps.openWorkoutView?.(info.mainLift);
+    }
+    return;
+  }
+
+  _renderPreviewLoaded(body, info, dismiss);
+}
+
+function _renderPreviewSkeleton(body) {
+  body.innerHTML = `
+    <div class="shared-preview-skel" aria-label="Loading shared workout">
+      <div class="skel-line skel-w60"></div>
+      <div class="skel-line skel-w40"></div>
+      <div class="skel-card"></div>
+      <div class="skel-card"></div>
+      <div class="skel-card"></div>
+    </div>
+  `;
+}
+
+function _renderPreviewLoaded(body, info, dismiss) {
+  const session = info.session || {};
+  const mainSets = session.mainSets || [];
+  const bbbSets = session.bbbSets || [];
+  const accessories = session.accessories || [];
+  const liftName = LIFT_NAMES[info.mainLift] || info.mainLift || 'Workout';
+  const totalSets = mainSets.length + bbbSets.length;
+  const exCount = accessories.length + (mainSets.length > 0 ? 1 : 0);
+
+  const fmtSet = (s) => {
+    const w = s._hostWeight != null ? formatWeight(s._hostWeight) + ' ' + store.unit : '';
+    const pct = s.pct != null ? ` · ${s.pct}%` : '';
+    return `Set ${s.num ?? ''} — ${w} × ${s.reps ?? ''}${pct}`;
+  };
+  const setRow = (s, tier) =>
+    `<div class="shared-ex-row"><span class="shared-ex-name">${escapeHTML(liftName)}${
+      tier ? ' · ' + escapeHTML(tier) : ''
+    }</span><span class="shared-ex-detail">${escapeHTML(fmtSet(s))}</span></div>`;
+
+  let listHtml = '';
+  mainSets.forEach((s) => {
+    listHtml += setRow(s, s.tier);
+  });
+  bbbSets.forEach((s) => {
+    listHtml += setRow(s, s.tier || 'BBB');
+  });
+  accessories.forEach((a) => {
+    const rr = Array.isArray(a.repRange) ? a.repRange.join('–') : '';
+    listHtml += `<div class="shared-ex-row"><span class="shared-ex-name">${escapeHTML(
+      a.name || a.exerciseId
+    )}</span><span class="shared-ex-detail">${escapeHTML(
+      `${a.targetSets ?? ''} × ${rr}`
+    )}</span></div>`;
+  });
+
+  body.innerHTML = `
+    <div class="shared-host-line"><span class="shared-host-icon">&#128170;</span><span><strong>${escapeHTML(
+      info.hostName
+    )}</strong> shared a ${escapeHTML(liftName)} workout</span></div>
+    <div class="shared-stat-row">
+      <div class="shared-stat"><div class="shared-stat-val">${exCount}</div><div class="shared-stat-label">Exercises</div></div>
+      <div class="shared-stat"><div class="shared-stat-val">${totalSets}</div><div class="shared-stat-label">Main sets</div></div>
+      <div class="shared-stat"><div class="shared-stat-val">${
+        accessories.length
+      }</div><div class="shared-stat-label">Accessories</div></div>
+    </div>
+    <div class="shared-ex-list">${
+      listHtml || '<div class="shared-ex-empty">No exercises listed.</div>'
+    }</div>
+    <div class="shared-scale-note">Weights scale to your training maxes when you train along.</div>
+    <button class="shared-train-btn" type="button" id="shared-train-along">Train along</button>
+    <button class="shared-dismiss-btn" type="button" id="shared-not-now">Not now</button>
+  `;
+
+  $('shared-not-now').addEventListener('click', () => dismiss('dismissed'));
+  $('shared-train-along').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.textContent = 'Joining…';
+    try {
+      await _startTrainingFromShared(info);
+      dismiss('started');
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Train along';
+      showToast('Could not join: ' + (err?.message || err));
+    }
+  });
+}
+
+function _renderPreviewError(body, err, retry, dismiss) {
+  const kind = err instanceof ShareJoinError ? err.kind : 'network';
+  const isInvalid = kind === 'invalid' || kind === 'finished';
+  const title = isInvalid ? 'This link is invalid or expired' : 'Couldn\u2019t load this workout';
+  const detail =
+    err?.message ||
+    (isInvalid
+      ? 'The code may be wrong, or the host may have finished.'
+      : 'Check your connection and try again.');
+
+  body.innerHTML = `
+    <div class="shared-error">
+      <div class="shared-error-icon">${isInvalid ? '&#128279;' : '&#128246;'}</div>
+      <div class="shared-error-title">${escapeHTML(title)}</div>
+      <div class="shared-error-detail">${escapeHTML(detail)}</div>
+      ${
+        isInvalid
+          ? '<button class="shared-train-btn" type="button" id="shared-retry-code">Enter a different code</button>'
+          : '<button class="shared-train-btn" type="button" id="shared-retry-load">Retry</button>'
+      }
+      <button class="shared-dismiss-btn" type="button" id="shared-err-dismiss">Dismiss</button>
+    </div>
+  `;
+
+  if (isInvalid) {
+    $('shared-retry-code').addEventListener('click', () => {
+      dismiss('invalid');
+      openCodeEntrySheet();
+    });
+  } else {
+    $('shared-retry-load').addEventListener('click', () => retry());
+  }
+  $('shared-err-dismiss').addEventListener('click', () => dismiss('dismissed'));
+}
+
+/**
+ * "Train along": write the membership doc, seed a local partner session
+ * (scaled to the partner's TMs, falling back to host weights), subscribe to
+ * real-time host updates, and open the workout view.
+ */
+async function _startTrainingFromShared(info) {
+  const joinInfo = await joinSharedWorkout(info.code);
+  const session = _scaleSessionForPartner(joinInfo.session, joinInfo.mainLift, joinInfo);
+  store.workoutSession = session;
+  store.saveNow('workoutSession');
+
+  // Subscribe to real-time updates — the onSharedWorkoutUpdate callback is
+  // exported from workout-overlay.js and injected via setChoiceSheetDeps.
+  subscribeSharedWorkout(joinInfo.code, _deps.onSharedWorkoutUpdate);
+
+  _deps.openWorkoutView?.(joinInfo.mainLift);
+  showToast(`Joined ${joinInfo.hostName}'s workout!`);
 }

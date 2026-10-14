@@ -2,10 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#121212" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -28,7 +25,7 @@
       content="Track your Squat, Bench, and Deadlift toward the 1000lb total. Features e1RM calculation, PR detection, Wilks/DOTS scoring, training programs, and cloud sync."
     />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://1000lb.club" />
+    <meta property="og:url" content="https://1000lbtracker.com/" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="1000lb Club Tracker" />
     <meta
@@ -530,7 +527,7 @@
         </div>
         <div class="input-row">
           <div class="input-group">
-            <label>Weight (<span class="unit-label">lbs</span>)</label>
+            <label for="input-weight">Weight (<span class="unit-label">lbs</span>)</label>
             <input
               type="number"
               id="input-weight"
@@ -542,7 +539,7 @@
             <div class="input-hint" id="weight-hint"></div>
           </div>
           <div class="input-group">
-            <label>Reps</label>
+            <label for="input-reps">Reps</label>
             <input
               type="number"
               id="input-reps"
@@ -570,14 +567,15 @@
           </div>
         </div>
         <div class="log-meta-row">
-          <a class="notes-toggle" id="notes-toggle">+ Add note</a>
-          <a class="tags-toggle" id="tags-toggle">+ Add tag</a>
+          <button type="button" class="notes-toggle" id="notes-toggle">+ Add note</button>
+          <button type="button" class="tags-toggle" id="tags-toggle">+ Add tag</button>
         </div>
         <input
           type="text"
           class="notes-input"
           id="input-notes"
           placeholder="How did it feel?"
+          aria-label="Set notes"
           style="display: none"
         />
         <div class="tag-pills" id="log-tags" style="display: none"></div>
@@ -613,13 +611,14 @@
           <button class="date-toggle-btn" id="date-toggle-btn">&#x1F4C5;</button>
         </div>
         <div class="date-filters" id="date-filters" style="display: none">
-          <div class="input-group"><label>From</label><input type="date" id="filter-from" /></div>
-          <div class="input-group"><label>To</label><input type="date" id="filter-to" /></div>
+          <div class="input-group"><label for="filter-from">From</label><input type="date" id="filter-from" /></div>
+          <div class="input-group"><label for="filter-to">To</label><input type="date" id="filter-to" /></div>
         </div>
         <input
           type="text"
           class="history-search"
           id="history-search"
+          aria-label="Search history"
           placeholder="Search: weight, notes, lift, rpe8, 200-300..."
         />
         <div id="history-list"></div>
@@ -699,6 +698,7 @@
             <input
               type="text"
               id="crew-create-name"
+              aria-label="Crew name"
               placeholder="Crew name"
               maxlength="40"
               style="
@@ -741,6 +741,7 @@
             <input
               type="text"
               id="crew-join-code"
+              aria-label="Crew invite code"
               placeholder="Invite code (e.g. ABCD2345)"
               maxlength="12"
               style="
@@ -839,6 +840,7 @@
               </div>
             </div>
             <button class="welcome-start-btn" id="welcome-next-1">Get Started</button>
+            <button class="welcome-skip-btn" id="welcome-skip-1">Skip</button>
           </div>
           <!-- Step 2: Profile setup -->
           <div class="welcome-step" id="welcome-step-2" style="display: none">
@@ -846,15 +848,22 @@
             <div class="welcome-tagline">Optional — you can change these in Settings anytime.</div>
             <div class="welcome-form">
               <div class="welcome-form-group">
-                <label>Gender</label>
-                <div class="welcome-gender-pills">
-                  <button class="welcome-pill" data-gender="male">Male</button>
-                  <button class="welcome-pill" data-gender="female">Female</button>
-                  <button class="welcome-pill" data-gender="other">Other</button>
+                <span class="flow-field-label" id="welcome-units-label">Units</span>
+                <div class="welcome-unit-pills" role="group" aria-labelledby="welcome-units-label">
+                  <button class="welcome-pill" type="button" data-unit="lbs" aria-pressed="true">lbs</button>
+                  <button class="welcome-pill" type="button" data-unit="kg" aria-pressed="false">kg</button>
                 </div>
               </div>
               <div class="welcome-form-group">
-                <label>Bodyweight</label>
+                <span class="flow-field-label" id="welcome-gender-label">Gender</span>
+                <div class="welcome-gender-pills" role="group" aria-labelledby="welcome-gender-label">
+                  <button class="welcome-pill" type="button" data-gender="male" aria-pressed="false">Male</button>
+                  <button class="welcome-pill" type="button" data-gender="female" aria-pressed="false">Female</button>
+                  <button class="welcome-pill" type="button" data-gender="other" aria-pressed="false">Other</button>
+                </div>
+              </div>
+              <div class="welcome-form-group">
+                <label for="welcome-bw" class="flow-field-label">Bodyweight</label>
                 <div style="display: flex; gap: 8px; align-items: center">
                   <input
                     type="number"
@@ -871,13 +880,13 @@
                       font-size: 0.9rem;
                     "
                   />
-                  <span class="unit-label" style="color: var(--text-dim); font-size: 0.8rem"
+                  <span class="unit-label welcome-unit-label" style="color: var(--text-dim); font-size: 0.8rem"
                     >lbs</span
                   >
                 </div>
               </div>
               <div class="welcome-form-group">
-                <label>Total Goal</label>
+                <label for="welcome-goal" class="flow-field-label">Total Goal</label>
                 <div style="display: flex; gap: 8px; align-items: center">
                   <input
                     type="number"
@@ -895,13 +904,14 @@
                       font-size: 0.9rem;
                     "
                   />
-                  <span class="unit-label" style="color: var(--text-dim); font-size: 0.8rem"
+                  <span class="unit-label welcome-unit-label" style="color: var(--text-dim); font-size: 0.8rem"
                     >lbs</span
                   >
                 </div>
               </div>
             </div>
             <button class="welcome-start-btn" id="welcome-next-2">Continue</button>
+            <button class="welcome-back-btn" id="welcome-back-2">Back</button>
             <button class="welcome-skip-btn" id="welcome-skip-2">Skip for now</button>
           </div>
           <!-- Step 3: First set prompt -->
@@ -926,6 +936,7 @@
               </div>
             </div>
             <button class="welcome-start-btn" id="welcome-finish">Let's Go</button>
+            <button class="welcome-back-btn" id="welcome-back-3">Back</button>
           </div>
         </div>
       </div>
@@ -945,6 +956,42 @@
           <button class="modal-close" type="button" id="choice-sheet-close" aria-label="Close">&times;</button>
         </div>
         <div class="choice-sheet-body" id="choice-sheet-body"></div>
+      </div>
+
+      <!-- Shared Workout: Code Entry Sheet (partner joins by code — in-app, never native prompt()) -->
+      <div
+        class="sheet-backdrop code-entry-backdrop"
+        id="code-entry-backdrop"
+        style="display: none"
+      ></div>
+      <div class="sheet-panel code-entry-sheet" id="code-entry-sheet" role="dialog" aria-modal="true" aria-label="Join shared workout" style="display: none">
+        <div class="sheet-handle code-entry-handle"></div>
+        <div class="sheet-header">
+          <h3>Join Shared Workout</h3>
+          <button class="modal-close" type="button" id="code-entry-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="sheet-body">
+          <p class="code-entry-hint">Enter the 6-character code your friend shared with you.</p>
+          <input
+            type="text"
+            id="code-entry-input"
+            class="code-entry-input"
+            maxlength="6"
+            placeholder="ABC123"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="characters"
+            spellcheck="false"
+            inputmode="text"
+            aria-label="Share code"
+            aria-describedby="code-entry-error"
+          />
+          <div class="code-entry-error" id="code-entry-error" role="alert" style="display: none"></div>
+          <div class="code-entry-actions">
+            <button class="code-entry-btn code-entry-cancel" type="button" id="code-entry-cancel">Cancel</button>
+            <button class="code-entry-btn code-entry-join" type="button" id="code-entry-join">Join</button>
+          </div>
+        </div>
       </div>
 
       <!-- Travel Workout Sheet -->
@@ -1046,6 +1093,7 @@
             <input
               type="text"
               id="builder-template-tag-extra"
+              aria-label="Add custom tag"
               placeholder="Add custom tag and press Enter"
             />
           </div>

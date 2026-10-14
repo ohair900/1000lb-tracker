@@ -7,6 +7,7 @@
  */
 
 import store from '../state/store.js';
+import { localDateStr } from '../utils/date.js';
 import { MS_PER_DAY } from '../constants/time.js';
 
 // ---------------------------------------------------------------------------
@@ -198,8 +199,8 @@ export function calcBlockOverBlock(lift, blocks = 3, blockDays = 30) {
       }
     });
     result.push({
-      startDate: new Date(blockStart).toISOString().split('T')[0],
-      endDate: new Date(blockEnd).toISOString().split('T')[0],
+      startDate: localDateStr(new Date(blockStart)),
+      endDate: localDateStr(new Date(blockEnd)),
       sets: entries.length,
       avgIntensityPct: pctCount > 0 ? Math.round((totalPct / pctCount) * 100) : 0,
       prCount: entries.filter((e) => e.isPR).length,

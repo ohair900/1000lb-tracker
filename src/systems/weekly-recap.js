@@ -9,6 +9,7 @@
  */
 
 import store from '../state/store.js';
+import { localDateStr } from '../utils/date.js';
 import { MS_PER_DAY } from '../constants/time.js';
 import { LIFTS } from '../constants/lift-config.js';
 import { RECAP_WEEK_KEY } from '../constants/storage-keys.js';
@@ -29,8 +30,8 @@ export function calcWeeklyRecap() {
   const startOfWeek = new Date(now.getTime() - ((now.getDay() + 6) % 7) * day);
   startOfWeek.setHours(0, 0, 0, 0);
   const startOfLastWeek = new Date(startOfWeek.getTime() - 7 * day);
-  const thisWeekStart = startOfWeek.toISOString().split('T')[0];
-  const lastWeekStart = startOfLastWeek.toISOString().split('T')[0];
+  const thisWeekStart = localDateStr(startOfWeek);
+  const lastWeekStart = localDateStr(startOfLastWeek);
 
   const thisWeek = store.entries.filter((e) => e.date >= thisWeekStart);
   const lastWeek = store.entries.filter((e) => e.date >= lastWeekStart && e.date < thisWeekStart);
@@ -96,7 +97,7 @@ export function calcWeeklyRecap() {
 export function checkAutoRecap() {
   const now = new Date();
   const startOfWeek = new Date(now.getTime() - ((now.getDay() + 6) % 7) * MS_PER_DAY);
-  const weekKey = startOfWeek.toISOString().split('T')[0];
+  const weekKey = localDateStr(startOfWeek);
   const lastShown = localStorage.getItem(RECAP_WEEK_KEY);
   if (lastShown === weekKey) return null;
 
