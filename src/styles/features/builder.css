@@ -87,10 +87,10 @@
   background: var(--green, #43a047);
 }
 .builder-slot-stripe[data-pattern='core-stability'] {
-  background: #9c27b0;
+  background: var(--purple);
 }
 .builder-slot-stripe[data-pattern='grip-carry'] {
-  background: #607d8b;
+  background: var(--steel);
 }
 
 /* Body — sits in row 1, col 2 */
